@@ -4,12 +4,12 @@ Conversational AI agent for generating, modifying, and deploying UiPath RPA proj
 
 ## Features
 
-- 🤖 Dual-mode: Bootstrap new projects + conversational development
-- 🔧 Dynamic skill discovery from UiPath skills repository
-- 📋 Guided requirements gathering (BA persona)
-- 🏗️ Technical design generation (SA persona)
-- ✅ QA validation with constraint checking
-- 🚀 Deploy to UiPath Orchestrator
+- Dual-mode: Bootstrap new projects + conversational development
+- Dynamic skill discovery from UiPath skills repository
+- Guided requirements gathering (BA persona)
+- Technical design generation (SA persona)
+- QA validation with constraint checking
+- Deploy to UiPath Orchestrator
 
 ## Installation
 
