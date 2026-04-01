@@ -66,11 +66,12 @@ class SkillDiscovery:
                 continue
 
             skill_meta = self._parse_skill_metadata(skill_dir)
-            self.registry[skill_meta.name] = skill_meta
+            if skill_meta is not None:
+                self.registry[skill_meta.name] = skill_meta
 
         return self.registry
 
-    def _parse_skill_metadata(self, skill_dir: Path) -> SkillMetadata:
+    def _parse_skill_metadata(self, skill_dir: Path) -> SkillMetadata | None:
         """
         Parse SKILL.md YAML frontmatter and content.
 
@@ -78,9 +79,15 @@ class SkillDiscovery:
             skill_dir: Path to skill directory
 
         Returns:
-            SkillMetadata with parsed information
+            SkillMetadata with parsed information, or None if parsing fails
         """
-        skill_md = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
+        # Read SKILL.md with error handling
+        try:
+            skill_md = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError) as e:
+            # Skip skills with unreadable SKILL.md files
+            print(f"Warning: Skipping skill {skill_dir.name} - {type(e).__name__}: {e}")
+            return None
 
         # Parse YAML frontmatter
         meta = {}
@@ -91,7 +98,13 @@ class SkillDiscovery:
             if len(parts) >= 3:
                 frontmatter = parts[1]
                 body = parts[2]
-                meta = yaml.safe_load(frontmatter) or {}
+                # Parse YAML with error handling
+                try:
+                    meta = yaml.safe_load(frontmatter) or {}
+                except yaml.YAMLError as e:
+                    # Skip skills with malformed YAML
+                    print(f"Warning: Skipping skill {skill_dir.name} - YAML error: {e}")
+                    return None
 
         # Extract trigger patterns
         description = meta.get("description", "")
