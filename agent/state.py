@@ -1,6 +1,6 @@
 """State schema for UiPath Builder Agent."""
 
-from typing import TypedDict, Annotated
+from typing import TypedDict, Annotated, Literal
 from langgraph.graph.message import add_messages
 
 
@@ -22,8 +22,8 @@ class ProjectState(TypedDict, total=False):
     git_repo_url: str
 
     # ── Mode tracking ─────────────────────────────────────
-    mode: str                   # "bootstrap" | "conversational"
-    current_phase: str          # "ba" | "sa" | "hitl" | "generation" | "qa" | "dev"
+    mode: Literal["bootstrap", "conversational"]
+    current_phase: Literal["ba", "sa", "hitl", "generation", "qa", "dev"]
 
     # ── Design artifacts ──────────────────────────────────
     pdd: dict                   # Process Design Document (from BA)
