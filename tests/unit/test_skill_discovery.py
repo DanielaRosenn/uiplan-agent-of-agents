@@ -35,3 +35,47 @@ def test_skill_discovery_finds_all_skills(temp_skills_repo):
     assert "test-skill-1" in registry
     assert "test-skill-2" in registry
     assert "invalid-skill" not in registry
+
+
+def test_extract_triggers_from_description():
+    """Should extract trigger patterns from TRIGGER when: section."""
+    discovery = SkillDiscovery(Path("/tmp"))
+
+    description = """
+    Test skill description.
+    TRIGGER when: coded workflow projects detected, .cs files present
+    DO NOT TRIGGER when: pure XAML workflows
+    """
+
+    triggers = discovery._extract_triggers(description)
+
+    assert len(triggers) == 2
+    assert "coded workflow projects detected" in triggers
+    assert ".cs files present" in triggers
+
+
+def test_extract_triggers_handles_newlines():
+    """Should handle newline-separated triggers."""
+    discovery = SkillDiscovery(Path("/tmp"))
+
+    description = """
+    TRIGGER when:
+      - coded workflow
+      - C# activities
+      - API integration
+    """
+
+    triggers = discovery._extract_triggers(description)
+
+    assert len(triggers) >= 1
+    # At least one trigger should be extracted
+
+
+def test_extract_triggers_returns_empty_when_none():
+    """Should return empty list when no TRIGGER when: section."""
+    discovery = SkillDiscovery(Path("/tmp"))
+
+    description = "Simple description without triggers"
+    triggers = discovery._extract_triggers(description)
+
+    assert triggers == []

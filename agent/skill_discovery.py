@@ -139,8 +139,8 @@ class SkillDiscovery:
         triggers = []
 
         if "TRIGGER when:" in description:
-            trigger_section = description.split("TRIGGER when:")[1]
-            trigger_section = trigger_section.split("DO NOT TRIGGER")[0]
+            trigger_section = description.split("TRIGGER when:", 1)[1]
+            trigger_section = trigger_section.split("DO NOT TRIGGER", 1)[0]
 
             # Split on commas or newlines
             phrases = re.split(r'[,\n]', trigger_section)
