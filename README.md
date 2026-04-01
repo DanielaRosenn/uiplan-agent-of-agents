@@ -11,6 +11,41 @@ Conversational AI agent for generating, modifying, and deploying UiPath RPA proj
 - QA validation with constraint checking
 - Deploy to UiPath Orchestrator
 
+## Project Status
+
+### ✅ Sprint 1: Foundation (Complete)
+
+- [x] Project structure and dependencies
+- [x] Dynamic skill discovery system
+- [x] State management (ProjectState schema)
+- [x] Basic LangGraph orchestrator
+- [x] Skill invocation tools (get_available_skills, invoke_skill)
+- [x] Conversational agent node
+- [x] Git submodules (UiPath skills + Cato templates)
+- [x] Unit and integration tests
+
+### 🚧 Sprint 2: Bootstrap Flow (Next)
+
+- [ ] BA persona node
+- [ ] SA persona node
+- [ ] HITL review node
+- [ ] Template cloning tools
+- [ ] CLI: start-project command
+
+## Testing
+
+```bash
+# Run unit tests
+pytest tests/unit/ -v
+
+# Run integration tests (requires submodule init)
+git submodule update --init --recursive
+pytest tests/integration/ -v
+
+# Run all tests with coverage
+pytest --cov=agent --cov-report=html
+```
+
 ## Installation
 
 ```bash
