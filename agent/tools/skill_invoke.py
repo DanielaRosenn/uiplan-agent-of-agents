@@ -112,9 +112,11 @@ Project Context:
         temperature=0.15,
     )
 
-    response = skill_agent.invoke([
-        SystemMessage(content=system_prompt),
-        HumanMessage(content=task_description),
-    ])
-
-    return response.content
+    try:
+        response = skill_agent.invoke([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=task_description),
+        ])
+        return response.content
+    except Exception as e:
+        return f"❌ Skill invocation failed: {type(e).__name__}: {str(e)}\n\nThis could be due to AWS authentication, rate limits, or network issues."

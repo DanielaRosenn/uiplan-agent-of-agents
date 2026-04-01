@@ -1,7 +1,7 @@
 """Conversational agent node for free-form interaction."""
 
 from langchain_aws import ChatBedrockConverse
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from agent.state import ProjectState
 from agent.tools.skill_invoke import get_available_skills, invoke_skill
 
@@ -74,7 +74,12 @@ async def conversational_agent(state: ProjectState) -> dict:
     messages = [SystemMessage(content=system_prompt)]
     messages.extend(state.get("messages", []))
 
-    response = await conversational_llm.ainvoke(messages)
+    try:
+        response = await conversational_llm.ainvoke(messages)
+    except Exception as e:
+        # Return error as system message
+        error_msg = f"⚠️ LLM Error: {type(e).__name__}: {str(e)}"
+        response = AIMessage(content=error_msg)
 
     # Update state with response
     return {

@@ -1,6 +1,5 @@
 """LangGraph orchestrator for UiPath Builder Agent."""
 
-import os
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 
@@ -15,6 +14,10 @@ def route_main(state: ProjectState) -> str:
     For Sprint 1, always stays in conversational mode.
     Bootstrap mode routing will be added in Sprint 2.
     """
+    # Check for termination signal
+    if state.get("_should_end", False):
+        return END
+
     mode = state.get("mode", "conversational")
 
     if mode == "bootstrap":
@@ -37,6 +40,7 @@ builder.set_entry_point("conversational")
 # Add edges
 builder.add_conditional_edges("conversational", route_main, {
     "conversational": "conversational",
+    END: END,
 })
 
 # Use MemorySaver for local development
