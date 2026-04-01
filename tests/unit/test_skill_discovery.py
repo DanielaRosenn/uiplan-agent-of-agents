@@ -79,3 +79,30 @@ def test_extract_triggers_returns_empty_when_none():
     triggers = discovery._extract_triggers(description)
 
     assert triggers == []
+
+
+def test_get_available_skills_tool(temp_skills_repo, monkeypatch):
+    """get_available_skills should return JSON list of skills."""
+    from agent.tools.skill_invoke import get_available_skills
+    import json
+
+    # Mock the skills path to use temp_skills_repo
+    monkeypatch.setattr(
+        "agent.tools.skill_invoke.SKILLS_REPO_PATH",
+        temp_skills_repo
+    )
+
+    # Call the underlying function using .invoke() or .func
+    result = get_available_skills.invoke({})
+    skills = json.loads(result)
+
+    assert len(skills) == 2
+    assert any(s["name"] == "test-skill-1" for s in skills)
+    assert any(s["name"] == "test-skill-2" for s in skills)
+
+    # Check structure
+    skill = skills[0]
+    assert "name" in skill
+    assert "description" in skill
+    assert "triggers" in skill
+    assert "references" in skill
