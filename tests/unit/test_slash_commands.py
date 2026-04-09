@@ -43,3 +43,53 @@ class TestSlashCommandExecution:
         context = {"session_id": "test-123", "model": "claude-3-5-sonnet"}
         result = execute_command("status", "", context)
         assert "test-123" in result or "session" in result.lower()
+
+
+class TestSkillsCommand:
+    """Tests for skills command."""
+
+    def test_skills_command_registered(self):
+        """Skills command is registered."""
+        assert "skills" in COMMANDS
+        assert COMMANDS["skills"].name == "skills"
+
+    def test_skills_command_lists_skills(self, tmp_path):
+        """Skills command shows available skills."""
+        # Create mock skills directory structure
+        skill1 = tmp_path / "skill-one"
+        skill1.mkdir()
+        (skill1 / "SKILL.md").write_text("# Skill One")
+        
+        skill2 = tmp_path / "skill-two"
+        skill2.mkdir()
+        (skill2 / "SKILL.md").write_text("# Skill Two")
+        
+        context = {"skills_dir": str(tmp_path)}
+        result = execute_command("skills", "", context)
+        
+        assert "Available Skills" in result
+        assert "skill-one" in result
+        assert "skill-two" in result
+
+    def test_skills_command_no_dir_configured(self):
+        """Skills command handles missing configuration."""
+        context = {}
+        result = execute_command("skills", "", context)
+        assert "No skills directory configured" in result
+
+    def test_skills_command_dir_not_found(self):
+        """Skills command handles non-existent directory."""
+        context = {"skills_dir": "/nonexistent/path"}
+        result = execute_command("skills", "", context)
+        assert "not found" in result.lower()
+
+    def test_skills_command_no_skills_found(self, tmp_path):
+        """Skills command handles empty skills directory."""
+        context = {"skills_dir": str(tmp_path)}
+        result = execute_command("skills", "", context)
+        assert "No skills found" in result
+
+    def test_skills_command_alias(self):
+        """Skills command has sk alias."""
+        assert "sk" in COMMANDS
+        assert COMMANDS["sk"].name == "skills"
