@@ -93,3 +93,17 @@ class TestSkillsCommand:
         """Skills command has sk alias."""
         assert "sk" in COMMANDS
         assert COMMANDS["sk"].name == "skills"
+
+
+class TestAnalyzeCommand:
+    """Tests for analyze command."""
+
+    def test_analyze_command_registered(self):
+        """Analyze command is registered."""
+        assert "analyze" in COMMANDS
+
+    def test_analyze_requires_project(self):
+        """Analyze requires UiPath project context."""
+        context = {}
+        result = execute_command("analyze", "", context)
+        assert "project" in result.lower() or "not found" in result.lower()

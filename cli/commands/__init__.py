@@ -90,3 +90,4 @@ def execute_command(command: str, args: str, context: dict) -> str:
 from cli.commands import help as _help
 from cli.commands import status as _status
 from cli.commands import skills as _skills
+from cli.commands import analyze as _analyze
