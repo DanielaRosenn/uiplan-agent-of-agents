@@ -18,7 +18,7 @@ class ProjectState(TypedDict, total=False):
     # ── Project metadata ──────────────────────────────────
     project_name: str
     project_path: str
-    template_type: str          # dispatcher|performer|lrw
+    template_type: str  # dispatcher|performer|lrw
     git_repo_url: str
 
     # ── Mode tracking ─────────────────────────────────────
@@ -26,12 +26,12 @@ class ProjectState(TypedDict, total=False):
     current_phase: Literal["ba", "sa", "hitl", "generation", "qa", "dev"]
 
     # ── Design artifacts ──────────────────────────────────
-    pdd: dict                   # Process Design Document (from BA)
-    sdd: dict                   # Solution Design Document (from SA)
+    pdd: dict  # Process Design Document (from BA)
+    sdd: dict  # Solution Design Document (from SA)
 
     # ── Generation state ──────────────────────────────────
-    artifacts: dict[str, str]   # relative_path → file_content
-    active_skills: list[str]    # skills available for current context
+    artifacts: dict[str, str]  # relative_path → file_content
+    active_skills: list[str]  # skills available for current context
 
     # ── BA clarification flow ─────────────────────────────
     needs_clarification: bool
@@ -45,9 +45,26 @@ class ProjectState(TypedDict, total=False):
 
     # ── QA validation ─────────────────────────────────────
     validation_errors: list[str]
-    qa_iterations: int          # max 2 fix loops
+    qa_iterations: int  # max 2 fix loops
     qa_report: dict
 
     # ── Deployment ────────────────────────────────────────
     orchestrator_tenant: str
     deployed_version: str
+
+    # ── UiPath project context ────────────────────────────
+    uipath_project: dict  # Parsed project.json
+    uipath_workflows: list[str]  # List of .xaml files
+    uipath_dependencies: dict  # Package dependencies
+
+    # ── Tool execution tracking ───────────────────────────
+    tool_calls_this_turn: int  # For max tool cap
+    tool_results: list[dict]  # Accumulated tool results
+
+    # ── Session metadata ──────────────────────────────────
+    session_id: str  # Unique session ID
+    memory_context: str  # Loaded memory content
+
+    # ── Slash command state ───────────────────────────────
+    pending_command: str  # Current slash command
+    command_result: str  # Command output

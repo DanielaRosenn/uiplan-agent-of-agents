@@ -2,14 +2,22 @@
 
 import asyncio
 import uuid
-import json
 from pathlib import Path
 
 import typer
 from langchain_core.messages import HumanMessage
+from langchain_core.runnables import RunnableConfig
 
+from agent import __version__ as VERSION
+from agent.context.project_detector import detect_uipath_project
 from agent.graph import graph, conversational_graph
+from agent.memory.loader import load_memory, get_default_global_dir
 from agent.nodes.hitl_node import format_hitl_display
+from agent.rendering.message_renderer import render_message
+from cli.branding import print_welcome_banner
+from cli.commands import parse_slash_command, execute_command
+
+MODEL = "claude-sonnet-4-20250514"
 
 app = typer.Typer(
     name="uipath-builder",
@@ -18,20 +26,22 @@ app = typer.Typer(
 
 
 def _run_async(coro):
-    """Run an async coroutine synchronously."""
-    return asyncio.get_event_loop().run_until_complete(coro)
+    """Run an async coroutine synchronously (fresh loop each call; safe on Windows)."""
+    return asyncio.run(coro)
 
 
 @app.command()
 def start_project(
     description: str = typer.Option(
         None,
-        "--description", "-d",
+        "--description",
+        "-d",
         help="Process description to bootstrap from",
     ),
     output_dir: str = typer.Option(
         "./output",
-        "--output", "-o",
+        "--output",
+        "-o",
         help="Output directory for generated files",
     ),
 ):
@@ -44,7 +54,7 @@ def start_project(
         description = typer.prompt("\nDescribe the process you want to automate")
 
     thread_id = str(uuid.uuid4())
-    config = {"configurable": {"thread_id": thread_id}}
+    config: RunnableConfig = {"configurable": {"thread_id": thread_id}}
 
     # Initial state with user's description
     initial_state = {
@@ -58,7 +68,7 @@ def start_project(
 
     # Run the graph - it will stop at HITL interrupt or run to completion
     try:
-        result = _run_async(graph.ainvoke(initial_state, config))
+        result = _run_async(graph.ainvoke(initial_state, config))  # type: ignore
     except Exception as e:
         typer.echo(f"\nError during execution: {e}")
         raise typer.Exit(1)
@@ -73,10 +83,12 @@ def start_project(
         review = typer.prompt("Your review")
 
         # Resume with human response
-        _run_async(graph.aupdate_state(
-            config,
-            {"messages": [HumanMessage(content=review)]},
-        ))
+        _run_async(
+            graph.aupdate_state(
+                config,
+                {"messages": [HumanMessage(content=review)]},
+            )
+        )
 
         try:
             result = _run_async(graph.ainvoke(None, config))
@@ -86,7 +98,7 @@ def start_project(
 
     # Check if BA needs clarification
     if result.get("needs_clarification"):
-        typer.echo(f"\n[BA] Clarification needed:")
+        typer.echo("\n[BA] Clarification needed:")
         typer.echo(result.get("clarify_question", "Please provide more details."))
         answer = typer.prompt("\nYour answer")
 
@@ -97,7 +109,7 @@ def start_project(
         }
 
         try:
-            result = _run_async(graph.ainvoke(clarification_state, config))
+            result = _run_async(graph.ainvoke(clarification_state, config))  # type: ignore
         except Exception as e:
             typer.echo(f"\nError during clarification: {e}")
             raise typer.Exit(1)
@@ -143,15 +155,54 @@ def _display_results(result: dict, output_dir: str):
 
 
 @app.command()
-def chat():
+def chat(
+    no_banner: bool = typer.Option(
+        False,
+        "--no-banner",
+        help="Suppress the welcome banner",
+    ),
+):
     """Start a conversational session with the agent."""
-    typer.echo("=" * 60)
-    typer.echo("  UiPath Builder Agent - Chat Mode")
-    typer.echo("  Type 'exit' or 'quit' to end the session")
-    typer.echo("=" * 60)
+    cwd = Path.cwd()
+    session_id = str(uuid.uuid4())
+    thread_id = session_id
+    config: RunnableConfig = {"configurable": {"thread_id": thread_id}}
 
-    thread_id = str(uuid.uuid4())
-    config = {"configurable": {"thread_id": thread_id}}
+    # Detect UiPath project
+    project_context = detect_uipath_project(cwd)
+
+    # Load memory
+    memory = load_memory(global_dir=get_default_global_dir(), project_dir=cwd)
+
+    # Print welcome banner (unless --no-banner)
+    if not no_banner:
+        project_name = project_context.name if project_context else None
+        print_welcome_banner(
+            version=VERSION,
+            cwd=str(cwd),
+            model=MODEL,
+            project_name=project_name,
+        )
+    else:
+        typer.echo("Type 'exit' or 'quit' to end the session")
+
+    # Build initial state with new fields
+    state: dict = {
+        "messages": [],
+        "mode": "conversational",
+        "session_id": session_id,
+        "memory_context": memory.content,
+        "tool_calls_this_turn": 0,
+        "tool_results": [],
+    }
+    if project_context:
+        state["uipath_project"] = {
+            "name": project_context.name,
+            "project_id": project_context.project_id,
+            "dependencies": project_context.dependencies,
+        }
+        state["uipath_workflows"] = project_context.workflows
+        state["uipath_dependencies"] = project_context.dependencies
 
     while True:
         try:
@@ -163,18 +214,31 @@ def chat():
             typer.echo("Goodbye!")
             break
 
-        state = {
-            "messages": [HumanMessage(content=user_input)],
-            "mode": "conversational",
-        }
+        # Check for slash commands
+        parsed = parse_slash_command(user_input)
+        if parsed:
+            cmd_context = {
+                "session_id": session_id,
+                "model": MODEL,
+                "cwd": str(cwd),
+                "project_name": project_context.name if project_context else None,
+                "project_path": str(project_context.project_path) if project_context else None,
+                "skills_dir": str(cwd / "skills") if (cwd / "skills").exists() else None,
+            }
+            result = execute_command(parsed["command"], parsed["args"], cmd_context)
+            typer.echo(f"\n{result}\n")
+            continue
+
+        # Regular message - send to agent
+        state["messages"] = [HumanMessage(content=user_input)]
 
         try:
-            result = _run_async(conversational_graph.ainvoke(state, config))
+            result = _run_async(conversational_graph.ainvoke(state, config))  # type: ignore
             messages = result.get("messages", [])
             if messages:
                 last = messages[-1]
-                content = last.content if hasattr(last, "content") else str(last)
-                typer.echo(f"\nAgent: {content}")
+                rendered = render_message(last)
+                typer.echo(f"\nAgent: {rendered}")
         except Exception as e:
             typer.echo(f"\nError: {e}")
 
