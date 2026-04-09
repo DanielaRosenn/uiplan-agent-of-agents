@@ -1,0 +1,1 @@
+"""Context detection (project, environment)."""
