@@ -287,6 +287,47 @@ b1c76b0 feat: add ConversationEngine with model-tools loop
 - [User Guide](USER_GUIDE.md)
 - [API Documentation](docs/API_DOCUMENTATION.md)
 
+## Refactoring (Sprint 3)
+
+### Completed Tasks
+
+1. ✅ Created new `uipath_claude` package structure
+2. ✅ Migrated state management
+3. ✅ Migrated context detection
+4. ✅ Migrated memory system
+5. ✅ Migrated hooks system
+6. ✅ Migrated rendering system
+7. ✅ Migrated skills system
+8. ✅ Migrated tools system
+9. ✅ Migrated commands system
+10. ✅ Migrated agents system
+11. ✅ Migrated query system
+12. ✅ Migrated CLI
+13. ✅ Updated package configuration
+14. ✅ Integration tests
+15. ✅ Documentation
+
+### Architecture Alignment
+
+The project now fully aligns with Claude Code architecture:
+
+- ✅ `query/` for conversation engine
+- ✅ `agents/` for specialized modes
+- ✅ `tools/` for tool implementations
+- ✅ `skills/` for skill management
+- ✅ `commands/` for slash commands
+- ✅ `context/` for project detection
+- ✅ `memory/` for persistence
+- ✅ `hooks/` for event system
+- ✅ `rendering/` for output formatting
+- ✅ `cli/` for CLI interface
+
+### Test Coverage
+
+- Unit tests: 50+ tests covering all modules
+- Integration tests: Chat and bootstrap flows
+- Package structure verification
+
 ## License
 
 Private - Cato Networks IT
