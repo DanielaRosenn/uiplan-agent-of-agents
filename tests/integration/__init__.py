@@ -1,1 +1,1 @@
-"""Integration tests for UiPath Builder Agent."""
+"""Integration tests for the UiPath Claude Code agent."""
