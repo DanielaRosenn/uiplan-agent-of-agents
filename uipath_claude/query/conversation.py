@@ -16,10 +16,16 @@ class ConversationEngine:
         """
         self.model_name = model_name
         self.region = region
-        self.llm = ChatBedrockConverse(
-            model=model_name,
-            region_name=region,
-        )
+        self.llm = None
+
+    def _get_llm(self) -> ChatBedrockConverse:
+        """Lazy-init Bedrock client so construction does not require credentials."""
+        if self.llm is None:
+            self.llm = ChatBedrockConverse(
+                model=self.model_name,
+                region_name=self.region,
+            )
+        return self.llm
     
     async def run(
         self,
@@ -41,9 +47,10 @@ class ConversationEngine:
         if not messages or messages[0].get("role") != "system":
             messages = [{"role": "system", "content": system_prompt}, *messages]
 
+        llm_client = self._get_llm()
         if tools:
-            llm = self.llm.bind_tools(tools)
+            llm = llm_client.bind_tools(tools)
             response = await llm.ainvoke(messages)
         else:
-            response = await self.llm.ainvoke(messages)
+            response = await llm_client.ainvoke(messages)
         return response.content
