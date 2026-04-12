@@ -1,7 +1,9 @@
 """Materialize file blocks from assistant text (deterministic writes)."""
 from __future__ import annotations
 
+import json
 import re
+import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -102,6 +104,87 @@ def materialize_from_assistant_text(
     return written
 
 
+def ensure_project_json(output_root: Path) -> bool:
+    """
+    Ensure a project.json exists in the output directory for validation.
+    
+    If project.json doesn't exist, creates a minimal template.
+    
+    Args:
+        output_root: Path to the output directory
+        
+    Returns:
+        True if project.json exists (or was created), False on error
+    """
+    project_json_path = output_root / "project.json"
+    
+    if project_json_path.exists():
+        return True
+    
+    template = {
+        "name": "GeneratedWorkflow",
+        "description": "Generated UiPath workflow",
+        "main": "Main.xaml",
+        "dependencies": {
+            "UiPath.System.Activities": "[24.10.6]",
+            "UiPath.UIAutomation.Activities": "[24.10.8]"
+        },
+        "webServices": [],
+        "entryPoints": [
+            {
+                "filePath": "Main.xaml",
+                "uniqueId": str(uuid.uuid4()),
+                "input": [],
+                "output": []
+            }
+        ],
+        "schemaVersion": "4.0",
+        "studioVersion": "24.10.6",
+        "projectVersion": "1.0.0",
+        "runtimeOptions": {
+            "autoDispose": False,
+            "netFrameworkLazyLoading": False,
+            "isPausable": True,
+            "isAttended": False,
+            "requiresUserInteraction": True,
+            "supportsPersistence": False,
+            "workflowSerialization": "DataContract",
+            "excludedLoggedData": ["Private:*", "*password*"],
+            "executionType": "Workflow",
+            "readyForPiP": False,
+            "startsInPiP": False,
+            "mustRestoreAllDependencies": True,
+            "pipType": "ChildSession"
+        },
+        "designOptions": {
+            "projectProfile": "Developement",
+            "outputType": "Process",
+            "libraryOptions": {
+                "includeOriginalXaml": False,
+                "privateWorkflows": []
+            },
+            "processOptions": {
+                "ignoredFiles": []
+            },
+            "fileInfoCollection": [],
+            "modernBehavior": True
+        },
+        "expressionLanguage": "VisualBasic",
+        "isTemplate": False,
+        "templateProjectData": {},
+        "publishData": {},
+        "targetFramework": "Windows"
+    }
+    
+    try:
+        output_root.mkdir(parents=True, exist_ok=True)
+        with open(project_json_path, "w", encoding="utf-8") as f:
+            json.dump(template, f, indent=2)
+        return True
+    except Exception:
+        return False
+
+
 def validate_generated_project(project_path: Path) -> dict:
     """Validate a generated UiPath project using uip CLI.
     
@@ -124,11 +207,12 @@ def validate_generated_project(project_path: Path) -> dict:
                     break
     
     if not (project_path / "project.json").exists():
-        return {
-            "success": False,
-            "errors": ["No project.json found - cannot validate"],
-            "project_path": str(project_path),
-        }
+        if not ensure_project_json(project_path):
+            return {
+                "success": False,
+                "errors": ["No project.json found and failed to create template"],
+                "project_path": str(project_path),
+            }
     
     result = run_uip_rpa_get_errors(project_path)
     return {

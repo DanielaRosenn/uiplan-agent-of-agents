@@ -1,9 +1,11 @@
 """Tests for materialize_from_assistant_text."""
+import json
 import sys
 from pathlib import Path
 
 from uipath_claude.artifacts.materialize import (
     contains_file_blocks,
+    ensure_project_json,
     materialize_from_assistant_text,
 )
 
@@ -82,3 +84,43 @@ def test_materialize_blocks_project_files_when_disallowed(tmp_path: Path) -> Non
 def test_contains_file_blocks_detects_uipath_markers() -> None:
     text = '<<<UIPATH_FILE path="Main.xaml">>><Activity /><<<END_UIPATH_FILE>>>'
     assert contains_file_blocks(text)
+
+
+def test_ensure_project_json_creates_when_missing(tmp_path: Path) -> None:
+    root = tmp_path / "project"
+    root.mkdir()
+    
+    assert not (root / "project.json").exists()
+    result = ensure_project_json(root)
+    
+    assert result is True
+    assert (root / "project.json").exists()
+    
+    data = json.loads((root / "project.json").read_text(encoding="utf-8"))
+    assert data["name"] == "GeneratedWorkflow"
+    assert data["main"] == "Main.xaml"
+    assert data["targetFramework"] == "Windows"
+    assert "UiPath.System.Activities" in data["dependencies"]
+
+
+def test_ensure_project_json_returns_true_when_exists(tmp_path: Path) -> None:
+    root = tmp_path / "project"
+    root.mkdir()
+    existing = {"name": "ExistingProject", "main": "Custom.xaml"}
+    (root / "project.json").write_text(json.dumps(existing), encoding="utf-8")
+    
+    result = ensure_project_json(root)
+    
+    assert result is True
+    data = json.loads((root / "project.json").read_text(encoding="utf-8"))
+    assert data["name"] == "ExistingProject"
+
+
+def test_ensure_project_json_creates_parent_dirs(tmp_path: Path) -> None:
+    root = tmp_path / "nested" / "deep" / "project"
+    
+    assert not root.exists()
+    result = ensure_project_json(root)
+    
+    assert result is True
+    assert (root / "project.json").exists()
