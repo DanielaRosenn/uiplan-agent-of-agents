@@ -151,9 +151,11 @@ def run_uip_rpa_analyze(
         else:
             # Analyze failed
             error_msg = result.get("Message", "Unknown error")
-            # Check if it's a "project already open" error
-            if "already opened in another Studio instance" in error_msg:
-                # Fall back to get-errors
+            # Check if it's a "project already open" or "missing project file" error
+            if ("already opened in another Studio instance" in error_msg or
+                "No project.uiproj" in error_msg or
+                "webAppManifest.json" in error_msg):
+                # Fall back to get-errors for standalone XAML files
                 return run_uip_rpa_get_errors(project_path, timeout=timeout)
             errors.append(error_msg)
     except json.JSONDecodeError:
