@@ -1,0 +1,18 @@
+[
+  {
+    "test_name": "coded",
+    "passed": false,
+    "skill_selected": "uipath-coded-apps",
+    "skill_scores": [
+      "uipath-coded-apps: 14",
+      "uipath-flow: 14",
+      "uipath-coded-agents: 12",
+      "uipath-servo: 10",
+      "business-flow-canvas: 8"
+    ],
+    "output_files": [],
+    "output_dir": null,
+    "error": "Expected skill 'uipath-coded-workflows' not in top selections",
+    "duration_seconds": 0
+  }
+]

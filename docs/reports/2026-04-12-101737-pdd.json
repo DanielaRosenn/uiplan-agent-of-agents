@@ -1,0 +1,18 @@
+[
+  {
+    "test_name": "pdd",
+    "passed": true,
+    "skill_selected": "pdd-creation",
+    "skill_scores": [
+      "pdd-creation: 30",
+      "uipath-automation: 14",
+      "business-flow-canvas: 12",
+      "uipath-document-understanding: 12",
+      "uipath-coded-workflows: 10"
+    ],
+    "output_files": [],
+    "output_dir": "C:\\Users\\DanielaRosenstein\\projects\\uipath-builder-agent\\generated\\e2e-tests\\pdd\\20260412-101737",
+    "error": null,
+    "duration_seconds": 5.214593
+  }
+]

@@ -23,7 +23,7 @@ def discover_skills(skills_dir: str) -> List[Dict[str, Any]]:
     
     for skill_file in skills_path.rglob("SKILL.md"):
         try:
-            content = skill_file.read_text()
+            content = skill_file.read_text(encoding="utf-8")
 
             frontmatter_match = re.search(r"^---\n(.*?)\n---", content, re.DOTALL)
             if not frontmatter_match:

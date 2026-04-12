@@ -6,38 +6,35 @@ from uipath_claude.skills.discovery import discover_skills
 from uipath_claude.skills.sources import build_skill_sources
 
 
-# Agent-specific skill filters
+# Agent-specific skill filters (based on UiPath/skills repo)
 AGENT_SKILLS = {
     "ba": [
-        "pdd-creation",
-        "business-flow-canvas",
-        "uipath-confluence-connector",
-        "jira-ticket-creation",
+        "uipath-planner",
+        "uipath-human-in-the-loop",
+        "uipath-case-management",
         "uipath-platform",
+        "uipath-feedback",
     ],
     "sa": [
-        "solution-canvas",
-        "sdd-flow-canvas",
-        "uipath-flow",
-        "uipath-confluence-connector",
-        "jira-ticket-creation",
+        "uipath-planner",
+        "uipath-maestro-flow",
+        "uipath-case-management",
         "uipath-platform",
+        "uipath-diagnostics",
     ],
     "developer": [
-        "uipath-rpa-workflows",
-        "uipath-coded-workflows",
-        "uipath-coded-agents",
-        "uipath-reframework",
-        "uipath-longrunning-workflow",
-        "uipath-jira-connector",
+        "uipath-rpa",  # Combined coded + RPA workflows
+        "uipath-agents",  # Coded agents
+        "uipath-coded-apps",
+        "uipath-servo",  # UI automation
         "uipath-platform",
+        "uipath-diagnostics",
+        "uipath-feedback",
     ],
     "qa": [
-        "uipath-code-reviewer",
-        "uipath-test-generator",
         "uipath-servo",
-        "uipath-report-issue",
-        "uipath-jira-connector",
+        "uipath-diagnostics",
+        "uipath-feedback",
         "uipath-platform",
     ],
     "conversational": ["*"],  # All skills

@@ -22,16 +22,20 @@ def test_chat_writes_file_when_assistant_emits_block(tmp_path, monkeypatch):
         eng.return_value = object()
         with patch("uipath_claude.cli.app._get_model_response", new_callable=AsyncMock) as gmr:
             gmr.return_value = fake_reply
-            result = runner.invoke(
-                app,
-                ["chat", "--no-banner"],
-                input="create Main.xaml\nexit\n",
-            )
+            with patch("uipath_claude.cli.app._make_chat_session_id", return_value="chat-abc123"):
+                result = runner.invoke(
+                    app,
+                    ["chat", "--no-banner"],
+                    input="create Main.xaml\nexit\n",
+                )
     assert result.exit_code == 0
-    out_file = tmp_path / "generated" / "chat" / "Main.xaml"
+    out_file = tmp_path / "generated" / "chat" / "chat-abc123" / "Main.xaml"
     assert out_file.is_file()
     assert "WriteLine" in out_file.read_text(encoding="utf-8")
     assert "Wrote:" in result.stdout
+    assert "Chat trace id: chat-abc123" in result.stdout
+    assert "Generating files, one moment" in result.stdout
+    assert "WriteLine Text=\"Ok\"" not in result.stdout
 
 
 @pytest.mark.integration
@@ -46,11 +50,39 @@ def test_chat_skips_materialize_when_disabled(tmp_path, monkeypatch):
         eng.return_value = object()
         with patch("uipath_claude.cli.app._get_model_response", new_callable=AsyncMock) as gmr:
             gmr.return_value = fake_reply
-            result = runner.invoke(
-                app,
-                ["chat", "--no-banner"],
-                input="go\nexit\n",
-            )
+            with patch("uipath_claude.cli.app._make_chat_session_id", return_value="chat-disabled"):
+                result = runner.invoke(
+                    app,
+                    ["chat", "--no-banner"],
+                    input="go\nexit\n",
+                )
     assert result.exit_code == 0
     assert "Wrote:" not in result.stdout
-    assert not (tmp_path / "generated" / "chat" / "Main.xaml").exists()
+    assert not any((tmp_path / "generated" / "chat").rglob("Main.xaml"))
+
+
+@pytest.mark.integration
+def test_chat_blocks_project_json_unless_explicit(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    fake_reply = """<<<UIPATH_FILE path="project.json">>>
+{"name":"wrong"}
+<<<END_UIPATH_FILE>>>
+<<<UIPATH_FILE path="Main.xaml">>>
+<Activity />
+<<<END_UIPATH_FILE>>>
+"""
+    with patch("uipath_claude.cli.app._create_engine") as eng:
+        eng.return_value = object()
+        with patch("uipath_claude.cli.app._get_model_response", new_callable=AsyncMock) as gmr:
+            gmr.return_value = fake_reply
+            with patch("uipath_claude.cli.app._make_chat_session_id", return_value="chat-no-project"):
+                result = runner.invoke(
+                    app,
+                    ["chat", "--no-banner"],
+                    input="build a workflow for outlook emails\nexit\n",
+                )
+    assert result.exit_code == 0
+    root = tmp_path / "generated" / "chat" / "chat-no-project"
+    assert (root / "Main.xaml").is_file()
+    assert not (root / "project.json").exists()
+    assert "generated files are artifacts" in result.stdout.lower()

@@ -4,8 +4,13 @@ import asyncio
 
 from typer.testing import CliRunner
 from uipath_claude.cli.app import (
+    _allow_project_file_generation,
+    _debug_skill_selection,
     _build_runtime_skill_context,
     _get_model_response,
+    _is_generated_chat_artifact_folder,
+    _resolve_output_mode,
+    _make_chat_session_id,
     _select_relevant_skills,
     app,
 )
@@ -120,3 +125,49 @@ def test_get_model_response_includes_runtime_context_in_system_message():
     assert result == "ok"
     assert "Runtime guidance:\nuse rpa skill" in engine.messages[0]["content"]
     assert "saved memory" in engine.system_prompt
+
+
+def test_make_chat_session_id_uses_env_override(monkeypatch):
+    """Configured chat session ID should be sanitized and reused."""
+    monkeypatch.setenv("UIPATH_CHAT_SESSION_ID", "trace id/alpha")
+    assert _make_chat_session_id() == "trace-id-alpha"
+
+
+def test_make_chat_session_id_has_timestamp_prefix(monkeypatch):
+    """Generated session IDs should include a timestamp-based prefix."""
+    monkeypatch.delenv("UIPATH_CHAT_SESSION_ID", raising=False)
+    value = _make_chat_session_id()
+    assert len(value) >= 24
+    assert value[8] == "-"
+
+
+def test_allow_project_file_generation_requires_explicit_request():
+    """Project file writes should require explicit wording."""
+    assert not _allow_project_file_generation("build an outlook workflow")
+    assert _allow_project_file_generation("create a new project with project.json")
+
+
+def test_debug_skill_selection_returns_sorted_scores():
+    skills = [
+        {"name": "x", "description": "none", "triggers": []},
+        {"name": "uipath-rpa-workflows", "description": "UiPath Outlook email workflow", "triggers": []},
+    ]
+    traces = _debug_skill_selection("create outlook workflow", skills)
+    assert traces
+    assert traces[0].startswith("uipath-rpa-workflows:")
+
+
+def test_resolve_output_mode_defaults_to_auto(monkeypatch):
+    monkeypatch.delenv("UIPATH_CHAT_OUTPUT_MODE", raising=False)
+    assert _resolve_output_mode() == "auto"
+
+
+def test_resolve_output_mode_respects_full(monkeypatch):
+    monkeypatch.setenv("UIPATH_CHAT_OUTPUT_MODE", "full")
+    assert _resolve_output_mode() == "full"
+
+
+def test_generated_chat_artifact_folder_detection(tmp_path):
+    artifact_path = tmp_path / "generated" / "chat" / "abc"
+    artifact_path.mkdir(parents=True)
+    assert _is_generated_chat_artifact_folder(artifact_path)

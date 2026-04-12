@@ -124,3 +124,19 @@ triggers: ["sample"]
         )
     assert result.exit_code == 0
     assert "skill: sample-skill" in result.stdout.lower()
+
+
+@pytest.mark.integration
+def test_chat_warns_when_running_in_generated_chat_artifact(tmp_path, monkeypatch):
+    """Chat should warn when cwd is a generated chat artifact folder."""
+    artifact_dir = tmp_path / "generated" / "chat" / "artifact-1"
+    artifact_dir.mkdir(parents=True)
+    (artifact_dir / "project.json").write_text('{"name":"artifact"}')
+    monkeypatch.chdir(artifact_dir)
+
+    with patch("uipath_claude.cli.app._create_engine") as create_engine:
+        create_engine.return_value = object()
+        result = runner.invoke(app, ["chat", "--no-banner"], input="exit\n")
+
+    assert result.exit_code == 0
+    assert "generated chat artifact folder" in result.stdout.lower()

@@ -2,7 +2,10 @@
 import sys
 from pathlib import Path
 
-from uipath_claude.artifacts.materialize import materialize_from_assistant_text
+from uipath_claude.artifacts.materialize import (
+    contains_file_blocks,
+    materialize_from_assistant_text,
+)
 
 
 def test_materialize_writes_single_file(tmp_path: Path) -> None:
@@ -54,3 +57,28 @@ def test_materialize_rejects_absolute_windows_path(tmp_path: Path) -> None:
     root = tmp_path / "out"
     text = r'<<<UIPATH_FILE path="C:/Windows/Temp/evil.txt">>>x<<<END_UIPATH_FILE>>>'
     assert materialize_from_assistant_text(text, output_root=root) == []
+
+
+def test_materialize_blocks_project_files_when_disallowed(tmp_path: Path) -> None:
+    root = tmp_path / "out"
+    text = """
+<<<UIPATH_FILE path="project.json">>>
+{"name":"BadProject"}
+<<<END_UIPATH_FILE>>>
+<<<UIPATH_FILE path="Main.xaml">>>
+<Activity />
+<<<END_UIPATH_FILE>>>
+"""
+    written = materialize_from_assistant_text(
+        text,
+        output_root=root,
+        allow_project_files=False,
+    )
+    assert len(written) == 1
+    assert written[0].name == "Main.xaml"
+    assert not (root / "project.json").exists()
+
+
+def test_contains_file_blocks_detects_uipath_markers() -> None:
+    text = '<<<UIPATH_FILE path="Main.xaml">>><Activity /><<<END_UIPATH_FILE>>>'
+    assert contains_file_blocks(text)
