@@ -1,0 +1,12 @@
+[submodule "skills"]
+	path = skills
+	url = https://github.com/UiPath/skills
+[submodule "templates/dispatcher"]
+	path = templates/dispatcher
+	url = https://github.com/cato-networks-IT/AgenticAi_PROCESSNAME_DispatcherTemplate
+[submodule "templates/performer"]
+	path = templates/performer
+	url = https://github.com/cato-networks-IT/AgenticAi_PROCESSNAME_PerformerTemplate
+[submodule "templates/long-running"]
+	path = templates/long-running
+	url = https://github.com/cato-networks-IT/AgenticAi_PROCESSNAME_LongRunningAutomationTemplate

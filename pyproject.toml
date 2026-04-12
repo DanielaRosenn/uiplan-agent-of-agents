@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["uipath_claude*"]
+exclude = ["agent*", "cli*", "tests*"]
+
+[project]
+name = "uipath-claude-code"
+version = "0.2.0"
+description = "Conversational AI agent for UiPath automation"
+requires-python = ">=3.11"
+dependencies = [
+    "langgraph>=0.2.62",
+    "langchain>=0.3.17",
+    "langchain-aws>=0.2.14",
+    "typer>=0.15.1",
+    "rich>=13.9.4",
+    "httpx>=0.28.1",
+    "gitpython>=3.1.43",
+    "pyyaml>=6.0.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.25.2",
+    "pytest-cov>=6.0.0",
+    "black>=24.10.0",
+    "ruff>=0.8.4",
+    "mypy>=1.14.0",
+    "tomli>=2.2.1",
+]
+
+[project.scripts]
+uipath-claude = "uipath_claude.cli.app:app"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+markers = [
+    "integration: integration-level tests",
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

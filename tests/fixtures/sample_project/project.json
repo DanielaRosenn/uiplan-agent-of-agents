@@ -1,0 +1,13 @@
+{
+  "name": "TestRPAProject",
+  "projectId": "12345678-1234-1234-1234-123456789012",
+  "description": "Test UiPath project for unit tests",
+  "main": "Main.xaml",
+  "dependencies": {
+    "UiPath.System.Activities": "[25.10.3]",
+    "UiPath.UIAutomation.Activities": "[25.10.19]"
+  },
+  "schemaVersion": "4.0",
+  "expressionLanguage": "VisualBasic",
+  "targetFramework": "Windows"
+}
