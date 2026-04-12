@@ -10,18 +10,19 @@ from uipath_claude.skills.updater import (
 def register_update_skills_command(registry: CommandRegistry) -> None:
     """Register the /update-skills command."""
 
-    def handle_update_skills(args: str) -> str:
-        args = args.strip().lower()
+    def handle_update_skills(*args) -> str:
+        # Join args list into a single string
+        args_str = " ".join(args).strip().lower() if args else ""
         
         # Check-only mode
-        if args in ("--check", "-c", "check"):
+        if args_str in ("--check", "-c", "check"):
             has_updates, message, current, remote = check_for_updates()
             if has_updates:
                 return f"Updates available for UiPath skills:\n  Current: {current}\n  Latest:  {remote}\n\nRun `/update-skills` to update."
             return message
         
         # Info mode
-        if args in ("--info", "-i", "info"):
+        if args_str in ("--info", "-i", "info"):
             info = get_skills_info()
             lines = [
                 "UiPath Skills Info:",
@@ -40,7 +41,7 @@ def register_update_skills_command(registry: CommandRegistry) -> None:
         # Update mode (default)
         has_updates, message, current, remote = check_for_updates()
         
-        if not has_updates and args != "--force":
+        if not has_updates and args_str != "--force":
             return message
         
         success, result = update_skills()
