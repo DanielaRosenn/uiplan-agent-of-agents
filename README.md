@@ -39,6 +39,19 @@ git submodule update --init --recursive
 uipath-claude chat
 ```
 
+Requires AWS Bedrock credentials. Verify with:
+
+```bash
+aws sts get-caller-identity
+```
+
+Optional overrides:
+
+```bash
+set AWS_REGION=us-east-1
+set UIPATH_CLAUDE_MODEL=anthropic.claude-3-sonnet-20240229-v1:0
+```
+
 ### Bootstrap Flow
 
 ```bash
@@ -52,6 +65,7 @@ uipath-claude start-project "MyProject"
 - `/skills` - List available skills
 - `/analyze` - Analyze UiPath project
 - `/bootstrap` - Start bootstrap flow
+- `/chat` - Indicates you are already in chat mode
 
 ## Architecture
 
