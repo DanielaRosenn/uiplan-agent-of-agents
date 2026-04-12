@@ -18,7 +18,7 @@ Conversational AI agent for UiPath automation, inspired by Claude Code architect
 ```bash
 # Clone repository
 git clone <your-repo-url>
-cd uipath-builder-agent-sprint-1
+cd uipath-builder-agent
 
 # Create virtual environment
 python -m venv venv
@@ -52,6 +52,19 @@ set AWS_REGION=us-east-1
 set UIPATH_CLAUDE_MODEL=anthropic.claude-3-sonnet-20240229-v1:0
 ```
 
+### Runtime Controls
+
+- `UIPATH_CLAUDE_TOOL_PROFILE=safe|uipath-dev|all`
+  - `safe` allows non-destructive slash commands.
+  - `uipath-dev` enables `safe` commands plus `/validate`.
+  - `all` allows all registered commands.
+- `UIPATH_CLAUDE_REQUIRE_APPROVAL=true`
+  - Requires explicit approval before guarded UiPath CLI operations.
+- One-shot approval (for a single run or CI step):
+  - Set `UIPATH_CLAUDE_CLI_APPROVED=true` (preferred) or
+    `UIPATH_CLAUDE_APPROVED=true` together with
+    `UIPATH_CLAUDE_REQUIRE_APPROVAL=true`.
+
 ### Bootstrap Flow
 
 ```bash
@@ -66,6 +79,7 @@ uipath-claude start-project "MyProject"
 - `/analyze` - Analyze UiPath project
 - `/bootstrap` - Start bootstrap flow
 - `/chat` - Indicates you are already in chat mode
+- `/recall <term>` - Search recent session messages for matching text
 
 ## Architecture
 

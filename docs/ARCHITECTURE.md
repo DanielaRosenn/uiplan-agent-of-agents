@@ -8,6 +8,7 @@ UiPath Claude Code follows the Claude Code architecture pattern, adapted for UiP
 uipath_claude/
 ├── query/          # Conversation engine (Claude Code: src/query/)
 ├── agents/         # Specialized agent modes
+├── artifacts/      # Generated artifacts and writers
 ├── tools/          # Tool implementations
 ├── skills/         # Skill discovery and management
 ├── commands/       # Slash command system
@@ -42,6 +43,25 @@ Skills are loaded from multiple sources with precedence:
 2. User custom (`~/.cursor/skills/`)
 3. Official UiPath (`skills/skills/` submodule)
 4. Cato templates (`templates/` submodule)
+
+## Runtime Controls
+
+Runtime behavior is configured by environment variables:
+
+- `UIPATH_CLAUDE_TOOL_PROFILE=safe|uipath-dev|all`
+  - Resolved in `uipath_claude.tools.profiles`.
+  - Controls which slash commands are available to the session.
+- `UIPATH_CLAUDE_REQUIRE_APPROVAL=true`
+  - Enforces the approval gate in `uipath_claude.tools.uipath.approval`
+    for guarded UiPath CLI operations.
+  - Approval can be granted per run with
+    `UIPATH_CLAUDE_CLI_APPROVED=true` or `UIPATH_CLAUDE_APPROVED=true`.
+
+## Session Recall
+
+Session recall is exposed through `/recall <term>` and implemented in
+`uipath_claude.commands.recall`, backed by
+`uipath_claude.query.session_search`.
 
 ## Bootstrap Flow
 
