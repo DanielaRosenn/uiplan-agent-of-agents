@@ -188,25 +188,23 @@ def materialize_from_assistant_text(
             written.append(dest)
             listed.add(dest)
     
-    # Auto-fix missing namespaces in XAML files
+    # Check environment variable once
+    skip_activity_validation = os.environ.get(
+        "UIPATH_SKIP_ACTIVITY_VALIDATION", "0"
+    ).lower() in ("1", "true", "yes")
+    
+    # Import validator once if needed
+    if not skip_activity_validation:
+        from uipath_claude.validation.activity_validator import validate_activities_in_xaml
+    
+    # Auto-fix namespaces and validate activities in XAML files
     for path in written:
         if path.suffix.lower() == '.xaml':
             fix_missing_namespaces(path)
-    
-    # Validate activities exist (only for XAML files)
-    for written_path in written:
-        if written_path.suffix.lower() == '.xaml':
-            from uipath_claude.validation.activity_validator import validate_activities_in_xaml
-            
-            # Skip validation if environment variable is set
-            skip_activity_validation = os.environ.get(
-                "UIPATH_SKIP_ACTIVITY_VALIDATION", "0"
-            ).lower() in ("1", "true", "yes")
             
             if not skip_activity_validation:
-                success, errors = validate_activities_in_xaml(written_path)
+                success, errors = validate_activities_in_xaml(path)
                 if not success:
-                    # Log warnings but don't fail - let validation catch it
                     for error in errors:
                         warnings.warn(f"Activity validation: {error}", UserWarning)
 
