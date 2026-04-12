@@ -63,8 +63,21 @@ def create_welcome_panel() -> Panel:
     title.append("UiPath ", style=f"bold {UIPATH_ORANGE}")
     title.append("Claude Code", style=f"bold {UIPATH_BLUE}")
     
+    # ASCII robot art
+    robot = """
+      _____
+     |     |
+     | O O |
+     |  ^  |
+     |_____|
+      |   |
+     _|   |_
+    |_______|
+    """
+    
     # Build the content
     content = Text()
+    content.append(robot, style=f"bold {UIPATH_ORANGE}")
     content.append("\n")
     content.append("Conversational AI for UiPath Automation", style="dim")
     content.append("\n\n")
