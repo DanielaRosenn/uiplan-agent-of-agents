@@ -63,18 +63,16 @@ def create_welcome_panel() -> Panel:
     title.append("UiPath ", style=f"bold {UIPATH_ORANGE}")
     title.append("Claude Code", style=f"bold {UIPATH_BLUE}")
     
-    # ASCII robot art
+    # ASCII robot art (using only basic ASCII for Windows compatibility)
     robot = """
-        ╔═══╗
-        ║ ◉ ◉ ║
-        ║  ▼  ║
-        ╚═══╝
-       ╔═════╗
-       ║  █  ║
-       ╚═════╝
-      ╔═══════╗
-      ║ ▓▓▓▓▓ ║
-      ╚═══════╝
+         _____
+        |     |
+        | O O |
+        |  ^  |
+        |_____|
+         |   |
+        _|   |_
+       |_______|
     """
     
     # Build the content
@@ -119,21 +117,19 @@ def print_welcome_banner() -> None:
 def _print_plain_banner(console: Console) -> None:
     """Print plain text banner for terminals that don't support rich formatting."""
     banner = """
-╔═══════════════════════════════════════╗
-║                                       ║
-║          ╔═══╗                        ║
-║          ║ ◉ ◉ ║                      ║
-║          ║  ▼  ║                      ║
-║          ╚═══╝                        ║
-║         ╔═════╗                       ║
-║         ║  █  ║   UiPath Claude Code  ║
-║         ╚═════╝                       ║
-║        ╔═══════╗  Conversational AI   ║
-║        ║ ▓▓▓▓▓ ║  for UiPath          ║
-║        ╚═══════╝  Automation          ║
-║                                       ║
-║    Version: {version}                 ║
-║                                       ║
-╚═══════════════════════════════════════╝
+=========================================
+
+          _____
+         |     |
+         | O O |   UiPath Claude Code
+         |  ^  |
+         |_____|   Conversational AI
+          |   |    for UiPath Automation
+         _|   |_
+        |_______|
+
+    Version: {version}
+
+=========================================
 """.format(version=get_version())
     console.print(banner)

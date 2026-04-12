@@ -76,10 +76,10 @@ def prompt_install_cli(console: Console | None = None) -> bool:
         console.print("[dim]Running: npm install -g @uipath/cli[/dim]")
         success, message = install_uip_cli(console)
         if success:
-            console.print(f"[green]✓[/green] {message}")
+            console.print(f"[green]+[/green] {message}")
             return True
         else:
-            console.print(f"[red]✗[/red] {message}")
+            console.print(f"[red]x[/red] {message}")
             return False
     else:
         console.print("[dim]Skipping CLI installation. Some features may not work.[/dim]")

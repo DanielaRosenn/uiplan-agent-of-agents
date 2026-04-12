@@ -81,7 +81,7 @@ class ProgressReporter:
         Args:
             message: Success message to display
         """
-        self.console.print(f"[green]\u2713[/green] {message}")
+        self.console.print(f"[green]+[/green] {message}")
 
     def error(self, message: str) -> None:
         """
@@ -90,7 +90,7 @@ class ProgressReporter:
         Args:
             message: Error message to display
         """
-        self.console.print(f"[red]\u2717[/red] {message}")
+        self.console.print(f"[red]x[/red] {message}")
 
     def warning(self, message: str) -> None:
         """
@@ -99,7 +99,7 @@ class ProgressReporter:
         Args:
             message: Warning message to display
         """
-        self.console.print(f"[yellow]\u26a0[/yellow] {message}")
+        self.console.print(f"[yellow]![/yellow] {message}")
 
     def info(self, message: str) -> None:
         """
@@ -108,7 +108,7 @@ class ProgressReporter:
         Args:
             message: Info message to display
         """
-        self.console.print(f"[dim]\u2192[/dim] {message}")
+        self.console.print(f"[dim]->[/dim] {message}")
 
     def file_written(self, path: str) -> None:
         """
@@ -117,4 +117,4 @@ class ProgressReporter:
         Args:
             path: Path of the file that was written
         """
-        self.console.print(f"  [green]\u2713[/green] {path}")
+        self.console.print(f"  [green]+[/green] {path}")
