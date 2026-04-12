@@ -13,6 +13,7 @@ from uipath_claude.commands.status import register_status_command
 from uipath_claude.commands.validate import register_validate_command
 from uipath_claude.context.project import detect_uipath_project
 from uipath_claude.memory.loader import load_memory
+from uipath_claude.artifacts.materialize import materialize_from_assistant_text
 from uipath_claude.query.bootstrap import run_bootstrap_flow
 from uipath_claude.query.conversation import ConversationEngine
 from uipath_claude.query.router import route_user_input
@@ -22,6 +23,19 @@ from uipath_claude.tools.skill_tool import create_skill_tool
 
 
 app = typer.Typer(help="UiPath Claude Code - Conversational AI for UiPath")
+
+_UIPATH_CHAT_SYSTEM = """You are UiPath Claude Code. You build UiPath Studio automations (workflow XAML, project.json), not WPF desktop apps, unless the user explicitly asks for WPF.
+
+When the user asks you to CREATE, WRITE, or GENERATE files, you MUST include one or more file blocks using EXACTLY this format (markers on their own lines; path uses forward slashes only):
+
+<<<UIPATH_FILE path="Main.xaml">>>
+...complete file body...
+<<<END_UIPATH_FILE>>>
+
+Put files under logical subpaths (e.g. `demo/Main.xaml`). Use only relative paths; no `..` segments.
+You may instead use a markdown code fence whose first line is exactly: path: <relative/path> then the file body on following lines until the closing fence.
+
+After the blocks you may add one short sentence summarizing what you wrote."""
 
 
 def _build_command_registry(
@@ -59,13 +73,10 @@ async def _get_model_response(
     memory: str,
 ) -> str:
     """Get an LLM response from Bedrock conversation engine."""
-    prompt = (
-        "You are UiPath Claude Code assistant. Keep responses concise and practical. "
-        "If user asks for actions, provide clear next command or code guidance."
-    )
-    context_prompt = f"{prompt}\n\nMemory:\n{memory}" if memory else prompt
+    base = _UIPATH_CHAT_SYSTEM
+    context_prompt = f"{base}\n\nMemory:\n{memory}" if memory else base
     messages = [{"role": "system", "content": context_prompt}, *history]
-    return await engine.run(messages=messages, tools=[], system_prompt=prompt)
+    return await engine.run(messages=messages, tools=[], system_prompt=base)
 
 
 @app.command()
@@ -173,6 +184,24 @@ def chat(
         history.append({"role": "assistant", "content": str(response)})
 
         print(f"Assistant: {response}\n")
+
+        if os.environ.get("UIPATH_CHAT_MATERIALIZE", "1").lower() not in (
+            "0",
+            "false",
+            "no",
+        ):
+            chat_root = Path(
+                os.environ.get(
+                    "UIPATH_CHAT_OUTPUT_DIR",
+                    str(Path.cwd() / "generated" / "chat"),
+                )
+            ).resolve()
+            written = materialize_from_assistant_text(str(response), output_root=chat_root)
+            if written:
+                print("Wrote:")
+                for path in written:
+                    print(f"  {path}")
+                print("")
 
 
 @app.command()

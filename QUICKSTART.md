@@ -4,7 +4,7 @@
 
 ```bash
 git clone <repo-url>
-cd uipath-builder-agent-sprint-1
+cd uipath-builder-agent
 python -m venv .venv
 # Windows:
 .\.venv\Scripts\Activate.ps1
@@ -38,13 +38,37 @@ uipath-claude chat
 
 Exit with `exit` or `quit`.
 
+## Chat file output (on-disk)
+
+When the model replies with file blocks in one of these formats, the CLI **writes files** under `generated/chat/` (or `UIPATH_CHAT_OUTPUT_DIR`):
+
+```
+<<<UIPATH_FILE path="demo/Main.xaml">>>
+...XAML body...
+<<<END_UIPATH_FILE>>>
+```
+
+Or a markdown fence whose **first line** is `path: <relative path>`:
+
+````
+```xml
+path: demo/Main.xaml
+...file body...
+```
+````
+
+- `UIPATH_CHAT_OUTPUT_DIR` — optional root directory for writes (default: `./generated/chat`).
+- `UIPATH_CHAT_MATERIALIZE=0` — disable writing from chat replies.
+
+For full BA/SA/Dev/QA artifacts (PDD/SDD/QA + scaffold), use `/bootstrap "<request>"` or `uipath-claude start-project "Name"`; those paths are separate from chat blocks.
+
 ## Slash Commands
 
 - `/help` - Show available commands
 - `/status` - Session status
 - `/skills` - Skills summary
 - `/analyze [path]` - Analyze project path
-- `/bootstrap` - Start bootstrap flow
+- `/bootstrap "<request>"` - Run BA→SA→Dev→QA and write docs + generated scaffold
 - `/chat` - Indicates you are already in chat mode
 
 ## Start Bootstrap
