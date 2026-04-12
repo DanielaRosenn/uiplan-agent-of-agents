@@ -1,35 +1,48 @@
-"""Activity validation for UiPath workflows."""
+"""Validate that activities used in XAML actually exist."""
 from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import List, Set, Tuple
+from typing import Set, List, Tuple
 
 from uipath_claude.tools.uipath.cli_runner import run_uip_rpa_find_activities
 
 
 def extract_activity_names_from_xaml(xaml_content: str) -> Set[str]:
-    """Extract activity names from XAML content.
-    
-    Finds all XML elements that have a namespace prefix (e.g., ui:LogMessage).
-    These represent UiPath activities that need to be validated.
-    
-    Args:
-        xaml_content: XAML file content as string
-    
-    Returns:
-        Set of unique activity names with namespace prefixes (e.g., {"ui:LogMessage"})
     """
-    if not xaml_content or not xaml_content.strip():
-        return set()
+    Extract activity element names from XAML content.
     
-    # Pattern to match XML elements with namespace prefix
-    # Matches: <prefix:ActivityName ... or <prefix:ActivityName>
-    pattern = r'<([a-zA-Z0-9]+:[a-zA-Z0-9]+)[\s/>]'
+    Returns set of activity names like "GetOutlookMailMessages", "LogMessage", etc.
+    Excludes standard XAML elements (Sequence, Activity, etc.)
+    """
+    # Standard XAML elements to ignore
+    standard_elements = {
+        "Activity", "Sequence", "Flowchart", "StateMachine",
+        "Variable", "InArgument", "OutArgument", "InOutArgument",
+        "ActivityAction", "DelegateInArgument", "DelegateOutArgument",
+        "TextExpression.NamespacesForImplementation",
+        "TextExpression.ReferencesForImplementation",
+        "AssemblyReference", "Collection",
+    }
     
+    # Find all element tags with namespace prefixes
+    # Pattern: <prefix:ElementName or <ElementName
+    pattern = r'<(?:(\w+):)?(\w+)[\s>]'
     matches = re.findall(pattern, xaml_content)
     
-    return set(matches)
+    activity_names = set()
+    for prefix, name in matches:
+        # Skip standard elements
+        if name in standard_elements:
+            continue
+        # Skip closing tags, comments, etc
+        if name.startswith('/') or name.startswith('!'):
+            continue
+        # Only include elements with ui: prefix or no prefix (in ui namespace)
+        if prefix in ('ui', ''):
+            activity_names.add(name)
+    
+    return activity_names
 
 
 def validate_activities_in_xaml(
@@ -37,38 +50,54 @@ def validate_activities_in_xaml(
     *,
     skip_validation: bool = False,
 ) -> Tuple[bool, List[str]]:
-    """Validate that all activities in XAML exist in available packages.
-    
-    Extracts activity names from the XAML file and checks them using the
-    `uip rpa find-activities` CLI command.
+    """
+    Validate that all activities in XAML file actually exist in UiPath.
     
     Args:
-        xaml_path: Path to the XAML file
-        skip_validation: If True, skip validation and return success
-    
+        xaml_path: Path to XAML file
+        skip_validation: If True, skip validation (for testing)
+        
     Returns:
-        Tuple of (success: bool, invalid_activities: List[str])
-        - success: True if all activities were found or validation was skipped
-        - invalid_activities: List of activity names that don't exist
+        Tuple of (success, list of error messages)
+        success is True if all activities exist or validation is skipped
     """
     if skip_validation:
-        return (True, [])
+        return True, []
     
-    xaml_content = xaml_path.read_text(encoding="utf-8")
-    activities = extract_activity_names_from_xaml(xaml_content)
+    try:
+        content = xaml_path.read_text(encoding='utf-8')
+    except Exception as e:
+        return False, [f"Failed to read XAML file: {e}"]
     
-    if not activities:
-        return (True, [])
+    activity_names = extract_activity_names_from_xaml(content)
     
-    invalid_activities = []
+    if not activity_names:
+        # No activities found, might be empty file
+        return True, []
     
-    for activity in activities:
-        result = run_uip_rpa_find_activities(query=activity)
+    errors = []
+    
+    # Check each activity
+    for activity_name in sorted(activity_names):
+        result = run_uip_rpa_find_activities(activity_name)
         
         if not result["success"]:
+            # CLI failed, skip validation for this activity
             continue
         
-        if not result.get("found", False):
-            invalid_activities.append(activity)
+        activities = result["activities"]
+        
+        # Check if activity exists
+        found = any(
+            act.get("ClassName", "").endswith(activity_name) or
+            act.get("ActivityTypeId", "").endswith(activity_name)
+            for act in activities
+        )
+        
+        if not found:
+            errors.append(
+                f"Activity '{activity_name}' not found in UiPath packages. "
+                f"This may be a hallucinated activity name."
+            )
     
-    return (len(invalid_activities) == 0, invalid_activities)
+    return len(errors) == 0, errors

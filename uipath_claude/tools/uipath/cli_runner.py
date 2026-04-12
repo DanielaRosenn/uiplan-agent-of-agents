@@ -207,40 +207,19 @@ def run_uip_rpa_find_activities(
     *,
     timeout: int = 30,
 ) -> dict:
-    """Run `uip rpa find-activities --query <query>`.
+    """Run `uip rpa find-activities --query <query> --output json`.
     
-    Searches for a single activity by name.
-    
-    Args:
-        query: Activity name to search for (e.g., "ui:LogMessage")
-        timeout: Command timeout in seconds
+    Searches for activities matching a query string.
     
     Returns dict with:
-        - success: bool - True if command succeeded
-        - found: bool - Whether the activity was found
-        - error: str - Error message if command failed
-        - raw_output: str - Raw command output
+        - success: bool
+        - activities: list of dicts with activity info
+        - raw_output: str
     """
-    if not query or not query.strip():
-        return {
-            "success": True,
-            "found": False,
-            "raw_output": "",
-        }
-    
     uip_cli = _find_uip_cli()
-    
     try:
         proc = subprocess.run(
-            [
-                uip_cli,
-                "rpa",
-                "find-activities",
-                "--query",
-                query,
-                "--output",
-                "json",
-            ],
+            [uip_cli, "rpa", "find-activities", "--query", query, "--output", "json"],
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -249,15 +228,13 @@ def run_uip_rpa_find_activities(
     except FileNotFoundError:
         return {
             "success": False,
-            "found": False,
-            "error": "uip CLI not found. Install with: npm install -g @uipath/cli",
+            "activities": [],
             "raw_output": "",
         }
     except subprocess.TimeoutExpired:
         return {
             "success": False,
-            "found": False,
-            "error": f"find-activities timed out after {timeout}s",
+            "activities": [],
             "raw_output": "",
         }
     
@@ -267,29 +244,20 @@ def run_uip_rpa_find_activities(
         result = json.loads(output)
         if result.get("Result") == "Success":
             data = result.get("Data", {})
-            found = data.get("found", False)
-            
+            activities = data.get("Activities", []) if isinstance(data, dict) else []
             return {
                 "success": True,
-                "found": found,
-                "raw_output": output,
-            }
-        else:
-            error_msg = result.get("Message", "Unknown error")
-            return {
-                "success": False,
-                "found": False,
-                "error": error_msg,
+                "activities": activities,
                 "raw_output": output,
             }
     except json.JSONDecodeError:
-        error_msg = proc.stderr or output or "Failed to parse find-activities output"
-        return {
-            "success": False,
-            "found": False,
-            "error": error_msg,
-            "raw_output": output,
-        }
+        pass
+    
+    return {
+        "success": False,
+        "activities": [],
+        "raw_output": output,
+    }
 
 
 def format_cli_result(
