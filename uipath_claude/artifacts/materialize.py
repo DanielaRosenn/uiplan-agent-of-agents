@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import uuid
+import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -190,6 +192,23 @@ def materialize_from_assistant_text(
     for path in written:
         if path.suffix.lower() == '.xaml':
             fix_missing_namespaces(path)
+    
+    # Validate activities exist (only for XAML files)
+    for written_path in written:
+        if written_path.suffix.lower() == '.xaml':
+            from uipath_claude.validation.activity_validator import validate_activities_in_xaml
+            
+            # Skip validation if environment variable is set
+            skip_activity_validation = os.environ.get(
+                "UIPATH_SKIP_ACTIVITY_VALIDATION", "0"
+            ).lower() in ("1", "true", "yes")
+            
+            if not skip_activity_validation:
+                success, errors = validate_activities_in_xaml(written_path)
+                if not success:
+                    # Log warnings but don't fail - let validation catch it
+                    for error in errors:
+                        warnings.warn(f"Activity validation: {error}", UserWarning)
 
     return written
 
