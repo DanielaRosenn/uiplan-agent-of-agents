@@ -63,19 +63,28 @@ def fix_missing_namespaces(xaml_path: Path) -> bool:
     """
     Auto-fix missing namespace declarations in XAML files.
     
-    Checks for common namespace prefixes (ui:, uip:, etc.) and ensures
+    Checks for common namespace prefixes (ui:, uip:, snm:, etc.) and ensures
     the corresponding xmlns declarations are present in the root Activity element.
+    Also fixes incorrect assembly references (mscorlib -> System.Private.CoreLib).
     
     Args:
         xaml_path: Path to XAML file to fix
         
     Returns:
-        True if namespaces were added, False if no changes needed
+        True if namespaces were added or fixed, False if no changes needed
     """
     try:
         content = xaml_path.read_text(encoding='utf-8')
         original_content = content
         fixed = False
+        
+        # Fix incorrect mscorlib reference for scg: (should be System.Private.CoreLib)
+        if 'clr-namespace:System.Collections.Generic;assembly=mscorlib' in content:
+            content = content.replace(
+                'clr-namespace:System.Collections.Generic;assembly=mscorlib',
+                'clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib'
+            )
+            fixed = True
         
         # Check for ui: prefix usage without xmlns:ui declaration
         if 'ui:' in content and 'xmlns:ui=' not in content:
@@ -85,6 +94,15 @@ def fix_missing_namespaces(xaml_path: Path) -> bool:
                 content = content.replace(
                     'xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"',
                     'xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"\n  xmlns:ui="http://schemas.uipath.com/workflow/activities"'
+                )
+                fixed = True
+        
+        # Check for snm:MailMessage usage without xmlns:snm declaration
+        if 'snm:MailMessage' in content and 'xmlns:snm=' not in content:
+            if 'xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"' in content:
+                content = content.replace(
+                    'xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"',
+                    'xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"\n  xmlns:snm="clr-namespace:System.Net.Mail;assembly=System.Net.Mail"'
                 )
                 fixed = True
         

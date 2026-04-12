@@ -121,3 +121,44 @@ def test_fix_multiple_namespaces(tmp_path):
     fixed_content = xaml_file.read_text(encoding='utf-8')
     assert 'xmlns:ui="http://schemas.uipath.com/workflow/activities"' in fixed_content
     assert 'xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib"' in fixed_content
+
+
+def test_fix_mscorlib_to_system_private_corelib(tmp_path):
+    """Test fixing incorrect mscorlib assembly reference."""
+    xaml_file = tmp_path / "test.xaml"
+    content = """<Activity mc:Ignorable="sap sap2010 sads" x:Class="Test"
+  xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:scg="clr-namespace:System.Collections.Generic;assembly=mscorlib">
+  <Sequence>
+    <Variable x:TypeArguments="scg:List(x:String)" Name="myList" />
+  </Sequence>
+</Activity>"""
+    xaml_file.write_text(content, encoding='utf-8')
+    
+    # Should fix the incorrect assembly reference
+    assert fix_missing_namespaces(xaml_file) is True
+    
+    fixed_content = xaml_file.read_text(encoding='utf-8')
+    assert 'assembly=mscorlib' not in fixed_content
+    assert 'xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib"' in fixed_content
+
+
+def test_fix_missing_snm_namespace_for_mailmessage(tmp_path):
+    """Test auto-fixing missing xmlns:snm declaration for System.Net.Mail."""
+    xaml_file = tmp_path / "test.xaml"
+    content = """<Activity mc:Ignorable="sap sap2010 sads" x:Class="Test"
+  xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib">
+  <Sequence>
+    <Variable x:TypeArguments="scg:List(snm:MailMessage)" Name="emails" />
+  </Sequence>
+</Activity>"""
+    xaml_file.write_text(content, encoding='utf-8')
+    
+    # Should fix the missing namespace
+    assert fix_missing_namespaces(xaml_file) is True
+    
+    fixed_content = xaml_file.read_text(encoding='utf-8')
+    assert 'xmlns:snm="clr-namespace:System.Net.Mail;assembly=System.Net.Mail"' in fixed_content
