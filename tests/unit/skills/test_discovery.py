@@ -1,5 +1,7 @@
 """Test skill discovery."""
 from pathlib import Path
+import inspect
+
 from uipath_claude.skills.discovery import discover_skills
 
 
@@ -30,3 +32,31 @@ def test_discover_skills_empty_dir(tmp_path):
     """Test discovering skills in empty directory."""
     skills = discover_skills(str(tmp_path))
     assert len(skills) == 0
+
+
+def test_discover_skills_missing_frontmatter(tmp_path):
+    """Test SKILL.md without frontmatter is ignored."""
+    skill_dir = tmp_path / "bad-skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text("# No frontmatter")
+    skills = discover_skills(str(tmp_path))
+    assert skills == []
+
+
+def test_discover_skills_invalid_frontmatter(tmp_path):
+    """Test invalid YAML frontmatter is ignored safely."""
+    skill_dir = tmp_path / "broken-skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text("""---
+name: broken
+triggers: [oops
+---
+""")
+    skills = discover_skills(str(tmp_path))
+    assert skills == []
+
+
+def test_discover_skills_does_not_use_eval():
+    """Test parser implementation does not use eval."""
+    source = inspect.getsource(discover_skills)
+    assert "eval(" not in source

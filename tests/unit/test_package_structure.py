@@ -14,6 +14,7 @@ def test_subpackages_exist():
     subpackages = [
         "query",
         "agents",
+        "artifacts",
         "tools",
         "tools.uipath",
         "skills",

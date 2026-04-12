@@ -50,6 +50,8 @@ triggers: ["b"]
     # skill-b should exist
     skill_b = [s for s in skills if s["name"] == "skill-b"][0]
     assert skill_b["description"] == "Unique skill"
+    assert skill_a["source_root"] == str(source1)
+    assert skill_b["source_root"] == str(source2)
 
 
 def test_skill_registry_filter_by_agent():
