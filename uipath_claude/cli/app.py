@@ -196,6 +196,31 @@ def _debug_skill_selection(user_input: str, skills: list[dict]) -> list[str]:
     return [f"{name}: {score}" for score, name in scored[:5] if score > 0]
 
 
+def _extract_critical_sections(skill_content: str) -> str:
+    """
+    Extract CRITICAL sections from skill content for priority injection.
+    
+    CRITICAL sections are marked with ### CRITICAL: in markdown.
+    These are placed at the top of the skill content.
+    """
+    lines = skill_content.split('\n')
+    critical_lines = []
+    in_critical = False
+    
+    for line in lines:
+        if line.startswith('### CRITICAL:'):
+            in_critical = True
+            critical_lines.append(line)
+        elif in_critical:
+            if line.startswith('###') and 'CRITICAL' not in line:
+                # End of critical section
+                in_critical = False
+            else:
+                critical_lines.append(line)
+    
+    return '\n'.join(critical_lines) if critical_lines else ""
+
+
 def _build_runtime_skill_context(user_input: str, skills: list[dict]) -> str:
     """Build request-scoped skill guidance injected into the model prompt."""
     selected = _select_relevant_skills(
@@ -212,6 +237,14 @@ def _build_runtime_skill_context(user_input: str, skills: list[dict]) -> str:
         content = load_skill_content(str(skill.get("path", "")))
         if not content:
             continue
+        
+        # Extract critical sections first
+        critical = _extract_critical_sections(content)
+        if critical:
+            # Add critical section at top
+            sections.append(f"[Skill: {name} - CRITICAL RULES]\n{critical}")
+        
+        # Then add full content (trimmed)
         trimmed = content[:_SKILL_CONTEXT_MAX_CHARS]
         sections.append(f"[Skill: {name}]\n{trimmed}")
 
