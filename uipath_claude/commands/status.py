@@ -23,5 +23,6 @@ def register_status_command(
                 f"- project_name: {status.get('project_name', 'n/a')}",
                 f"- memory_loaded: {status.get('memory_loaded', False)}",
                 f"- skill_count: {status.get('skill_count', 0)}",
+                f"- tool_profile: {status.get('tool_profile', 'safe')}",
             ]
         )

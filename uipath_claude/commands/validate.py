@@ -1,5 +1,6 @@
 """Validate UiPath project: studio analyze/pack + integration-service smoke."""
 from uipath_claude.commands.registry import CommandRegistry, register_command
+from uipath_claude.tools.uipath.approval import check_cli_approval
 from uipath_claude.tools.uipath.cli_runner import (
     format_cli_result,
     run_studio_package_analyze,
@@ -20,6 +21,10 @@ def register_validate_command(registry: CommandRegistry) -> None:
     )
     def validate_command(project_path: str = ".") -> str:
         """Analyze and pack project; run Integration Service CLI smoke."""
+        allowed, message = check_cli_approval()
+        if not allowed:
+            return message
+
         analyze_proc = run_studio_package_analyze(project_path)
         pack_proc = run_studio_package_pack(project_path)
         lines = [
