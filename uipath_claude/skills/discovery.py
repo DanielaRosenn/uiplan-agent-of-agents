@@ -2,6 +2,7 @@
 import re
 from pathlib import Path
 from typing import List, Dict, Any
+import yaml
 
 
 def discover_skills(skills_dir: str) -> List[Dict[str, Any]]:
@@ -23,32 +24,30 @@ def discover_skills(skills_dir: str) -> List[Dict[str, Any]]:
     for skill_file in skills_path.rglob("SKILL.md"):
         try:
             content = skill_file.read_text()
-            
-            # Extract frontmatter
-            frontmatter_match = re.search(r'^---\n(.*?)\n---', content, re.DOTALL)
+
+            frontmatter_match = re.search(r"^---\n(.*?)\n---", content, re.DOTALL)
             if not frontmatter_match:
                 continue
-            
-            frontmatter = frontmatter_match.group(1)
-            
-            # Parse frontmatter
-            metadata = {}
-            for line in frontmatter.split('\n'):
-                if ':' in line:
-                    key, value = line.split(':', 1)
-                    key = key.strip()
-                    value = value.strip()
-                    
-                    # Parse triggers as list
-                    if key == 'triggers':
-                        value = eval(value)  # Safe for controlled input
-                    
-                    metadata[key] = value
-            
-            if 'name' in metadata:
-                skills.append(metadata)
-        
+
+            parsed = yaml.safe_load(frontmatter_match.group(1))
+            if not isinstance(parsed, dict):
+                continue
+
+            name = parsed.get("name")
+            if not name:
+                continue
+
+            metadata: Dict[str, Any] = {
+                "name": str(name),
+                "description": str(parsed.get("description", "")),
+                "triggers": parsed.get("triggers", []),
+                "path": str(skill_file.resolve()),
+            }
+            if "tags" in parsed:
+                metadata["tags"] = parsed["tags"]
+
+            skills.append(metadata)
         except Exception:
             continue
-    
+
     return skills

@@ -38,6 +38,12 @@ class ConversationEngine:
         Returns:
             Assistant response
         """
-        llm_with_tools = self.llm.bind_tools(tools)
-        response = await llm_with_tools.ainvoke(messages)
+        if not messages or messages[0].get("role") != "system":
+            messages = [{"role": "system", "content": system_prompt}, *messages]
+
+        if tools:
+            llm = self.llm.bind_tools(tools)
+            response = await llm.ainvoke(messages)
+        else:
+            response = await self.llm.ainvoke(messages)
         return response.content

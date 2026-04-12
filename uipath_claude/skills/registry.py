@@ -1,6 +1,9 @@
 """Skill registry with multi-source loading and filtering."""
+from pathlib import Path
 from typing import List, Dict, Any
+
 from uipath_claude.skills.discovery import discover_skills
+from uipath_claude.skills.sources import build_skill_sources
 
 
 # Agent-specific skill filters
@@ -44,14 +47,17 @@ AGENT_SKILLS = {
 class SkillRegistry:
     """Registry for managing skills from multiple sources."""
     
-    def __init__(self, sources: List[str]):
+    def __init__(self, sources: List[str] | None = None):
         """
         Initialize skill registry.
         
         Args:
             sources: List of directory paths to search for skills (in priority order)
         """
-        self.sources = sources
+        if sources is None:
+            self.sources = build_skill_sources(Path.cwd())
+        else:
+            self.sources = sources
         self.skills: List[Dict[str, Any]] = []
     
     def load_skills(self) -> List[Dict[str, Any]]:
@@ -61,6 +67,7 @@ class SkillRegistry:
         Returns:
             List of unique skills (first source wins for duplicates)
         """
+        self.skills = []
         seen_names = set()
         
         for source in self.sources:
@@ -69,6 +76,7 @@ class SkillRegistry:
             for skill in discovered:
                 name = skill["name"]
                 if name not in seen_names:
+                    skill["source_root"] = str(source)
                     self.skills.append(skill)
                     seen_names.add(name)
         
