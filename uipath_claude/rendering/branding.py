@@ -65,14 +65,16 @@ def create_welcome_panel() -> Panel:
     
     # ASCII robot art
     robot = """
-      _____
-     |     |
-     | O O |
-     |  ^  |
-     |_____|
-      |   |
-     _|   |_
-    |_______|
+        ╔═══╗
+        ║ ◉ ◉ ║
+        ║  ▼  ║
+        ╚═══╝
+       ╔═════╗
+       ║  █  ║
+       ╚═════╝
+      ╔═══════╗
+      ║ ▓▓▓▓▓ ║
+      ╚═══════╝
     """
     
     # Build the content
@@ -119,14 +121,16 @@ def _print_plain_banner(console: Console) -> None:
     banner = """
 ╔═══════════════════════════════════════╗
 ║                                       ║
-║      _____                            ║
-║     |     |                           ║
-║     | O O |    UiPath Claude Code     ║
-║     |  ^  |                           ║
-║     |_____|    Conversational AI      ║
-║      |   |     for UiPath Automation  ║
-║     _|   |_                           ║
-║    |_______|                          ║
+║          ╔═══╗                        ║
+║          ║ ◉ ◉ ║                      ║
+║          ║  ▼  ║                      ║
+║          ╚═══╝                        ║
+║         ╔═════╗                       ║
+║         ║  █  ║   UiPath Claude Code  ║
+║         ╚═════╝                       ║
+║        ╔═══════╗  Conversational AI   ║
+║        ║ ▓▓▓▓▓ ║  for UiPath          ║
+║        ╚═══════╝  Automation          ║
 ║                                       ║
 ║    Version: {version}                 ║
 ║                                       ║
