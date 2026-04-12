@@ -59,6 +59,71 @@ def contains_file_blocks(text: str) -> bool:
     return bool(_BLOCK.search(text) or _FENCE_PATH.search(text))
 
 
+def fix_missing_namespaces(xaml_path: Path) -> bool:
+    """
+    Auto-fix missing namespace declarations in XAML files.
+    
+    Checks for common namespace prefixes (ui:, uip:, etc.) and ensures
+    the corresponding xmlns declarations are present in the root Activity element.
+    
+    Args:
+        xaml_path: Path to XAML file to fix
+        
+    Returns:
+        True if namespaces were added, False if no changes needed
+    """
+    try:
+        content = xaml_path.read_text(encoding='utf-8')
+        original_content = content
+        fixed = False
+        
+        # Check for ui: prefix usage without xmlns:ui declaration
+        if 'ui:' in content and 'xmlns:ui=' not in content:
+            # Find the Activity opening tag and inject xmlns:ui
+            # Look for xmlns:x declaration as anchor point
+            if 'xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"' in content:
+                content = content.replace(
+                    'xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"',
+                    'xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"\n  xmlns:ui="http://schemas.uipath.com/workflow/activities"'
+                )
+                fixed = True
+        
+        # Check for uip: prefix usage without xmlns:uip declaration
+        if 'uip:' in content and 'xmlns:uip=' not in content:
+            if 'xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"' in content:
+                content = content.replace(
+                    'xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"',
+                    'xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"\n  xmlns:uip="clr-namespace:UiPath.IntegrationService.Activities;assembly=UiPath.IntegrationService.Activities"'
+                )
+                fixed = True
+        
+        # Check for s: prefix usage without xmlns:s declaration (System namespace)
+        if re.search(r'x:TypeArguments="s:', content) and 'xmlns:s=' not in content:
+            if 'xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"' in content:
+                content = content.replace(
+                    'xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"',
+                    'xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"\n  xmlns:s="clr-namespace:System;assembly=System.Private.CoreLib"'
+                )
+                fixed = True
+        
+        # Check for scg: prefix usage without xmlns:scg declaration (System.Collections.Generic)
+        if 'scg:' in content and 'xmlns:scg=' not in content:
+            if 'xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"' in content:
+                content = content.replace(
+                    'xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"',
+                    'xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"\n  xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib"'
+                )
+                fixed = True
+        
+        if fixed and content != original_content:
+            xaml_path.write_text(content, encoding='utf-8')
+            return True
+        
+        return False
+    except Exception:
+        return False
+
+
 def materialize_from_assistant_text(
     text: str,
     output_root: Path,
@@ -71,6 +136,8 @@ def materialize_from_assistant_text(
     Supported formats:
     1) <<<UIPATH_FILE path="relative/path">>>...<<<END_UIPATH_FILE>>>
     2) Markdown fence whose first line is ``path: relative/path`` then file body.
+    
+    Automatically fixes missing namespace declarations in XAML files.
     """
     root = output_root.resolve()
     root.mkdir(parents=True, exist_ok=True)
@@ -100,6 +167,11 @@ def materialize_from_assistant_text(
         if dest not in listed:
             written.append(dest)
             listed.add(dest)
+    
+    # Auto-fix missing namespaces in XAML files
+    for path in written:
+        if path.suffix.lower() == '.xaml':
+            fix_missing_namespaces(path)
 
     return written
 

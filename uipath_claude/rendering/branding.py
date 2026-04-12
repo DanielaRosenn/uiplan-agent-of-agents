@@ -96,7 +96,40 @@ def create_welcome_panel() -> Panel:
 
 
 def print_welcome_banner() -> None:
-    """Print welcome banner with modern styled panel."""
+    """Print welcome banner with modern styled panel or fallback for non-rich terminals."""
     console = Console()
-    console.print(create_welcome_panel())
+    
+    # Try rich panel first, fallback to plain text if terminal doesn't support it
+    try:
+        # Check if terminal supports rich rendering
+        if console.is_terminal and not console.legacy_windows:
+            console.print(create_welcome_panel())
+        else:
+            # Fallback for terminals that don't support rich properly
+            _print_plain_banner(console)
+    except Exception:
+        # If anything fails, use plain fallback
+        _print_plain_banner(console)
+    
     console.print("Type [bold cyan]/help[/bold cyan] for available commands, or just start chatting!\n")
+
+
+def _print_plain_banner(console: Console) -> None:
+    """Print plain text banner for terminals that don't support rich formatting."""
+    banner = """
+╔═══════════════════════════════════════╗
+║                                       ║
+║      _____                            ║
+║     |     |                           ║
+║     | O O |    UiPath Claude Code     ║
+║     |  ^  |                           ║
+║     |_____|    Conversational AI      ║
+║      |   |     for UiPath Automation  ║
+║     _|   |_                           ║
+║    |_______|                          ║
+║                                       ║
+║    Version: {version}                 ║
+║                                       ║
+╚═══════════════════════════════════════╝
+""".format(version=get_version())
+    console.print(banner)
