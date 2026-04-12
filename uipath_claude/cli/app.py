@@ -7,6 +7,8 @@ from pathlib import Path
 import uuid
 
 import typer
+from rich.console import Console
+from rich.prompt import Prompt
 from uipath_claude.commands.analyze import register_analyze_command
 from uipath_claude.commands.bootstrap import register_bootstrap_command
 from uipath_claude.commands.help import register_help_command
@@ -28,6 +30,7 @@ from uipath_claude.query.bootstrap import run_bootstrap_flow
 from uipath_claude.query.conversation import ConversationEngine
 from uipath_claude.query.router import route_user_input
 from uipath_claude.rendering.branding import print_welcome_banner
+from uipath_claude.rendering.progress import ProgressReporter
 from uipath_claude.skills.loader import load_skill_content
 from uipath_claude.skills.registry import SkillRegistry
 from uipath_claude.skills.updater import check_for_updates
@@ -332,18 +335,22 @@ def chat(
     ),
 ):
     """Start conversational chat mode."""
+    console = Console()
+    progress = ProgressReporter(console)
+    
     if not no_banner:
         print_welcome_banner()
     
     project_context = detect_uipath_project(str(Path.cwd()))
     if project_context:
-        print(f"Detected UiPath project: {project_context['project_name']}\n")
+        console.print(f"Detected UiPath project: {project_context['project_name']}\n")
     cwd = Path.cwd().resolve()
     if _is_generated_chat_artifact_folder(cwd) and (cwd / "project.json").exists():
-        print(
-            "Warning: this looks like a generated chat artifact folder. "
-            "Open your real UiPath project root for package restore/build.\n"
+        progress.warning(
+            "This looks like a generated chat artifact folder. "
+            "Open your real UiPath project root for package restore/build."
         )
+        console.print("")
     
     memory = load_memory(
         project_path=project_context["project_path"] if project_context else None
@@ -353,7 +360,8 @@ def chat(
     try:
         has_updates, update_msg, _, _ = check_for_updates()
         if has_updates:
-            print(f"Skills update available. Run /update-skills to update.\n")
+            progress.info("Skills update available. Run /update-skills to update.")
+            console.print("")
     except Exception:
         pass  # Don't block startup on update check failures
     
@@ -361,7 +369,8 @@ def chat(
     try:
         uip_ok, uip_msg = check_uip_installed()
         if not uip_ok:
-            print(f"Warning: {uip_msg}\n")
+            progress.warning(uip_msg)
+            console.print("")
     except Exception:
         pass
     
@@ -395,31 +404,31 @@ def chat(
     try:
         engine = _create_engine()
     except Exception as exc:
-        print("Could not initialize Bedrock model.")
-        print(
+        progress.error("Could not initialize Bedrock model")
+        console.print(
             "Set AWS credentials and region, then retry. "
             "Example: set AWS_REGION=us-east-1."
         )
         raise typer.Exit(code=1) from exc
 
-    print("Chat session started. Type 'exit' or 'quit' to leave.\n")
+    console.print("Chat session started. Type 'exit' or 'quit' to leave.\n")
     stream_enabled = _resolve_stream_enabled(stream)
     output_mode = _resolve_output_mode()
     chat_session_id = _make_chat_session_id()
-    print(f"Chat trace id: {chat_session_id}\n")
+    console.print(f"Chat trace id: {chat_session_id}\n")
 
     while True:
         try:
-            user_input = typer.prompt("You").strip()
+            user_input = Prompt.ask("[cyan]You[/cyan]").strip()
         except (EOFError, KeyboardInterrupt):
-            print("\nGoodbye!")
+            console.print("\nGoodbye!")
             break
 
         if not user_input:
             continue
 
         if user_input.lower() in {"exit", "quit"}:
-            print("Goodbye!")
+            console.print("Goodbye!")
             break
 
         route, payload = route_user_input(user_input)
@@ -427,38 +436,38 @@ def chat(
             command = payload["command"]
             args = payload["args"]
             if command == "chat":
-                print("You are already in chat mode.")
+                console.print("You are already in chat mode.")
                 continue
             if command in {"exit", "quit"}:
-                print("Goodbye!")
+                console.print("Goodbye!")
                 break
             if not is_command_allowed(tool_profile, command):
-                print(
+                progress.error(
                     f"Command '/{command}' is blocked by tool profile '{tool_profile.name}'. "
                     "Use /status to inspect active profile."
                 )
                 continue
-            print(registry.execute(command, *args))
+            console.print(registry.execute(command, *args))
             continue
         if route == "skill_usage":
-            print("Usage: /skill <skill-name> <query>")
+            console.print("Usage: /skill <skill-name> <query>")
             continue
         if route == "skill":
             skill_name = payload["skill_name"]
             query = payload["query"]
             if not is_command_allowed(tool_profile, "skills"):
-                print(
+                progress.error(
                     f"Command '/skill' is blocked by tool profile '{tool_profile.name}'. "
                     "Use /status to inspect active profile."
                 )
                 continue
             skill = skills_by_name.get(skill_name)
             if not skill:
-                print(f"Unknown skill: {skill_name}")
+                progress.error(f"Unknown skill: {skill_name}")
                 continue
             tool = create_skill_tool(skill)
             result = tool.invoke({"query": query})
-            print(f"Assistant: {result}\n")
+            console.print(f"[magenta]Assistant:[/magenta] {result}\n")
             continue
 
         history.append({"role": "user", "content": user_input})
@@ -468,10 +477,10 @@ def chat(
         if os.environ.get("UIPATH_CHAT_DEBUG_SKILLS", "0").strip().lower() in {"1", "true", "yes"}:
             traces = _debug_skill_selection(user_input, skills)
             if traces:
-                print("Skill selection:")
+                console.print("[dim]Skill selection:[/dim]")
                 for trace in traces:
-                    print(f"  - {trace}")
-                print("")
+                    console.print(f"  [dim]-[/dim] {trace}")
+                console.print("")
         try:
             if stream_enabled:
                 suppress_stream_output = output_mode == "quiet" or (
@@ -479,45 +488,64 @@ def chat(
                 )
                 emitted_deltas = False
 
-                if suppress_stream_output:
-                    print("Assistant: Generating files, one moment...\n")
-
                 def _print_delta(delta: str) -> None:
                     nonlocal emitted_deltas
                     emitted_deltas = True
-                    print(delta, end="", flush=True)
+                    console.print(delta, end="")
 
                 delta_callback = None if suppress_stream_output else _print_delta
-                if not suppress_stream_output:
-                    print("Assistant: ", end="", flush=True)
-
-                response = asyncio.run(
-                    _get_model_response(
-                        engine,
-                        history,
-                        memory,
-                        runtime_context,
-                        stream=True,
-                        on_delta=delta_callback,
+                if suppress_stream_output:
+                    with progress.generating("workflow"):
+                        response = asyncio.run(
+                            _get_model_response(
+                                engine,
+                                history,
+                                memory,
+                                runtime_context,
+                                stream=True,
+                                on_delta=delta_callback,
+                            )
+                        )
+                else:
+                    console.print("[magenta]Assistant:[/magenta] ", end="")
+                    response = asyncio.run(
+                        _get_model_response(
+                            engine,
+                            history,
+                            memory,
+                            runtime_context,
+                            stream=True,
+                            on_delta=delta_callback,
+                        )
                     )
-                )
-                if not emitted_deltas and not suppress_stream_output:
-                    print(str(response), end="", flush=True)
-                if not suppress_stream_output:
-                    print("")
+                    if not emitted_deltas:
+                        console.print(str(response), end="")
+                    console.print("")
             else:
-                response = asyncio.run(
-                    _get_model_response(
-                        engine,
-                        history,
-                        memory,
-                        runtime_context,
-                        stream=False,
+                if file_intent and output_mode in ("quiet", "auto"):
+                    with progress.generating("workflow"):
+                        response = asyncio.run(
+                            _get_model_response(
+                                engine,
+                                history,
+                                memory,
+                                runtime_context,
+                                stream=False,
+                            )
+                        )
+                else:
+                    response = asyncio.run(
+                        _get_model_response(
+                            engine,
+                            history,
+                            memory,
+                            runtime_context,
+                            stream=False,
+                        )
                     )
-                )
         except Exception as exc:
-            print("Bedrock request failed.")
-            print(
+            progress.error("Bedrock request failed")
+            console.print(
                 "Check AWS credentials, IAM permissions, model access, and AWS_REGION. "
                 f"Details: {exc}"
             )
@@ -530,12 +558,10 @@ def chat(
             output_mode == "auto" and response_has_files
         )
         if not stream_enabled:
-            if suppress_output:
-                print("Assistant: Generating files, one moment...\n")
-            else:
-                print(f"Assistant: {response}\n")
+            if not suppress_output:
+                console.print(f"[magenta]Assistant:[/magenta] {response}\n")
         elif not suppress_output and not file_intent:
-            print("")
+            console.print("")
 
         if os.environ.get("UIPATH_CHAT_MATERIALIZE", "1").lower() not in (
             "0",
@@ -555,33 +581,36 @@ def chat(
                 allow_project_files=allow_project_files,
             )
             if written:
-                print("Wrote:")
+                console.print("Wrote:")
                 for path in written:
-                    print(f"  {path}")
-                print("")
+                    progress.file_written(str(path))
+                console.print("")
                 
                 has_xaml = any(str(p).endswith(".xaml") for p in written)
                 auto_validate = os.environ.get("UIPATH_CHAT_AUTO_VALIDATE", "1").lower() not in ("0", "false", "no")
                 
                 if has_xaml and auto_validate:
-                    print("Validating generated workflow...")
-                    validation = validate_generated_project(chat_root)
+                    with progress.validating():
+                        validation = validate_generated_project(chat_root)
                     if validation["success"]:
-                        print("Validation: PASSED - No errors found\n")
+                        progress.success("Validation passed - No errors found")
+                        console.print("")
                     else:
-                        print(f"Validation: FAILED - {len(validation['errors'])} error(s)")
+                        progress.error(f"Validation failed - {len(validation['errors'])} error(s)")
                         for error in validation["errors"][:5]:
-                            print(f"  - {error}")
+                            console.print(f"  [dim]-[/dim] {error}")
                         if len(validation["errors"]) > 5:
-                            print(f"  ... and {len(validation['errors']) - 5} more")
-                        print("")
-                        print("The generated workflow has errors. Consider asking the agent to fix them.\n")
+                            console.print(f"  [dim]... and {len(validation['errors']) - 5} more[/dim]")
+                        console.print("")
+                        progress.warning("The generated workflow has errors. Consider asking the agent to fix them.")
+                        console.print("")
                 
                 if not allow_project_files:
-                    print(
-                        "Note: generated files are artifacts. "
-                        "Use a real UiPath project root for full package restore/publish.\n"
+                    progress.info(
+                        "Generated files are artifacts. "
+                        "Use a real UiPath project root for full package restore/publish."
                     )
+                    console.print("")
 
 
 def _resolve_stream_enabled(stream_flag: bool | None) -> bool:
