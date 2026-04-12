@@ -31,7 +31,28 @@ def test_subpackages_exist():
         assert spec is not None, f"uipath_claude.{subpkg} package not found"
 
 
-def test_old_agent_package_still_exists():
-    """Test that old 'agent' package still exists (will be removed in Task 13)."""
-    spec = importlib.util.find_spec("agent")
-    assert spec is not None, "Old 'agent' package should still exist until Task 13"
+def test_legacy_agent_package_migration_is_repo_local():
+    """Use repo-local checks to avoid environment-dependent import resolution."""
+    repo_root = Path(__file__).resolve().parents[2]
+    assert (repo_root / "uipath_claude" / "agents").is_dir(), (
+        "Expected migrated agent package under uipath_claude/agents"
+    )
+
+
+def test_architecture_doc_mentions_runtime_controls_and_recall():
+    """Architecture doc should describe tool profiles, approval gate, and recall."""
+    architecture_doc = (
+        Path(__file__).resolve().parents[2] / "docs" / "ARCHITECTURE.md"
+    ).read_text(encoding="utf-8")
+
+    required_references = [
+        "UIPATH_CLAUDE_TOOL_PROFILE",
+        "UIPATH_CLAUDE_REQUIRE_APPROVAL",
+        "/recall <term>",
+        "uipath_claude.query.session_search",
+    ]
+
+    for reference in required_references:
+        assert reference in architecture_doc, (
+            f"Expected architecture doc to mention: {reference}"
+        )

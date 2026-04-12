@@ -1,5 +1,6 @@
 """Validate UiPath project: uip rpa get-errors + optional pack."""
 from uipath_claude.commands.registry import CommandRegistry, register_command
+from uipath_claude.tools.uipath.approval import check_cli_approval
 from uipath_claude.tools.uipath.cli_runner import (
     format_cli_result,
     run_uip_rpa_get_errors,
@@ -19,7 +20,11 @@ def register_validate_command(registry: CommandRegistry) -> None:
         description="Validate UiPath project with uip rpa get-errors",
     )
     def validate_command(project_path: str = ".") -> str:
-        """Validate project using uip CLI and optionally pack."""
+        """Validate project using uip CLI with approval guard."""
+        allowed, message = check_cli_approval()
+        if not allowed:
+            return message
+
         result = run_uip_rpa_get_errors(project_path)
         
         lines = ["UiPath Project Validation"]

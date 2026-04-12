@@ -10,6 +10,7 @@ import typer
 from uipath_claude.commands.analyze import register_analyze_command
 from uipath_claude.commands.bootstrap import register_bootstrap_command
 from uipath_claude.commands.help import register_help_command
+from uipath_claude.commands.recall import register_recall_command
 from uipath_claude.commands.repair_restore import register_repair_restore_command
 from uipath_claude.commands.registry import CommandRegistry
 from uipath_claude.commands.skills import register_skills_command
@@ -31,6 +32,7 @@ from uipath_claude.skills.loader import load_skill_content
 from uipath_claude.skills.registry import SkillRegistry
 from uipath_claude.skills.updater import check_for_updates
 from uipath_claude.hooks.session_hooks import check_uip_installed
+from uipath_claude.tools.profiles import is_command_allowed, resolve_tool_profile
 from uipath_claude.tools.skill_tool import create_skill_tool
 
 
@@ -262,6 +264,7 @@ def _is_generated_chat_artifact_folder(path: Path) -> bool:
 def _build_command_registry(
     skill_registry: SkillRegistry,
     get_status,
+    get_history,
 ) -> CommandRegistry:
     """Create and register built-in slash commands."""
     registry = CommandRegistry()
@@ -277,6 +280,7 @@ def _build_command_registry(
     register_repair_restore_command(registry)
     register_bootstrap_command(registry, run_bootstrap=run_bootstrap_flow)
     register_update_skills_command(registry)
+    register_recall_command(registry, get_history=get_history)
     return registry
 
 
@@ -367,8 +371,10 @@ def chat(
         "anthropic.claude-3-sonnet-20240229-v1:0",
     )
     region = os.getenv("AWS_REGION", "us-east-1")
+    tool_profile = resolve_tool_profile(os.getenv("UIPATH_CLAUDE_TOOL_PROFILE", "safe"))
     skills = skill_registry.load_skills()
     skills_by_name = {skill.get("name"): skill for skill in skills}
+    history: list[dict[str, str]] = []
 
     def _status() -> dict[str, str | int | bool]:
         return {
@@ -378,9 +384,13 @@ def chat(
             "project_name": project_context["project_name"] if project_context else "n/a",
             "memory_loaded": bool(memory),
             "skill_count": len(skills),
+            "tool_profile": tool_profile.name,
         }
 
-    registry = _build_command_registry(skill_registry, _status)
+    def _history() -> list[dict[str, str]]:
+        return history
+
+    registry = _build_command_registry(skill_registry, _status, _history)
 
     try:
         engine = _create_engine()
@@ -393,7 +403,6 @@ def chat(
         raise typer.Exit(code=1) from exc
 
     print("Chat session started. Type 'exit' or 'quit' to leave.\n")
-    history: list[dict[str, str]] = []
     stream_enabled = _resolve_stream_enabled(stream)
     output_mode = _resolve_output_mode()
     chat_session_id = _make_chat_session_id()
@@ -423,6 +432,12 @@ def chat(
             if command in {"exit", "quit"}:
                 print("Goodbye!")
                 break
+            if not is_command_allowed(tool_profile, command):
+                print(
+                    f"Command '/{command}' is blocked by tool profile '{tool_profile.name}'. "
+                    "Use /status to inspect active profile."
+                )
+                continue
             print(registry.execute(command, *args))
             continue
         if route == "skill_usage":
@@ -431,6 +446,12 @@ def chat(
         if route == "skill":
             skill_name = payload["skill_name"]
             query = payload["query"]
+            if not is_command_allowed(tool_profile, "skills"):
+                print(
+                    f"Command '/skill' is blocked by tool profile '{tool_profile.name}'. "
+                    "Use /status to inspect active profile."
+                )
+                continue
             skill = skills_by_name.get(skill_name)
             if not skill:
                 print(f"Unknown skill: {skill_name}")
