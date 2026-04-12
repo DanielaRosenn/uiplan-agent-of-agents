@@ -58,17 +58,17 @@ def test_skill_registry_filter_by_agent():
     """Test filtering skills by agent role."""
     registry = SkillRegistry(sources=[])
     registry.skills = [
-        {"name": "pdd-creation", "description": "PDD"},
-        {"name": "uipath-rpa-workflows", "description": "RPA"},
-        {"name": "uipath-code-reviewer", "description": "Review"},
+        {"name": "uipath-planner", "description": "Planning"},
+        {"name": "uipath-rpa", "description": "RPA"},
+        {"name": "uipath-servo", "description": "UI Automation"},
     ]
     
-    # BA agent should get pdd-creation
+    # BA agent should get uipath-planner
     ba_skills = registry.filter_by_agent("ba")
-    assert any(s["name"] == "pdd-creation" for s in ba_skills)
-    assert not any(s["name"] == "uipath-rpa-workflows" for s in ba_skills)
+    assert any(s["name"] == "uipath-planner" for s in ba_skills)
+    assert not any(s["name"] == "uipath-rpa" for s in ba_skills)
     
-    # Developer agent should get uipath-rpa-workflows
+    # Developer agent should get uipath-rpa
     dev_skills = registry.filter_by_agent("developer")
-    assert any(s["name"] == "uipath-rpa-workflows" for s in dev_skills)
-    assert not any(s["name"] == "pdd-creation" for s in dev_skills)
+    assert any(s["name"] == "uipath-rpa" for s in dev_skills)
+    assert not any(s["name"] == "uipath-planner" for s in dev_skills)

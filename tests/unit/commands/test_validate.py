@@ -1,28 +1,40 @@
 """Test /validate command."""
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from uipath_claude.commands.registry import CommandRegistry
 from uipath_claude.commands.validate import register_validate_command
 
 
-def test_validate_command_runs_analyze_pack_and_integration():
+def test_validate_command_runs_get_errors():
     registry = CommandRegistry()
     register_validate_command(registry)
-    ok = MagicMock(returncode=0, stdout="ok", stderr="")
 
     with patch(
-        "uipath_claude.commands.validate.run_studio_package_analyze",
-        return_value=ok,
-    ) as mock_a, patch(
-        "uipath_claude.commands.validate.run_studio_package_pack",
-        return_value=ok,
-    ) as mock_p, patch(
-        "uipath_claude.commands.validate.run_integration_service_connector_check",
-        return_value="integration: smoke",
+        "uipath_claude.commands.validate.check_cli_approval",
+        return_value=(True, ""),
+    ), patch(
+        "uipath_claude.commands.validate.run_uip_rpa_get_errors",
+        return_value={"success": True, "errors": []},
+    ) as mock_get_errors:
+        out = registry.execute("validate", ".")
+        mock_get_errors.assert_called_once_with(".")
+        assert "passed" in out.lower()
+        assert "validation" in out.lower()
+
+
+def test_validate_command_shows_errors():
+    registry = CommandRegistry()
+    register_validate_command(registry)
+
+    with patch(
+        "uipath_claude.commands.validate.check_cli_approval",
+        return_value=(True, ""),
+    ), patch(
+        "uipath_claude.commands.validate.run_uip_rpa_get_errors",
+        return_value={"success": False, "errors": ["Error 1", "Error 2"]},
     ):
         out = registry.execute("validate", ".")
-        mock_a.assert_called_once()
-        mock_p.assert_called_once()
-        assert "analyze" in out.lower()
-        assert "pack" in out.lower()
-        assert "integration" in out.lower()
+        assert "failed" in out.lower()
+        assert "2 error" in out.lower()
+        assert "Error 1" in out
+        assert "Error 2" in out

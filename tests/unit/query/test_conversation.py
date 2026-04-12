@@ -44,4 +44,4 @@ async def test_conversation_engine_run_stream_assembles_text():
     )
 
     assert out == "Hello World"
-    assert deltas == ["Hello", " World"]
+    assert deltas == ["Hello", " ", "World"]
