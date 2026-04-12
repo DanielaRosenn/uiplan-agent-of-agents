@@ -202,6 +202,111 @@ def run_studio_package_pack(
     )
 
 
+def run_uip_rpa_find_activities(
+    activity_names: list[str],
+    project_path: str | Path,
+    *,
+    timeout: int = 60,
+) -> dict:
+    """Run `uip rpa find-activities --activity-names <names> --project-dir <project>`.
+    
+    Checks if the given activity names exist in the project's available packages.
+    
+    Args:
+        activity_names: List of activity names to check (e.g., ["ui:LogMessage", "ui:StartOutlook"])
+        project_path: Path to the UiPath project directory
+        timeout: Command timeout in seconds
+    
+    Returns dict with:
+        - success: bool - True if command succeeded
+        - found: list[str] - Activity names that were found
+        - not_found: list[str] - Activity names that were not found
+        - error: str - Error message if command failed
+        - raw_output: str - Raw command output
+    """
+    if not activity_names:
+        return {
+            "success": True,
+            "found": [],
+            "not_found": [],
+            "raw_output": "",
+        }
+    
+    path = str(Path(project_path).resolve())
+    uip_cli = _find_uip_cli()
+    
+    activities_arg = ",".join(activity_names)
+    
+    try:
+        proc = subprocess.run(
+            [
+                uip_cli,
+                "rpa",
+                "find-activities",
+                "--activity-names",
+                activities_arg,
+                "--project-dir",
+                path,
+                "--output",
+                "json",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except FileNotFoundError:
+        return {
+            "success": False,
+            "found": [],
+            "not_found": activity_names,
+            "error": "uip CLI not found. Install with: npm install -g @uipath/cli",
+            "raw_output": "",
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            "success": False,
+            "found": [],
+            "not_found": activity_names,
+            "error": f"find-activities timed out after {timeout}s",
+            "raw_output": "",
+        }
+    
+    output = proc.stdout or ""
+    
+    try:
+        result = json.loads(output)
+        if result.get("Result") == "Success":
+            data = result.get("Data", {})
+            found = data.get("found", [])
+            not_found = data.get("not_found", [])
+            
+            return {
+                "success": True,
+                "found": found,
+                "not_found": not_found,
+                "raw_output": output,
+            }
+        else:
+            error_msg = result.get("Message", "Unknown error")
+            return {
+                "success": False,
+                "found": [],
+                "not_found": activity_names,
+                "error": error_msg,
+                "raw_output": output,
+            }
+    except json.JSONDecodeError:
+        error_msg = proc.stderr or output or "Failed to parse find-activities output"
+        return {
+            "success": False,
+            "found": [],
+            "not_found": activity_names,
+            "error": error_msg,
+            "raw_output": output,
+        }
+
+
 def format_cli_result(
     label: str,
     proc: subprocess.CompletedProcess[str],
