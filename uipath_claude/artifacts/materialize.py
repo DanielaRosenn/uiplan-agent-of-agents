@@ -281,9 +281,10 @@ def validate_generated_project(project_path: Path) -> dict:
     Returns dict with:
         - success: bool
         - errors: list of error strings
+        - warnings: list of warning strings (optional)
         - project_path: str
     """
-    from uipath_claude.tools.uipath.cli_runner import run_uip_rpa_get_errors
+    from uipath_claude.tools.uipath.cli_runner import run_uip_rpa_analyze
     
     project_json = project_path / "project.json"
     if not project_json.exists():
@@ -304,9 +305,14 @@ def validate_generated_project(project_path: Path) -> dict:
                 "project_path": str(project_path),
             }
     
-    result = run_uip_rpa_get_errors(project_path)
-    return {
+    # Use analyze instead of get-errors for deeper validation
+    # This catches missing activities, package issues, etc.
+    result = run_uip_rpa_analyze(project_path)
+    return_dict = {
         "success": result["success"],
         "errors": result["errors"],
         "project_path": str(project_path),
     }
+    if "warnings" in result:
+        return_dict["warnings"] = result["warnings"]
+    return return_dict

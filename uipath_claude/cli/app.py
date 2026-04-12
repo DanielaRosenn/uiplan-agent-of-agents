@@ -594,6 +594,10 @@ def chat(
                         validation = validate_generated_project(chat_root)
                     if validation["success"]:
                         progress.success("Validation passed - No errors found")
+                        # Show warnings even if validation passed
+                        if validation.get("warnings"):
+                            for warning in validation["warnings"][:3]:
+                                progress.warning(warning)
                         console.print("")
                     else:
                         progress.error(f"Validation failed - {len(validation['errors'])} error(s)")

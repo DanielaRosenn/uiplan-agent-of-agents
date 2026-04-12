@@ -82,6 +82,92 @@ def run_uip_rpa_get_errors(
     }
 
 
+def run_uip_rpa_analyze(
+    project_path: str | Path,
+    *,
+    timeout: int = 120,
+) -> dict:
+    """Run `uip rpa analyze --project-path <project> --output json`.
+    
+    This performs deeper validation than get-errors, including:
+    - Package dependency resolution
+    - Activity existence validation
+    - Workflow analysis rules
+    
+    Returns dict with:
+        - success: bool
+        - errors: list of error strings
+        - warnings: list of warning strings
+        - raw_output: str
+    """
+    path = str(Path(project_path).resolve())
+    uip_cli = _find_uip_cli()
+    try:
+        proc = subprocess.run(
+            [uip_cli, "rpa", "analyze", "--project-path", path, "--output", "json"],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except FileNotFoundError:
+        return {
+            "success": False,
+            "errors": ["uip CLI not found. Install with: npm install -g @uipath/cli"],
+            "warnings": [],
+            "raw_output": "",
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            "success": False,
+            "errors": [f"Analysis timed out after {timeout}s"],
+            "warnings": [],
+            "raw_output": "",
+        }
+    
+    output = proc.stdout or ""
+    errors = []
+    warnings = []
+    
+    try:
+        result = json.loads(output)
+        if result.get("Result") == "Success":
+            # Analyze succeeded - check for issues in the data
+            data = result.get("Data", {})
+            issues = data.get("Issues", [])
+            for issue in issues:
+                severity = issue.get("Severity", "").lower()
+                message = issue.get("Message", "")
+                if severity == "error":
+                    errors.append(message)
+                elif severity in ("warning", "warn"):
+                    warnings.append(message)
+            return {
+                "success": len(errors) == 0,
+                "errors": errors,
+                "warnings": warnings,
+                "raw_output": output,
+            }
+        else:
+            # Analyze failed
+            error_msg = result.get("Message", "Unknown error")
+            # Check if it's a "project already open" error
+            if "already opened in another Studio instance" in error_msg:
+                # Fall back to get-errors
+                return run_uip_rpa_get_errors(project_path, timeout=timeout)
+            errors.append(error_msg)
+    except json.JSONDecodeError:
+        if proc.returncode != 0:
+            errors.append(proc.stderr or output or "Analysis failed")
+    
+    return {
+        "success": len(errors) == 0,
+        "errors": errors,
+        "warnings": warnings,
+        "raw_output": output,
+    }
+
+
 def run_studio_package_analyze(
     project_path: str | Path,
     *,
