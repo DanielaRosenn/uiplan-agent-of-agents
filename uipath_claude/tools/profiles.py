@@ -10,7 +10,7 @@ class ToolProfile:
     commands: tuple[str, ...]
 
 
-_SAFE_COMMANDS = ("help", "status", "skills", "analyze", "bootstrap", "recall")
+_SAFE_COMMANDS = ("help", "status", "skills", "analyze", "bootstrap", "recall", "update-skills")
 _UIPATH_DEV_COMMANDS = (*_SAFE_COMMANDS, "validate")
 
 _PROFILES = {
