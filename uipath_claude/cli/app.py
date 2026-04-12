@@ -602,8 +602,67 @@ def chat(
                         if len(validation["errors"]) > 5:
                             console.print(f"  [dim]... and {len(validation['errors']) - 5} more[/dim]")
                         console.print("")
-                        progress.warning("The generated workflow has errors. Consider asking the agent to fix them.")
-                        console.print("")
+                        
+                        # Auto-fix loop
+                        auto_fix = os.environ.get("UIPATH_CHAT_AUTO_FIX", "1").lower() not in ("0", "false", "no")
+                        max_fix_attempts = 3
+                        fix_attempt = 0
+                        
+                        while not validation["success"] and auto_fix and fix_attempt < max_fix_attempts:
+                            fix_attempt += 1
+                            progress.info(f"Attempting auto-fix ({fix_attempt}/{max_fix_attempts})...")
+                            
+                            # Build fix prompt with error context
+                            fix_prompt = f"""The generated workflow has validation errors. Please fix them:
+
+Errors:
+{chr(10).join('- ' + e for e in validation['errors'])}
+
+Please regenerate the XAML file(s) with these errors fixed."""
+                            
+                            history.append({"role": "user", "content": fix_prompt})
+                            
+                            try:
+                                with progress.generating("fix"):
+                                    fix_response = asyncio.run(
+                                        _get_model_response(engine, history, memory, runtime_context, stream=False)
+                                    )
+                                
+                                history.append({"role": "assistant", "content": str(fix_response)})
+                                
+                                # Materialize the fix
+                                fix_written = materialize_from_assistant_text(
+                                    str(fix_response),
+                                    output_root=chat_root,
+                                    allow_project_files=allow_project_files,
+                                )
+                                
+                                if fix_written:
+                                    for path in fix_written:
+                                        progress.file_written(str(path))
+                                    
+                                    # Re-validate
+                                    with progress.validating():
+                                        validation = validate_generated_project(chat_root)
+                                    
+                                    if validation["success"]:
+                                        progress.success("Auto-fix successful - Validation passed")
+                                        console.print("")
+                                        break
+                                    else:
+                                        progress.warning(f"Still {len(validation['errors'])} error(s) after fix attempt {fix_attempt}")
+                                        for error in validation["errors"][:3]:
+                                            console.print(f"  [dim]-[/dim] {error}")
+                                        console.print("")
+                                else:
+                                    progress.warning(f"Fix attempt {fix_attempt} produced no file changes")
+                            except Exception as fix_exc:
+                                progress.error(f"Auto-fix attempt {fix_attempt} failed: {fix_exc}")
+                                break
+                        
+                        if not validation["success"]:
+                            progress.error("Auto-fix exhausted. Manual intervention may be needed.")
+                            console.print("")
                 
                 if not allow_project_files:
                     progress.info(
