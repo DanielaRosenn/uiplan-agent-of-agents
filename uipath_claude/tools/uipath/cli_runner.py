@@ -203,39 +203,32 @@ def run_studio_package_pack(
 
 
 def run_uip_rpa_find_activities(
-    activity_names: list[str],
-    project_path: str | Path,
+    query: str,
     *,
-    timeout: int = 60,
+    timeout: int = 30,
 ) -> dict:
-    """Run `uip rpa find-activities --activity-names <names> --project-dir <project>`.
+    """Run `uip rpa find-activities --query <query>`.
     
-    Checks if the given activity names exist in the project's available packages.
+    Searches for a single activity by name.
     
     Args:
-        activity_names: List of activity names to check (e.g., ["ui:LogMessage", "ui:StartOutlook"])
-        project_path: Path to the UiPath project directory
+        query: Activity name to search for (e.g., "ui:LogMessage")
         timeout: Command timeout in seconds
     
     Returns dict with:
         - success: bool - True if command succeeded
-        - found: list[str] - Activity names that were found
-        - not_found: list[str] - Activity names that were not found
+        - found: bool - Whether the activity was found
         - error: str - Error message if command failed
         - raw_output: str - Raw command output
     """
-    if not activity_names:
+    if not query or not query.strip():
         return {
             "success": True,
-            "found": [],
-            "not_found": [],
+            "found": False,
             "raw_output": "",
         }
     
-    path = str(Path(project_path).resolve())
     uip_cli = _find_uip_cli()
-    
-    activities_arg = ",".join(activity_names)
     
     try:
         proc = subprocess.run(
@@ -243,10 +236,8 @@ def run_uip_rpa_find_activities(
                 uip_cli,
                 "rpa",
                 "find-activities",
-                "--activity-names",
-                activities_arg,
-                "--project-dir",
-                path,
+                "--query",
+                query,
                 "--output",
                 "json",
             ],
@@ -258,16 +249,14 @@ def run_uip_rpa_find_activities(
     except FileNotFoundError:
         return {
             "success": False,
-            "found": [],
-            "not_found": activity_names,
+            "found": False,
             "error": "uip CLI not found. Install with: npm install -g @uipath/cli",
             "raw_output": "",
         }
     except subprocess.TimeoutExpired:
         return {
             "success": False,
-            "found": [],
-            "not_found": activity_names,
+            "found": False,
             "error": f"find-activities timed out after {timeout}s",
             "raw_output": "",
         }
@@ -278,21 +267,18 @@ def run_uip_rpa_find_activities(
         result = json.loads(output)
         if result.get("Result") == "Success":
             data = result.get("Data", {})
-            found = data.get("found", [])
-            not_found = data.get("not_found", [])
+            found = data.get("found", False)
             
             return {
                 "success": True,
                 "found": found,
-                "not_found": not_found,
                 "raw_output": output,
             }
         else:
             error_msg = result.get("Message", "Unknown error")
             return {
                 "success": False,
-                "found": [],
-                "not_found": activity_names,
+                "found": False,
                 "error": error_msg,
                 "raw_output": output,
             }
@@ -300,8 +286,7 @@ def run_uip_rpa_find_activities(
         error_msg = proc.stderr or output or "Failed to parse find-activities output"
         return {
             "success": False,
-            "found": [],
-            "not_found": activity_names,
+            "found": False,
             "error": error_msg,
             "raw_output": output,
         }

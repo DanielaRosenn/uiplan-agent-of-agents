@@ -10,49 +10,60 @@ from uipath_claude.tools.uipath.cli_runner import (
 
 
 @patch("uipath_claude.tools.uipath.cli_runner.subprocess.run")
-def test_run_uip_rpa_find_activities_success(mock_run):
-    """Test find-activities with successful result."""
+def test_run_uip_rpa_find_activities_success_found(mock_run):
+    """Test find-activities when activity is found."""
     mock_proc = MagicMock(
         returncode=0,
         stdout=json.dumps({
             "Result": "Success",
             "Data": {
-                "found": ["ui:LogMessage", "ui:WriteLine"],
-                "not_found": ["ui:FakeActivity"],
+                "found": True,
             }
         }),
         stderr="",
     )
     mock_run.return_value = mock_proc
     
-    result = run_uip_rpa_find_activities(
-        activity_names=["ui:LogMessage", "ui:WriteLine", "ui:FakeActivity"],
-        project_path="/test/project",
-    )
+    result = run_uip_rpa_find_activities(query="ui:LogMessage")
     
     assert result["success"] is True
-    assert "ui:LogMessage" in result["found"]
-    assert "ui:WriteLine" in result["found"]
-    assert "ui:FakeActivity" in result["not_found"]
+    assert result["found"] is True
     
     mock_run.assert_called_once()
     call_args = mock_run.call_args[0][0]
     assert "find-activities" in call_args
-    assert "--activity-names" in call_args
-    assert "--project-dir" in call_args
+    assert "--query" in call_args
+    assert "ui:LogMessage" in call_args
 
 
 @patch("uipath_claude.tools.uipath.cli_runner.subprocess.run")
-def test_run_uip_rpa_find_activities_empty_list(mock_run):
-    """Test find-activities with empty activity list."""
-    result = run_uip_rpa_find_activities(
-        activity_names=[],
-        project_path="/test/project",
+def test_run_uip_rpa_find_activities_success_not_found(mock_run):
+    """Test find-activities when activity is not found."""
+    mock_proc = MagicMock(
+        returncode=0,
+        stdout=json.dumps({
+            "Result": "Success",
+            "Data": {
+                "found": False,
+            }
+        }),
+        stderr="",
     )
+    mock_run.return_value = mock_proc
+    
+    result = run_uip_rpa_find_activities(query="ui:FakeActivity")
     
     assert result["success"] is True
-    assert result["found"] == []
-    assert result["not_found"] == []
+    assert result["found"] is False
+
+
+@patch("uipath_claude.tools.uipath.cli_runner.subprocess.run")
+def test_run_uip_rpa_find_activities_empty_query(mock_run):
+    """Test find-activities with empty query."""
+    result = run_uip_rpa_find_activities(query="")
+    
+    assert result["success"] is True
+    assert result["found"] is False
     mock_run.assert_not_called()
 
 
@@ -61,14 +72,11 @@ def test_run_uip_rpa_find_activities_cli_not_found(mock_run):
     """Test find-activities when CLI is not installed."""
     mock_run.side_effect = FileNotFoundError()
     
-    result = run_uip_rpa_find_activities(
-        activity_names=["ui:LogMessage"],
-        project_path="/test/project",
-    )
+    result = run_uip_rpa_find_activities(query="ui:LogMessage")
     
     assert result["success"] is False
     assert "uip CLI not found" in result["error"]
-    assert result["not_found"] == ["ui:LogMessage"]
+    assert result["found"] is False
 
 
 @patch("uipath_claude.tools.uipath.cli_runner.subprocess.run")
@@ -76,17 +84,13 @@ def test_run_uip_rpa_find_activities_timeout(mock_run):
     """Test find-activities timeout."""
     from subprocess import TimeoutExpired
     
-    mock_run.side_effect = TimeoutExpired(cmd="uip", timeout=60)
+    mock_run.side_effect = TimeoutExpired(cmd="uip", timeout=30)
     
-    result = run_uip_rpa_find_activities(
-        activity_names=["ui:LogMessage"],
-        project_path="/test/project",
-        timeout=60,
-    )
+    result = run_uip_rpa_find_activities(query="ui:LogMessage", timeout=30)
     
     assert result["success"] is False
     assert "timed out" in result["error"]
-    assert result["not_found"] == ["ui:LogMessage"]
+    assert result["found"] is False
 
 
 @patch("uipath_claude.tools.uipath.cli_runner.subprocess.run")
@@ -96,19 +100,16 @@ def test_run_uip_rpa_find_activities_command_error(mock_run):
         returncode=1,
         stdout=json.dumps({
             "Result": "Error",
-            "Message": "Project not found",
+            "Message": "Activity search failed",
         }),
         stderr="",
     )
     mock_run.return_value = mock_proc
     
-    result = run_uip_rpa_find_activities(
-        activity_names=["ui:LogMessage"],
-        project_path="/test/project",
-    )
+    result = run_uip_rpa_find_activities(query="ui:LogMessage")
     
     assert result["success"] is False
-    assert "Project not found" in result["error"]
+    assert "Activity search failed" in result["error"]
 
 
 @patch("uipath_claude.tools.uipath.cli_runner.subprocess.run")
@@ -121,10 +122,7 @@ def test_run_uip_rpa_find_activities_invalid_json(mock_run):
     )
     mock_run.return_value = mock_proc
     
-    result = run_uip_rpa_find_activities(
-        activity_names=["ui:LogMessage"],
-        project_path="/test/project",
-    )
+    result = run_uip_rpa_find_activities(query="ui:LogMessage")
     
     assert result["success"] is False
     assert "error" in result
