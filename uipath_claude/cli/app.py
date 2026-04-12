@@ -1,6 +1,7 @@
 """CLI application entry point."""
 import asyncio
 import os
+import re
 from pathlib import Path
 
 import typer
@@ -18,13 +19,18 @@ from uipath_claude.query.bootstrap import run_bootstrap_flow
 from uipath_claude.query.conversation import ConversationEngine
 from uipath_claude.query.router import route_user_input
 from uipath_claude.rendering.branding import print_welcome_banner
+from uipath_claude.skills.loader import load_skill_content
 from uipath_claude.skills.registry import SkillRegistry
 from uipath_claude.tools.skill_tool import create_skill_tool
 
 
 app = typer.Typer(help="UiPath Claude Code - Conversational AI for UiPath")
 
-_UIPATH_CHAT_SYSTEM = """You are UiPath Claude Code. You build UiPath Studio automations (workflow XAML, project.json), not WPF desktop apps, unless the user explicitly asks for WPF.
+_UIPATH_CHAT_SYSTEM = """You are UiPath Claude Code. You build UiPath Studio automations (workflow XAML), not WPF desktop apps, unless the user explicitly asks for WPF.
+
+If a UiPath project already exists, do not regenerate scaffold files (`project.json`, `project.uiproj`, `.local`, `.objects`) unless the user explicitly asks.
+When the user asks for a workflow, default to writing only `.xaml` workflow files.
+Do not invent or pin legacy dependency versions in `project.json`; if package changes are required, explain the `uip rpa install-or-update-packages` command instead.
 
 When the user asks you to CREATE, WRITE, or GENERATE files, you MUST include one or more file blocks using EXACTLY this format (markers on their own lines; path uses forward slashes only):
 
@@ -36,6 +42,97 @@ Put files under logical subpaths (e.g. `demo/Main.xaml`). Use only relative path
 You may instead use a markdown code fence whose first line is exactly: path: <relative/path> then the file body on following lines until the closing fence.
 
 After the blocks you may add one short sentence summarizing what you wrote."""
+
+_SKILL_CONTEXT_MAX_CHARS = 8000
+_SKILL_CONTEXT_MAX_ITEMS = 2
+_RPA_HINT_TOKENS = {
+    "uipath",
+    "workflow",
+    "workflows",
+    "xaml",
+    "automation",
+    "outlook",
+    "email",
+    "excel",
+    "browser",
+    "selector",
+    "queue",
+    "mail",
+}
+
+
+def _tokenize(text: str) -> set[str]:
+    """Tokenize text for lightweight lexical scoring."""
+    return set(re.findall(r"[a-z0-9]+", text.lower()))
+
+
+def _score_skill(skill: dict, user_input: str, user_tokens: set[str]) -> int:
+    """Compute simple lexical relevance between user prompt and skill metadata."""
+    name = str(skill.get("name", ""))
+    description = str(skill.get("description", ""))
+    triggers = skill.get("triggers", [])
+    lower_input = user_input.lower()
+
+    score = 0
+    score += len(_tokenize(name) & user_tokens) * 4
+    score += len(_tokenize(description) & user_tokens) * 2
+
+    if isinstance(triggers, list):
+        for trigger in triggers:
+            trig = str(trigger).strip().lower()
+            if not trig:
+                continue
+            if trig in lower_input:
+                score += 6
+            else:
+                score += len(_tokenize(trig) & user_tokens)
+
+    if name == "uipath-rpa-workflows" and (user_tokens & _RPA_HINT_TOKENS):
+        score += 12
+    if name == "uipath-coded-workflows":
+        if ({"coded", "workflow"} & user_tokens) or ".cs" in lower_input:
+            score += 10
+
+    return score
+
+
+def _select_relevant_skills(user_input: str, skills: list[dict], max_items: int = 2) -> list[dict]:
+    """Select the most relevant skills for a free-form chat request."""
+    user_tokens = _tokenize(user_input)
+    if not user_tokens:
+        return []
+
+    ranked: list[tuple[int, dict]] = []
+    for skill in skills:
+        score = _score_skill(skill, user_input, user_tokens)
+        if score <= 0:
+            continue
+        ranked.append((score, skill))
+
+    ranked.sort(key=lambda item: item[0], reverse=True)
+    return [skill for _, skill in ranked[:max_items]]
+
+
+def _build_runtime_skill_context(user_input: str, skills: list[dict]) -> str:
+    """Build request-scoped skill guidance injected into the model prompt."""
+    selected = _select_relevant_skills(
+        user_input, skills, max_items=_SKILL_CONTEXT_MAX_ITEMS
+    )
+    if not selected:
+        return ""
+
+    sections: list[str] = [
+        "Use the following skill guidance for this request. Follow these rules strictly."
+    ]
+    for skill in selected:
+        name = str(skill.get("name", "unknown"))
+        content = load_skill_content(str(skill.get("path", "")))
+        if not content:
+            continue
+        trimmed = content[:_SKILL_CONTEXT_MAX_CHARS]
+        sections.append(f"[Skill: {name}]\n{trimmed}")
+
+    return "\n\n".join(sections)
 
 
 def _build_command_registry(
@@ -71,17 +168,38 @@ async def _get_model_response(
     engine: ConversationEngine,
     history: list[dict[str, str]],
     memory: str,
+    runtime_context: str = "",
+    *,
+    stream: bool = False,
+    on_delta=None,
 ) -> str:
     """Get an LLM response from Bedrock conversation engine."""
     base = _UIPATH_CHAT_SYSTEM
-    context_prompt = f"{base}\n\nMemory:\n{memory}" if memory else base
+    context_parts = [base]
+    if memory:
+        context_parts.append(f"Memory:\n{memory}")
+    if runtime_context:
+        context_parts.append(f"Runtime guidance:\n{runtime_context}")
+    context_prompt = "\n\n".join(context_parts)
     messages = [{"role": "system", "content": context_prompt}, *history]
-    return await engine.run(messages=messages, tools=[], system_prompt=base)
+    if stream:
+        return await engine.run_stream(
+            messages=messages,
+            tools=[],
+            system_prompt=context_prompt,
+            on_delta=on_delta,
+        )
+    return await engine.run(messages=messages, tools=[], system_prompt=context_prompt)
 
 
 @app.command()
 def chat(
     no_banner: bool = typer.Option(False, "--no-banner", help="Skip welcome banner"),
+    stream: bool | None = typer.Option(
+        None,
+        "--stream/--no-stream",
+        help="Stream assistant tokens while generating responses.",
+    ),
 ):
     """Start conversational chat mode."""
     if not no_banner:
@@ -128,6 +246,7 @@ def chat(
 
     print("Chat session started. Type 'exit' or 'quit' to leave.\n")
     history: list[dict[str, str]] = []
+    stream_enabled = _resolve_stream_enabled(stream)
 
     while True:
         try:
@@ -171,8 +290,40 @@ def chat(
             continue
 
         history.append({"role": "user", "content": user_input})
+        runtime_context = _build_runtime_skill_context(user_input, skills)
         try:
-            response = asyncio.run(_get_model_response(engine, history, memory))
+            if stream_enabled:
+                print("Assistant: ", end="", flush=True)
+                emitted_deltas = False
+
+                def _print_delta(delta: str) -> None:
+                    nonlocal emitted_deltas
+                    emitted_deltas = True
+                    print(delta, end="", flush=True)
+
+                response = asyncio.run(
+                    _get_model_response(
+                        engine,
+                        history,
+                        memory,
+                        runtime_context,
+                        stream=True,
+                        on_delta=_print_delta,
+                    )
+                )
+                if not emitted_deltas:
+                    print(str(response), end="", flush=True)
+                print("")
+            else:
+                response = asyncio.run(
+                    _get_model_response(
+                        engine,
+                        history,
+                        memory,
+                        runtime_context,
+                        stream=False,
+                    )
+                )
         except Exception as exc:
             print("Bedrock request failed.")
             print(
@@ -183,7 +334,10 @@ def chat(
 
         history.append({"role": "assistant", "content": str(response)})
 
-        print(f"Assistant: {response}\n")
+        if not stream_enabled:
+            print(f"Assistant: {response}\n")
+        else:
+            print("")
 
         if os.environ.get("UIPATH_CHAT_MATERIALIZE", "1").lower() not in (
             "0",
@@ -202,6 +356,14 @@ def chat(
                 for path in written:
                     print(f"  {path}")
                 print("")
+
+
+def _resolve_stream_enabled(stream_flag: bool | None) -> bool:
+    """Resolve stream mode from CLI flag and environment."""
+    if stream_flag is not None:
+        return stream_flag
+    env = os.environ.get("UIPATH_CHAT_STREAM", "1").strip().lower()
+    return env not in {"0", "false", "no"}
 
 
 @app.command()

@@ -38,6 +38,19 @@ uipath-claude chat
 
 Exit with `exit` or `quit`.
 
+Streaming is enabled by default in chat. Use:
+
+```bash
+uipath-claude chat --no-stream
+```
+
+Or set:
+
+```bash
+# 0/false/no disables streaming
+set UIPATH_CHAT_STREAM=0
+```
+
 ## Chat file output (on-disk)
 
 When the model replies with file blocks in one of these formats, the CLI **writes files** under `generated/chat/` (or `UIPATH_CHAT_OUTPUT_DIR`):

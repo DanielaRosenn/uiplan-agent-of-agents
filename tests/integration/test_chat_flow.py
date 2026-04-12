@@ -22,6 +22,22 @@ def test_chat_flow_with_no_banner():
 
 
 @pytest.mark.integration
+def test_chat_flow_no_stream_flag_keeps_buffered_output():
+    """Test --no-stream uses buffered assistant print path."""
+    with patch("uipath_claude.cli.app._create_engine") as create_engine:
+        create_engine.return_value = object()
+        with patch(
+            "uipath_claude.cli.app._get_model_response", new_callable=AsyncMock
+        ) as get_model_response:
+            get_model_response.return_value = "Buffered reply"
+            result = runner.invoke(
+                app, ["chat", "--no-banner", "--no-stream"], input="hello\nexit\n"
+            )
+    assert result.exit_code == 0
+    assert "assistant: buffered reply" in result.stdout.lower()
+
+
+@pytest.mark.integration
 def test_chat_flow_detects_project(tmp_path, monkeypatch):
     """Test chat flow detects UiPath project."""
     # Create fake project
