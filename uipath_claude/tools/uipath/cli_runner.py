@@ -5,6 +5,98 @@ import json
 import os
 import subprocess
 from pathlib import Path
+from typing import Any
+
+
+_STUDIO_UNAVAILABLE_MARKERS = (
+    "interop",
+    "autopilot",
+    "dependencyexception",
+    "could not load file or assembly",
+)
+
+
+def _collect_text_fragments(value: Any) -> list[str]:
+    """Recursively collect non-empty string fragments from nested payloads."""
+    if isinstance(value, str):
+        stripped = value.strip()
+        return [stripped] if stripped else []
+    if isinstance(value, list):
+        fragments: list[str] = []
+        for item in value:
+            fragments.extend(_collect_text_fragments(item))
+        return fragments
+    if isinstance(value, dict):
+        fragments = []
+        preferred_keys = (
+            "message",
+            "Message",
+            "error",
+            "Error",
+            "details",
+            "Details",
+            "exception",
+            "Exception",
+        )
+        for key in preferred_keys:
+            if key in value:
+                fragments.extend(_collect_text_fragments(value[key]))
+        if fragments:
+            return fragments
+        for nested_value in value.values():
+            fragments.extend(_collect_text_fragments(nested_value))
+        return fragments
+    return []
+
+
+def _extract_cli_message(payload: dict[str, Any]) -> str:
+    """Extract the best available message string from CLI JSON response."""
+    data = payload.get("Data")
+    if isinstance(data, dict):
+        for key in ("message", "Message"):
+            if key in data:
+                fragments = _collect_text_fragments(data[key])
+                if fragments:
+                    return "\n".join(fragments)
+    for key in ("Message", "message"):
+        if key in payload:
+            fragments = _collect_text_fragments(payload[key])
+            if fragments:
+                return "\n".join(fragments)
+    return ""
+
+
+def _parse_get_errors_message(message: str) -> list[str]:
+    """Parse diagnostics lines from get-errors output text."""
+    normalized = message.strip()
+    if not normalized:
+        return []
+    if "No diagnostics found" in normalized:
+        return []
+
+    lines = normalized.splitlines()
+    parsed = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("- "):
+            parsed.append(stripped[2:].strip())
+    if parsed:
+        return parsed
+
+    if normalized.startswith("Errors"):
+        return [normalized]
+    return [normalized]
+
+
+def _studio_unavailable_error(message: str) -> str | None:
+    """Return an explicit Studio-unavailable message when signature is detected."""
+    lowered = message.lower()
+    if not any(marker in lowered for marker in _STUDIO_UNAVAILABLE_MARKERS):
+        return None
+    return (
+        "UiPath Studio is unavailable. File-level diagnostics could not run "
+        f"(interop/autopilot/dependency exception): {message.strip()}"
+    )
 
 
 def _find_uip_cli() -> str:
@@ -20,6 +112,7 @@ def _find_uip_cli() -> str:
 def run_uip_rpa_get_errors(
     project_path: str | Path,
     *,
+    file_path: str | Path | None = None,
     timeout: int = 120,
 ) -> dict:
     """Run `uip rpa get-errors --project-dir <project> --output json`.
@@ -31,9 +124,13 @@ def run_uip_rpa_get_errors(
     """
     path = str(Path(project_path).resolve())
     uip_cli = _find_uip_cli()
+    command = [uip_cli, "rpa", "get-errors", "--project-dir", path]
+    if file_path is not None:
+        command.extend(["--file-path", str(Path(file_path).resolve())])
+    command.extend(["--output", "json"])
     try:
         proc = subprocess.run(
-            [uip_cli, "rpa", "get-errors", "--project-dir", path, "--output", "json"],
+            command,
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -44,41 +141,64 @@ def run_uip_rpa_get_errors(
             "success": False,
             "errors": ["uip CLI not found. Install with: npm install -g @uipath/cli"],
             "raw_output": "",
+            "diagnostics_ran": False,
         }
     except subprocess.TimeoutExpired:
         return {
             "success": False,
             "errors": [f"Validation timed out after {timeout}s"],
             "raw_output": "",
+            "diagnostics_ran": False,
         }
     
     output = proc.stdout or ""
     errors = []
+    diagnostics_ran = True
     
     try:
         result = json.loads(output)
-        if result.get("Result") == "Success":
-            data = result.get("Data", {})
-            message = data.get("message", "")
-            if "No diagnostics found" in message:
-                return {"success": True, "errors": [], "raw_output": output}
-            if message.startswith("Errors"):
-                error_lines = message.split("\n")
-                for line in error_lines[1:]:
-                    line = line.strip()
-                    if line.startswith("- "):
-                        errors.append(line[2:])
-                return {"success": False, "errors": errors, "raw_output": output}
+        message = _extract_cli_message(result) if isinstance(result, dict) else ""
+        studio_unavailable = _studio_unavailable_error(message)
+        if studio_unavailable:
+            return {
+                "success": False,
+                "errors": [studio_unavailable],
+                "raw_output": output,
+                "diagnostics_ran": False,
+            }
+
+        if isinstance(result, dict) and result.get("Result") == "Success":
+            parsed_errors = _parse_get_errors_message(message)
+            if not parsed_errors:
+                return {
+                    "success": True,
+                    "errors": [],
+                    "raw_output": output,
+                    "diagnostics_ran": diagnostics_ran,
+                }
+            return {
+                "success": False,
+                "errors": parsed_errors,
+                "raw_output": output,
+                "diagnostics_ran": diagnostics_ran,
+            }
         else:
-            errors.append(result.get("Message", "Unknown error"))
+            errors.append(message or "Unknown error")
     except json.JSONDecodeError:
         if proc.returncode != 0:
-            errors.append(proc.stderr or output or "Validation failed")
+            raw_error = proc.stderr or output or "Validation failed"
+            studio_unavailable = _studio_unavailable_error(raw_error)
+            if studio_unavailable:
+                errors.append(studio_unavailable)
+                diagnostics_ran = False
+            else:
+                errors.append(raw_error)
     
     return {
         "success": len(errors) == 0,
         "errors": errors,
         "raw_output": output,
+        "diagnostics_ran": diagnostics_ran,
     }
 
 
@@ -151,6 +271,15 @@ def run_uip_rpa_analyze(
         else:
             # Analyze failed
             error_msg = result.get("Message", "Unknown error")
+            studio_unavailable = _studio_unavailable_error(error_msg)
+            if studio_unavailable:
+                errors.append(studio_unavailable)
+                return {
+                    "success": False,
+                    "errors": errors,
+                    "warnings": warnings,
+                    "raw_output": output,
+                }
             # Check if it's a "project already open" or "missing project file" error
             if ("already opened in another Studio instance" in error_msg or
                 "No project.uiproj" in error_msg or
@@ -160,7 +289,9 @@ def run_uip_rpa_analyze(
             errors.append(error_msg)
     except json.JSONDecodeError:
         if proc.returncode != 0:
-            errors.append(proc.stderr or output or "Analysis failed")
+            raw_error = proc.stderr or output or "Analysis failed"
+            studio_unavailable = _studio_unavailable_error(raw_error)
+            errors.append(studio_unavailable or raw_error)
     
     return {
         "success": len(errors) == 0,

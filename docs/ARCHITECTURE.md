@@ -63,6 +63,26 @@ Session recall is exposed through `/recall <term>` and implemented in
 `uipath_claude.commands.recall`, backed by
 `uipath_claude.query.session_search`.
 
+## Validation Contract
+
+Generated workflow validation returns a structured contract from
+`validate_generated_project`:
+
+- `success` (`bool`): structural validation status (project and workflow parse-level checks)
+- `fully_validated` (`bool`): whether full diagnostics executed, including file-level checks
+- `warnings` (`list[str]`): non-fatal diagnostics and partial-validation notes
+- `errors` (`list[str]`): blocking diagnostics
+
+### Strict Semantics
+
+- A full-pass claim (`"Validation passed - No errors found"`) is allowed only when:
+  - `success is True`, and
+  - `fully_validated is True`
+- If `success is True` but `fully_validated is False`, status must be partial:
+  - `"Validation passed with warnings"`
+  - include warning details so operators know diagnostics were incomplete
+- If `success is False`, status is failure and errors are surfaced for remediation.
+
 ## Bootstrap Flow
 
 ```

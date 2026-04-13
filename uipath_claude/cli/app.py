@@ -33,7 +33,7 @@ from uipath_claude.rendering.branding import print_welcome_banner
 from uipath_claude.rendering.progress import ProgressReporter
 from uipath_claude.skills.loader import load_skill_content
 from uipath_claude.skills.registry import SkillRegistry
-from uipath_claude.skills.updater import check_for_updates
+from uipath_claude.skills.updater import check_for_updates, get_sync_staleness
 from uipath_claude.hooks.session_hooks import check_uip_installed
 from uipath_claude.tools.profiles import is_command_allowed, resolve_tool_profile
 from uipath_claude.tools.skill_tool import create_skill_tool
@@ -389,6 +389,15 @@ def chat(
         project_path=project_context["project_path"] if project_context else None
     )
 
+    # Check local sync metadata staleness.
+    try:
+        is_stale, stale_message = get_sync_staleness(max_age_hours=24)
+        if is_stale:
+            progress.warning(stale_message)
+            console.print("")
+    except Exception:
+        pass
+
     # Check for skills updates (non-blocking)
     try:
         has_updates, update_msg, _, _ = check_for_updates()
@@ -501,6 +510,9 @@ def chat(
             tool = create_skill_tool(skill)
             result = tool.invoke({"query": query})
             console.print(f"[magenta]Assistant:[/magenta] {result}\n")
+            continue
+        if route == "clarification":
+            console.print(f"[magenta]Assistant:[/magenta] {payload['question']}\n")
             continue
 
         history.append({"role": "user", "content": user_input})
@@ -625,9 +637,19 @@ def chat(
                 if has_xaml and auto_validate:
                     with progress.validating():
                         validation = validate_generated_project(chat_root)
-                    if validation["success"]:
+                    validation_success = bool(validation.get("success", False))
+                    fully_validated = bool(
+                        validation.get("fully_validated", validation_success)
+                    )
+                    if validation_success and fully_validated:
                         progress.success("Validation passed - No errors found")
                         # Show warnings even if validation passed
+                        if validation.get("warnings"):
+                            for warning in validation["warnings"][:3]:
+                                progress.warning(warning)
+                        console.print("")
+                    elif validation_success:
+                        progress.warning("Validation passed with warnings")
                         if validation.get("warnings"):
                             for warning in validation["warnings"][:3]:
                                 progress.warning(warning)
