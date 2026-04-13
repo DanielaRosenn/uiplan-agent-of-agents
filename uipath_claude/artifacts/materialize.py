@@ -9,6 +9,8 @@ import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from uipath_claude.validation.state import ValidationState
+
 if TYPE_CHECKING:
     from uipath_claude.tools.uipath.cli_runner import run_uip_rpa_get_errors
 
@@ -264,7 +266,7 @@ def ensure_project_json(output_root: Path) -> bool:
             "pipType": "ChildSession"
         },
         "designOptions": {
-            "projectProfile": "Developement",
+            "projectProfile": "Development",
             "outputType": "Process",
             "libraryOptions": {
                 "includeOriginalXaml": False,
@@ -301,8 +303,27 @@ def validate_generated_project(project_path: Path) -> dict:
         - warnings: list of warning strings (optional)
         - project_path: str
     """
-    from uipath_claude.tools.uipath.cli_runner import run_uip_rpa_analyze
+    from uipath_claude.tools.uipath.cli_runner import (
+        run_uip_rpa_analyze,
+        run_uip_rpa_get_errors,
+    )
     
+    project_path = project_path.resolve()
+    if not project_path.exists() or not project_path.is_dir():
+        state = ValidationState(
+            success=False,
+            fully_validated=False,
+            errors=[f"Project path does not exist or is not a directory: {project_path}"],
+            project_path=str(project_path),
+        )
+        return {
+            "valid": state.success,
+            "success": state.success,
+            "fully_validated": state.fully_validated,
+            "errors": state.errors,
+            "project_path": state.project_path,
+        }
+
     project_json = project_path / "project.json"
     if not project_json.exists():
         parent = project_path.parent
@@ -316,20 +337,98 @@ def validate_generated_project(project_path: Path) -> dict:
     
     if not (project_path / "project.json").exists():
         if not ensure_project_json(project_path):
+            state = ValidationState(
+                success=False,
+                fully_validated=False,
+                errors=["No project.json found and failed to create template"],
+                project_path=str(project_path),
+            )
             return {
-                "success": False,
-                "errors": ["No project.json found and failed to create template"],
-                "project_path": str(project_path),
+                "valid": state.success,
+                "success": state.success,
+                "fully_validated": state.fully_validated,
+                "errors": state.errors,
+                "project_path": state.project_path,
             }
     
-    # Use analyze instead of get-errors for deeper validation
-    # This catches missing activities, package issues, etc.
     result = run_uip_rpa_analyze(project_path)
+    errors = result.get("errors", []) if isinstance(result, dict) else []
+    warnings_list = result.get("warnings", []) if isinstance(result, dict) else []
+    structural_success = bool(result.get("success", False)) if isinstance(result, dict) else False
+    if not isinstance(errors, list):
+        errors = [str(errors)]
+    if not isinstance(warnings_list, list):
+        warnings_list = [str(warnings_list)]
+
+    # Avoid extra file-level CLI calls when structural validation has already failed.
+    if not structural_success and errors:
+        state = ValidationState(
+            success=False,
+            fully_validated=False,
+            errors=errors,
+            project_path=str(project_path),
+        )
+        return_dict = {
+            "valid": state.success,
+            "success": state.success,
+            "fully_validated": state.fully_validated,
+            "errors": state.errors,
+            "project_path": state.project_path,
+        }
+        if warnings_list:
+            state.warnings = warnings_list
+            return_dict["warnings"] = state.warnings
+        return return_dict
+
+    xaml_files = sorted(
+        path for path in project_path.rglob("*.xaml")
+        if path.is_file()
+    )
+    fully_validated = True
+    file_level_errors: list[str] = []
+    diagnostics_not_run: list[str] = []
+    for xaml_file in xaml_files:
+        file_result = run_uip_rpa_get_errors(project_path, file_path=xaml_file)
+        file_errors = file_result.get("errors", []) if isinstance(file_result, dict) else []
+        if not isinstance(file_errors, list):
+            file_errors = [str(file_errors)]
+
+        relative_path = xaml_file.relative_to(project_path).as_posix()
+        if not bool(file_result.get("diagnostics_ran", True)):
+            fully_validated = False
+            detail = file_errors[0] if file_errors else "Unknown diagnostics failure"
+            diagnostics_not_run.append(f"{relative_path}: {detail}")
+            continue
+
+        if not bool(file_result.get("success", False)):
+            if file_errors:
+                file_level_errors.extend(f"{relative_path}: {error}" for error in file_errors)
+            else:
+                file_level_errors.append(f"{relative_path}: Unknown diagnostics failure")
+
+    errors.extend(file_level_errors)
+
+    if diagnostics_not_run:
+        warnings_list.extend(
+            f"File-level diagnostics not run for {entry}"
+            for entry in diagnostics_not_run
+        )
+
+    state = ValidationState(
+        success=(structural_success and not errors)
+        if isinstance(result, dict) else False,
+        fully_validated=fully_validated,
+        errors=errors,
+        project_path=str(project_path),
+    )
     return_dict = {
-        "success": result["success"],
-        "errors": result["errors"],
-        "project_path": str(project_path),
+        "valid": state.success,
+        "success": state.success,
+        "fully_validated": state.fully_validated,
+        "errors": state.errors,
+        "project_path": state.project_path,
     }
-    if "warnings" in result:
-        return_dict["warnings"] = result["warnings"]
+    if warnings_list:
+        state.warnings = warnings_list
+        return_dict["warnings"] = state.warnings
     return return_dict

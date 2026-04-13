@@ -29,6 +29,7 @@ def register_update_skills_command(registry: CommandRegistry) -> None:
                 f"  Path: {info['path']}",
                 f"  Current commit: {info['current_commit'] or 'unknown'}",
                 f"  Remote commit:  {info['remote_commit'] or 'unknown'}",
+                f"  Last synced at: {info['last_synced_at'] or 'never'}",
                 f"  Has updates: {info['has_updates']}",
                 f"  Skills count: {info['skills_count']}",
             ]
