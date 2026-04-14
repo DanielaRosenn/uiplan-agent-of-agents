@@ -72,7 +72,10 @@ Generated projects are saved to `generated/chat/{session-id}/`.
 | `AWS_REGION` | AWS region for Bedrock | `us-east-1` |
 | `UIPATH_CLAUDE_MODEL` | Bedrock model ID | `anthropic.claude-3-sonnet-20240229-v1:0` |
 | `UIPATH_AGENTIC_MODE` | Enable agentic tool-use loops | `0` |
-| `UIPATH_DEBUG_AGENT` | Show debug output for tool calls | `0` |
+| `UIPATH_DEBUG_AGENT` | Show formatted debug output | `0` |
+| `UIPATH_DEBUG_VERBOSE` | Show full tool args/results (not truncated) | `0` |
+| `UIPATH_DEBUG_RAW` | Show raw JSON output | `0` |
+| `UIPATH_MAX_ITERATIONS` | Maximum ReAct loop iterations | `25` |
 | `UIPATH_CLAUDE_TOOL_PROFILE` | Tool profile (`safe`, `uipath-dev`, `all`) | `safe` |
 | `UIPATH_CLAUDE_REQUIRE_APPROVAL` | Require approval for CLI ops | `false` |
 | `UIPATH_CLAUDE_CLI_APPROVED` | Pre-approve CLI operations | `false` |
@@ -125,6 +128,33 @@ Key skills included:
 ## Architecture
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture documentation.
+
+## Evaluation
+
+The agent includes a LangSmith-style evaluation framework for measuring quality:
+
+```python
+from uipath_claude.evaluation import EvaluationDataset, EvaluationRunner
+from uipath_claude.evaluation import final_response_evaluator, trajectory_evaluator
+
+# Load benchmark dataset
+dataset = EvaluationDataset.from_workflow_benchmarks()
+
+# Create runner with evaluators
+runner = EvaluationRunner(
+    target_function=your_agent_function,
+    evaluators={
+        "final_response": final_response_evaluator,
+        "trajectory": trajectory_evaluator,
+    }
+)
+
+# Run evaluation
+run = await runner.run(dataset)
+print(f"Pass rate: {run.summary['pass_rate']:.1%}")
+```
+
+See [docs/EVALUATION_RESULTS.md](docs/EVALUATION_RESULTS.md) for latest benchmark results.
 
 ## Development
 

@@ -81,14 +81,60 @@ In agentic mode, the agent will:
 ```
 You: Create a UiPath project that reads data from Excel and writes to another sheet
 
-[DEBUG] Tool call: ensure_project_structure({"project_dir": "."})
-[DEBUG] Tool call: install_package({"package_id": "UiPath.Excel.Activities"})
-[DEBUG] Tool call: write_file({"file_path": "Main.xaml", ...})
-[DEBUG] Tool call: validate_file({"file_path": "Main.xaml"})
-[DEBUG] Validation passed: 0 errors
++------------------------------------------------------------------------------+
+| Iteration 1 of 25                              [>         ]                  |
++------------------------------------------------------------------------------+
+
+   ensure_project_structure
+     Created project.json at ./generated/chat/20260414-161008-bcb53f2f/project.json
+
++------------------------------------------------------------------------------+
+| Iteration 2 of 25                              [>         ]                  |
++------------------------------------------------------------------------------+
+
+   install_package
+         -> UiPath.Excel.Activities
+     Successfully installed UiPath.Excel.Activities
+
++------------------------------------------------------------------------------+
+| Iteration 3 of 25                              [=>        ]                  |
++------------------------------------------------------------------------------+
+
+   write_file
+         -> Main.xaml
+     Successfully wrote 2,341 bytes to Main.xaml
+
++------------------------------------------------------------------------------+
+| Iteration 4 of 25                              [=>        ]                  |
++------------------------------------------------------------------------------+
+
+   validate_file
+         -> Main.xaml
+     Validation passed: 0 errors
 ```
 
 Generated files are saved to `generated/chat/{session-id}/`.
+
+### Debug Output Modes
+
+Control debug verbosity with environment variables:
+
+```powershell
+# Show formatted debug output (default in debug mode)
+$env:UIPATH_DEBUG_AGENT = "1"
+
+# Show full tool arguments and results (not truncated)
+$env:UIPATH_DEBUG_VERBOSE = "1"
+
+# Show raw JSON output (for debugging the debugger)
+$env:UIPATH_DEBUG_RAW = "1"
+```
+
+**Formatted output** (default): Clean, human-readable with progress bars and status icons.
+
+**Verbose output**: Includes full tool arguments and complete results.
+
+**Raw output**: Shows complete JSON for all tool calls and results.
 
 ## Common Workflows
 

@@ -18,6 +18,8 @@ from langchain_core.messages import (
     ToolMessage,
 )
 
+from uipath_claude.rendering.progress import AgenticProgressReporter
+
 
 @dataclass
 class AgenticResult:
@@ -42,7 +44,7 @@ class AgenticExecutor:
     4. Repeat until task complete or max iterations
     """
     
-    MAX_ITERATIONS = 15
+    MAX_ITERATIONS = int(os.environ.get("UIPATH_MAX_ITERATIONS", "25"))
     
     def __init__(
         self,
@@ -96,6 +98,9 @@ class AgenticExecutor:
         context = project_context or {}
         debug = os.environ.get("UIPATH_DEBUG_AGENT", "0").lower() in ("1", "true", "yes")
         
+        # Initialize progress reporter if debug enabled
+        progress = AgenticProgressReporter() if debug else None
+        
         # Build system prompt
         system_prompt = self._build_system_prompt(skill_content, context)
         
@@ -119,8 +124,8 @@ class AgenticExecutor:
         while iterations < self.MAX_ITERATIONS:
             iterations += 1
             
-            if debug:
-                print(f"[DEBUG] Iteration {iterations}/{self.MAX_ITERATIONS}")
+            if progress:
+                progress.iteration_start(iterations, self.MAX_ITERATIONS)
             
             # Call LLM
             try:
@@ -157,8 +162,8 @@ class AgenticExecutor:
                 tool_args = tool_call.get("args", {})
                 tool_id = tool_call.get("id", "")
                 
-                if debug:
-                    print(f"[DEBUG] Tool call: {tool_name}({json.dumps(tool_args)[:200]})")
+                if progress:
+                    progress.tool_call(tool_name, tool_args)
                 
                 if self.on_tool_call:
                     self.on_tool_call(tool_name, tool_args)
@@ -173,13 +178,16 @@ class AgenticExecutor:
                 tool = tool_map.get(tool_name)
                 if tool is None:
                     result = f"Error: Unknown tool '{tool_name}'"
+                    success = False
                 else:
                     try:
                         result = tool.invoke(tool_args)
                         if not isinstance(result, str):
                             result = str(result)
+                        success = "error" not in result.lower() and "failed" not in result.lower()
                     except Exception as e:
                         result = f"Error executing {tool_name}: {e}"
+                        success = False
                 
                 # Track file writes
                 if tool_name == "write_file" and "Successfully wrote" in result:
@@ -187,8 +195,8 @@ class AgenticExecutor:
                     if file_path:
                         files_written.append(file_path)
                 
-                if debug:
-                    print(f"[DEBUG] Tool result: {result[:300]}...")
+                if progress:
+                    progress.tool_result(tool_name, success, result)
                 
                 if self.on_tool_result:
                     self.on_tool_result(tool_name, result)

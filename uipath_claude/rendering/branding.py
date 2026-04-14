@@ -63,19 +63,23 @@ def create_welcome_panel() -> Panel:
     title.append("UiPath ", style=f"bold {UIPATH_ORANGE}")
     title.append("Claude Code", style=f"bold {UIPATH_BLUE}")
     
-    # ASCII robot art (using only basic ASCII for Windows compatibility)
+    # BuilderBot - friendly helper robot with mechanical arms
     robot = """
-         _____
-        |     |
-        | O O |
-        |  ^  |
-        |_____|
-         |   |
-        _|   |_
-       |_______|
+          _____
+        .'     '.
+       /  o   o  \\
+      |    ___    |
+      |   (___}   |
+       \\  '---'  /
+        '._____.'
+         |     |
+       .-|     |-.
+      /  |=====|  \\
+     |   |     |   |
+     '---'     '---'
     """
     
-    # Build the content
+    # Build the content with colored sections
     content = Text()
     content.append(robot, style=f"bold {UIPATH_ORANGE}")
     content.append("\n")
@@ -88,7 +92,7 @@ def create_welcome_panel() -> Panel:
     panel = Panel(
         content,
         title=title,
-        border_style="bright_blue",
+        border_style=UIPATH_BLUE,
         padding=(1, 2),
     )
     
@@ -117,19 +121,27 @@ def print_welcome_banner() -> None:
 def _print_plain_banner(console: Console) -> None:
     """Print plain text banner for terminals that don't support rich formatting."""
     banner = """
-=========================================
-
-          _____
-         |     |
-         | O O |   UiPath Claude Code
-         |  ^  |
-         |_____|   Conversational AI
-          |   |    for UiPath Automation
-         _|   |_
-        |_______|
-
-    Version: {version}
-
-=========================================
+╭───────────────────────────── UiPath Claude Code ──────────────────────────────╮
+│                                                                               │
+│                                                                               │
+│           _____                                                               │
+│         .'     '.                                                             │
+│        /  o   o  \\                                                            │
+│       |    ___    |                                                           │
+│       |   (___}   |                                                           │
+│        \\  '---'  /                                                            │
+│         '._____.'                                                             │
+│          |     |                                                              │
+│        .-|     |-.                                                            │
+│       /  |=====|  \\                                                           │
+│      |   |     |   |                                                          │
+│      '---'     '---'                                                          │
+│                                                                               │
+│  Conversational AI for UiPath Automation                                      │
+│                                                                               │
+│  Version: {version}                                                           │
+│                                                                               │
+│                                                                               │
+╰───────────────────────────────────────────────────────────────────────────────╯
 """.format(version=get_version())
     console.print(banner)
