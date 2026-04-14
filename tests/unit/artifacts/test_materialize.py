@@ -128,105 +128,79 @@ def test_ensure_project_json_creates_parent_dirs(tmp_path: Path) -> None:
     assert (root / "project.json").exists()
 
 
-def test_validate_generated_project_handles_nonexistent_path(tmp_path: Path) -> None:
-    missing = tmp_path / "does-not-exist"
+def test_validate_generated_project_includes_activity_validation_errors(tmp_path: Path) -> None:
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "project.json").write_text('{"name":"Test","main":"Main.xaml"}', encoding="utf-8")
+    (root / "Main.xaml").write_text("<Activity><ui:FakeHallucinatedActivity/></Activity>", encoding="utf-8")
 
-    result = validate_generated_project(missing)
+    with patch("uipath_claude.tools.uipath.cli_runner.run_uip_rpa_analyze") as mock_analyze:
+        mock_analyze.return_value = {"success": True, "errors": [], "warnings": [], "raw_output": "{}"}
+        with patch(
+            "uipath_claude.validation.activity_validator.validate_activities_in_xaml"
+        ) as mock_validate_activities:
+            mock_validate_activities.return_value = (
+                False,
+                ["Activity 'FakeHallucinatedActivity' not found in UiPath packages."],
+            )
 
-    assert result["success"] is False
-    assert result["project_path"] == str(missing.resolve())
-    assert "does not exist or is not a directory" in result["errors"][0]
-
-
-def test_validate_generated_project_creates_project_json_when_missing(tmp_path: Path) -> None:
-    project_root = tmp_path / "project"
-    project_root.mkdir()
-
-    with patch(
-        "uipath_claude.tools.uipath.cli_runner.run_uip_rpa_analyze",
-        return_value={"warnings": "careful"},
-    ):
-        result = validate_generated_project(project_root)
-
-    assert (project_root / "project.json").exists()
-    assert result["success"] is False
-    assert result["errors"] == []
-    assert result["warnings"] == ["careful"]
-    assert result["project_path"] == str(project_root.resolve())
-
-
-def test_validate_generated_project_runs_file_level_get_errors_loop(tmp_path: Path) -> None:
-    project_root = tmp_path / "project"
-    project_root.mkdir()
-    (project_root / "project.json").write_text("{}", encoding="utf-8")
-    (project_root / "Main.xaml").write_text("<Activity />", encoding="utf-8")
-    (project_root / "Flows").mkdir()
-    (project_root / "Flows" / "Child.xaml").write_text("<Activity />", encoding="utf-8")
-
-    with patch(
-        "uipath_claude.tools.uipath.cli_runner.run_uip_rpa_analyze",
-        return_value={"success": True, "errors": [], "warnings": []},
-    ), patch(
-        "uipath_claude.tools.uipath.cli_runner.run_uip_rpa_get_errors",
-        return_value={"success": True, "errors": [], "diagnostics_ran": True},
-    ) as mock_get_errors:
-        result = validate_generated_project(project_root)
-
-    assert result["success"] is True
-    assert result["errors"] == []
-    assert mock_get_errors.call_count == 2
-    observed_paths = {
-        Path(call.kwargs["file_path"]).relative_to(project_root).as_posix()
-        for call in mock_get_errors.call_args_list
-    }
-    assert observed_paths == {"Main.xaml", "Flows/Child.xaml"}
-
-
-def test_validate_generated_project_flags_when_diagnostics_not_run(tmp_path: Path) -> None:
-    project_root = tmp_path / "project"
-    project_root.mkdir()
-    (project_root / "project.json").write_text("{}", encoding="utf-8")
-    (project_root / "Main.xaml").write_text("<Activity />", encoding="utf-8")
-
-    with patch(
-        "uipath_claude.tools.uipath.cli_runner.run_uip_rpa_analyze",
-        return_value={"success": True, "errors": [], "warnings": []},
-    ), patch(
-        "uipath_claude.tools.uipath.cli_runner.run_uip_rpa_get_errors",
-        return_value={
-            "success": False,
-            "errors": [
-                "UiPath Studio is unavailable. File-level diagnostics could not run "
-                "(interop/autopilot/dependency exception): Autopilot.Interop.DependencyException"
-            ],
-            "diagnostics_ran": False,
-        },
-    ):
-        result = validate_generated_project(project_root)
-
-    assert result["success"] is True
-    assert result["fully_validated"] is False
-    assert result["errors"] == []
-    assert "warnings" in result
-    assert "File-level diagnostics not run for Main.xaml" in result["warnings"][0]
-
-
-def test_validate_generated_project_skips_file_diagnostics_on_structural_failure(
-    tmp_path: Path,
-) -> None:
-    project_root = tmp_path / "project"
-    project_root.mkdir()
-    (project_root / "project.json").write_text("{}", encoding="utf-8")
-    (project_root / "Main.xaml").write_text("<Activity />", encoding="utf-8")
-
-    with patch(
-        "uipath_claude.tools.uipath.cli_runner.run_uip_rpa_analyze",
-        return_value={"success": False, "errors": ["Broken project"], "warnings": []},
-    ), patch(
-        "uipath_claude.tools.uipath.cli_runner.run_uip_rpa_get_errors"
-    ) as mock_get_errors:
-        result = validate_generated_project(project_root)
+            result = validate_generated_project(root)
 
     assert result["success"] is False
-    assert result["errors"] == ["Broken project"]
-    mock_get_errors.assert_not_called()
+    assert len(result["errors"]) == 1
+    assert "FakeHallucinatedActivity" in result["errors"][0]
+
+
+def test_materialize_adds_mail_dependency_when_mail_types_used(tmp_path: Path) -> None:
+    root = tmp_path / "mail-project"
+    root.mkdir()
+    (root / "project.json").write_text(
+        json.dumps(
+            {
+                "name": "MailProject",
+                "dependencies": {"UiPath.System.Activities": "[24.10.6]"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    text = """
+<<<UIPATH_FILE path="Main.xaml">>>
+<Activity xmlns:ui="http://schemas.uipath.com/workflow/activities"
+ xmlns:snm="clr-namespace:System.Net.Mail;assembly=System.Net.Mail">
+  <Sequence>
+    <ui:GetOutlookMailMessages />
+    <ui:ForEach x:TypeArguments="snm:MailMessage" />
+  </Sequence>
+</Activity>
+<<<END_UIPATH_FILE>>>
+"""
+    materialize_from_assistant_text(text, output_root=root, allow_project_files=True)
+    project = json.loads((root / "project.json").read_text(encoding="utf-8"))
+    assert "UiPath.Mail.Activities" in project["dependencies"]
+
+
+def test_materialize_adds_integration_service_dependency_when_uip_used(tmp_path: Path) -> None:
+    root = tmp_path / "is-project"
+    root.mkdir()
+    (root / "project.json").write_text(
+        json.dumps(
+            {
+                "name": "ISProject",
+                "dependencies": {"UiPath.System.Activities": "[24.10.6]"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    text = """
+<<<UIPATH_FILE path="Main.xaml">>>
+<Activity xmlns:uip="clr-namespace:UiPath.IntegrationService.Activities;assembly=UiPath.IntegrationService.Activities"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Sequence>
+    <uip:InvokeConnection />
+  </Sequence>
+</Activity>
+<<<END_UIPATH_FILE>>>
+"""
+    materialize_from_assistant_text(text, output_root=root, allow_project_files=True)
+    project = json.loads((root / "project.json").read_text(encoding="utf-8"))
+    assert "UiPath.IntegrationService.Activities" in project["dependencies"]

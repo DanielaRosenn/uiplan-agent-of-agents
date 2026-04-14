@@ -1,0 +1,2 @@
+﻿create an outlook email workflow
+exit

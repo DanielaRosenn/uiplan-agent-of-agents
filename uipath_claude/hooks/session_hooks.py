@@ -102,14 +102,16 @@ def run_session_start_hooks(verbose: bool = False) -> list[dict]:
 def check_uip_installed() -> tuple[bool, str]:
     """Check if uip CLI is installed and accessible."""
     try:
+        # Use shell=True on Windows to find npm-installed commands
         result = subprocess.run(
-            ["uip", "--version"],
+            "uip --version",
             capture_output=True,
             text=True,
             timeout=10,
+            shell=True,
         )
         if result.returncode == 0:
-            version = result.stdout.strip()
+            version = result.stdout.strip().split('\n')[0]  # First line only
             return True, f"uip CLI installed: {version}"
         return False, "uip CLI not responding"
     except FileNotFoundError:

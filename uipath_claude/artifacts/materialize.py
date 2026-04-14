@@ -9,8 +9,6 @@ import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from uipath_claude.validation.state import ValidationState
-
 if TYPE_CHECKING:
     from uipath_claude.tools.uipath.cli_runner import run_uip_rpa_get_errors
 
@@ -23,6 +21,38 @@ _BLOCK = re.compile(
 _FENCE_PATH = re.compile(
     r"```[^\n`]*\npath:\s*(?P<rel>[^\n]+)\n(?P<body>.*?)```",
     re.DOTALL,
+)
+_MAIL_DEPENDENCY_NAME = "UiPath.Mail.Activities"
+_MAIL_DEPENDENCY_VERSION = "[2.5.10]"
+_IS_DEPENDENCY_NAME = "UiPath.IntegrationService.Activities"
+_IS_DEPENDENCY_VERSION = "[1.14.2]"
+_DEPENDENCY_HINTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    (
+        _MAIL_DEPENDENCY_NAME,
+        _MAIL_DEPENDENCY_VERSION,
+        (
+            "ui:GetOutlookMailMessages",
+            "ui:SendOutlookMailMessage",
+            "ui:SaveMailMessage",
+            "ui:StartOutlook",
+            "ui:GetOutlookNamespace",
+            "ui:GetOutlookFolder",
+            "ui:ForEachOutlookMessageFile",
+            "snm:MailMessage",
+            "System.Net.Mail",
+            "outlook:MailItem",
+            "Microsoft.Office.Interop.Outlook",
+        ),
+    ),
+    (
+        _IS_DEPENDENCY_NAME,
+        _IS_DEPENDENCY_VERSION,
+        (
+            "xmlns:uip=",
+            "uip:",
+            "UiPath.IntegrationService.Activities",
+        ),
+    ),
 )
 
 
@@ -56,6 +86,42 @@ def _is_blocked_project_file(rel: str) -> bool:
     """Return True for project scaffold files that chat should not write by default."""
     filename = Path(rel.replace("\\", "/")).name.lower()
     return filename in {"project.json", "project.uiproj"}
+
+
+def _detect_required_dependencies(xaml_content: str) -> set[str]:
+    """Detect dependency package ids required by XAML content."""
+    required: set[str] = set()
+    for package_id, _, hints in _DEPENDENCY_HINTS:
+        if any(hint in xaml_content for hint in hints):
+            required.add(package_id)
+    return required
+
+
+def _ensure_project_dependency(
+    output_root: Path, dependency_name: str, dependency_version: str
+) -> None:
+    """Ensure project.json contains a specific dependency."""
+    project_json_path = output_root / "project.json"
+    if not project_json_path.exists() and not ensure_project_json(output_root):
+        return
+    try:
+        project_data = json.loads(project_json_path.read_text(encoding="utf-8"))
+    except Exception:
+        return
+    dependencies = project_data.get("dependencies")
+    if not isinstance(dependencies, dict):
+        dependencies = {}
+        project_data["dependencies"] = dependencies
+    if dependency_name in dependencies:
+        return
+    dependencies[dependency_name] = dependency_version
+    try:
+        project_json_path.write_text(
+            json.dumps(project_data, indent=2),
+            encoding="utf-8",
+        )
+    except Exception:
+        return
 
 
 def contains_file_blocks(text: str) -> bool:
@@ -200,15 +266,29 @@ def materialize_from_assistant_text(
         from uipath_claude.validation.activity_validator import validate_activities_in_xaml
     
     # Auto-fix namespaces and validate activities in XAML files
+    required_dependencies: set[str] = set()
     for path in written:
         if path.suffix.lower() == '.xaml':
             fix_missing_namespaces(path)
+            try:
+                xaml_content = path.read_text(encoding="utf-8")
+            except Exception:
+                xaml_content = ""
+            if xaml_content:
+                required_dependencies.update(_detect_required_dependencies(xaml_content))
             
             if not skip_activity_validation:
                 success, errors = validate_activities_in_xaml(path)
                 if not success:
                     for error in errors:
                         warnings.warn(f"Activity validation: {error}", UserWarning)
+    if allow_project_files and required_dependencies:
+        version_map = {package_id: version for package_id, version, _ in _DEPENDENCY_HINTS}
+        for dependency in sorted(required_dependencies):
+            version = version_map.get(dependency)
+            if not version:
+                continue
+            _ensure_project_dependency(root, dependency, version)
 
     return written
 
@@ -266,7 +346,7 @@ def ensure_project_json(output_root: Path) -> bool:
             "pipType": "ChildSession"
         },
         "designOptions": {
-            "projectProfile": "Development",
+            "projectProfile": "Developement",
             "outputType": "Process",
             "libraryOptions": {
                 "includeOriginalXaml": False,
@@ -294,141 +374,170 @@ def ensure_project_json(output_root: Path) -> bool:
         return False
 
 
-def validate_generated_project(project_path: Path) -> dict:
-    """Validate a generated UiPath project using uip CLI.
-    
-    Returns dict with:
-        - success: bool
-        - errors: list of error strings
-        - warnings: list of warning strings (optional)
-        - project_path: str
+def _validate_xaml_structure(xaml_path: Path) -> tuple[bool, list[str]]:
     """
-    from uipath_claude.tools.uipath.cli_runner import (
-        run_uip_rpa_analyze,
-        run_uip_rpa_get_errors,
-    )
+    Validate basic XAML structure without requiring Studio.
     
-    project_path = project_path.resolve()
-    if not project_path.exists() or not project_path.is_dir():
-        state = ValidationState(
-            success=False,
-            fully_validated=False,
-            errors=[f"Project path does not exist or is not a directory: {project_path}"],
-            project_path=str(project_path),
+    Checks:
+    - Valid XML syntax
+    - Required root Activity element
+    - Required namespace declarations
+    - x:Class attribute presence
+    - No forbidden/legacy activity patterns
+    
+    Returns:
+        Tuple of (success, list of error messages)
+    """
+    import xml.etree.ElementTree as ET
+    
+    errors: list[str] = []
+    
+    try:
+        content = xaml_path.read_text(encoding="utf-8")
+    except Exception as e:
+        return False, [f"Failed to read file: {e}"]
+    
+    # Check for forbidden patterns (legacy/hallucinated activities)
+    forbidden_patterns = [
+        ("OutlookApplicationScope", "Legacy activity - use GetOutlookMailMessages directly"),
+        ("ui:OutlookMailItem", "Hallucinated type - use snm:MailMessage"),
+        ("OutlookMailApplication", "Legacy activity - use GetOutlookMailMessages directly"),
+        ("GetOutlookQueuedEmails", "Hallucinated activity - use GetOutlookMailMessages"),
+        ("ui:OutlookQueuedEmailMessage", "Hallucinated type - use snm:MailMessage"),
+        ("StartOutlook", "Legacy scope activity - use GetOutlookMailMessages directly"),
+        ("GetOutlookNamespace", "Legacy scope activity - use GetOutlookMailMessages directly"),
+        ("GetOutlookFolder", "Legacy scope activity - use GetOutlookMailMessages directly"),
+        ("ForEachOutlookMessageFile", "Legacy activity - use ui:ForEach with snm:MailMessage"),
+        ("CreateMailMessage", "Hallucinated activity - use SendOutlookMail directly with To/Subject/Body"),
+    ]
+    
+    for pattern, message in forbidden_patterns:
+        if pattern in content:
+            errors.append(f"Forbidden pattern '{pattern}': {message}")
+    
+    # Check for incorrect property usage
+    if "GetOutlookMailMessages.Result" in content:
+        errors.append("Incorrect property: Use Messages attribute instead of Result for GetOutlookMailMessages")
+    
+    # Try to parse as XML
+    try:
+        root = ET.fromstring(content)
+    except ET.ParseError as e:
+        errors.append(f"XML parse error: {e}")
+        return False, errors
+    
+    # Check root element
+    if not root.tag.endswith("}Activity") and root.tag != "Activity":
+        errors.append(f"Root element should be Activity, got: {root.tag}")
+    
+    # Check for x:Class attribute
+    x_class_found = False
+    for attr in root.attrib:
+        if attr.endswith("}Class") or attr == "Class":
+            x_class_found = True
+            break
+    
+    if not x_class_found:
+        errors.append("Missing x:Class attribute on Activity element")
+    
+    # Check required namespaces by looking for their usage
+    if "ui:" in content and 'xmlns:ui=' not in content:
+        errors.append("Missing xmlns:ui declaration for ui: prefix activities")
+    
+    if "snm:" in content and 'xmlns:snm=' not in content:
+        errors.append("Missing xmlns:snm declaration for snm: prefix types")
+    
+    if "scg:" in content and 'xmlns:scg=' not in content:
+        errors.append("Missing xmlns:scg declaration for scg: prefix types")
+    
+    if "uip:" in content and 'xmlns:uip=' not in content:
+        errors.append("Missing xmlns:uip declaration for Integration Service activities")
+    
+    return len(errors) == 0, errors
+
+
+def _locate_project_root(root: Path) -> Path | None:
+    """Resolve a UiPath project root that contains project.json."""
+    if (root / "project.json").exists():
+        return root
+    if (root.parent / "project.json").exists():
+        return root.parent
+    try:
+        for child in root.iterdir():
+            if child.is_dir() and (child / "project.json").exists():
+                return child
+    except OSError:
+        return None
+    return None
+
+
+def validate_generated_project(project_path: Path) -> dict:
+    """Validate generated workflows with structure + Studio diagnostics.
+
+    Validation stages:
+    1) Structural XAML validation (always)
+    2) File-level `uip rpa get-errors` validation (when a project + Studio are available)
+    """
+    from uipath_claude.tools.uipath.cli_runner import run_uip_rpa_get_errors
+
+    all_errors: list[str] = []
+    all_warnings: list[str] = []
+
+    xaml_files = list(project_path.rglob("*.xaml"))
+    for xaml_file in xaml_files:
+        ok, errors = _validate_xaml_structure(xaml_file)
+        if not ok:
+            all_errors.extend([f"[{xaml_file}] {err}" for err in errors])
+
+    if all_errors:
+        return {
+            "valid": False,
+            "success": False,
+            "fully_validated": False,
+            "errors": all_errors,
+            "warnings": all_warnings,
+            "project_path": str(project_path),
+        }
+
+    project_root = _locate_project_root(project_path)
+    if project_root is None:
+        all_warnings.append(
+            "No project.json found. Structural validation passed; Studio diagnostics not run."
         )
         return {
-            "valid": state.success,
-            "success": state.success,
-            "fully_validated": state.fully_validated,
-            "errors": state.errors,
-            "project_path": state.project_path,
+            "valid": True,
+            "success": True,
+            "fully_validated": False,
+            "errors": [],
+            "warnings": all_warnings,
+            "project_path": str(project_path),
         }
 
-    project_json = project_path / "project.json"
-    if not project_json.exists():
-        parent = project_path.parent
-        if (parent / "project.json").exists():
-            project_path = parent
-        else:
-            for child in project_path.iterdir():
-                if child.is_dir() and (child / "project.json").exists():
-                    project_path = child
-                    break
-    
-    if not (project_path / "project.json").exists():
-        if not ensure_project_json(project_path):
-            state = ValidationState(
-                success=False,
-                fully_validated=False,
-                errors=["No project.json found and failed to create template"],
-                project_path=str(project_path),
+    studio_validation_ran = False
+    for xaml_file in project_root.rglob("*.xaml"):
+        rel = str(xaml_file.relative_to(project_root)).replace("\\", "/")
+        cli_result = run_uip_rpa_get_errors(project_root, file_path=rel)
+
+        if cli_result.get("studio_required"):
+            all_warnings.append(
+                "Studio diagnostics unavailable. Start/open the project in UiPath Studio "
+                "to run `uip rpa get-errors`."
             )
-            return {
-                "valid": state.success,
-                "success": state.success,
-                "fully_validated": state.fully_validated,
-                "errors": state.errors,
-                "project_path": state.project_path,
-            }
-    
-    result = run_uip_rpa_analyze(project_path)
-    errors = result.get("errors", []) if isinstance(result, dict) else []
-    warnings_list = result.get("warnings", []) if isinstance(result, dict) else []
-    structural_success = bool(result.get("success", False)) if isinstance(result, dict) else False
-    if not isinstance(errors, list):
-        errors = [str(errors)]
-    if not isinstance(warnings_list, list):
-        warnings_list = [str(warnings_list)]
-
-    # Avoid extra file-level CLI calls when structural validation has already failed.
-    if not structural_success and errors:
-        state = ValidationState(
-            success=False,
-            fully_validated=False,
-            errors=errors,
-            project_path=str(project_path),
-        )
-        return_dict = {
-            "valid": state.success,
-            "success": state.success,
-            "fully_validated": state.fully_validated,
-            "errors": state.errors,
-            "project_path": state.project_path,
-        }
-        if warnings_list:
-            state.warnings = warnings_list
-            return_dict["warnings"] = state.warnings
-        return return_dict
-
-    xaml_files = sorted(
-        path for path in project_path.rglob("*.xaml")
-        if path.is_file()
-    )
-    fully_validated = True
-    file_level_errors: list[str] = []
-    diagnostics_not_run: list[str] = []
-    for xaml_file in xaml_files:
-        file_result = run_uip_rpa_get_errors(project_path, file_path=xaml_file)
-        file_errors = file_result.get("errors", []) if isinstance(file_result, dict) else []
-        if not isinstance(file_errors, list):
-            file_errors = [str(file_errors)]
-
-        relative_path = xaml_file.relative_to(project_path).as_posix()
-        if not bool(file_result.get("diagnostics_ran", True)):
-            fully_validated = False
-            detail = file_errors[0] if file_errors else "Unknown diagnostics failure"
-            diagnostics_not_run.append(f"{relative_path}: {detail}")
             continue
 
-        if not bool(file_result.get("success", False)):
-            if file_errors:
-                file_level_errors.extend(f"{relative_path}: {error}" for error in file_errors)
-            else:
-                file_level_errors.append(f"{relative_path}: Unknown diagnostics failure")
+        studio_validation_ran = True
+        for warning in cli_result.get("warnings", []):
+            all_warnings.append(f"[{rel}] {warning}")
+        if not cli_result.get("success", False):
+            for error in cli_result.get("errors", []):
+                all_errors.append(f"[{rel}] {error}")
 
-    errors.extend(file_level_errors)
-
-    if diagnostics_not_run:
-        warnings_list.extend(
-            f"File-level diagnostics not run for {entry}"
-            for entry in diagnostics_not_run
-        )
-
-    state = ValidationState(
-        success=(structural_success and not errors)
-        if isinstance(result, dict) else False,
-        fully_validated=fully_validated,
-        errors=errors,
-        project_path=str(project_path),
-    )
-    return_dict = {
-        "valid": state.success,
-        "success": state.success,
-        "fully_validated": state.fully_validated,
-        "errors": state.errors,
-        "project_path": state.project_path,
+    success = len(all_errors) == 0
+    return {
+        "valid": success,
+        "success": success,
+        "fully_validated": studio_validation_ran,
+        "errors": all_errors,
+        "warnings": all_warnings,
+        "project_path": str(project_root),
     }
-    if warnings_list:
-        state.warnings = warnings_list
-        return_dict["warnings"] = state.warnings
-    return return_dict

@@ -164,3 +164,30 @@ def test_validate_activities_cli_error(mock_find, tmp_path):
     # CLI failure should skip validation for that activity
     assert success is True
     assert len(errors) == 0
+
+
+@patch("uipath_claude.validation.activity_validator.run_uip_rpa_find_activities")
+def test_validate_activities_rejects_legacy_outlook_scope(mock_find, tmp_path):
+    """Legacy Outlook scope patterns must be rejected."""
+    xaml = """
+    <Activity xmlns:ui="http://schemas.uipath.com/workflow/activities"
+              xmlns:outlook="clr-namespace:Microsoft.Office.Interop.Outlook;assembly=Microsoft.Office.Interop.Outlook">
+        <Sequence>
+            <ui:StartOutlook />
+            <ui:GetOutlookNamespace />
+            <ui:GetOutlookFolder />
+            <ui:ForEachOutlookMessageFile />
+        </Sequence>
+    </Activity>
+    """
+    xaml_file = tmp_path / "legacy_outlook.xaml"
+    xaml_file.write_text(xaml, encoding="utf-8")
+
+    mock_find.return_value = {"success": True, "activities": []}
+
+    success, errors = validate_activities_in_xaml(xaml_file)
+
+    assert success is False
+    assert errors
+    assert any("StartOutlook" in error for error in errors)
+    assert any("GetOutlookNamespace" in error for error in errors)

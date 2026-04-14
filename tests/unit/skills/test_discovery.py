@@ -60,3 +60,20 @@ def test_discover_skills_does_not_use_eval():
     """Test parser implementation does not use eval."""
     source = inspect.getsource(discover_skills)
     assert "eval(" not in source
+
+
+def test_discover_skills_supports_crlf_frontmatter(tmp_path):
+    skill_dir = tmp_path / "windows-skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text(
+        "---\r\n"
+        "name: crlf-skill\r\n"
+        "description: Works with CRLF\r\n"
+        "triggers: [\"mail\"]\r\n"
+        "---\r\n\r\n"
+        "# Skill\r\n",
+        encoding="utf-8",
+    )
+    skills = discover_skills(str(tmp_path))
+    assert len(skills) == 1
+    assert skills[0]["name"] == "crlf-skill"

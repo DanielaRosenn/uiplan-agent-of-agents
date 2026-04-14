@@ -38,7 +38,11 @@ def test_skill_selection_for_outlook_workflow():
     skill_names = [s.get("name") for s in selected]
     print(f"Selected skills for Outlook workflow: {skill_names}")
     
-    assert "uipath-rpa-workflows" in skill_names or "uipath-automation" in skill_names, \
+    assert (
+        "uipath-rpa" in skill_names
+        or "uipath-rpa-workflows" in skill_names
+        or "uipath-automation" in skill_names
+    ), \
         f"Expected RPA skill, got: {skill_names}"
 
 

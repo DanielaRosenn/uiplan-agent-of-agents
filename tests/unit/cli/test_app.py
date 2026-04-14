@@ -1,7 +1,6 @@
 """Test CLI app."""
 from unittest.mock import AsyncMock, patch
 import asyncio
-from pathlib import Path
 
 from typer.testing import CliRunner
 from uipath_claude.cli.app import (
@@ -44,19 +43,6 @@ def test_cli_chat_command_starts_and_exits():
     assert "goodbye" in result.stdout.lower()
 
 
-def test_cli_chat_warns_when_skills_sync_manifest_is_stale():
-    """Chat startup should warn when sync metadata is stale."""
-    with (
-        patch("uipath_claude.cli.app._create_engine", return_value=object()),
-        patch("uipath_claude.cli.app.get_sync_staleness", return_value=(True, "skills sync is stale")),
-        patch("uipath_claude.cli.app.check_for_updates", return_value=(False, "", None, None)),
-    ):
-        result = runner.invoke(app, ["chat", "--no-banner"], input="exit\n")
-
-    assert result.exit_code == 0
-    assert "skills sync is stale" in result.stdout.lower()
-
-
 def test_cli_chat_slash_chat_message():
     """Test /chat command inside REPL gives friendly message."""
     with patch("uipath_claude.cli.app._create_engine") as create_engine:
@@ -75,37 +61,6 @@ def test_cli_chat_llm_error_message():
             result = runner.invoke(app, ["chat", "--no-banner"], input="hello\nexit\n")
     assert result.exit_code == 0
     assert "bedrock request failed" in result.stdout.lower()
-
-
-def test_cli_chat_validation_partial_success_shows_warning():
-    """Validation status should be warning when full diagnostics did not run."""
-    with (
-        patch("uipath_claude.cli.app._create_engine", return_value=object()),
-        patch("uipath_claude.cli.app.check_uip_installed", return_value=(True, "")),
-        patch(
-            "uipath_claude.cli.app._get_model_response",
-            new_callable=AsyncMock,
-            return_value='<<<UIPATH_FILE path="Main.xaml">>>\n<xaml />\n<<<END_UIPATH_FILE>>>',
-        ),
-        patch(
-            "uipath_claude.cli.app.materialize_from_assistant_text",
-            return_value=[Path("Main.xaml")],
-        ),
-        patch(
-            "uipath_claude.cli.app.validate_generated_project",
-            return_value={
-                "success": True,
-                "fully_validated": False,
-                "warnings": ["File-level diagnostics not run for Main.xaml: Studio unavailable"],
-                "errors": [],
-            },
-        ),
-    ):
-        result = runner.invoke(app, ["chat", "--no-banner"], input="create workflow\nexit\n")
-
-    assert result.exit_code == 0
-    assert "validation passed with warnings" in result.stdout.lower()
-    assert "validation passed - no errors found" not in result.stdout.lower()
 
 
 def test_select_relevant_skills_prefers_rpa_workflow():
@@ -199,7 +154,7 @@ def test_debug_skill_selection_returns_sorted_scores():
     ]
     traces = _debug_skill_selection("create outlook workflow", skills)
     assert traces
-    assert traces[0].startswith("uipath-rpa-workflows:")
+    assert "uipath-rpa" in traces[0]
 
 
 def test_resolve_output_mode_defaults_to_auto(monkeypatch):

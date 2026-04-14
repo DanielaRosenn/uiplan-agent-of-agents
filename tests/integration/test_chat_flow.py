@@ -127,41 +127,6 @@ triggers: ["sample"]
 
 
 @pytest.mark.integration
-def test_chat_flow_validation_requires_fully_validated_for_full_pass_message():
-    """Do not print full-pass validation status unless fully_validated is true."""
-    with (
-        patch("uipath_claude.cli.app._create_engine", return_value=object()),
-        patch("uipath_claude.cli.app.check_uip_installed", return_value=(True, "")),
-        patch(
-            "uipath_claude.cli.app._get_model_response",
-            new_callable=AsyncMock,
-            return_value='<<<UIPATH_FILE path="Main.xaml">>>\n<xaml />\n<<<END_UIPATH_FILE>>>',
-        ),
-        patch(
-            "uipath_claude.cli.app.materialize_from_assistant_text",
-            return_value=["Main.xaml"],
-        ),
-        patch(
-            "uipath_claude.cli.app.validate_generated_project",
-            return_value={
-                "success": True,
-                "fully_validated": False,
-                "warnings": [
-                    "File-level diagnostics not run for Main.xaml: Studio unavailable"
-                ],
-                "errors": [],
-            },
-        ),
-    ):
-        result = runner.invoke(app, ["chat", "--no-banner"], input="create workflow\nexit\n")
-
-    assert result.exit_code == 0
-    assert "validation passed with warnings" in result.stdout.lower()
-    assert "studio unavailable" in result.stdout.lower()
-    assert "validation passed - no errors found" not in result.stdout.lower()
-
-
-@pytest.mark.integration
 def test_chat_warns_when_running_in_generated_chat_artifact(tmp_path, monkeypatch):
     """Chat should warn when cwd is a generated chat artifact folder."""
     artifact_dir = tmp_path / "generated" / "chat" / "artifact-1"

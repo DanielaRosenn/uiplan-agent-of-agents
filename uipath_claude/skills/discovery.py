@@ -1,8 +1,20 @@
 """Skill discovery from directories."""
-import re
 from pathlib import Path
 from typing import List, Dict, Any
 import yaml
+
+
+def _extract_frontmatter(content: str) -> str | None:
+    """Extract YAML frontmatter from markdown with LF/CRLF support."""
+    lines = content.splitlines()
+    if not lines:
+        return None
+    if lines[0].lstrip("\ufeff").strip() != "---":
+        return None
+    for index in range(1, len(lines)):
+        if lines[index].strip() == "---":
+            return "\n".join(lines[1:index])
+    return None
 
 
 def discover_skills(skills_dir: str) -> List[Dict[str, Any]]:
@@ -25,11 +37,11 @@ def discover_skills(skills_dir: str) -> List[Dict[str, Any]]:
         try:
             content = skill_file.read_text(encoding="utf-8")
 
-            frontmatter_match = re.search(r"^---\n(.*?)\n---", content, re.DOTALL)
-            if not frontmatter_match:
+            frontmatter_text = _extract_frontmatter(content)
+            if not frontmatter_text:
                 continue
 
-            parsed = yaml.safe_load(frontmatter_match.group(1))
+            parsed = yaml.safe_load(frontmatter_text)
             if not isinstance(parsed, dict):
                 continue
 

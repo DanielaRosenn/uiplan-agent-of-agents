@@ -18,6 +18,12 @@ def load_skill_content(skill_path: str) -> str:
         return ""
     
     try:
-        return skill_file.read_text()
+        return skill_file.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        # Fallback to latin-1 if UTF-8 fails
+        try:
+            return skill_file.read_text(encoding="latin-1")
+        except Exception:
+            return ""
     except Exception:
         return ""

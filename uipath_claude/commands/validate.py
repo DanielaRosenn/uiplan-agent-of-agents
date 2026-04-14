@@ -1,7 +1,14 @@
-"""Validate UiPath project via `uip rpa get-errors`."""
+"""Validate UiPath project: uip rpa get-errors + optional pack."""
 from uipath_claude.commands.registry import CommandRegistry, register_command
 from uipath_claude.tools.uipath.approval import check_cli_approval
-from uipath_claude.tools.uipath.cli_runner import run_uip_rpa_get_errors
+from uipath_claude.tools.uipath.cli_runner import (
+    format_cli_result,
+    run_uip_rpa_get_errors,
+    run_studio_package_pack,
+)
+from uipath_claude.tools.uipath.integration_service import (
+    run_integration_service_connector_check,
+)
 
 
 def register_validate_command(registry: CommandRegistry) -> None:
@@ -19,35 +26,27 @@ def register_validate_command(registry: CommandRegistry) -> None:
             return message
 
         result = run_uip_rpa_get_errors(project_path)
-        warnings = result.get("warnings", [])
-        if not isinstance(warnings, list):
-            warnings = [str(warnings)]
-        diagnostics_ran = bool(result.get("diagnostics_ran", True))
-
+        
         lines = ["UiPath Project Validation"]
         lines.append("=" * 40)
-
-        if result["success"] and diagnostics_ran:
+        
+        if result["success"]:
             lines.append("Status: PASSED - No errors found")
-        elif result["success"]:
-            lines.append("Status: PASSED WITH WARNINGS - Diagnostics incomplete")
         else:
             lines.append(f"Status: FAILED - {len(result['errors'])} error(s)")
             lines.append("")
             lines.append("Errors:")
             for error in result["errors"]:
                 lines.append(f"  - {error}")
-
-        if not diagnostics_ran:
+        if result.get("studio_required"):
             lines.append("")
             lines.append(
-                "Note: Studio diagnostics unavailable; file-level diagnostics could not run."
+                "Note: Studio diagnostics were not available. Open the target project in UiPath Studio and retry."
             )
-
-        if warnings:
+        if result.get("warnings"):
             lines.append("")
             lines.append("Warnings:")
-            for warning in warnings:
+            for warning in result["warnings"]:
                 lines.append(f"  - {warning}")
-
+        
         return "\n".join(lines)

@@ -7,6 +7,39 @@ from typing import Set, List, Tuple
 
 from uipath_claude.tools.uipath.cli_runner import run_uip_rpa_find_activities
 
+_FORBIDDEN_XAML_PATTERNS: tuple[tuple[str, str], ...] = (
+    (
+        "ui:StartOutlook",
+        "Legacy Outlook scope activity 'StartOutlook' is not supported in this mode. "
+        "Use GetOutlookMailMessages with snm:MailMessage.",
+    ),
+    (
+        "ui:GetOutlookNamespace",
+        "Legacy Outlook scope activity 'GetOutlookNamespace' is not supported in this mode. "
+        "Use GetOutlookMailMessages directly.",
+    ),
+    (
+        "ui:GetOutlookFolder",
+        "Legacy Outlook scope activity 'GetOutlookFolder' is not supported in this mode. "
+        "Use GetOutlookMailMessages with MailFolder.",
+    ),
+    (
+        "ui:ForEachOutlookMessageFile",
+        "Legacy Outlook activity 'ForEachOutlookMessageFile' is not supported. "
+        "Use ui:ForEach with snm:MailMessage.",
+    ),
+    (
+        "outlook:MailItem",
+        "Interop type 'outlook:MailItem' is not supported for generated workflows. "
+        "Use snm:MailMessage from System.Net.Mail.",
+    ),
+    (
+        "Microsoft.Office.Interop.Outlook",
+        "Interop assembly Microsoft.Office.Interop.Outlook is not supported in generated workflows. "
+        "Use UiPath.Mail.Activities and snm:MailMessage types.",
+    ),
+)
+
 
 def extract_activity_names_from_xaml(xaml_content: str) -> Set[str]:
     """
@@ -69,13 +102,16 @@ def validate_activities_in_xaml(
     except Exception as e:
         return False, [f"Failed to read XAML file: {e}"]
     
+    errors: list[str] = []
+    for pattern, message in _FORBIDDEN_XAML_PATTERNS:
+        if pattern in content:
+            errors.append(message)
+
     activity_names = extract_activity_names_from_xaml(content)
     
     if not activity_names:
         # No activities found, might be empty file
         return True, []
-    
-    errors = []
     
     # Check each activity
     for activity_name in sorted(activity_names):
