@@ -23,6 +23,7 @@ AGENT_SKILLS = {
         "uipath-diagnostics",
     ],
     "developer": [
+        "uipath-planner",
         "uipath-rpa",  # Combined coded + RPA workflows
         "uipath-agents",  # Coded agents
         "uipath-coded-apps",

@@ -36,6 +36,7 @@ def run_uip_rpa_get_errors(
     *,
     file_path: str | None = None,
     timeout: int = 120,
+    use_studio: bool = True,
 ) -> dict:
     """Run `uip rpa get-errors --project-dir <project> --output json`.
     
@@ -57,6 +58,8 @@ def run_uip_rpa_get_errors(
     cmd = [uip_cli, "rpa", "get-errors", "--project-dir", path, "--output", "json"]
     if file_path:
         cmd.extend(["--file-path", file_path])
+    if use_studio:
+        cmd.append("--use-studio")
     
     try:
         proc = subprocess.run(

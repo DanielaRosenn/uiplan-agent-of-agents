@@ -132,10 +132,23 @@ def test_validate_generated_project_includes_activity_validation_errors(tmp_path
     root = tmp_path / "project"
     root.mkdir()
     (root / "project.json").write_text('{"name":"Test","main":"Main.xaml"}', encoding="utf-8")
-    (root / "Main.xaml").write_text("<Activity><ui:FakeHallucinatedActivity/></Activity>", encoding="utf-8")
+    (root / "Main.xaml").write_text(
+        '<Activity x:Class="Main" '
+        'xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities" '
+        'xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" '
+        'xmlns:ui="http://schemas.uipath.com/workflow/activities">'
+        "<Sequence><ui:FakeHallucinatedActivity /></Sequence></Activity>",
+        encoding="utf-8",
+    )
 
-    with patch("uipath_claude.tools.uipath.cli_runner.run_uip_rpa_analyze") as mock_analyze:
-        mock_analyze.return_value = {"success": True, "errors": [], "warnings": [], "raw_output": "{}"}
+    with patch("uipath_claude.validation.pipeline.run_uip_rpa_get_errors") as mock_get_errors:
+        mock_get_errors.return_value = {
+            "success": True,
+            "errors": [],
+            "warnings": [],
+            "raw_output": "{}",
+            "studio_required": False,
+        }
         with patch(
             "uipath_claude.validation.activity_validator.validate_activities_in_xaml"
         ) as mock_validate_activities:

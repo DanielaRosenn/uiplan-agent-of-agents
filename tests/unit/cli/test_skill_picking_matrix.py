@@ -57,6 +57,17 @@ def _skills_fixture() -> list[dict]:
     ]
 
 
+def _skills_fixture_with_planner() -> list[dict]:
+    return [
+        {
+            "name": "uipath-planner",
+            "description": "Plan multi-skill execution and disambiguate UiPath requests.",
+            "triggers": [],
+        },
+        *_skills_fixture(),
+    ]
+
+
 class TestRPAWorkflowSkillPicking:
     """Tests for RPA workflow intent detection."""
 
@@ -66,6 +77,16 @@ class TestRPAWorkflowSkillPicking:
             "Build a UiPath workflow that reads Outlook emails and logs subjects",
             skills,
         )
+        assert selected
+        assert selected[0]["name"] == "uipath-rpa"
+
+    def test_outlook_last_30_days_print_subjects_project(self):
+        skills = _skills_fixture()
+        prompt = (
+            "Create a UiPath automation project that reads Outlook emails and prints "
+            "to the screen the last subjects from the last 30 days"
+        )
+        selected = _select_relevant_skills(prompt, skills)
         assert selected
         assert selected[0]["name"] == "uipath-rpa"
 
@@ -271,6 +292,23 @@ class TestSkillPickingEdgeCases:
         assert selected == []
 
 
+class TestPlannerOverridesSelection:
+    """When uipath-planner is loaded, ambiguous prompts should prefer it."""
+
+    def test_what_can_i_build_selects_planner(self):
+        skills = _skills_fixture_with_planner()
+        selected = _select_relevant_skills("What can I build?", skills)
+        assert selected and selected[0]["name"] == "uipath-planner"
+
+    def test_build_and_deploy_selects_planner(self):
+        skills = _skills_fixture_with_planner()
+        selected = _select_relevant_skills(
+            "I need to build and deploy this to orchestrator",
+            skills,
+        )
+        assert selected and selected[0]["name"] == "uipath-planner"
+
+
 class TestSkillPickingMatrix:
     """Comprehensive matrix test covering all intent-to-skill mappings."""
 
@@ -284,6 +322,10 @@ class TestSkillPickingMatrix:
         ("Create PDD document", "pdd-creation"),
         ("Generate SDD architecture", "sdd-flow-canvas"),
         ("Create Flow project", "uipath-maestro-flow"),
+        (
+            "UiPath automation: read Outlook inbox and show subjects from the last 30 days",
+            "uipath-rpa",
+        ),
     ])
     def test_intent_to_skill_mapping(self, prompt, expected_skill):
         skills = _skills_fixture()

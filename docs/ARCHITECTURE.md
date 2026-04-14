@@ -63,6 +63,73 @@ Session recall is exposed through `/recall <term>` and implemented in
 `uipath_claude.commands.recall`, backed by
 `uipath_claude.query.session_search`.
 
+## Agentic Execution Flow
+
+When `UIPATH_AGENTIC_MODE=1`, the agent uses a ReAct-style tool-use loop:
+
+```
+User Request
+    ↓
+Route to Skill
+    ↓
+┌─────────────────────────────────┐
+│  AgenticExecutor (max 15 iter)  │
+│  ┌───────────────────────────┐  │
+│  │ 1. LLM generates response │  │
+│  │ 2. Extract tool_calls     │  │
+│  │ 3. Execute tools          │  │
+│  │ 4. Append ToolMessage     │  │
+│  │ 5. Loop until complete    │  │
+│  └───────────────────────────┘  │
+└─────────────────────────────────┘
+    ↓
+Generated Project
+```
+
+### Skill Execution Tools
+
+Located in `uipath_claude/tools/skill_execution_tools.py`:
+
+| Tool | Purpose |
+|------|---------|
+| `ensure_project_structure` | Create project.json scaffold |
+| `install_package` | Install NuGet packages via `uip` |
+| `write_file` | Write files with XAML auto-fix |
+| `read_file` | Read project files |
+| `validate_file` | Validate XAML against Studio |
+| `validate_and_fix_loop` | Iterative validation guidance |
+| `find_activity_info` | Look up activity documentation |
+| `query_uipath_docs` | Query UiPath Ask AI |
+| `run_uip_command` | Execute arbitrary `uip` commands |
+| `debug_workflow` | Debug workflow execution |
+
+### XAML Auto-Fix
+
+The `write_file` tool automatically corrects common LLM XAML issues:
+
+- Unescapes `&lt;` / `&gt;` to `<` / `>`
+- Removes `<![CDATA[` wrappers
+- Strips extraneous `<xaml>` tags
+- Validates XML structure before writing
+
+### AgenticExecutor Class
+
+Located in `uipath_claude/query/agentic_executor.py`:
+
+```python
+class AgenticExecutor:
+    MAX_ITERATIONS = 15
+    
+    def run(self, messages, system_prompt) -> AgenticResult:
+        for i in range(MAX_ITERATIONS):
+            response = model.invoke(messages)
+            if no tool_calls:
+                return final_response
+            for tool_call in response.tool_calls:
+                result = execute_tool(tool_call)
+                messages.append(ToolMessage(result))
+```
+
 ## Bootstrap Flow
 
 ```

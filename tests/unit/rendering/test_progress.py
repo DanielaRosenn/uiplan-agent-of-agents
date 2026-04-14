@@ -28,7 +28,7 @@ class TestProgressReporter:
         assert reporter.console is console
 
     def test_success_message(self):
-        """Test success message prints checkmark."""
+        """Test success message prints ASCII marker (Unicode avoided for narrow consoles)."""
         console, output = make_test_console()
         reporter = ProgressReporter(console=console)
 
@@ -36,10 +36,10 @@ class TestProgressReporter:
 
         result = output.getvalue()
         assert "Operation completed" in result
-        assert "\u2713" in result  # checkmark
+        assert "+" in result
 
     def test_error_message(self):
-        """Test error message prints X."""
+        """Test error message prints ASCII x marker."""
         console, output = make_test_console()
         reporter = ProgressReporter(console=console)
 
@@ -47,10 +47,10 @@ class TestProgressReporter:
 
         result = output.getvalue()
         assert "Something failed" in result
-        assert "\u2717" in result  # X mark
+        assert "x" in result
 
     def test_warning_message(self):
-        """Test warning message prints warning sign."""
+        """Test warning message prints ASCII exclamation marker."""
         console, output = make_test_console()
         reporter = ProgressReporter(console=console)
 
@@ -58,10 +58,10 @@ class TestProgressReporter:
 
         result = output.getvalue()
         assert "Be careful" in result
-        assert "\u26a0" in result  # warning sign
+        assert "!" in result
 
     def test_info_message(self):
-        """Test info message prints arrow."""
+        """Test info message prints ASCII arrow prefix."""
         console, output = make_test_console()
         reporter = ProgressReporter(console=console)
 
@@ -69,7 +69,7 @@ class TestProgressReporter:
 
         result = output.getvalue()
         assert "Some information" in result
-        assert "\u2192" in result  # arrow
+        assert "->" in result
 
     def test_file_written_message(self):
         """Test file written notification."""
@@ -80,7 +80,7 @@ class TestProgressReporter:
 
         result = output.getvalue()
         assert "src/main.py" in result
-        assert "\u2713" in result  # checkmark
+        assert "+" in result
 
     def test_analyzing_returns_status(self):
         """Test analyzing returns a Status object."""

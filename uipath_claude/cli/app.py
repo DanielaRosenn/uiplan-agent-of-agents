@@ -5,6 +5,7 @@ import os
 import re
 from pathlib import Path
 import uuid
+from typing import Any
 
 import typer
 from rich.console import Console
@@ -28,6 +29,8 @@ from uipath_claude.artifacts.materialize import (
 )
 from uipath_claude.query.bootstrap import run_bootstrap_flow
 from uipath_claude.query.conversation import ConversationEngine
+from uipath_claude.graph.builder import compile_chat_graph
+from uipath_claude.query.planner_router import find_planner_skill, should_use_planner
 from uipath_claude.query.router import route_user_input
 from uipath_claude.rendering.branding import print_welcome_banner
 from uipath_claude.rendering.progress import ProgressReporter
@@ -303,6 +306,15 @@ def _select_relevant_skills(user_input: str, skills: list[dict], max_items: int 
     if not user_tokens:
         return []
 
+    top_score = 0
+    if skills:
+        top_score = max(_score_skill(s, user_input, user_tokens) for s in skills)
+    use_planner, _planner_reason = should_use_planner(user_input, top_score)
+    if use_planner:
+        planner_skill = find_planner_skill(skills)
+        if planner_skill:
+            return [planner_skill][:max_items]
+
     ranked: dict[str, tuple[int, dict]] = {}
     for skill in skills:
         score = _score_skill(skill, user_input, user_tokens)
@@ -411,11 +423,10 @@ def _extract_critical_sections(skill_content: str) -> str:
     return '\n'.join(critical_lines) if critical_lines else ""
 
 
-def _build_runtime_skill_context(user_input: str, skills: list[dict]) -> str:
-    """Build request-scoped skill guidance injected into the model prompt."""
-    selected = _select_relevant_skills(
-        user_input, skills, max_items=_SKILL_CONTEXT_MAX_ITEMS
-    )
+def _build_runtime_skill_context_for_selected(
+    _user_input: str, selected: list[dict]
+) -> str:
+    """Build skill markdown for an explicit skill subset (used by LangGraph execute)."""
     if not selected:
         return ""
 
@@ -427,18 +438,23 @@ def _build_runtime_skill_context(user_input: str, skills: list[dict]) -> str:
         content = load_skill_content(str(skill.get("path", "")))
         if not content:
             continue
-        
-        # Extract critical sections first
+
         critical = _extract_critical_sections(content)
         if critical:
-            # Add critical section at top
             sections.append(f"[Skill: {name} - CRITICAL RULES]\n{critical}")
-        
-        # Then add full content (trimmed)
+
         trimmed = content[:_SKILL_CONTEXT_MAX_CHARS]
         sections.append(f"[Skill: {name}]\n{trimmed}")
 
     return "\n\n".join(sections)
+
+
+def _build_runtime_skill_context(user_input: str, skills: list[dict]) -> str:
+    """Build request-scoped skill guidance injected into the model prompt."""
+    selected = _select_relevant_skills(
+        user_input, skills, max_items=_SKILL_CONTEXT_MAX_ITEMS
+    )
+    return _build_runtime_skill_context_for_selected(user_input, selected)
 
 
 def _make_chat_session_id() -> str:
@@ -634,10 +650,44 @@ def chat(
         )
         raise typer.Exit(code=1) from exc
 
+    stream_hooks: dict[str, Any] = {"on_delta": None}
+    clarification_prefix = ""
+
+    async def run_model_for_graph(
+        messages: list[dict[str, str]], runtime: str, stream: bool
+    ) -> str:
+        return await _get_model_response(
+            engine,
+            messages,
+            memory,
+            runtime,
+            stream=stream,
+            on_delta=stream_hooks["on_delta"] if stream else None,
+        )
+
+    # Import skill execution tools for agentic mode
+    from uipath_claude.tools.skill_execution_tools import get_skill_execution_tools
+    agentic_tools = get_skill_execution_tools()
+
+    chat_graph = compile_chat_graph(
+        skills,
+        select_skills_fn=lambda u: _select_relevant_skills(
+            u, skills, max_items=_SKILL_CONTEXT_MAX_ITEMS
+        ),
+        build_runtime_for_selected=_build_runtime_skill_context_for_selected,
+        run_model=run_model_for_graph,
+        default_stream=False,
+        agentic_tools=agentic_tools,
+        model_name=model_name,
+        region=region,
+    )
+
     console.print("Chat session started. Type 'exit' or 'quit' to leave.\n")
     stream_enabled = _resolve_stream_enabled(stream)
     output_mode = _resolve_output_mode()
     chat_session_id = _make_chat_session_id()
+    # Set session ID in environment for agentic tools to use
+    os.environ["UIPATH_CHAT_SESSION_ID"] = chat_session_id
     console.print(f"Chat trace id: {chat_session_id}\n")
 
     while True:
@@ -688,12 +738,11 @@ def chat(
             if not skill:
                 progress.error(f"Unknown skill: {skill_name}")
                 continue
-            tool = create_skill_tool(skill)
+            tool = create_skill_tool(skill, engine=engine)
             result = tool.invoke({"query": query})
             console.print(f"[magenta]Assistant:[/magenta] {result}\n")
             continue
 
-        history.append({"role": "user", "content": user_input})
         runtime_context = _build_runtime_skill_context(user_input, skills)
         allow_project_files = _allow_project_file_generation(user_input)
         file_intent = _is_file_generation_intent(user_input)
@@ -705,67 +754,53 @@ def chat(
                     console.print(f"  [dim]-[/dim] {trace}")
                 console.print("")
         try:
-            if stream_enabled:
-                suppress_stream_output = output_mode == "quiet" or (
-                    output_mode == "auto" and file_intent
-                )
-                emitted_deltas = False
+            suppress_stream_output = stream_enabled and (
+                output_mode == "quiet" or (output_mode == "auto" and file_intent)
+            )
+            emitted_deltas = False
 
-                def _print_delta(delta: str) -> None:
-                    nonlocal emitted_deltas
-                    emitted_deltas = True
-                    console.print(delta, end="")
+            def _print_delta(delta: str) -> None:
+                nonlocal emitted_deltas
+                emitted_deltas = True
+                console.print(delta, end="")
 
-                delta_callback = None if suppress_stream_output else _print_delta
-                if suppress_stream_output:
-                    with progress.generating("workflow"):
-                        response = asyncio.run(
-                            _get_model_response(
-                                engine,
-                                history,
-                                memory,
-                                runtime_context,
-                                stream=True,
-                                on_delta=delta_callback,
-                            )
-                        )
-                else:
-                    console.print("[magenta]Assistant:[/magenta] ", end="")
-                    response = asyncio.run(
-                        _get_model_response(
-                            engine,
-                            history,
-                            memory,
-                            runtime_context,
-                            stream=True,
-                            on_delta=delta_callback,
-                        )
-                    )
-                    if not emitted_deltas:
-                        console.print(str(response), end="")
-                    console.print("")
+            stream_hooks["on_delta"] = None if suppress_stream_output else _print_delta
+
+            if stream_enabled and not suppress_stream_output:
+                console.print("[magenta]Assistant:[/magenta] ", end="")
+
+            extra_ctx = clarification_prefix
+            clarification_prefix = ""
+            invocation: dict[str, Any] = {
+                "messages": history + [{"role": "user", "content": user_input}],
+                "stream": bool(stream_enabled),
+                "runtime_extra": extra_ctx,
+            }
+            if stream_enabled and suppress_stream_output:
+                with progress.generating("workflow"):
+                    result = asyncio.run(chat_graph.ainvoke(invocation))
+            elif not stream_enabled and file_intent:
+                with progress.generating("workflow"):
+                    result = asyncio.run(chat_graph.ainvoke(invocation))
+            elif stream_enabled and file_intent and not suppress_stream_output:
+                with progress.generating("workflow"):
+                    result = asyncio.run(chat_graph.ainvoke(invocation))
             else:
-                if file_intent and output_mode in ("quiet", "auto"):
-                    with progress.generating("workflow"):
-                        response = asyncio.run(
-                            _get_model_response(
-                                engine,
-                                history,
-                                memory,
-                                runtime_context,
-                                stream=False,
-                            )
-                        )
-                else:
-                    response = asyncio.run(
-                        _get_model_response(
-                            engine,
-                            history,
-                            memory,
-                            runtime_context,
-                            stream=False,
-                        )
-                    )
+                result = asyncio.run(chat_graph.ainvoke(invocation))
+
+            history[:] = list(result.get("messages") or [])
+            response = str(result.get("assistant_response", ""))
+            pending_q = result.get("pending_question")
+            if pending_q:
+                clarification_prefix = (
+                    "The assistant asked a clarifying question. Address it in your next message:\n"
+                    + str(pending_q)
+                )
+
+            if stream_enabled and not suppress_stream_output:
+                if not emitted_deltas:
+                    console.print(response, end="")
+                console.print("")
         except Exception as exc:
             progress.error("Bedrock request failed")
             console.print(
@@ -773,8 +808,6 @@ def chat(
                 f"Details: {exc}"
             )
             continue
-
-        history.append({"role": "assistant", "content": str(response)})
 
         response_has_files = contains_file_blocks(str(response))
         suppress_output = output_mode == "quiet" or (

@@ -1,10 +1,11 @@
 """Test CLI app."""
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 import asyncio
 
 from typer.testing import CliRunner
 from uipath_claude.cli.app import (
     _allow_project_file_generation,
+    _canonical_skill_name,
     _debug_skill_selection,
     _build_runtime_skill_context,
     _get_model_response,
@@ -56,8 +57,9 @@ def test_cli_chat_llm_error_message():
     """Test model error path displays actionable guidance."""
     with patch("uipath_claude.cli.app._create_engine") as create_engine:
         create_engine.return_value = object()
-        with patch("uipath_claude.cli.app._get_model_response", new_callable=AsyncMock) as get_model_response:
-            get_model_response.side_effect = RuntimeError("model failed")
+        mock_graph = MagicMock()
+        mock_graph.ainvoke = AsyncMock(side_effect=RuntimeError("model failed"))
+        with patch("uipath_claude.cli.app.compile_chat_graph", return_value=mock_graph):
             result = runner.invoke(app, ["chat", "--no-banner"], input="hello\nexit\n")
     assert result.exit_code == 0
     assert "bedrock request failed" in result.stdout.lower()
@@ -79,7 +81,7 @@ def test_select_relevant_skills_prefers_rpa_workflow():
         skills,
     )
     assert selected
-    assert selected[0]["name"] == "uipath-rpa-workflows"
+    assert _canonical_skill_name(selected[0]["name"]) == "uipath-rpa"
 
 
 def test_build_runtime_skill_context_includes_selected_skill_content():

@@ -68,7 +68,7 @@ def test_skill_registry_filter_by_agent():
     assert any(s["name"] == "uipath-planner" for s in ba_skills)
     assert not any(s["name"] == "uipath-rpa" for s in ba_skills)
     
-    # Developer agent should get uipath-rpa
+    # Developer agent should get planner plus RPA skills
     dev_skills = registry.filter_by_agent("developer")
     assert any(s["name"] == "uipath-rpa" for s in dev_skills)
-    assert not any(s["name"] == "uipath-planner" for s in dev_skills)
+    assert any(s["name"] == "uipath-planner" for s in dev_skills)

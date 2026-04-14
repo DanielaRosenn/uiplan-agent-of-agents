@@ -44,6 +44,49 @@ def test_chat_skill_picking_creates_persistent_output_artifact(monkeypatch):
     assert "uipath-rpa" in result.stdout.lower()
 
 
+@pytest.mark.integration
+def test_chat_outlook_last_30_days_subjects_materializes_main(tmp_path, monkeypatch):
+    """Chat + skill pick for Outlook scope; assistant reply mocked as Main.xaml scaffold."""
+    repo_root = Path(__file__).resolve().parents[2]
+    monkeypatch.chdir(repo_root)
+    out_root = tmp_path / "chat-outlook-30d-out"
+    monkeypatch.setenv("UIPATH_CHAT_OUTPUT_DIR", str(out_root))
+    monkeypatch.setenv("UIPATH_CHAT_SESSION_ID", "chat-outlook-30d")
+    monkeypatch.setenv("UIPATH_CHAT_DEBUG_SKILLS", "1")
+
+    fake_reply = """<<<UIPATH_FILE path="Main.xaml">>>
+<Activity x:Class="Main" xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Sequence DisplayName="Outlook subjects last 30 days">
+    <!-- Intended: Get Outlook Mail Messages with filter for last 30 days, then For Each + WriteLine subject -->
+    <WriteLine Text="[Stub] Would print each mail.Subject for messages in the last 30 days" />
+  </Sequence>
+</Activity>
+<<<END_UIPATH_FILE>>>"""
+
+    with patch("uipath_claude.cli.app._create_engine") as eng:
+        eng.return_value = object()
+        with patch("uipath_claude.cli.app._get_model_response", new_callable=AsyncMock) as gmr:
+            gmr.return_value = fake_reply
+            result = runner.invoke(
+                app,
+                ["chat", "--no-banner"],
+                input=(
+                    "Create a UiPath automation project that reads Outlook emails and prints "
+                    "to the screen the last subjects from the last 30 days\nexit\n"
+                ),
+            )
+
+    assert result.exit_code == 0
+    assert "uipath-rpa" in result.stdout.lower()
+    assert "skill selection" in result.stdout.lower()
+    out_file = out_root / "chat-outlook-30d" / "Main.xaml"
+    assert out_file.is_file()
+    text = out_file.read_text(encoding="utf-8")
+    assert "WriteLine" in text
+    assert "30 days" in text.lower()
+
+
 def _file_block(rel_path: str, body: str) -> str:
     return (
         f'<<<UIPATH_FILE path="{rel_path}">>>\n'

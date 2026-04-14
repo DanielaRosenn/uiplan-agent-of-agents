@@ -34,7 +34,6 @@ def test_chat_writes_file_when_assistant_emits_block(tmp_path, monkeypatch):
     assert "WriteLine" in out_file.read_text(encoding="utf-8")
     assert "Wrote:" in result.stdout
     assert "Chat trace id: chat-abc123" in result.stdout
-    assert "Generating files, one moment" in result.stdout
     assert "WriteLine Text=\"Ok\"" not in result.stdout
 
 

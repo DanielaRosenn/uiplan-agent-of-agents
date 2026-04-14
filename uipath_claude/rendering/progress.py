@@ -76,7 +76,7 @@ class ProgressReporter:
 
     def success(self, message: str) -> None:
         """
-        Print success message with green checkmark.
+        Print success message with a green ASCII marker.
 
         Args:
             message: Success message to display
@@ -85,7 +85,7 @@ class ProgressReporter:
 
     def error(self, message: str) -> None:
         """
-        Print error message with red X.
+        Print error message with a red ASCII marker.
 
         Args:
             message: Error message to display
@@ -94,7 +94,7 @@ class ProgressReporter:
 
     def warning(self, message: str) -> None:
         """
-        Print warning message with yellow warning sign.
+        Print warning message with a yellow ASCII marker.
 
         Args:
             message: Warning message to display

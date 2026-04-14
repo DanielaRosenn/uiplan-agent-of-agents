@@ -138,6 +138,8 @@ def test_get_errors_parses_json_from_stderr(mock_run):
 
     assert result["success"] is True
     assert result["errors"] == []
+    cmd = mock_run.call_args[0][0]
+    assert "--use-studio" in cmd
 
 
 @patch("uipath_claude.tools.uipath.cli_runner.subprocess.run")

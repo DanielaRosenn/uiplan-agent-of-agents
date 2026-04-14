@@ -472,72 +472,10 @@ def _locate_project_root(root: Path) -> Path | None:
 
 
 def validate_generated_project(project_path: Path) -> dict:
-    """Validate generated workflows with structure + Studio diagnostics.
+    """Validate generated workflows (structure, activities, ``uip rpa get-errors``)."""
+    from uipath_claude.validation.pipeline import ValidationPipeline, validation_result_to_chat_dict
 
-    Validation stages:
-    1) Structural XAML validation (always)
-    2) File-level `uip rpa get-errors` validation (when a project + Studio are available)
-    """
-    from uipath_claude.tools.uipath.cli_runner import run_uip_rpa_get_errors
-
-    all_errors: list[str] = []
-    all_warnings: list[str] = []
-
-    xaml_files = list(project_path.rglob("*.xaml"))
-    for xaml_file in xaml_files:
-        ok, errors = _validate_xaml_structure(xaml_file)
-        if not ok:
-            all_errors.extend([f"[{xaml_file}] {err}" for err in errors])
-
-    if all_errors:
-        return {
-            "valid": False,
-            "success": False,
-            "fully_validated": False,
-            "errors": all_errors,
-            "warnings": all_warnings,
-            "project_path": str(project_path),
-        }
-
-    project_root = _locate_project_root(project_path)
-    if project_root is None:
-        all_warnings.append(
-            "No project.json found. Structural validation passed; Studio diagnostics not run."
-        )
-        return {
-            "valid": True,
-            "success": True,
-            "fully_validated": False,
-            "errors": [],
-            "warnings": all_warnings,
-            "project_path": str(project_path),
-        }
-
-    studio_validation_ran = False
-    for xaml_file in project_root.rglob("*.xaml"):
-        rel = str(xaml_file.relative_to(project_root)).replace("\\", "/")
-        cli_result = run_uip_rpa_get_errors(project_root, file_path=rel)
-
-        if cli_result.get("studio_required"):
-            all_warnings.append(
-                "Studio diagnostics unavailable. Start/open the project in UiPath Studio "
-                "to run `uip rpa get-errors`."
-            )
-            continue
-
-        studio_validation_ran = True
-        for warning in cli_result.get("warnings", []):
-            all_warnings.append(f"[{rel}] {warning}")
-        if not cli_result.get("success", False):
-            for error in cli_result.get("errors", []):
-                all_errors.append(f"[{rel}] {error}")
-
-    success = len(all_errors) == 0
-    return {
-        "valid": success,
-        "success": success,
-        "fully_validated": studio_validation_ran,
-        "errors": all_errors,
-        "warnings": all_warnings,
-        "project_path": str(project_root),
-    }
+    pipeline = ValidationPipeline()
+    result = pipeline.validate(project_path)
+    root = _locate_project_root(project_path) or project_path
+    return validation_result_to_chat_dict(root, result)
