@@ -105,6 +105,7 @@ Generated projects are saved to `generated/chat/{session-id}/`.
 | `UIPATH_MAX_ITERATIONS` | Maximum ReAct loop iterations | `25` |
 | `UIPATH_SKILL_AUTO_CAPTURE` | After agentic runs, record usage / auto-capture insights (`post_skill_execution_hook`) | `1` |
 | `UIPATH_CONFIRM_BUILD` | Prompt to confirm before running the graph on build/ambiguous intents | `0` |
+| `UIPATH_PLAN_MODE` | Run read-only planning + approval before build/ambiguous intents | `1` |
 | `UIPATH_CLAUDE_TOOL_PROFILE` | Tool profile (`safe`, `uipath-dev`, `all`) | `safe` |
 | `UIPATH_CLAUDE_REQUIRE_APPROVAL` | Require approval for CLI ops | `false` |
 | `UIPATH_CLAUDE_CLI_APPROVED` | Pre-approve CLI operations | `false` |
@@ -138,6 +139,25 @@ uipath-claude start-project "MyProject"
 - `/bootstrap` — Start bootstrap flow
 - `/chat` — Indicates you are already in chat mode
 - `/recall <term>` — Search recent session messages for matching text
+
+### Plan mode
+
+When `UIPATH_PLAN_MODE=1` (default), BUILD and AMBIGUOUS intents trigger a planning phase before execution:
+
+1. **Planning**: A read-only planning agent explores the codebase and proposes an implementation plan
+2. **Review**: The plan is displayed in a cyan-bordered panel. You can:
+   - Type `y` or `yes` to approve and proceed to execution
+   - Type `n` or `no` to cancel
+   - Type any other text as feedback to refine the plan
+3. **Persistence**: Approved plans are saved to `generated/chat/<session>/.plan.md`
+4. **Execution**: The approved plan is injected into the execution context
+
+**Environment variables:**
+- `UIPATH_PLAN_MODE=1` — Enable planning (default)
+- `UIPATH_PLAN_MODE=0` — Disable planning for faster iteration
+
+**CLI flags:**
+- `uipath-claude chat --no-plan` — Skip planning for this session
 
 ## Skills system
 
