@@ -146,6 +146,41 @@ _FILE_INTENT_TOKENS = {
 }
 
 
+def _get_output_root() -> Path:
+    """Return the base output directory for chat artifacts."""
+    return Path(
+        os.environ.get(
+            "UIPATH_CHAT_OUTPUT_DIR",
+            str(Path.cwd() / "generated" / "chat"),
+        )
+    ).resolve()
+
+
+def _save_plan_to_file(
+    session_id: str,
+    user_request: str,
+    plan_content: str,
+    output_root: Path,
+) -> Path:
+    """Save approved plan to .plan.md file."""
+    session_dir = output_root / session_id
+    session_dir.mkdir(parents=True, exist_ok=True)
+    plan_path = session_dir / ".plan.md"
+
+    content = f"""# Implementation Plan
+Generated: {datetime.now(timezone.utc).isoformat()}
+Session: {session_id}
+
+## User Request
+{user_request}
+
+## Plan
+{plan_content}
+"""
+    plan_path.write_text(content, encoding="utf-8")
+    return plan_path
+
+
 def _tokenize(text: str) -> set[str]:
     """Tokenize text for lightweight lexical scoring."""
     return set(re.findall(r"[a-z0-9]+", text.lower()))
@@ -803,6 +838,14 @@ def chat(
                     confirm = Prompt.ask("Approve plan? [y/n/edit]", default="y").strip().lower()
                     if confirm in ("y", "yes"):
                         approved_plan = plan_result.final_response
+                        # Save plan to file
+                        plan_path = _save_plan_to_file(
+                            session_id=chat_session_id,
+                            user_request=user_input,
+                            plan_content=approved_plan,
+                            output_root=_get_output_root(),
+                        )
+                        console.print(f"[dim]Plan saved to: {plan_path}[/dim]")
                         break
                     elif confirm in ("n", "no"):
                         progress.info("Plan cancelled.")
