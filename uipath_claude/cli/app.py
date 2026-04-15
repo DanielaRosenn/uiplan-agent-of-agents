@@ -30,8 +30,11 @@ from uipath_claude.artifacts.materialize import (
 from uipath_claude.query.bootstrap import run_bootstrap_flow
 from uipath_claude.query.conversation import ConversationEngine
 from uipath_claude.graph.builder import compile_chat_graph
+from uipath_claude.query.intent_classifier import IntentType, classify_intent
+from uipath_claude.query.planner import run_planner_agent
 from uipath_claude.query.planner_router import find_planner_skill, should_use_planner
 from uipath_claude.query.router import route_user_input
+from uipath_claude.skills.execution_hook import get_execution_hooks
 from uipath_claude.rendering.branding import print_welcome_banner
 from uipath_claude.rendering.progress import ProgressReporter
 from uipath_claude.skills.loader import load_skill_content
@@ -44,7 +47,12 @@ from uipath_claude.tools.skill_tool import create_skill_tool
 
 app = typer.Typer(help="UiPath Claude Code - Conversational AI for UiPath")
 
-_UIPATH_CHAT_SYSTEM = """You are UiPath Claude Code. You build UiPath Studio automations (workflow XAML), not WPF desktop apps, unless the user explicitly asks for WPF.
+_UIPATH_CHAT_SYSTEM = """You are UiPath Claude Code, an agentic AI assistant with direct access to the user's local file system, UiPath CLI, and UiPath skills. You build UiPath Studio automations (workflow XAML), not WPF desktop apps, unless the user explicitly asks for WPF.
+
+CRITICAL CAPABILITIES:
+- You HAVE full capabilities to execute UiPath skills, read/write files, run CLI commands, and build automations directly on the user's machine.
+- NEVER say you don't have access to tools, skills, or the local environment. You ARE an agentic assistant.
+- When the user asks you to do something, DO IT using your tools (if in agentic mode) or by generating the necessary files.
 
 IMPORTANT - Clarification Before Action:
 If the user's request is ambiguous, vague, or missing critical details needed to build a correct workflow, ASK for clarification BEFORE generating any files. Examples of when to ask:
@@ -433,6 +441,7 @@ def _build_runtime_skill_context_for_selected(
     sections: list[str] = [
         "Use the following skill guidance for this request. Follow these rules strictly."
     ]
+    hooks = get_execution_hooks(Path.cwd())
     for skill in selected:
         name = str(skill.get("name", "unknown"))
         content = load_skill_content(str(skill.get("path", "")))
@@ -442,6 +451,10 @@ def _build_runtime_skill_context_for_selected(
         critical = _extract_critical_sections(content)
         if critical:
             sections.append(f"[Skill: {name} - CRITICAL RULES]\n{critical}")
+
+        insights_summary = hooks.get_insights_summary(name, max_tokens=150)
+        if insights_summary.strip():
+            sections.append(f"[Skill: {name} - Learned from Usage]\n{insights_summary.strip()}")
 
         trimmed = content[:_SKILL_CONTEXT_MAX_CHARS]
         sections.append(f"[Skill: {name}]\n{trimmed}")
@@ -567,6 +580,7 @@ async def _get_model_response(
 @app.command()
 def chat(
     no_banner: bool = typer.Option(False, "--no-banner", help="Skip welcome banner"),
+    no_plan: bool = typer.Option(False, "--no-plan", help="Skip planning phase for BUILD intents"),
     stream: bool | None = typer.Option(
         None,
         "--stream/--no-stream",
@@ -743,7 +757,66 @@ def chat(
             console.print(f"[magenta]Assistant:[/magenta] {result}\n")
             continue
 
+        intent, intent_reason = classify_intent(user_input)
+        if os.environ.get("UIPATH_CONFIRM_BUILD", "0").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+        ):
+            if intent in (IntentType.BUILD, IntentType.AMBIGUOUS):
+                preview = _select_relevant_skills(user_input, skills)
+                preview_names = ", ".join(str(s.get("name", "")) for s in preview) or "(none)"
+                console.print(f"[yellow]Planned skills:[/yellow] {preview_names}")
+                console.print(f"[yellow]Intent:[/yellow] {intent.value} ({intent_reason})")
+                confirm = Prompt.ask(
+                    "Proceed? [y/n or type details]",
+                    default="y",
+                ).strip()
+                cl = confirm.lower()
+                if cl in ("n", "no"):
+                    progress.info("Cancelled.")
+                    continue
+                if cl not in ("", "y", "yes"):
+                    user_input = f"{user_input}\n\nAdditional details from user: {confirm}"
+
+        # Plan Mode logic
+        approved_plan = ""
+        plan_mode_enabled = os.environ.get("UIPATH_PLAN_MODE", "1").strip().lower() in ("1", "true", "yes")
+        if plan_mode_enabled and not no_plan:
+            if intent in (IntentType.BUILD, IntentType.AMBIGUOUS):
+                while True:
+                    with progress.generating("plan"):
+                        plan_result = asyncio.run(
+                            run_planner_agent(
+                                user_input,
+                                project_context=project_context,
+                                model_name=model_name,
+                                region=region,
+                            )
+                        )
+                    
+                    from rich.markdown import Markdown
+                    from rich.panel import Panel
+                    console.print(Panel(Markdown(plan_result.final_response), title="Implementation Plan", border_style="cyan"))
+                    
+                    confirm = Prompt.ask("Approve plan? [y/n/edit]", default="y").strip().lower()
+                    if confirm in ("y", "yes"):
+                        approved_plan = plan_result.final_response
+                        break
+                    elif confirm in ("n", "no"):
+                        progress.info("Plan cancelled.")
+                        break
+                    else:
+                        # Treat other input as feedback
+                        user_input = f"{user_input}\n\nFeedback on plan: {confirm}"
+                        continue
+                
+                if confirm in ("n", "no"):
+                    continue
+
         runtime_context = _build_runtime_skill_context(user_input, skills)
+        if approved_plan:
+            runtime_context = f"Approved Implementation Plan:\n\n{approved_plan}\n\n{runtime_context}"
         allow_project_files = _allow_project_file_generation(user_input)
         file_intent = _is_file_generation_intent(user_input)
         if os.environ.get("UIPATH_CHAT_DEBUG_SKILLS", "0").strip().lower() in {"1", "true", "yes"}:
@@ -776,13 +849,16 @@ def chat(
                 "stream": bool(stream_enabled),
                 "runtime_extra": extra_ctx,
             }
-            if stream_enabled and suppress_stream_output:
+            
+            # Check if agentic mode is enabled (has its own progress output)
+            agentic_mode_on = os.environ.get("UIPATH_AGENTIC_MODE", "1").lower() in ("1", "true", "yes")
+            debug_mode_on = os.environ.get("UIPATH_DEBUG_AGENT", "1").lower() in ("1", "true", "yes")
+            use_spinner = not (agentic_mode_on and debug_mode_on)
+            
+            if use_spinner and (stream_enabled and suppress_stream_output):
                 with progress.generating("workflow"):
                     result = asyncio.run(chat_graph.ainvoke(invocation))
-            elif not stream_enabled and file_intent:
-                with progress.generating("workflow"):
-                    result = asyncio.run(chat_graph.ainvoke(invocation))
-            elif stream_enabled and file_intent and not suppress_stream_output:
+            elif use_spinner and (not stream_enabled and file_intent):
                 with progress.generating("workflow"):
                     result = asyncio.run(chat_graph.ainvoke(invocation))
             else:
