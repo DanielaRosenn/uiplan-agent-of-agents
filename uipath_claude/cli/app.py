@@ -13,6 +13,7 @@ from rich.prompt import Prompt
 from uipath_claude.commands.analyze import register_analyze_command
 from uipath_claude.commands.bootstrap import register_bootstrap_command
 from uipath_claude.commands.help import register_help_command
+from uipath_claude.commands.plan import register_plan_command
 from uipath_claude.commands.recall import register_recall_command
 from uipath_claude.commands.repair_restore import register_repair_restore_command
 from uipath_claude.commands.registry import CommandRegistry
@@ -552,6 +553,7 @@ def _build_command_registry(
     skill_registry: SkillRegistry,
     get_status,
     get_history,
+    run_planner=None,
 ) -> CommandRegistry:
     """Create and register built-in slash commands."""
     registry = CommandRegistry()
@@ -568,6 +570,8 @@ def _build_command_registry(
     register_bootstrap_command(registry, run_bootstrap=run_bootstrap_flow)
     register_update_skills_command(registry)
     register_recall_command(registry, get_history=get_history)
+    if run_planner:
+        register_plan_command(registry, run_planner=run_planner)
     return registry
 
 
@@ -684,7 +688,19 @@ def chat(
     def _history() -> list[dict[str, str]]:
         return history
 
-    registry = _build_command_registry(skill_registry, _status, _history)
+    def _run_planner(description: str) -> str:
+        """Synchronous wrapper for the async planner agent."""
+        result = asyncio.run(
+            run_planner_agent(
+                description,
+                project_context=project_context,
+                model_name=model_name,
+                region=region,
+            )
+        )
+        return result.final_response
+
+    registry = _build_command_registry(skill_registry, _status, _history, run_planner=_run_planner)
 
     try:
         engine = _create_engine()
