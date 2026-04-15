@@ -13,6 +13,7 @@ from typing import Any
 
 from langchain_core.tools import tool
 
+from uipath_claude.tools.library_tools import get_library_tools
 from uipath_claude.tools.uipath.cli_runner import (
     _find_uip_cli,
     _parse_first_json_payload,
@@ -1033,6 +1034,17 @@ def query_uipath_docs(question: str) -> str:
     return "Error: UiPath Ask AI skill not found. Install it in skills/skills/uipath-askai/"
 
 
+def get_planning_tools() -> list:
+    """Return the list of read-only tools available during planning."""
+    return [
+        read_file,
+        list_directory,
+        read_project_json,
+        find_activity_info,
+        query_uipath_docs,
+    ] + get_library_tools()
+
+
 def get_skill_execution_tools() -> list:
     """Return the list of tools available during skill execution."""
     return [
@@ -1049,4 +1061,4 @@ def get_skill_execution_tools() -> list:
         debug_workflow,       # Interactive debugging
         ensure_project_structure,
         query_uipath_docs,
-    ]
+    ] + get_library_tools()
