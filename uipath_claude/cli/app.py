@@ -785,7 +785,8 @@ def chat(
         if plan_mode_enabled and not no_plan:
             if intent in (IntentType.BUILD, IntentType.AMBIGUOUS):
                 while True:
-                    with progress.generating("plan"):
+                    console.print("[bold cyan][PLANNING][/bold cyan]")
+                    with progress.generating("implementation plan"):
                         plan_result = asyncio.run(
                             run_planner_agent(
                                 user_input,
@@ -856,9 +857,11 @@ def chat(
             use_spinner = not (agentic_mode_on and debug_mode_on)
             
             if use_spinner and (stream_enabled and suppress_stream_output):
+                console.print("[bold yellow][EXECUTING][/bold yellow]")
                 with progress.generating("workflow"):
                     result = asyncio.run(chat_graph.ainvoke(invocation))
             elif use_spinner and (not stream_enabled and file_intent):
+                console.print("[bold yellow][EXECUTING][/bold yellow]")
                 with progress.generating("workflow"):
                     result = asyncio.run(chat_graph.ainvoke(invocation))
             else:
