@@ -1,8 +1,12 @@
 """Skills command implementation."""
+import json
 from collections import defaultdict
-from typing import Callable
+from pathlib import Path
+from typing import Callable, Optional
 
 from uipath_claude.commands.registry import CommandRegistry, register_command
+from uipath_claude.skills.registry import SkillRegistry
+from uipath_claude.skills.sources import SkillOrigin
 
 
 def register_skills_command(
@@ -30,7 +34,8 @@ def register_skills_command(
         for source, skills in sorted(grouped.items()):
             lines.append(f"Source: {source} ({len(skills)})")
             for skill in sorted(skills, key=lambda s: s.get("name", ""))[:20]:
-                lines.append(f"  - {skill.get('name', 'unknown')}")
+                origin = skill.get("origin", "unknown")
+                lines.append(f"  - {skill.get('name', 'unknown')} [{origin}]")
             lines.append("")
 
         if not role_skills:
@@ -40,3 +45,60 @@ def register_skills_command(
             )
 
         return "\n".join(lines).strip()
+
+
+def generate_skills_manifest(
+    output_path: Optional[str] = None,
+    project_root: Optional[Path] = None,
+) -> dict:
+    """
+    Generate skills manifest with provenance information.
+    
+    Args:
+        output_path: Path to write manifest JSON. If None, only returns dict.
+        project_root: Root path for the project. Defaults to cwd.
+        
+    Returns:
+        Manifest dictionary with skill provenance info.
+    """
+    root = project_root or Path.cwd()
+    registry = SkillRegistry(project_root=root)
+    registry.load_skills()
+    manifest = registry.generate_manifest()
+    
+    if output_path:
+        output = Path(output_path)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(manifest, indent=2))
+    
+    return manifest
+
+
+def print_skills_manifest(output_path: str = "skills-manifest.json") -> str:
+    """
+    Generate and save skills manifest, return summary.
+    
+    Args:
+        output_path: Path to write manifest JSON.
+        
+    Returns:
+        Summary string for CLI output.
+    """
+    manifest = generate_skills_manifest(output_path=output_path)
+    
+    lines = [
+        f"Skills manifest generated: {output_path}",
+        f"Total skills: {manifest['total_skills']}",
+        "",
+        "By origin:",
+    ]
+    
+    for origin in SkillOrigin:
+        count = manifest["counts"].get(origin.value, 0)
+        if count > 0:
+            lines.append(f"  {origin.value}: {count}")
+    
+    if manifest.get("submodule_commit"):
+        lines.append(f"\nUiPath submodule commit: {manifest['submodule_commit']}")
+    
+    return "\n".join(lines)
