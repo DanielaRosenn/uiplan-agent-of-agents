@@ -26,5 +26,8 @@ def register_plan_command(
         if not description:
             return "Usage: /plan <description>\n\nGenerates an implementation plan without executing it."
 
-        plan = run_planner(description)
+        try:
+            plan = run_planner(description)
+        except Exception as exc:
+            return f"Plan generation failed: {exc}"
         return f"{plan}\n\n[Type 'y' to execute this plan, or continue chatting]"
