@@ -63,20 +63,23 @@ def create_welcome_panel() -> Panel:
     title.append("UiPath ", style=f"bold {UIPATH_ORANGE}")
     title.append("Claude Code", style=f"bold {UIPATH_BLUE}")
     
-    # BuilderBot - friendly helper robot with mechanical arms
+    # UiPath Robot with control panel
     robot = """
-          _____
-        .'     '.
-       /  o   o  \\
-      |    ___    |
-      |   (___}   |
-       \\  '---'  /
-        '._____.'
-         |     |
-       .-|     |-.
-      /  |=====|  \\
-     |   |     |   |
-     '---'     '---'
+       ╔══════════════╗
+       ║  ●●●   ●●●   ║
+       ║      ▼▼      ║
+       ║   \\_____/    ║
+       ╚══════╤═══════╝
+       ╔══════╧══════╗
+    ╔══╝             ╚══╗
+    ║   ●  ●●●●●  ●   ║
+    ║  ┌───────────┐  ║
+    ║  │  UiPath   │  ║
+    ║  │  Agent    │  ║
+    ║  └───────────┘  ║
+    ╚══╗  [■][■][■] ╔══╝
+       ╚═════╤═════╝
+          ▓▓▓│▓▓▓
     """
     
     # Build the content with colored sections
@@ -121,27 +124,24 @@ def print_welcome_banner() -> None:
 def _print_plain_banner(console: Console) -> None:
     """Print plain text banner for terminals that don't support rich formatting."""
     banner = """
-╭───────────────────────────── UiPath Claude Code ──────────────────────────────╮
-│                                                                               │
-│                                                                               │
-│           _____                                                               │
-│         .'     '.                                                             │
-│        /  o   o  \\                                                            │
-│       |    ___    |                                                           │
-│       |   (___}   |                                                           │
-│        \\  '---'  /                                                            │
-│         '._____.'                                                             │
-│          |     |                                                              │
-│        .-|     |-.                                                            │
-│       /  |=====|  \\                                                           │
-│      |   |     |   |                                                          │
-│      '---'     '---'                                                          │
-│                                                                               │
-│  Conversational AI for UiPath Automation                                      │
-│                                                                               │
-│  Version: {version}                                                           │
-│                                                                               │
-│                                                                               │
-╰───────────────────────────────────────────────────────────────────────────────╯
+╔════════════════════════════════════════════════════╗
+║                                                    ║
+║           ╔══════════════╗                         ║
+║           ║  ●●●   ●●●   ║    UiPath Claude Code  ║
+║           ║      ▼▼      ║    AI Workflow Builder ║
+║           ║   \\_____/    ║    Version {version}   ║
+║           ╚══════╤═══════╝                         ║
+║           ╔══════╧══════╗                          ║
+║        ╔══╝             ╚══╗                       ║
+║        ║   ●  ●●●●●  ●   ║                       ║
+║        ║  ┌───────────┐  ║  🟠 Natural language  ║
+║        ║  │  UiPath   │  ║  🔵 XAML workflows    ║
+║        ║  │  Agent    │  ║  ⚡ 25 iterations      ║
+║        ║  └───────────┘  ║                        ║
+║        ╚══╗  [■][■][■] ╔══╝  Type /help           ║
+║           ╚═════╤═════╝                            ║
+║              ▓▓▓│▓▓▓                               ║
+║                                                    ║
+╚════════════════════════════════════════════════════╝
 """.format(version=get_version())
     console.print(banner)
