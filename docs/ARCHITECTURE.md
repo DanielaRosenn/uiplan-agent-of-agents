@@ -96,7 +96,8 @@ Located in `uipath_claude/tools/skill_execution_tools.py`:
 | `install_package` | Install NuGet packages via `uip` |
 | `write_file` | Write files with XAML auto-fix |
 | `read_file` | Read project files |
-| `validate_file` | Validate XAML against Studio |
+| `validate_file` | **Static validation** - XAML syntax, properties, namespaces |
+| `run_workflow` | **Runtime testing** - Execute workflow to catch runtime errors |
 | `validate_and_fix_loop` | Iterative validation guidance |
 | `find_activity_info` | Look up activity documentation |
 | `query_uipath_docs` | Query UiPath Ask AI |
@@ -149,6 +150,111 @@ class AgenticExecutor:
 - Progress bars and status indicators
 - Multiple debug modes (formatted, verbose, raw)
 
+## Runtime Testing Architecture
+
+### Two-Stage Validation Flow
+
+The agent performs comprehensive validation to ensure workflows not only pass syntax checks but actually work:
+
+```mermaid
+flowchart TD
+    Start[User Request] --> EnsureProject[ensure_project_structure]
+    EnsureProject --> InstallPkg[install_package]
+    InstallPkg --> WriteFile[write_file]
+    WriteFile --> ValidateStatic[validate_file - Static]
+    ValidateStatic -->|Errors| WriteFile
+    ValidateStatic -->|Success| RunWorkflow[run_workflow - Runtime]
+    RunWorkflow -->|Runtime Errors| AnalyzeError[Agent Analyzes Error]
+    AnalyzeError --> FixError[Fix in write_file]
+    FixError --> ValidateStatic
+    RunWorkflow -->|Success| Done[Workflow Works]
+    
+    style Done fill:#6bcf7f
+    style RunWorkflow fill:#4ecdc4
+    style ValidateStatic fill:#ffd93d
+```
+
+### Static Validation (`validate_file`)
+
+Checks XAML syntax and structure:
+- XML well-formedness
+- Required activity properties
+- Variable declarations and types
+- Namespace imports
+- Package dependencies
+
+### Runtime Testing (`run_workflow`)
+
+Executes the workflow to catch runtime errors:
+- Wrong activity output properties (e.g., `.Result` vs `.Messages`)
+- Null reference exceptions
+- Type mismatches
+- Missing variable assignments
+- Logic errors
+
+### Error Pattern Recognition
+
+The `run_workflow` tool detects common patterns and suggests fixes:
+
+| Error Pattern | Detection | Suggested Fix |
+|--------------|-----------|---------------|
+| Property doesn't exist | "property '...' does not exist" | Call `find_activity_info` to check correct properties |
+| Null reference | "Object reference not set" | Check variable assignments in previous activities |
+| Type mismatch | "cannot convert" | Verify variable types match activity inputs |
+| Validation error | Check `Data.Errors` array | Fix XAML structure or properties |
+
+### Tool Design (Following Anthropic's Principles)
+
+The `run_workflow` tool follows Anthropic's best practices for agent tools:
+
+1. **Clear Purpose**: Distinct from static validation and debugging
+2. **Meaningful Context**: Returns actionable errors, not raw logs
+3. **Token Efficiency**: Truncates output, shows only errors by default
+4. **Clear Description**: Tells agent when/how to use it
+5. **Natural Integration**: Fits into existing ReAct loop
+
+### JSON Response Parsing
+
+The CLI returns structured JSON:
+
+```json
+{
+  "IsSuccessful": false,
+  "ErrorMessage": "Execution faulted",
+  "Data": {
+    "Errors": [],
+    "LogEntries": [
+      {
+        "Severity": "Error",
+        "Message": "The property 'Result' does not exist",
+        "ActivityName": "GetOutlookMailMessages"
+      }
+    ],
+    "Output": {"State": "Faulted"}
+  }
+}
+```
+
+The tool extracts:
+- Success status
+- Error messages
+- Activity context
+- Severity levels
+- Execution state
+
+### Token Efficiency Strategy
+
+Default output (verbose=False):
+- Truncate to ~2000 chars
+- Show only Error/Critical logs
+- Group duplicate errors
+- Limit to first 5 unique errors
+
+Verbose output (verbose=True):
+- Full logs included
+- All severity levels
+- Complete error details
+
 ## Bootstrap Flow
 
 ```
@@ -179,27 +285,29 @@ uipath_claude/evaluation/
 
 ### Evaluation Types
 
-1. **Final Response Evaluator**: Checks if generated project is valid
-   - Files created
-   - Packages installed
-   - Validation passed
+1. **Agent benchmark evaluator (canonical)**: Single entry point combining
+   - **Outcome** (same checks as final-response): files, packages, validation
+   - **Trajectory**: expected tool sequence (subsequence match)
+   - Composite score and per-dimension breakdown in the result dict
 
-2. **Trajectory Evaluator**: Checks if agent took correct tool sequence
-   - Expected steps matched
-   - Subsequence matching
+2. **Final Response / Trajectory evaluators**: Still available for custom pipelines or unit tests.
 
-3. **Single Step Evaluator**: Checks individual tool calls
-   - Correct tool used
-   - Correct arguments
-   - Expected result
+3. **Single Step Evaluator**: Checks individual tool calls (tool name, args, result).
 
 ### Running Evaluations
 
 ```python
-from uipath_claude.evaluation import EvaluationDataset, EvaluationRunner
+from uipath_claude.evaluation import (
+    EvaluationDataset,
+    EvaluationRunner,
+    agent_benchmark_evaluator,
+)
 
 dataset = EvaluationDataset.from_workflow_benchmarks()
-runner = EvaluationRunner(target_function, evaluators)
+runner = EvaluationRunner(
+    target_function,
+    evaluators={"agent_benchmark": agent_benchmark_evaluator},
+)
 run = await runner.run(dataset)
 ```
 

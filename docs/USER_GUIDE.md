@@ -73,8 +73,9 @@ In agentic mode, the agent will:
 1. Create `project.json` with proper structure
 2. Install required NuGet packages
 3. Generate XAML workflow files
-4. Validate against UiPath Studio
-5. Iterate and fix errors automatically
+4. **Validate syntax** against UiPath Studio
+5. **Execute workflows** to verify runtime behavior
+6. Iterate and fix errors automatically until the workflow works
 
 ### Example Session
 
@@ -209,6 +210,70 @@ set UIPATH_DEBUG_AGENT=1
 
 Check that UiPath Studio is running for full validation.
 
+## Understanding the Validation Process
+
+The agent uses a two-stage validation process to ensure workflows work correctly:
+
+### Stage 1: Static Validation
+
+After generating a workflow, the agent calls `validate_file` to check:
+- XAML is well-formed XML
+- All activities have required properties
+- Variable types are declared correctly
+- Namespaces are imported
+- Package dependencies are met
+
+If static validation fails, you'll see error messages like:
+
+```
+Validation failed: 2 error(s)
+- [Main.xaml] Missing required property 'Text' on LogMessage activity
+- [Main.xaml] Variable 'emails' is not declared
+```
+
+The agent will fix these and re-validate.
+
+### Stage 2: Runtime Testing
+
+After static validation passes, the agent calls `run_workflow` to actually execute the workflow:
+- Runs the workflow in UiPath Studio/Robot
+- Captures runtime errors and logs
+- Detects issues that validation can't catch
+
+Common runtime errors:
+- **Wrong property names**: `GetOutlookMailMessages.Result` → should be `.Messages`
+- **Null references**: Variable not set before use
+- **Type mismatches**: Passing wrong data type to activity
+- **Logic errors**: Incorrect control flow
+
+If runtime testing fails, you'll see:
+
+```
+RUNTIME EXECUTION: FAILED
+
+ERROR: The property 'Result' does not exist on 'GetOutlookMailMessages'
+Activity: GetOutlookMailMessages
+Problem: Using incorrect output property
+
+FIX NEEDED: Change GetOutlookMailMessages.Result to GetOutlookMailMessages.Messages
+```
+
+The agent reads this feedback, understands the fix, and updates the workflow.
+
+### When Runtime Testing Happens
+
+Runtime testing is automatic and happens:
+1. After static validation passes
+2. Before the agent declares the workflow complete
+3. After any fix that changes workflow logic
+
+You can see runtime testing in action in debug mode:
+
+```bash
+set UIPATH_DEBUG_VERBOSE=1
+uipath-claude chat
+```
+
 ### Skills not loading
 
 Ensure submodules are initialized:
@@ -225,6 +290,9 @@ git submodule update --init --recursive
 | `UIPATH_CLAUDE_MODEL` | Bedrock model ID | Claude 3 Sonnet |
 | `UIPATH_AGENTIC_MODE` | Enable tool-use loops | `0` |
 | `UIPATH_DEBUG_AGENT` | Show debug output | `0` |
+| `UIPATH_DEBUG_VERBOSE` | Show full tool args/results | `0` |
+| `UIPATH_DEBUG_RAW` | Show raw JSON output | `0` |
+| `UIPATH_MAX_ITERATIONS` | Maximum ReAct loop iterations | `25` |
 | `UIPATH_CHAT_OUTPUT_DIR` | Override output directory | `generated/chat/` |
 
 ## Getting Help

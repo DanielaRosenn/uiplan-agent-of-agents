@@ -24,7 +24,14 @@ class EvaluationDataset:
     
     @classmethod
     def from_workflow_benchmarks(cls) -> "EvaluationDataset":
-        """Create dataset from workflow benchmarks."""
+        """Create dataset from workflow benchmarks.
+        
+        Includes expectations for both static validation and runtime testing.
+        After runtime testing implementation, workflows should:
+        1. Pass static validation (validate_file)
+        2. Pass runtime execution (run_workflow)
+        3. Include both tools in the agent's trajectory
+        """
         examples = [
             Example(
                 inputs={"question": "Create a UiPath workflow that reads the first 5 emails from Outlook and logs each subject"},
@@ -32,8 +39,9 @@ class EvaluationDataset:
                     "expected_files": ["Main.xaml", "project.json"],
                     "expected_packages": ["UiPath.Mail.Activities"],
                     "expected_activities": ["GetOutlookMailMessages", "LogMessage"],
-                    "trajectory": ["ensure_project_structure", "install_package", "write_file", "validate_file"],
+                    "trajectory": ["ensure_project_structure", "install_package", "write_file", "validate_file", "run_workflow"],
                     "validation_passes": True,
+                    "runtime_passes": True,
                 },
                 metadata={"category": "email", "difficulty": "medium"},
             ),
@@ -43,8 +51,9 @@ class EvaluationDataset:
                     "expected_files": ["Main.xaml", "project.json"],
                     "expected_packages": ["UiPath.Excel.Activities"],
                     "expected_activities": ["ReadRange", "WriteRange"],
-                    "trajectory": ["ensure_project_structure", "install_package", "write_file", "validate_file"],
+                    "trajectory": ["ensure_project_structure", "install_package", "write_file", "validate_file", "run_workflow"],
                     "validation_passes": True,
+                    "runtime_passes": True,
                 },
                 metadata={"category": "excel", "difficulty": "easy"},
             ),
@@ -54,8 +63,9 @@ class EvaluationDataset:
                     "expected_files": ["Main.xaml", "project.json"],
                     "expected_packages": ["UiPath.UIAutomation.Activities"],
                     "expected_activities": ["OpenBrowser", "TypeInto"],
-                    "trajectory": ["ensure_project_structure", "install_package", "write_file", "validate_file"],
+                    "trajectory": ["ensure_project_structure", "install_package", "write_file", "validate_file", "run_workflow"],
                     "validation_passes": True,
+                    "runtime_passes": True,
                 },
                 metadata={"category": "web", "difficulty": "medium"},
             ),

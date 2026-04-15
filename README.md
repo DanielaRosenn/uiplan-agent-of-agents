@@ -64,8 +64,23 @@ The agent supports an agentic execution mode with ReAct-style tool-use loops. Wh
 - Create UiPath project structures (`ensure_project_structure`)
 - Install NuGet packages (`install_package`)
 - Write and validate XAML files (`write_file`, `validate_file`)
-- Debug and iterate until validation passes (`validate_and_fix_loop`)
+- **Execute workflows to verify runtime behavior** (`run_workflow`)
+- Debug and iterate until workflows actually work (`validate_and_fix_loop`)
 - Query UiPath documentation (`find_activity_info`, `query_uipath_docs`)
+
+### Two-Stage Validation
+
+The agent performs comprehensive validation to ensure workflows not only pass static checks but actually work:
+
+1. **Static Validation** (`validate_file`): Checks XAML syntax, activity properties, namespaces, and dependencies
+2. **Runtime Testing** (`run_workflow`): Executes the workflow to catch runtime errors like:
+   - Wrong activity output properties (e.g., `.Result` vs `.Messages`)
+   - Missing variable assignments
+   - Type mismatches
+   - Null reference exceptions
+   - Logic errors
+
+This two-stage approach ensures workflows are delivered working, not just syntactically correct.
 
 Enable agentic mode (Windows PowerShell):
 
@@ -84,10 +99,12 @@ Generated projects are saved to `generated/chat/{session-id}/`.
 | `AWS_REGION` | AWS region for Bedrock | `us-east-1` |
 | `UIPATH_CLAUDE_MODEL` | Bedrock model ID | `anthropic.claude-3-sonnet-20240229-v1:0` |
 | `UIPATH_AGENTIC_MODE` | Enable agentic tool-use loops | `0` |
-| `UIPATH_DEBUG_AGENT` | Show formatted debug output | `0` |
+| `UIPATH_DEBUG_AGENT` | Show formatted debug output | `1` |
 | `UIPATH_DEBUG_VERBOSE` | Show full tool args/results (not truncated) | `0` |
 | `UIPATH_DEBUG_RAW` | Show raw JSON output | `0` |
 | `UIPATH_MAX_ITERATIONS` | Maximum ReAct loop iterations | `25` |
+| `UIPATH_SKILL_AUTO_CAPTURE` | After agentic runs, record usage / auto-capture insights (`post_skill_execution_hook`) | `1` |
+| `UIPATH_CONFIRM_BUILD` | Prompt to confirm before running the graph on build/ambiguous intents | `0` |
 | `UIPATH_CLAUDE_TOOL_PROFILE` | Tool profile (`safe`, `uipath-dev`, `all`) | `safe` |
 | `UIPATH_CLAUDE_REQUIRE_APPROVAL` | Require approval for CLI ops | `false` |
 | `UIPATH_CLAUDE_CLI_APPROVED` | Pre-approve CLI operations | `false` |
@@ -201,24 +218,25 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture docum
 The agent includes a LangSmith-style evaluation framework for measuring quality:
 
 ```python
-from uipath_claude.evaluation import EvaluationDataset, EvaluationRunner
-from uipath_claude.evaluation import final_response_evaluator, trajectory_evaluator
+from uipath_claude.evaluation import (
+    EvaluationDataset,
+    EvaluationRunner,
+    agent_benchmark_evaluator,
+)
 
 # Load benchmark dataset
 dataset = EvaluationDataset.from_workflow_benchmarks()
 
-# Create runner with evaluators
+# Single composite evaluator (outcome + trajectory; see evaluators module for weights)
 runner = EvaluationRunner(
     target_function=your_agent_function,
-    evaluators={
-        "final_response": final_response_evaluator,
-        "trajectory": trajectory_evaluator,
-    }
+    evaluators={"agent_benchmark": agent_benchmark_evaluator},
 )
 
 # Run evaluation
 run = await runner.run(dataset)
 print(f"Pass rate: {run.summary['pass_rate']:.1%}")
+# Per-example: run.results[0].scores["agent_benchmark"]["dimensions"]
 ```
 
 See [docs/EVALUATION_RESULTS.md](docs/EVALUATION_RESULTS.md) for latest benchmark results.

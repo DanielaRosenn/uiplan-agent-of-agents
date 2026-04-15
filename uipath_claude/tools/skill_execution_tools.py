@@ -635,6 +635,271 @@ def debug_workflow(project_dir: str, file_path: str) -> str:
     return f"Workflow execution failed (exit code {proc.returncode}).\n\nOutput:\n{output[:2000]}"
 
 
+def _analyze_error_message(error_msg: str, activity_name: str = "") -> str:
+    """Convert technical error message to actionable fix suggestion.
+    
+    Args:
+        error_msg: The error message from runtime execution
+        activity_name: Name of the activity that failed (if known)
+    
+    Returns:
+        Actionable suggestion for fixing the error
+    """
+    error_lower = error_msg.lower()
+    
+    if "property" in error_lower and "does not exist" in error_lower:
+        fix = f"The activity '{activity_name}' doesn't have this property."
+        fix += " Use find_activity_info to check available properties and outputs."
+        return fix
+    
+    elif "object reference not set" in error_lower or "null reference" in error_lower:
+        fix = f"Variable in '{activity_name}' is null or not initialized."
+        fix += " Check that previous activities set this variable correctly."
+        return fix
+    
+    elif "cannot convert" in error_lower or "type mismatch" in error_lower:
+        fix = f"Type mismatch in '{activity_name}'."
+        fix += " Check that variable types match the activity's expected input/output types."
+        return fix
+    
+    elif "missing" in error_lower and "argument" in error_lower:
+        fix = f"Activity '{activity_name}' is missing a required argument."
+        fix += " Use find_activity_info to check required properties."
+        return fix
+    
+    elif "timeout" in error_lower:
+        return "Activity timed out. Consider increasing timeout or checking if the operation is stuck."
+    
+    else:
+        return error_msg
+
+
+def _parse_runtime_response(response_text: str, verbose: bool = False) -> dict:
+    """Parse JSON response from uip rpa run-file command.
+    
+    Args:
+        response_text: Raw stdout from CLI command
+        verbose: Whether to include all log entries
+    
+    Returns:
+        Dictionary with parsed execution results
+    """
+    try:
+        response = json.loads(response_text)
+    except json.JSONDecodeError:
+        return {
+            "success": False,
+            "error": "Failed to parse CLI response as JSON",
+            "raw_output": response_text[:500]
+        }
+    
+    is_successful = response.get("IsSuccessful", False)
+    error_message = response.get("ErrorMessage", "")
+    data = response.get("Data", {})
+    
+    errors = data.get("Errors", [])
+    log_entries = data.get("LogEntries", [])
+    output_data = data.get("Output", {})
+    execution_state = output_data.get("State", "Unknown")
+    
+    # Filter log entries to only errors/critical unless verbose
+    if not verbose:
+        log_entries = [
+            entry for entry in log_entries
+            if entry.get("Severity") in ["Error", "Critical", "Fatal"]
+        ]
+    
+    # Limit to first 5 error entries for token efficiency
+    if len(log_entries) > 5 and not verbose:
+        log_entries = log_entries[:5]
+    
+    return {
+        "success": is_successful and execution_state == "Completed",
+        "error_message": error_message,
+        "execution_state": execution_state,
+        "errors": errors,
+        "log_entries": log_entries,
+        "has_more_logs": len(data.get("LogEntries", [])) > len(log_entries)
+    }
+
+
+def _format_runtime_result(parsed: dict, verbose: bool = False) -> str:
+    """Format runtime execution results for agent consumption.
+    
+    Args:
+        parsed: Parsed response from _parse_runtime_response
+        verbose: Whether to include verbose output
+    
+    Returns:
+        Formatted string with execution results
+    """
+    if parsed["success"]:
+        output = "RUNTIME EXECUTION: SUCCESS\n\n"
+        output += "Workflow executed successfully with no runtime errors.\n"
+        
+        if parsed.get("log_entries"):
+            output += "\nKey log messages:\n"
+            for entry in parsed["log_entries"][:3]:
+                msg = entry.get("Message", "")
+                output += f"  - {msg}\n"
+        
+        return output
+    
+    # Failure case
+    output = "RUNTIME EXECUTION: FAILED\n\n"
+    
+    # Add error message if present
+    if parsed.get("error_message"):
+        output += f"Error: {parsed['error_message']}\n\n"
+    
+    # Process log entries to extract actionable info
+    if parsed.get("log_entries"):
+        output += "Runtime errors detected:\n\n"
+        
+        for entry in parsed["log_entries"]:
+            severity = entry.get("Severity", "Error")
+            message = entry.get("Message", "")
+            activity_name = entry.get("ActivityName", "Unknown")
+            exception = entry.get("ExceptionMessage", "")
+            
+            output += f"[{severity}] {message}\n"
+            if activity_name and activity_name != "Unknown":
+                output += f"Activity: {activity_name}\n"
+            
+            # Add actionable fix suggestion
+            # Use both message and exception for analysis
+            error_text = f"{message} {exception}" if exception else message
+            fix_suggestion = _analyze_error_message(error_text, activity_name)
+            # Always add fix if we have one (even if it's the same as error text)
+            if fix_suggestion and fix_suggestion.strip():
+                output += f"Fix: {fix_suggestion}\n"
+            
+            output += "\n"
+    
+    # Add validation errors if present
+    if parsed.get("errors"):
+        output += "Validation errors:\n"
+        for error in parsed["errors"][:3]:
+            output += f"  - {error}\n"
+        output += "\n"
+    
+    # Execution state
+    state = parsed.get("execution_state", "Unknown")
+    output += f"Execution state: {state}\n"
+    
+    if parsed.get("has_more_logs") and not verbose:
+        output += "\n(More log entries available - use verbose=True to see all)\n"
+    
+    return output
+
+
+@tool
+def run_workflow(
+    project_dir: str,
+    file_path: str,
+    input_arguments: str | None = None,
+    timeout_seconds: int = 60,
+    verbose: bool = False
+) -> str:
+    """Execute a workflow to verify it works at runtime.
+    
+    Use this AFTER static validation passes (validate_file returns 0 errors)
+    to ensure the workflow actually works when run. This catches runtime issues
+    that static validation cannot detect:
+    
+    - Wrong activity output properties (e.g., using .Result instead of .Messages)
+    - Missing or incorrect variable assignments
+    - Type mismatches at runtime
+    - Logic errors that validation can't detect
+    - Null reference exceptions
+    - API or connection failures
+    
+    The tool runs: uip rpa run-file --command StartExecution
+    
+    IMPORTANT: Only use this on workflows that are safe to execute (no 
+    destructive operations, no production systems). This actually runs the code.
+    
+    Args:
+        project_dir: Path to the UiPath project directory (e.g., "." or "MyProject")
+        file_path: Workflow file to execute (e.g., "Main.xaml")
+        input_arguments: Optional JSON string with input arguments 
+                        Example: '{"orderId": "12345", "customerEmail": "test@example.com"}'
+        timeout_seconds: Maximum execution time (default: 60 seconds)
+        verbose: Return full logs (default: False, only shows errors)
+    
+    Returns:
+        Execution results with:
+        - Success/failure status
+        - Runtime errors and exceptions
+        - Relevant log messages
+        - Variable values at point of failure (if any)
+        
+    Examples:
+        >>> run_workflow(".", "Main.xaml")
+        >>> run_workflow("MyProject", "Main.xaml", input_arguments='{"email":"test@example.com"}')
+    """
+    # 1. RESOLVE PATHS
+    path = Path(project_dir)
+    if not path.is_absolute():
+        output_root = _get_output_root()
+        session_id = os.environ.get("UIPATH_CHAT_SESSION_ID", "")
+        if session_id:
+            path = output_root / session_id / project_dir
+        else:
+            path = output_root / project_dir
+    
+    # Check if file exists
+    workflow_file = path / file_path
+    if not workflow_file.exists():
+        return f"Error: Workflow file not found: {workflow_file}"
+    
+    # 2. BUILD COMMAND
+    uip_cli = _find_uip_cli()
+    
+    cmd = [
+        uip_cli, "rpa", "run-file",
+        "--file-path", file_path,
+        "--project-dir", str(path.resolve()),
+        "--command", "StartExecution",
+        "--output", "json",
+    ]
+    
+    # Add input arguments if provided
+    if input_arguments:
+        cmd.extend(["--input-arguments", input_arguments])
+    
+    # 3. EXECUTE WITH TIMEOUT
+    try:
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            check=False,
+        )
+    except FileNotFoundError:
+        return "Error: uip CLI not found. Install with: npm install -g @uipath/cli"
+    except subprocess.TimeoutExpired:
+        return f"Error: Workflow execution timed out after {timeout_seconds} seconds. The workflow may be stuck or taking too long."
+    
+    # 4. PARSE JSON RESPONSE
+    output_text = proc.stdout if proc.stdout else proc.stderr
+    
+    if not output_text:
+        return "Error: No output from CLI command. The workflow may not have executed."
+    
+    parsed = _parse_runtime_response(output_text, verbose)
+    
+    # 5. FORMAT RESPONSE
+    result = _format_runtime_result(parsed, verbose)
+    
+    # 6. TOKEN EFFICIENCY - Truncate if too long
+    if len(result) > 2000 and not verbose:
+        result = result[:2000] + "\n\n... (TRUNCATED - use verbose=True for full output)"
+    
+    return result
+
+
 @tool
 def ensure_project_structure(project_dir: str = ".") -> str:
     """Ensure the project has required structure (project.json, etc).
@@ -776,11 +1041,12 @@ def get_skill_execution_tools() -> list:
         list_directory,
         read_project_json,
         install_package,
-        validate_file,
+        validate_file,        # Static validation
+        run_workflow,         # Runtime testing
         run_uip_command,
         find_activity_info,
         validate_and_fix_loop,
-        debug_workflow,
+        debug_workflow,       # Interactive debugging
         ensure_project_structure,
         query_uipath_docs,
     ]
