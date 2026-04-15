@@ -32,7 +32,7 @@ def test_recall_command_returns_no_match_message():
 
 
 def test_recall_command_formats_role_and_content():
-    """Render matching messages with role and content."""
+    """Render matching messages with role and content in Rich Table."""
     registry = CommandRegistry()
     history = [
         {"role": "user", "content": "first invoice note"},
@@ -42,9 +42,13 @@ def test_recall_command_formats_role_and_content():
     register_recall_command(registry, get_history=lambda: history)
 
     result = registry.execute("recall", "invoice")
-    assert result.splitlines() == [
-        "Recent matches:",
-        "- [user] third invoice note",
-        "- [assistant] second invoice note",
-        "- [user] first invoice note",
-    ]
+    # Rich Table output contains box-drawing characters and structured columns
+    assert "│" in result
+    assert "Role" in result
+    assert "Content" in result
+    # Verify all content is present
+    assert "third invoice note" in result
+    assert "second invoice note" in result
+    assert "first invoice note" in result
+    assert "user" in result
+    assert "assistant" in result
