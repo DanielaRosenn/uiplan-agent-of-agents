@@ -7,7 +7,6 @@ and organizing it into the book/chapter/section structure.
 Usage:
     python scripts/seed_uipath_docs.py
 """
-import os
 import sys
 from pathlib import Path
 
@@ -173,6 +172,13 @@ def fetch_from_ask_ai(topics: list[str]) -> str:
 def create_library_structure():
     """Create the library directory structure and seed content."""
     library_path = LibraryCatalog.get_library_path()
+
+    catalog_file = library_path / "catalog.yaml"
+    if catalog_file.exists():
+        print(f"Warning: Library already exists at {library_path}")
+        print("Existing content will be overwritten.")
+        print()
+
     print(f"Creating library at: {library_path}")
 
     # Create catalog.yaml
