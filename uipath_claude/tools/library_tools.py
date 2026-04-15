@@ -112,7 +112,7 @@ def search_library(query: str) -> str:
     return "\n".join(lines)
 
 
-def get_library_tools() -> list:
+def get_library_tools() -> list[tool]:
     """Return the list of library tools for agent use."""
     return [
         list_library_books,
