@@ -43,7 +43,11 @@ from uipath_claude.skills.updater import check_for_updates
 from uipath_claude.hooks.session_hooks import check_uip_installed
 from uipath_claude.tools.profiles import is_command_allowed, resolve_tool_profile
 from uipath_claude.tools.skill_tool import create_skill_tool
+from uipath_claude.tools.skill_execution_tools import _get_output_root
 
+import logging
+
+logger = logging.getLogger(__name__)
 
 app = typer.Typer(help="UiPath Claude Code - Conversational AI for UiPath")
 
@@ -146,16 +150,6 @@ _FILE_INTENT_TOKENS = {
 }
 
 
-def _get_output_root() -> Path:
-    """Return the base output directory for chat artifacts."""
-    return Path(
-        os.environ.get(
-            "UIPATH_CHAT_OUTPUT_DIR",
-            str(Path.cwd() / "generated" / "chat"),
-        )
-    ).resolve()
-
-
 def _save_plan_to_file(
     session_id: str,
     user_request: str,
@@ -177,7 +171,10 @@ Session: {session_id}
 ## Plan
 {plan_content}
 """
-    plan_path.write_text(content, encoding="utf-8")
+    try:
+        plan_path.write_text(content, encoding="utf-8")
+    except OSError as e:
+        logger.warning("Failed to save plan to %s: %s", plan_path, e)
     return plan_path
 
 
