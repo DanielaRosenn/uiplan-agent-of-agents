@@ -1,11 +1,15 @@
 """Integration tests for agentic executor."""
-import json
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from uipath_claude.query.agentic_executor import AgenticExecutor, AgenticResult
+
+
+@pytest.fixture(autouse=True)
+def _disable_skill_auto_capture_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Avoid writing insights to the real project during executor tests."""
+    monkeypatch.setenv("UIPATH_SKILL_AUTO_CAPTURE", "0")
 
 
 class MockToolCallResponse:
@@ -90,6 +94,8 @@ async def test_agentic_executor_single_tool_call(mock_tools):
     assert len(result.tool_calls_made) == 1
     assert result.tool_calls_made[0]["name"] == "read_file"
     assert result.iterations == 2
+    assert result.tool_success_count == 1
+    assert result.tool_failure_count == 0
 
 
 @pytest.mark.asyncio
@@ -141,6 +147,8 @@ async def test_agentic_executor_multiple_tool_calls(mock_tools):
     assert result.tool_calls_made[0]["name"] == "write_file"
     assert result.tool_calls_made[1]["name"] == "validate_file"
     assert result.iterations == 3
+    assert result.tool_success_count == 2
+    assert result.tool_failure_count == 0
 
 
 @pytest.mark.asyncio
@@ -171,6 +179,8 @@ async def test_agentic_executor_no_tool_calls_immediate_answer(mock_tools):
     assert "Here's the answer directly" in result.final_response
     assert len(result.tool_calls_made) == 0
     assert result.iterations == 1
+    assert result.tool_success_count == 0
+    assert result.tool_failure_count == 0
 
 
 @pytest.mark.asyncio
@@ -261,6 +271,8 @@ async def test_agentic_executor_tool_error_handling(mock_tools):
     
     assert result.success  # Executor should complete even if tool fails
     assert len(result.tool_calls_made) == 1
+    assert result.tool_failure_count == 1
+    assert result.tool_success_count == 0
 
 
 @pytest.mark.asyncio
@@ -362,3 +374,193 @@ async def test_agentic_executor_callbacks(mock_tools):
     assert len(tool_calls_logged) == 1
     assert tool_calls_logged[0][0] == "read_file"
     assert len(tool_results_logged) == 1
+
+
+@pytest.mark.asyncio
+async def test_learning_hook_called_on_success(mock_tools, monkeypatch: pytest.MonkeyPatch):
+    """post_skill_execution_hook receives success and tool call count."""
+    monkeypatch.setenv("UIPATH_SKILL_AUTO_CAPTURE", "1")
+    captured: list[dict] = []
+
+    def spy(**kwargs: object) -> None:
+        captured.append(dict(kwargs))
+
+    executor = AgenticExecutor(
+        model_name="test-model",
+        region="us-east-1",
+    )
+    call_count = 0
+
+    async def mock_ainvoke(messages):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return MockToolCallResponse(
+                tool_calls=[{
+                    "name": "read_file",
+                    "args": {"file_path": "test.txt"},
+                    "id": "call_1",
+                }],
+            )
+        return MockFinalResponse("Done.")
+
+    with patch.object(executor, "_get_llm") as mock_get_llm:
+        mock_llm = MagicMock()
+        mock_bound = MagicMock()
+        mock_bound.ainvoke = mock_ainvoke
+        mock_llm.bind_tools.return_value = mock_bound
+        mock_get_llm.return_value = mock_llm
+        with patch(
+            "uipath_claude.query.agentic_executor.post_skill_execution_hook", spy
+        ):
+            await executor.execute(
+                skill_content="Test",
+                user_request="Read file",
+                tools=mock_tools,
+                skill_name="uipath-rpa",
+            )
+
+    assert len(captured) == 1
+    assert captured[0]["skill_name"] == "uipath-rpa"
+    assert captured[0]["success"] is True
+    assert captured[0]["tool_calls"] == 1
+    assert captured[0]["error"] is None
+
+
+@pytest.mark.asyncio
+async def test_learning_hook_called_on_llm_failure(mock_tools, monkeypatch: pytest.MonkeyPatch):
+    """post_skill_execution_hook receives failure when the LLM call errors."""
+    monkeypatch.setenv("UIPATH_SKILL_AUTO_CAPTURE", "1")
+    captured: list[dict] = []
+
+    def spy(**kwargs: object) -> None:
+        captured.append(dict(kwargs))
+
+    executor = AgenticExecutor(
+        model_name="test-model",
+        region="us-east-1",
+    )
+
+    async def mock_ainvoke(messages):
+        raise RuntimeError("bedrock down")
+
+    with patch.object(executor, "_get_llm") as mock_get_llm:
+        mock_llm = MagicMock()
+        mock_bound = MagicMock()
+        mock_bound.ainvoke = mock_ainvoke
+        mock_llm.bind_tools.return_value = mock_bound
+        mock_get_llm.return_value = mock_llm
+        with patch(
+            "uipath_claude.query.agentic_executor.post_skill_execution_hook", spy
+        ):
+            result = await executor.execute(
+                skill_content="Test",
+                user_request="Do thing",
+                tools=mock_tools,
+                skill_name="uipath-rpa",
+            )
+
+    assert not result.success
+    assert len(captured) == 1
+    assert captured[0]["success"] is False
+    assert "bedrock" in (captured[0]["error"] or "").lower()
+
+
+@pytest.mark.asyncio
+async def test_learning_hook_five_tool_calls(mock_tools, monkeypatch: pytest.MonkeyPatch):
+    """Hook reports total tool_calls for a multi-step run."""
+    monkeypatch.setenv("UIPATH_SKILL_AUTO_CAPTURE", "1")
+    captured: list[dict] = []
+
+    def spy(**kwargs: object) -> None:
+        captured.append(dict(kwargs))
+
+    executor = AgenticExecutor(
+        model_name="test-model",
+        region="us-east-1",
+    )
+    call_count = 0
+
+    async def mock_ainvoke(messages):
+        nonlocal call_count
+        call_count += 1
+        if call_count <= 5:
+            return MockToolCallResponse(
+                tool_calls=[{
+                    "name": "read_file",
+                    "args": {"file_path": f"f{call_count}.txt"},
+                    "id": f"c{call_count}",
+                }],
+            )
+        return MockFinalResponse("Finished after five reads.")
+
+    with patch.object(executor, "_get_llm") as mock_get_llm:
+        mock_llm = MagicMock()
+        mock_bound = MagicMock()
+        mock_bound.ainvoke = mock_ainvoke
+        mock_llm.bind_tools.return_value = mock_bound
+        mock_get_llm.return_value = mock_llm
+        with patch(
+            "uipath_claude.query.agentic_executor.post_skill_execution_hook", spy
+        ):
+            await executor.execute(
+                skill_content="Test",
+                user_request="Read many files",
+                tools=mock_tools,
+                skill_name="uipath-rpa",
+            )
+
+    assert len(captured) == 1
+    assert captured[0]["tool_calls"] == 5
+    assert captured[0]["success"] is True
+
+
+@pytest.mark.asyncio
+async def test_executor_calls_model_finished_without_tools_after_tool_then_final(
+    mock_tools,
+):
+    """Final no-tool turn after tools must call model_finished_without_tools (not silent)."""
+    executor = AgenticExecutor(
+        model_name="test-model",
+        region="us-east-1",
+    )
+    call_count = 0
+
+    async def mock_ainvoke(messages):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return MockToolCallResponse(
+                tool_calls=[{
+                    "name": "read_file",
+                    "args": {"file_path": "test.txt"},
+                    "id": "call_1",
+                }],
+            )
+        return MockFinalResponse("All good.")
+
+    progress_mock = MagicMock()
+    with patch.object(executor, "_get_llm") as mock_get_llm:
+        mock_llm = MagicMock()
+        mock_bound = MagicMock()
+        mock_bound.ainvoke = mock_ainvoke
+        mock_llm.bind_tools.return_value = mock_bound
+        mock_get_llm.return_value = mock_llm
+        with patch(
+            "uipath_claude.query.agentic_executor.AgenticProgressReporter",
+            return_value=progress_mock,
+        ):
+            result = await executor.execute(
+                skill_content="Test skill instructions",
+                user_request="Read test.txt",
+                tools=mock_tools,
+            )
+
+    assert result.success
+    assert result.iterations == 2
+    progress_mock.model_finished_without_tools.assert_called_once_with(
+        iteration=2,
+        had_tool_calls_before=True,
+        final_text="All good.",
+    )
+    progress_mock.complete.assert_called_once()

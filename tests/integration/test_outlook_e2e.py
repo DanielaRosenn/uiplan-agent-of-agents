@@ -214,7 +214,8 @@ def test_agentic_executor_writes_valid_xaml(tmp_path, monkeypatch):
     
     monkeypatch.setenv("UIPATH_CHAT_OUTPUT_DIR", str(tmp_path))
     monkeypatch.setenv("UIPATH_CHAT_SESSION_ID", "xaml-test")
-    
+    monkeypatch.setenv("UIPATH_SKILL_AUTO_CAPTURE", "0")
+
     # Create a simplified mock that just writes a file
     async def simple_mock_ainvoke(messages):
         return MockToolCallResponse([], "I created the workflow.")

@@ -1,5 +1,5 @@
 """Integration test for chat flow."""
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from typer.testing import CliRunner
@@ -140,3 +140,25 @@ def test_chat_warns_when_running_in_generated_chat_artifact(tmp_path, monkeypatc
 
     assert result.exit_code == 0
     assert "generated chat artifact folder" in result.stdout.lower()
+
+
+@pytest.mark.integration
+def test_chat_confirm_build_prompt_cancel(tmp_path, monkeypatch):
+    """UIPATH_CONFIRM_BUILD shows prompt and skips invoke when user declines."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("UIPATH_CONFIRM_BUILD", "1")
+    with patch("uipath_claude.cli.app._create_engine") as create_engine:
+        create_engine.return_value = object()
+        mock_graph = MagicMock()
+        mock_graph.ainvoke = AsyncMock()
+        with patch("uipath_claude.cli.app.compile_chat_graph", return_value=mock_graph):
+            result = runner.invoke(
+                app,
+                ["chat", "--no-banner"],
+                input="create an rpa workflow for outlook\nn\nexit\n",
+            )
+    assert result.exit_code == 0
+    assert "planned skills" in result.stdout.lower()
+    assert "proceed" in result.stdout.lower()
+    assert "cancelled" in result.stdout.lower()
+    mock_graph.ainvoke.assert_not_called()
