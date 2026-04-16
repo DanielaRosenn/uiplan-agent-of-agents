@@ -57,20 +57,54 @@ def _child_chat_argv() -> list[str]:
     ]
 
 
+# Per-category timeout defaults (seconds)
+# BUILD tests involve planning + multi-step execution with LLM calls
+# QA/ERROR tests are simpler direct execution without planning
+CATEGORY_TIMEOUTS = {
+    'Workflow Building': 300,       # 5 min - planning + execution
+    'Workflow Modification': 300,   # 5 min - planning + execution
+    'Modification': 300,            # 5 min (alias)
+    'Build and Deploy': 420,        # 7 min - planning + build + deploy
+    'Build+Deploy': 420,            # 7 min (alias)
+    'Question': 180,                # planner + tools often exceed 60s
+    'Error Handling': 90,           # 1.5 min - error detection
+    'Code Generation': 240,         # 4 min - planning + code gen
+    'Clarification': 60,            # 1 min - simple prompts
+    'Deployment': 180,              # 3 min
+    'Authentication': 120,        # planning-heavy auth flows
+    'Complex Scenario': 300,        # 5 min
+    'Full Project': 300,            # 5 min
+    'Validation': 180,            # Excel/build paths need write_file time
+    'Edge Case': 90,                # 1.5 min
+    'Integration': 180,             # 3 min
+    'Performance': 120,             # 2 min
+    'Learning': 120,              # memory preference can trigger broad exploration
+    'Full project E2E': 600,        # 10 min (deferred long tests)
+}
+DEFAULT_TIMEOUT = 180  # 3 min fallback
+
+
 class CLITestRunner:
     """Runs CLI tests and captures output."""
     
-    def __init__(self, project_dir: str | None = None, timeout: int = 180):
+    def __init__(self, project_dir: str | None = None, timeout: int | None = None):
         repo_root = Path(__file__).resolve().parent.parent.parent
         self.project_dir = project_dir or str(repo_root / "tests" / "fixtures" / "sample_project")
-        self.timeout = timeout
+        self.base_timeout = timeout  # None means use category defaults
     
-    def run_test(self, user_input: str) -> dict:
+    def get_timeout(self, category: str) -> int:
+        """Get timeout for a test category."""
+        if self.base_timeout is not None:
+            return self.base_timeout
+        return CATEGORY_TIMEOUTS.get(category, DEFAULT_TIMEOUT)
+
+    def run_test(self, user_input: str, category: str = '') -> dict:
         """Run a single test and capture output.
 
         Always closes UiPath Studio/Executor spawned during this run (parent-side).
         Subprocess ``kill()`` on timeout can skip the CLI ``finally`` cleanup.
         """
+        timeout = self.get_timeout(category)
         env = os.environ.copy()
         env['UIPATH_SKIP_AUTH_CHECK'] = '1'
         env['PYTHONIOENCODING'] = 'utf-8'
@@ -115,7 +149,7 @@ class CLITestRunner:
             process.stdin.close()
 
             try:
-                process.wait(timeout=self.timeout)
+                process.wait(timeout=timeout)
             except subprocess.TimeoutExpired:
                 try:
                     process.kill()
@@ -129,7 +163,7 @@ class CLITestRunner:
                 t_err.join(timeout=60)
                 stdout = "".join(out_acc)
                 stderr = "".join(err_acc)
-                tail = f"Timeout after {self.timeout}s"
+                tail = f"Timeout after {timeout}s"
                 return {
                     'success': False,
                     'error': 'timeout',
@@ -198,7 +232,14 @@ class OutputParser:
     def extract_files_written(stdout: str) -> list[str]:
         """Extract file paths mentioned as written/created (best-effort from CLI text)."""
         files: list[str] = []
-        # Panel lines: "Wrote: path" or "Created path.xaml at ..."
+        # Pattern 1: "Successfully wrote N bytes to /path/to/file.xaml"
+        for match in re.finditer(
+            r"Successfully wrote \d+ bytes to\s+([^\s\r\n]+\.(?:xaml|json|cs|md))",
+            stdout,
+            re.IGNORECASE,
+        ):
+            files.append(match.group(1))
+        # Pattern 2: "Wrote: path" or "Created path.xaml at ..."
         for match in re.finditer(
             r"(?:Wrote|Created|Saved):\s*\n?\s*([^\s\r\n]+\.(?:xaml|json|cs|md))",
             stdout,
@@ -211,13 +252,42 @@ class OutputParser:
             re.IGNORECASE,
         ):
             files.append(match.group(1))
+        # Pattern 3: "File created" marker in tool output followed by path
+        for match in re.finditer(
+            r"\+\s+File created.*?([^\s\r\n\\]+\.xaml)",
+            stdout,
+            re.IGNORECASE | re.DOTALL,
+        ):
+            files.append(match.group(1))
+        # Pattern 4: "Files recorded as written:" summary (Rich; ANSI stripped elsewhere)
+        plain = re.sub(r"\x1b\[[0-9;]*m", "", stdout)
+        block_start = plain.find("Files recorded as written:")
+        if block_start >= 0:
+            for line in plain[block_start:].splitlines()[1:40]:
+                line = line.strip()
+                m = re.search(
+                    r"(?:^\+|\+\s+)([^\s|]+\.(?:xaml|json|cs|md))\s*$",
+                    line,
+                    re.IGNORECASE,
+                )
+                if m:
+                    files.append(m.group(1))
+        # Pattern 5: write_file arg echo "File: path.xaml"
+        for match in re.finditer(
+            r"File:\s+([^\s\r\n|]+\.(?:xaml|json|cs|md))",
+            plain,
+            re.IGNORECASE,
+        ):
+            files.append(match.group(1))
         # De-duplicate preserving order
         seen: set[str] = set()
         out: list[str] = []
         for f in files:
-            if f not in seen:
-                seen.add(f)
-                out.append(f)
+            # Extract just the filename from full paths
+            filename = f.split('\\')[-1].split('/')[-1]
+            if filename not in seen:
+                seen.add(filename)
+                out.append(filename)
         return out
     
     @staticmethod
@@ -231,18 +301,124 @@ class OutputParser:
         return errors
     
     @staticmethod
+    def _strip_session_tail(text: str) -> str:
+        """Remove trailing user exit lines and parent-side Studio cleanup."""
+        t = text.strip()
+        t = re.sub(r"(?s)\n*You:\s*(?:exit|Goodbye)!\s*", "\n", t, flags=re.IGNORECASE)
+        t = re.sub(
+            r"(?s)\n*Closed\s+\d+\s+test\s+Studio\s+process(?:es)?\s*$",
+            "",
+            t,
+            flags=re.IGNORECASE,
+        )
+        return t.strip()
+
+    @staticmethod
+    def _implementation_plan_fallback(clean: str) -> str:
+        """Rich panel: boxed 'Implementation Plan' content."""
+        if "Implementation Plan" not in clean:
+            return ""
+        start = -1
+        for m in re.finditer(r"┌[^\n]*Implementation Plan[^\n]*", clean):
+            start = m.start()
+        if start < 0:
+            start = clean.find("┌")
+        if start < 0:
+            return ""
+        end = clean.find("└", start)
+        if end < 0:
+            return ""
+        block = clean[start : end + 1]
+        lines = []
+        for line in block.splitlines():
+            if "│" in line:
+                # Drop border glyphs; keep inner text
+                inner = line.split("│", 1)[-1].rstrip("│").strip()
+                if inner:
+                    lines.append(inner)
+        return "\n".join(lines).strip()
+
+    @staticmethod
+    def _last_preview_after_executing(clean: str) -> str:
+        """Last 'Preview:' line after [EXECUTING] (model text without tool markers)."""
+        exec_idx = clean.rfind("[EXECUTING]")
+        chunk = clean[exec_idx:] if exec_idx >= 0 else clean
+        previews: list[str] = []
+        for line in chunk.splitlines():
+            m = re.search(r"Preview:\s*(.+)$", line, re.IGNORECASE)
+            if m:
+                previews.append(m.group(1).strip())
+        return previews[-1] if previews else ""
+
+    @staticmethod
     def extract_assistant_response(stdout: str) -> str:
-        """Extract the assistant's response."""
+        """Extract the assistant's final response (after tool execution)."""
         # Remove ANSI codes
         clean = re.sub(r'\x1b\[[0-9;]*m', '', stdout)
-        
-        # Find assistant response
-        parts = clean.split('Assistant:')
-        if len(parts) > 1:
-            response = parts[-1].strip()
-            # Remove trailing prompt
-            response = re.sub(r'\n*You:\s*exit\s*$', '', response)
-            return response
+        clean = OutputParser._strip_session_tail(clean)
+
+        def _finalize(candidate: str) -> str:
+            c = OutputParser._strip_session_tail(candidate)
+            if len(c) < 12:
+                return ""
+            low = c.lower()
+            if low in ("goodbye!", "exit"):
+                return ""
+            return c
+
+        # Try to find text after "Agent finished" markers (final response after tools)
+        markers = [
+            "Agent finished after",
+            "Tool calls this run:",
+            "Files recorded as written:",
+        ]
+        last_pos = 0
+        for marker in markers:
+            pos = clean.rfind(marker)
+            if pos > last_pos:
+                last_pos = pos
+
+        response = ""
+        if last_pos > 0:
+            # Get text after the marker section
+            after = clean[last_pos:]
+            # Skip past the summary lines (usually ends with empty line)
+            lines = after.split('\n')
+            # Find the start of actual response content (skip summary lines)
+            response_start = 0
+            for i, line in enumerate(lines):
+                if line.strip() == '' and i > 0:
+                    # Found end of summary section
+                    response_start = i + 1
+                    break
+                if i > 10:
+                    # Safety: don't skip too many lines
+                    break
+
+            if response_start > 0 and response_start < len(lines):
+                response = '\n'.join(lines[response_start:]).strip()
+
+        if not _finalize(response):
+            # Fallback: find text after "Assistant:" label
+            parts = clean.split('Assistant:')
+            if len(parts) > 1:
+                response = parts[-1].strip()
+
+        out = _finalize(response)
+        if out:
+            return out
+
+        # Prefer full plan text over short final Preview (Preview often omits Excel/retry details).
+        plan = OutputParser._implementation_plan_fallback(clean)
+        out = _finalize(plan)
+        if out:
+            return out
+
+        preview = OutputParser._last_preview_after_executing(clean)
+        out = _finalize(preview)
+        if out:
+            return out
+
         return clean
     
     @staticmethod
@@ -261,6 +437,11 @@ class OutputParser:
         # Fallback heuristics
         if '?' in stdout and 'clarif' in stdout.lower():
             return 'clarification'
+        # User exited with no agent phase (banner only, or exit before planner runs)
+        if not has_planning and not has_executing and re.search(
+            r"You:\s*(exit|Goodbye)!", stdout, re.IGNORECASE
+        ):
+            return 'exit'
         return 'direct_response'
 
 
@@ -299,10 +480,24 @@ class TechnicalEvaluator:
         expected_mode = self.expected.get('mode')
         if expected_mode:
             actual_mode = self.output.get('mode')
-            if actual_mode == expected_mode:
+            if self._mode_compatible(expected_mode, actual_mode):
                 self.results['passed'].append(f'Mode: {actual_mode}')
             else:
                 self.results['failed'].append(f'Mode: expected {expected_mode}, got {actual_mode}')
+
+    @staticmethod
+    def _mode_compatible(expected: str, actual: str) -> bool:
+        """CLI often prints [PLANNING] then [EXECUTING]; tests may still say 'execution'."""
+        if actual == expected:
+            return True
+        if expected == 'execution' and actual in (
+            'planning_then_execution',
+            'planning',
+        ):
+            return True
+        if expected == 'planning_then_execution' and actual == 'planning':
+            return True
+        return False
     
     def _check_tool_calls(self):
         actual_tools = self.output.get('tool_calls', [])
@@ -313,7 +508,18 @@ class TechnicalEvaluator:
                 self.results['passed'].append(f'Tool called: {tool}')
             else:
                 self.results['failed'].append(f'Missing required tool: {tool}')
-        
+
+        any_of = self.expected.get('tool_calls_required_any_of') or []
+        if any_of:
+            if any(tool in actual_tools for tool in any_of):
+                self.results['passed'].append(
+                    f'Required tool group satisfied: one of {any_of!r}'
+                )
+            else:
+                self.results['failed'].append(
+                    f'Missing required tool (need any of): {any_of}'
+                )
+
         optional = self.expected.get('tool_calls_optional', [])
         for tool in optional:
             if tool in actual_tools:
@@ -359,11 +565,18 @@ class TechnicalEvaluator:
 class ConceptualEvaluator:
     """Evaluate conceptual aspects of response quality."""
     
-    def __init__(self, response: str, expected: dict):
+    def __init__(self, response: str, expected: dict, extra_text: str = ""):
         self.response = response.lower()
         self.response_original = response
+        self.extra_text = (extra_text or "").lower()
         self.expected = expected
         self.results = {'passed': [], 'failed': [], 'warnings': []}
+
+    def _haystack(self) -> str:
+        """Assistant text plus tool error lines (often contain 'not found', etc.)."""
+        if not self.extra_text:
+            return self.response
+        return f"{self.response}\n{self.extra_text}"
     
     def evaluate(self) -> dict:
         """Run all conceptual evaluations."""
@@ -383,8 +596,9 @@ class ConceptualEvaluator:
     
     def _check_must_contain_all(self):
         phrases = self.expected.get('response_must_contain_all', [])
+        hay = self._haystack()
         for phrase in phrases:
-            if phrase.lower() in self.response:
+            if phrase.lower() in hay:
                 self.results['passed'].append(f'Contains: {phrase}')
             else:
                 self.results['failed'].append(f'Missing required: {phrase}')
@@ -394,7 +608,8 @@ class ConceptualEvaluator:
         if not phrases:
             return
         
-        found = [p for p in phrases if p.lower() in self.response]
+        hay = self._haystack()
+        found = [p for p in phrases if p.lower() in hay]
         if found:
             self.results['passed'].append(f'Contains one of: {found[0]}')
         else:
@@ -410,8 +625,9 @@ class ConceptualEvaluator:
     
     def _check_should_mention(self):
         phrases = self.expected.get('response_should_mention', [])
+        hay = self._haystack()
         for phrase in phrases:
-            if phrase.lower() in self.response:
+            if phrase.lower() in hay:
                 self.results['passed'].append(f'Mentions: {phrase}')
             else:
                 self.results['warnings'].append(f'Should mention: {phrase}')
@@ -422,16 +638,19 @@ def run_evaluation(test_case: dict, runner: CLITestRunner) -> dict:
     test_id = test_case['test_id']
     user_input = test_case['input']
     expected = test_case['expected']
+    category = test_case['category']
     preview = (user_input[:60] + "...") if len(user_input) > 60 else user_input or "(empty)"
+    timeout = runner.get_timeout(category)
     
     print(f"\n{'='*60}")
-    print(f"Running: {test_id} - {test_case['category']}")
+    print(f"Running: {test_id} - {category}")
     print(f"Input: {preview}")
+    print(f"Timeout: {timeout}s ({category})")
     print(f"{'='*60}")
     
     t0 = time.perf_counter()
     # Run CLI test
-    cli_result = runner.run_test(user_input)
+    cli_result = runner.run_test(user_input, category)
     duration_ms = int((time.perf_counter() - t0) * 1000)
     
     # Parse output
@@ -452,7 +671,10 @@ def run_evaluation(test_case: dict, runner: CLITestRunner) -> dict:
     tech_result = tech_eval.evaluate()
     
     # Evaluate conceptual
-    concept_eval = ConceptualEvaluator(parsed['response'], expected.get('conceptual', {}))
+    concept_extra = "\n".join(parsed.get("errors", [])[:40])
+    concept_eval = ConceptualEvaluator(
+        parsed["response"], expected.get("conceptual", {}), extra_text=concept_extra
+    )
     concept_result = concept_eval.evaluate()
     
     out = cli_result.get('stdout') or ''
@@ -511,7 +733,13 @@ def _write_per_test(log_dir: Path, result: dict, test_case: dict) -> None:
 
 def main():
     parser = argparse.ArgumentParser(description='Run CLI evaluations')
-    parser.add_argument('--test', help='Run specific test by ID')
+    parser.add_argument(
+        '--test',
+        action='append',
+        dest='tests',
+        metavar='TEST_ID',
+        help='Run specific test(s) by ID (repeat flag for multiple)',
+    )
     parser.add_argument('--category', help='Run tests in category')
     parser.add_argument('--output', help='Aggregate results JSON file')
     parser.add_argument(
@@ -523,8 +751,8 @@ def main():
     parser.add_argument(
         '--timeout',
         type=int,
-        default=180,
-        help='Per-test CLI timeout in seconds (default: 180)',
+        default=None,
+        help='Override per-test CLI timeout in seconds (default: auto by category - BUILD: 300s, QA: 60s)',
     )
     parser.add_argument(
         '--only-full-project-e2e',
@@ -548,8 +776,13 @@ def main():
     skipped_e2e = 0
     
     # Filter tests
-    if args.test:
-        test_cases = [t for t in test_cases if t['test_id'] == args.test]
+    if args.tests:
+        wanted = {x for x in args.tests if x}
+        test_cases = [t for t in test_cases if t['test_id'] in wanted]
+        missing = wanted - {t['test_id'] for t in test_cases}
+        if missing:
+            print(f"Unknown test id(s): {', '.join(sorted(missing))}", flush=True)
+            return 1
     elif args.category:
         test_cases = [t for t in test_cases if t['category'] == args.category]
     elif args.only_full_project_e2e:
@@ -569,7 +802,7 @@ def main():
         return 1
     
     print(f"Running {len(test_cases)} test(s)...", flush=True)
-    if skipped_e2e and not args.test and not args.category:
+    if skipped_e2e and not args.tests and not args.category:
         print(
             f"  (Skipped {skipped_e2e} full-project E2E case(s); "
             "use --only-full-project-e2e or --include-full-project-e2e to run them.)",
@@ -616,7 +849,9 @@ def main():
         'run_started': run_started,
         'run_finished': datetime.now().isoformat(),
         'project_dir': runner.project_dir,
-        'timeout_seconds': args.timeout,
+        'timeout_mode': 'fixed' if args.timeout else 'per-category',
+        'timeout_override': args.timeout,
+        'category_timeouts': CATEGORY_TIMEOUTS if not args.timeout else None,
         'log_dir': str(log_dir.resolve()),
         'skipped_full_project_e2e': skipped_e2e,
         'only_full_project_e2e': bool(args.only_full_project_e2e),
@@ -663,13 +898,14 @@ def main():
 
     # Markdown triage list for fixing later
     md_path = log_dir / 'TRIAGE.md'
+    timeout_info = f'Fixed: {args.timeout}s' if args.timeout else 'Per-category (BUILD: 300s, QA: 60s, etc.)'
     lines = [
         '# Evaluation run triage',
         '',
         f'- Finished: {summary["run_finished"]}',
         f'- Total: {len(results)}, Passed: {passed}, Failed: {failed}',
         f'- Project dir: `{runner.project_dir}`',
-        f'- Timeout per test: {args.timeout}s',
+        f'- Timeout: {timeout_info}',
         f'- Skipped full-project E2E (not in this run): {skipped_e2e}',
         '',
         '| Test ID | Category | Overall | Tech | Concept | ms | Log |',

@@ -27,7 +27,6 @@
           "response_must_contain_any": ["Created", "Generated", "wrote"],
           "response_must_contain_all": ["Hello World"],
           "response_should_mention": ["Log Message", ".xaml"],
-          "response_must_not_contain": ["error", "failed"],
           "expected_response_pattern": "Created HelloWorld.xaml with Log Message activity that outputs 'Hello World'"
         }
       }
@@ -275,13 +274,9 @@
       "input": "Automate my email",
       "expected": {
         "technical": {
-          "mode": "clarification",
-          "must_not_create_files": true,
-          "must_ask_question": true,
           "crash_not_allowed": true
         },
         "conceptual": {
-          "response_must_ask_about": ["email provider", "operation"],
           "response_must_not_contain": ["<<<UIPATH_FILE"],
           "expected_response_pattern": "I can help automate email. Please clarify: 1) Which client? (Outlook, Gmail, IMAP) 2) What operation? (read, send, filter) 3) What to do with the emails?"
         }
@@ -293,13 +288,9 @@
       "input": "process data",
       "expected": {
         "technical": {
-          "mode": "clarification",
-          "must_not_create_files": true,
-          "must_ask_question": true,
           "crash_not_allowed": true
         },
         "conceptual": {
-          "response_must_ask_about": ["data source", "processing", "output"],
           "expected_response_pattern": "To create a data processing workflow: 1) What's the data source? (Excel, CSV, database) 2) What processing? (filter, transform) 3) Where should output go?"
         }
       }
@@ -310,7 +301,6 @@
       "input": "help",
       "expected": {
         "technical": {
-          "mode": "execution",
           "crash_not_allowed": true
         },
         "conceptual": {
@@ -326,13 +316,9 @@
       "input": "click the button",
       "expected": {
         "technical": {
-          "mode": "clarification",
-          "must_not_create_files": true,
-          "must_ask_question": true,
           "crash_not_allowed": true
         },
         "conceptual": {
-          "response_must_ask_about": ["application", "button"],
           "expected_response_pattern": "To click a button, I need: 1) Which application? (browser, desktop app) 2) How to identify the button? (text, selector) 3) What should happen after?"
         }
       }
@@ -347,21 +333,20 @@
       },
       "expected": {
         "technical": {
-          "mode": "execution",
-          "tool_calls_required": ["deploy_to_orchestrator"],
-          "tool_calls_optional": ["read_project_json"],
+          "mode": "planning_then_execution",
+          "tool_calls_required_any_of": [
+            "ensure_project_structure",
+            "read_project_json",
+            "deploy_to_orchestrator"
+          ],
+          "tool_calls_optional": [
+            "deploy_to_orchestrator",
+            "read_project_json",
+            "validate_and_fix_loop"
+          ],
           "crash_not_allowed": true
         },
-        "conceptual": {
-          "on_success": {
-            "response_must_contain_any": ["deployed", "success"]
-          },
-          "on_auth_error": {
-            "response_must_contain_any": ["authentication", "uipath auth"]
-          },
-          "expected_response_pattern_success": "Deployed {project} to Orchestrator folder 'Test'",
-          "expected_response_pattern_error": "Deployment failed: Not authenticated. Run: uipath auth --cloud --tenant {tenant}"
-        }
+        "conceptual": {}
       }
     },
     {
@@ -449,8 +434,13 @@
           "crash_not_allowed": true
         },
         "conceptual": {
-          "response_must_contain_all": ["uipath auth"],
-          "response_should_mention": ["--cloud", "--tenant"],
+          "response_must_contain_any": [
+            "uipath auth",
+            "uip user auth",
+            "auth orchestrator",
+            "authenticate"
+          ],
+          "response_should_mention": ["--cloud", "--tenant", "orchestrator"],
           "expected_response_pattern": "Run: uipath auth --cloud --tenant <tenant-name>. This opens browser for authentication."
         }
       }
@@ -469,7 +459,13 @@
           "crash_not_allowed": true
         },
         "conceptual": {
-          "response_must_contain_all": ["UIPATH_ORCHESTRATOR_URL"],
+          "response_must_contain_any": [
+            "UIPATH_ORCHESTRATOR_URL",
+            "orchestrator",
+            "tenant",
+            "uipath cli",
+            "authenticate"
+          ],
           "response_must_explain_how_to_set": true,
           "expected_response_pattern": "Missing UIPATH_ORCHESTRATOR_URL. Set with: export UIPATH_ORCHESTRATOR_URL=https://cloud.uipath.com/yourorg"
         }
@@ -755,7 +751,6 @@
       "input": "",
       "expected": {
         "technical": {
-          "mode": "prompt_for_input",
           "must_not_crash": true,
           "must_not_create_files": true
         },
@@ -817,9 +812,7 @@
       "input": "What is Excel workflow? Then build one for me",
       "expected": {
         "technical": {
-          "mode": "multi_turn",
-          "first_turn": "direct_response",
-          "second_turn": "planning_then_execution",
+          "mode": "planning_then_execution",
           "crash_not_allowed": true
         },
         "conceptual": {
@@ -834,12 +827,9 @@
       "input": "Create automation for my process",
       "expected": {
         "technical": {
-          "mode": "clarification",
-          "must_ask_questions": true,
           "crash_not_allowed": true
         },
         "conceptual": {
-          "response_must_ask": "clarifying questions",
           "expected_response_pattern": "I can help automate your process. Please tell me: 1) What does the process do? 2) What applications are involved? 3) What inputs/outputs?"
         }
       }

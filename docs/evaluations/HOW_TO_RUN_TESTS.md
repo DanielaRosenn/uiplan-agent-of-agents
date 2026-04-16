@@ -84,10 +84,14 @@ Options:
 # One test
 python docs/evaluations/run_evaluations.py --test QA-001
 
+# Several tests by id (repeat --test)
+python docs/evaluations/run_evaluations.py --test QA-001 --test QA-002 --test DEPLOY-001
+
 # Category
 python docs/evaluations/run_evaluations.py --category "Workflow Building"
 
-# Custom project dir (timeout auto-set by category: BUILD=300s, QA=60s, etc.)
+# Custom project dir (timeout auto-set by category: e.g. Workflow Building=300s,
+# Question=180s, Learning=120s, Validation=180s; see CATEGORY_TIMEOUTS in run_evaluations.py)
 python docs/evaluations/run_evaluations.py --project-dir tests\fixtures\sample_project
 
 # Override timeout for all tests (ignores category defaults)
