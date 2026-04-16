@@ -87,8 +87,11 @@ python docs/evaluations/run_evaluations.py --test QA-001
 # Category
 python docs/evaluations/run_evaluations.py --category "Workflow Building"
 
-# Custom project dir and timeout (seconds per test)
-python docs/evaluations/run_evaluations.py --project-dir tests\fixtures\sample_project --timeout 180
+# Custom project dir (timeout auto-set by category: BUILD=300s, QA=60s, etc.)
+python docs/evaluations/run_evaluations.py --project-dir tests\fixtures\sample_project
+
+# Override timeout for all tests (ignores category defaults)
+python docs/evaluations/run_evaluations.py --timeout 600
 
 # Custom log directory + full JSON dump
 python docs/evaluations/run_evaluations.py --log-dir docs/evaluations/results/run_20260416 --output docs/evaluations/results/full_dump.json
@@ -185,16 +188,87 @@ Save results as JSON in `results/` folder:
 }
 ```
 
+## Category-Based Timeouts
+
+The runner automatically selects an appropriate timeout based on test category:
+
+| Category | Timeout | Rationale |
+|----------|---------|-----------|
+| Workflow Building | 300s (5 min) | Planning + multi-step execution |
+| Workflow Modification | 300s (5 min) | Planning + file edits |
+| Build and Deploy | 420s (7 min) | Planning + build + Orchestrator deploy |
+| Question | 60s (1 min) | Direct Q&A, no planning |
+| Error Handling | 90s (1.5 min) | Error detection scenarios |
+| Code Generation | 240s (4 min) | Planning + code generation |
+| (other) | 180s (3 min) | Default fallback |
+
+Use `--timeout N` to override all category defaults with a fixed value.
+
+## Documentation-Driven Development
+
+The agent now supports automatic documentation detection and creation for complex projects.
+
+### Documentation Types
+
+| Type | Agent | Purpose |
+|------|-------|---------|
+| PDD | Business Analyst | Process Definition Document - business requirements |
+| SDD | Solution Architect | Solution Design Document - technical architecture |
+| ADD | Solution Architect | Agent Design Document - AI/agentic components |
+| TDD | Solution Architect | Technical Design Document - implementation specs |
+
+### How It Works
+
+1. **Intent Detection**: The intent classifier detects explicit documentation requests ("Create a PDD", "Help me document this process")
+
+2. **Complexity Analysis**: For build requests, the system analyzes complexity indicators:
+   - Integration keywords (Salesforce, SAP, API, database)
+   - Human approval keywords (manager, approve, review)
+   - AI/Agent keywords (LLM, Claude, agent)
+   - Compliance keywords (GDPR, audit, security)
+
+3. **Routing**: Based on the analysis:
+   - PDD requests → Business Analyst agent
+   - SDD/ADD/TDD requests → Solution Architect agent
+   - PDD is always created before technical docs
+
+4. **Persistence**: Documentation is saved to the project's `docs/` folder
+
+### CLI Markers
+
+- `[DOC_PHASE: TYPE]` - Entering documentation creation phase
+- `[DOC_CREATED: TYPE]` - Documentation file created
+- `[SKILL: uipath-ba]` - Business Analyst agent active
+- `[SKILL: uipath-sa-sdd]` - Solution Architect agent active
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `UIPATH_BA_MAX_ITERATIONS` | 15 | Max iterations for BA agent |
+| `UIPATH_SA_MAX_ITERATIONS` | 15 | Max iterations for SA agent |
+
+### Example Usage
+
+```bash
+# Explicit documentation request
+uipath-claude chat
+You: Create a PDD for invoice processing
+
+# Complex project triggers documentation recommendation
+You: Build enterprise invoice processing with SAP integration and manager approvals
+```
+
 ## Common Issues
 
 | Issue | Cause | Fix |
 |-------|-------|-----|
-| Test hangs | Planning + long agent loop | Raise `--timeout`; optional `UIPATH_PLANNER_MAX_ITERATIONS` (runner defaults to 10) |
+| Test hangs | Planning + long agent loop | Category timeouts should handle this; or `UIPATH_PLANNER_MAX_ITERATIONS` (runner defaults to 10) |
 | Empty `stdout` in JSON on timeout (Windows) | `communicate()` does not attach partial streams to `TimeoutExpired` | Runner uses background line readers so partial output is kept; plus `python -u` and CLI line-buffering when not a TTY |
 | Auth prompt | Interactive auth | Set `UIPATH_SKIP_AUTH_CHECK=1` |
 | Unicode errors | Windows encoding | Set `PYTHONIOENCODING=utf-8` |
 | project.json not found | Wrong directory | Run from project directory |
-| Timeout | Long execution | Increase timeout or simplify test |
+| Timeout | Long execution | Use `--timeout N` override, or check LLM response times |
 | Many Studio windows after a batch | Harness did not run parent cleanup | Use `run_evaluations.py` or replicate its PID snapshot + kill-new-Studio logic after each subprocess |
 
 ## CLI Output Markers
