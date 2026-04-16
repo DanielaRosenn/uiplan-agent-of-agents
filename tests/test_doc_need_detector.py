@@ -2,6 +2,72 @@
 
 import pytest
 from uipath_claude.query.intent_classifier import IntentType, classify_intent
+from uipath_claude.query.doc_need_detector import (
+    DocNeedLevel,
+    detect_documentation_need,
+    ComplexityIndicators,
+)
+
+
+class TestDocNeedDetector:
+    """Tests for documentation need detection based on project complexity."""
+
+    def test_simple_workflow_no_doc_needed(self):
+        """Simple workflow should not require documentation."""
+        result = detect_documentation_need("Send an email with attachment")
+        assert result.level == DocNeedLevel.NONE
+        assert result.recommended_docs == []
+
+    def test_integration_suggests_sdd(self):
+        """Integration with external system suggests SDD."""
+        result = detect_documentation_need(
+            "Create workflow that reads from Salesforce and updates SAP"
+        )
+        assert result.level in (DocNeedLevel.RECOMMENDED, DocNeedLevel.REQUIRED)
+        assert "sdd" in result.recommended_docs
+
+    def test_human_approval_suggests_pdd(self):
+        """Human-in-the-loop suggests PDD."""
+        result = detect_documentation_need(
+            "Build invoice processing with manager approval for amounts over 10k"
+        )
+        assert result.level in (DocNeedLevel.RECOMMENDED, DocNeedLevel.REQUIRED)
+        assert "pdd" in result.recommended_docs
+
+    def test_agentic_workflow_suggests_add(self):
+        """AI/Agent components suggest ADD."""
+        result = detect_documentation_need(
+            "Create an AI agent that analyzes documents and makes decisions"
+        )
+        assert "add" in result.recommended_docs
+
+    def test_enterprise_project_requires_full_docs(self):
+        """Enterprise-scale project requires full documentation."""
+        result = detect_documentation_need(
+            "Build enterprise invoice processing system with SAP integration, "
+            "Salesforce CRM sync, manager approvals, compliance reporting, "
+            "multi-department routing, and audit trail"
+        )
+        assert result.level == DocNeedLevel.REQUIRED
+        assert "pdd" in result.recommended_docs
+        assert "sdd" in result.recommended_docs
+
+    def test_explicit_doc_type_requested(self):
+        """Explicit doc request returns that doc type."""
+        result = detect_documentation_need("Create a PDD for this process")
+        assert result.level == DocNeedLevel.REQUIRED
+        assert "pdd" in result.recommended_docs
+        assert result.explicit_request is True
+
+    def test_complexity_indicators_detected(self):
+        """Should detect various complexity indicators."""
+        result = detect_documentation_need(
+            "Build workflow with Oracle database, REST API, exception handling, "
+            "retry logic, and notification system"
+        )
+        indicators = result.indicators
+        assert indicators.has_integration is True
+        assert indicators.has_error_handling is True
 
 
 class TestDocumentationIntent:
