@@ -189,7 +189,8 @@ Save results as JSON in `results/` folder:
 
 | Issue | Cause | Fix |
 |-------|-------|-----|
-| Test hangs | Planning mode waiting | Use `--no-plan` |
+| Test hangs | Planning + long agent loop | Raise `--timeout`; optional `UIPATH_PLANNER_MAX_ITERATIONS` (runner defaults to 10) |
+| Empty `stdout` in JSON on timeout (Windows) | `communicate()` does not attach partial streams to `TimeoutExpired` | Runner uses background line readers so partial output is kept; plus `python -u` and CLI line-buffering when not a TTY |
 | Auth prompt | Interactive auth | Set `UIPATH_SKIP_AUTH_CHECK=1` |
 | Unicode errors | Windows encoding | Set `PYTHONIOENCODING=utf-8` |
 | project.json not found | Wrong directory | Run from project directory |
@@ -216,6 +217,12 @@ When stdin is not a TTY (e.g., piped input from tests), the CLI automatically:
 - Uses the `--auto-approve-plan` flag behavior
 
 This allows evaluations to test the full planning flow without manual intervention.
+
+## Evaluation child process and planner cap
+
+`run_evaluations.py` starts chat with **`sys.executable -u`** and `from uipath_claude.cli.app import app` so output is not stuck in a full pipe buffer for the whole run.
+
+Unless you set it yourself, the runner exports **`UIPATH_PLANNER_MAX_ITERATIONS=10`** so the read-only planner uses at most 10 ReAct steps (the main chat agent still uses `UIPATH_MAX_ITERATIONS`, default 25). Override in the environment before running if you need a different cap.
 
 ## Directory Structure
 

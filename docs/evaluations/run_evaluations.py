@@ -12,6 +12,7 @@ import os
 import re
 import subprocess
 import sys
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -29,6 +30,31 @@ from uipath_claude.utils.process_tracker import (
     close_uipath_processes_opened_since,
     snapshot_uipath_automation_pids,
 )
+
+
+def _drain_text_lines(pipe: Any, acc: list[str]) -> None:
+    """Read text pipe line-by-line until EOF (used so timeouts still keep partial output)."""
+    try:
+        if pipe is None:
+            return
+        while True:
+            line = pipe.readline()
+            if line == "":
+                break
+            acc.append(line)
+    except Exception:
+        pass
+
+
+def _child_chat_argv() -> list[str]:
+    """Run chat in the same interpreter with ``-u`` so stdout is not pipe-blocked."""
+    return [
+        sys.executable,
+        "-u",
+        "-c",
+        "import sys; sys.argv = ['uipath-claude', 'chat', '--no-banner', '--track-processes']; "
+        "from uipath_claude.cli.app import app; app()",
+    ]
 
 
 class CLITestRunner:
@@ -49,6 +75,8 @@ class CLITestRunner:
         env['UIPATH_SKIP_AUTH_CHECK'] = '1'
         env['PYTHONIOENCODING'] = 'utf-8'
         env['PYTHONUNBUFFERED'] = '1'
+        if 'UIPATH_PLANNER_MAX_ITERATIONS' not in env:
+            env['UIPATH_PLANNER_MAX_ITERATIONS'] = '10'
 
         # Empty input still sends exit so the session closes
         full_input = f"{user_input}\nexit\n" if user_input else "exit\n"
@@ -57,12 +85,7 @@ class CLITestRunner:
         process = None
         try:
             process = subprocess.Popen(
-                [
-                    "uipath-claude",
-                    "chat",
-                    "--no-banner",
-                    "--track-processes",
-                ],
+                _child_chat_argv(),
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -73,30 +96,59 @@ class CLITestRunner:
                 env=env,
             )
 
-            stdout, stderr = process.communicate(
-                input=full_input, timeout=self.timeout
+            # Threaded drain: on Windows, communicate(timeout=) does not attach partial streams
+            # to TimeoutExpired; draining lines preserves markers for triage when we kill the CLI.
+            out_acc: list[str] = []
+            err_acc: list[str] = []
+            assert process.stdout is not None and process.stderr is not None
+            t_out = threading.Thread(
+                target=_drain_text_lines, args=(process.stdout, out_acc), daemon=True
             )
+            t_err = threading.Thread(
+                target=_drain_text_lines, args=(process.stderr, err_acc), daemon=True
+            )
+            t_out.start()
+            t_err.start()
 
+            assert process.stdin is not None
+            process.stdin.write(full_input)
+            process.stdin.close()
+
+            try:
+                process.wait(timeout=self.timeout)
+            except subprocess.TimeoutExpired:
+                try:
+                    process.kill()
+                except Exception:
+                    pass
+                try:
+                    process.wait(timeout=60)
+                except Exception:
+                    pass
+                t_out.join(timeout=60)
+                t_err.join(timeout=60)
+                stdout = "".join(out_acc)
+                stderr = "".join(err_acc)
+                tail = f"Timeout after {self.timeout}s"
+                return {
+                    'success': False,
+                    'error': 'timeout',
+                    'stdout': stdout,
+                    'stderr': f"{stderr}\n{tail}" if stderr.strip() else tail,
+                    'exit_code': -1,
+                    'crashed': 'traceback' in stderr.lower(),
+                }
+
+            t_out.join(timeout=120)
+            t_err.join(timeout=120)
+            stdout = "".join(out_acc)
+            stderr = "".join(err_acc)
             return {
                 'success': True,
                 'stdout': stdout,
                 'stderr': stderr,
                 'exit_code': process.returncode,
                 'crashed': 'traceback' in (stderr or "").lower(),
-            }
-
-        except subprocess.TimeoutExpired:
-            try:
-                process.kill()
-            except Exception:
-                pass
-            return {
-                'success': False,
-                'error': 'timeout',
-                'stdout': '',
-                'stderr': f'Timeout after {self.timeout}s',
-                'exit_code': -1,
-                'crashed': False,
             }
         except Exception as e:
             return {

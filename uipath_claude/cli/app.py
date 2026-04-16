@@ -676,6 +676,25 @@ def chat(
     _load_dotenv_from_cwd()
     console = Console()
     progress = ProgressReporter(console)
+
+    def _stdio_line_buffered() -> None:
+        """When stdout is a pipe (e.g. eval subprocess), avoid block buffering."""
+        for stream in (sys.stdout, sys.stderr):
+            reconf = getattr(stream, "reconfigure", None)
+            if callable(reconf) and hasattr(stream, "isatty") and not stream.isatty():
+                try:
+                    reconf(line_buffering=True)
+                except (OSError, ValueError, TypeError, AttributeError):
+                    pass
+
+    def _flush_stdio() -> None:
+        for stream in (sys.stdout, sys.stderr):
+            try:
+                stream.flush()
+            except Exception:
+                pass
+
+    _stdio_line_buffered()
     
     # Track processes before starting (for smart cleanup)
     before_pids = None
@@ -978,6 +997,7 @@ def chat(
                 if intent in (IntentType.BUILD, IntentType.AMBIGUOUS):
                     while True:
                         console.print("[bold cyan][PLANNING][/bold cyan]")
+                        _flush_stdio()
                         with progress.generating("implementation plan"):
                             plan_result = asyncio.run(
                                 run_planner_agent(
@@ -1060,10 +1080,11 @@ def chat(
                 agentic_mode_on = os.environ.get("UIPATH_AGENTIC_MODE", "1").lower() in ("1", "true", "yes")
                 debug_mode_on = os.environ.get("UIPATH_DEBUG_AGENT", "1").lower() in ("1", "true", "yes")
                 use_spinner = not (agentic_mode_on and debug_mode_on)
-                
+
                 # Always print [EXECUTING] marker for evaluation parser
                 console.print("[bold yellow][EXECUTING][/bold yellow]")
-            
+                _flush_stdio()
+
                 if use_spinner and (stream_enabled and suppress_stream_output):
                     with progress.generating("workflow"):
                         result = asyncio.run(chat_graph.ainvoke(invocation))
