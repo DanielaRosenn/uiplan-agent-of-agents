@@ -7,8 +7,11 @@ from typing import Any
 
 from mcp.types import Tool
 
+from uipath_claude.skills.insights import InsightLayer, InsightType, SkillInsight, SkillInsightsStore
 from uipath_claude.skills.loader import load_skill_content
+from uipath_claude.skills.lessons import load_for_skill
 from uipath_claude.skills.registry import SkillRegistry
+from uipath_claude.skills.updater import check_for_updates, ensure_fresh, get_skills_info
 from uipath_claude.tools.skill_insights_tool import SkillInsightsTool
 
 
@@ -96,6 +99,43 @@ def get_skill_tools() -> list[Tool]:
             description="JSON manifest of all loaded skills (names, origins, paths)",
             inputSchema={"type": "object", "properties": {}},
         ),
+        Tool(
+            name="uipath_skill_check_updates",
+            description="Check whether the skills submodule (learning cache) has updates",
+            inputSchema={"type": "object", "properties": {}},
+        ),
+        Tool(
+            name="uipath_skill_update",
+            description="Refresh skills submodule cache (force=true bypasses 6h throttle)",
+            inputSchema={
+                "type": "object",
+                "properties": {"force": {"type": "boolean", "default": False}},
+            },
+        ),
+        Tool(
+            name="uipath_skill_lessons_list",
+            description="List high-confidence lessons for a skill",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "skill_name": {"type": "string"},
+                    "limit": {"type": "integer", "default": 5},
+                },
+                "required": ["skill_name"],
+            },
+        ),
+        Tool(
+            name="uipath_skill_lessons_approve",
+            description="Persist an approved lesson (failure pattern) for a skill",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "skill_name": {"type": "string"},
+                    "content": {"type": "string"},
+                },
+                "required": ["skill_name", "content"],
+            },
+        ),
     ]
 
 
@@ -152,4 +192,69 @@ async def call_skill_tool(name: str, arguments: dict[str, Any]) -> Any:
     if name == "uipath_skill_manifest":
         return registry.generate_manifest()
 
+    if name == "uipath_skill_check_updates":
+        return uipath_skill_check_updates()
+
+    if name == "uipath_skill_update":
+        return uipath_skill_update(force=bool(arguments.get("force", False)))
+
+    if name == "uipath_skill_lessons_list":
+        return uipath_skill_lessons_list(
+            arguments["skill_name"],
+            limit=int(arguments.get("limit", 5)),
+        )
+
+    if name == "uipath_skill_lessons_approve":
+        return uipath_skill_lessons_approve(arguments["skill_name"], arguments["content"])
+
     raise ValueError(f"Unknown skill tool: {name}")
+
+
+def uipath_skill_check_updates() -> dict[str, Any]:
+    has_updates, message, current, remote = check_for_updates()
+    return {
+        "has_updates": has_updates,
+        "message": message,
+        "current": current,
+        "remote": remote,
+    }
+
+
+def uipath_skill_update(force: bool = False) -> dict[str, Any]:
+    max_age = 0 if force else 6 * 3600
+    status = ensure_fresh(max_age_seconds=max_age)
+    info = get_skills_info()
+    return {
+        "status": status,
+        "current_commit": info.get("current_commit"),
+        "skills_count": info.get("skills_count"),
+    }
+
+
+def uipath_skill_lessons_list(skill_name: str, limit: int = 5) -> dict[str, Any]:
+    project_root = Path(os.environ.get("UIPATH_MCP_PROJECT_ROOT", os.getcwd())).resolve()
+    lessons = load_for_skill(skill_name, project_root=project_root, limit=limit)
+    return {
+        "skill": skill_name,
+        "lessons": [
+            {
+                "content": r.insight.content,
+                "type": r.insight.insight_type.value,
+                "confidence": r.insight.confidence,
+            }
+            for r in lessons
+        ],
+    }
+
+
+def uipath_skill_lessons_approve(skill_name: str, content: str) -> dict[str, Any]:
+    project_root = Path(os.environ.get("UIPATH_MCP_PROJECT_ROOT", os.getcwd())).resolve()
+    insight = SkillInsight(
+        skill_name=skill_name,
+        insight_type=InsightType.FAILURE_PATTERN,
+        content=content,
+        source="cursor",
+        failure_count=1,
+    )
+    SkillInsightsStore(project_root=project_root).append(insight, layer=InsightLayer.PROJECT)
+    return {"ok": True, "skill": skill_name, "content_hash": insight.content_hash}

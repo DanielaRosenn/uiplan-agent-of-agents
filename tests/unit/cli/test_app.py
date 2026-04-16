@@ -1,12 +1,14 @@
 """Test CLI app."""
 import asyncio
 import os
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from typer.testing import CliRunner
 from uipath_claude.cli.app import (
     _UIPATH_CHAT_SYSTEM,
+    _parse_numbered_questions_from_clarifier,
     _allow_project_file_generation,
     _is_file_generation_intent,
     _canonical_skill_name,
@@ -508,3 +510,181 @@ def test_uipath_chat_system_instructs_executor_on_approved_plans() -> None:
     assert "Approved Implementation Plan" in _UIPATH_CHAT_SYSTEM
     assert "ensure_project_structure" in _UIPATH_CHAT_SYSTEM
     assert "write_file" in _UIPATH_CHAT_SYSTEM or "UIPATH_FILE" in _UIPATH_CHAT_SYSTEM
+
+
+def test_parse_numbered_questions_from_clarifier() -> None:
+    text = "Intro line\n1. First question here?\n2) Second one\n"
+    qs = _parse_numbered_questions_from_clarifier(text)
+    assert qs == ["First question here?", "Second one"]
+
+
+def test_plan_approval_shows_hint_line(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Rich default hides [y/n/edit]; we print an explicit hint before Prompt.ask."""
+    monkeypatch.setenv("UIPATH_PLAN_POST_QUESTIONS", "0")
+    monkeypatch.setenv("UIPATH_FORCE_INTERACTIVE", "1")
+    with patch("uipath_claude.cli.app._create_engine") as create_engine:
+        create_engine.return_value = object()
+        mock_graph = MagicMock()
+        captured: list[dict[str, Any]] = []
+
+        async def _ainvoke(state):
+            captured.append(dict(state))
+            return {
+                "messages": list(state.get("messages") or [])
+                + [{"role": "assistant", "content": "done"}],
+                "assistant_response": "done",
+                "pending_question": None,
+            }
+
+        mock_graph.ainvoke = AsyncMock(side_effect=_ainvoke)
+        mock_plan = MagicMock()
+        mock_plan.final_response = "# Plan\n- Step 1"
+        ask_answers = iter(
+            [
+                "Create a minimal workflow in Main.xaml",
+                "y",
+                "exit",
+            ]
+        )
+
+        def _fake_prompt_ask(prompt, *args, **kwargs):
+            return next(ask_answers)
+
+        with patch("uipath_claude.cli.app.compile_chat_graph", return_value=mock_graph):
+                with patch(
+                    "uipath_claude.cli.app.run_planner_agent",
+                    new=AsyncMock(return_value=mock_plan),
+                ):
+                    with patch(
+                        "uipath_claude.cli.app.Prompt.ask",
+                        side_effect=_fake_prompt_ask,
+                    ):
+                        result = runner.invoke(
+                            app,
+                            ["chat", "--no-banner", "--no-stream"],
+                            input="",
+                        )
+    assert result.exit_code == 0
+    out = result.stdout or ""
+    assert "type 'y' to approve" in out.lower()
+    assert "edit" in out.lower()
+    assert captured
+    extra = str(captured[0].get("runtime_extra") or "")
+    assert "Approved Implementation Plan" in extra
+
+
+def test_plan_approval_edit_then_feedback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Typing edit opens a feedback prompt; feedback is merged into the next planner turn."""
+    monkeypatch.setenv("UIPATH_PLAN_POST_QUESTIONS", "0")
+    monkeypatch.setenv("UIPATH_FORCE_INTERACTIVE", "1")
+    planner_calls: list[str] = []
+
+    async def _planner(user_input, **kwargs):
+        planner_calls.append(user_input)
+        m = MagicMock()
+        m.final_response = "# Plan v\n- step"
+        return m
+
+    ask_answers = iter(
+        [
+            "Build invoice workflow",
+            "edit",
+            "Add validation step",
+            "y",
+            "exit",
+        ]
+    )
+
+    def _fake_prompt_ask(prompt, *args, **kwargs):
+        return next(ask_answers)
+
+    with patch("uipath_claude.cli.app._create_engine") as create_engine:
+        create_engine.return_value = object()
+        mock_graph = MagicMock()
+        mock_graph.ainvoke = AsyncMock(
+            return_value={
+                "messages": [],
+                "assistant_response": "ok",
+                "pending_question": None,
+            }
+        )
+        with patch("uipath_claude.cli.app.compile_chat_graph", return_value=mock_graph):
+            with patch(
+                "uipath_claude.cli.app.run_planner_agent",
+                new=_planner,
+            ):
+                with patch(
+                    "uipath_claude.cli.app.Prompt.ask",
+                    side_effect=_fake_prompt_ask,
+                ):
+                    result = runner.invoke(
+                        app,
+                        ["chat", "--no-banner", "--no-stream"],
+                        input="",
+                    )
+    assert result.exit_code == 0
+    assert len(planner_calls) >= 2
+    assert "Feedback on plan: Add validation step" in planner_calls[1]
+
+
+def test_plan_post_questions_flag_merges_answers_into_runtime_extra(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("UIPATH_PLAN_POST_QUESTIONS", "1")
+    monkeypatch.setenv("UIPATH_FORCE_INTERACTIVE", "1")
+    with patch("uipath_claude.cli.app._create_engine") as create_engine:
+        create_engine.return_value = object()
+        mock_graph = MagicMock()
+        captured: list[dict[str, Any]] = []
+
+        async def _ainvoke(state):
+            captured.append(dict(state))
+            return {
+                "messages": list(state.get("messages") or [])
+                + [{"role": "assistant", "content": "done"}],
+                "assistant_response": "done",
+                "pending_question": None,
+            }
+
+        mock_graph.ainvoke = AsyncMock(side_effect=_ainvoke)
+        mock_plan = MagicMock()
+        mock_plan.final_response = "# Plan\n- Step 1"
+        ask_answers = iter(
+            [
+                "Create Hello World workflow",
+                "y",
+                "north",
+                "2026",
+                "exit",
+            ]
+        )
+
+        def _fake_prompt_ask(prompt, *args, **kwargs):
+            return next(ask_answers)
+
+        with patch("uipath_claude.cli.app.compile_chat_graph", return_value=mock_graph):
+            with patch(
+                "uipath_claude.cli.app.run_planner_agent",
+                new=AsyncMock(return_value=mock_plan),
+            ):
+                with patch(
+                    "uipath_claude.query.clarifier.run_clarifier_agent",
+                    new=AsyncMock(
+                        return_value="1. Which region?\n2. Go-live date?\n"
+                    ),
+                ):
+                    with patch(
+                        "uipath_claude.cli.app.Prompt.ask",
+                        side_effect=_fake_prompt_ask,
+                    ):
+                        result = runner.invoke(
+                            app,
+                            ["chat", "--no-banner", "--no-stream"],
+                            input="",
+                        )
+    assert result.exit_code == 0
+    extra = str(captured[0].get("runtime_extra") or "")
+    assert "Q: Which region?" in extra
+    assert "A: north" in extra
+    assert "Q: Go-live date?" in extra
+    assert "A: 2026" in extra

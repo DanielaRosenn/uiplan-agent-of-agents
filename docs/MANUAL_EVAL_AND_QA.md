@@ -138,8 +138,9 @@ Create a UiPath Studio workflow project that logs a single message "Hello from m
 
 **Steps after the model replies**
 
-1. If you see a cyan **Implementation Plan** panel, reply exactly: `y` (or use `adjust` / `n` per README if you are testing those paths).
-2. Wait until the agent finishes (footer lines about iterations / tool counts).
+1. If you see a cyan **Implementation Plan** panel, the CLI prints a hint: `y` to approve, `n` to cancel, `e` or `edit` to open a revision prompt, or type free-text feedback to revise the plan. Reply `y` to proceed (or exercise `edit` / `n` when testing those paths).
+2. Optional: after approval, set `UIPATH_PLAN_POST_QUESTIONS=1` (and `UIPATH_FORCE_INTERACTIVE=1` when stdin is not a TTY, e.g. some runners) to answer up to three follow-up questions before execution. Remove the vars after testing.
+3. Wait until the agent finishes (footer lines about iterations / tool counts).
 
 **Expected**
 

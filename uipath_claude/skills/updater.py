@@ -1,8 +1,9 @@
 """Skills submodule updater - keeps UiPath/skills in sync."""
+import os
 import subprocess
+import time
 from pathlib import Path
 from typing import Optional, Tuple
-import os
 
 
 def get_skills_submodule_path() -> Path:
@@ -122,6 +123,45 @@ def update_skills(skills_path: Optional[Path] = None) -> Tuple[bool, str]:
     
     new_commit = get_current_commit(skills_path)
     return True, f"Skills updated to commit {new_commit}"
+
+
+def _default_marker_path() -> Path:
+    return get_skills_submodule_path().parent / ".skills_refresh_at"
+
+
+def ensure_fresh(
+    marker_path: Path | None = None,
+    max_age_seconds: int = 6 * 3600,
+) -> str:
+    """Refresh the skills submodule at most once per ``max_age_seconds``.
+
+    Safe to call on CLI/MCP startup. Soft-fails on any network/git error so
+    offline use is never blocked.
+    """
+    marker = marker_path or _default_marker_path()
+    now = int(time.time())
+    try:
+        last = int(marker.read_text()) if marker.exists() else 0
+    except (OSError, ValueError):
+        last = 0
+
+    if now - last < max_age_seconds:
+        return "skipped: recent"
+
+    has_updates, message, _cur, _rem = check_for_updates()
+    if not has_updates:
+        try:
+            marker.write_text(str(now))
+        except OSError:
+            pass
+        return f"skipped: {message}"
+
+    ok, result = update_skills()
+    try:
+        marker.write_text(str(now))
+    except OSError:
+        pass
+    return ("updated: " if ok else "failed: ") + result
 
 
 def get_skills_info(skills_path: Optional[Path] = None) -> dict:

@@ -225,6 +225,10 @@ class AgenticProgressReporter:
         """
         self.console.print(f"  [dim]  {message}[/dim]")
 
+    def info(self, message: str) -> None:
+        """Print a non-error status line (matches :class:`ProgressReporter`)."""
+        self.console.print(f"[dim]->[/dim] {message}")
+
     def no_tools_called(self, has_response: bool) -> None:
         """Show when LLM responded without calling tools."""
         if has_response:
@@ -400,6 +404,8 @@ class AgenticProgressReporter:
         tool_success_count: int = 0,
         tool_failure_count: int = 0,
         artifact_root: str | None = None,
+        tokens_in: int = 0,
+        tokens_out: int = 0,
     ) -> None:
         """Show completion summary (loop finished, not necessarily all tools ok)."""
         self.console.print()
@@ -407,6 +413,10 @@ class AgenticProgressReporter:
             f"[dim]Agent finished after {iterations} iteration(s)[/dim] "
             f"[dim](LLM rounds; not the same as 'all steps succeeded')[/dim]"
         )
+        if tokens_in or tokens_out:
+            self.console.print(
+                f"[dim]Tokens: in={tokens_in:,} out={tokens_out:,}[/dim]"
+            )
         if tool_success_count or tool_failure_count:
             err_part = ""
             if tool_failure_count:

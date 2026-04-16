@@ -20,6 +20,8 @@ from uipath_claude.commands.repair_restore import register_repair_restore_comman
 from uipath_claude.commands.registry import CommandRegistry
 from uipath_claude.commands.skills import register_skills_command
 from uipath_claude.commands.status import register_status_command
+from uipath_claude.commands.knowledge import register_knowledge_command
+from uipath_claude.commands.resume import register_resume_command
 from uipath_claude.commands.update_skills import register_update_skills_command
 from uipath_claude.commands.validate import register_validate_command
 from uipath_claude.cli.capability_hint import maybe_print_capability_build_hint
@@ -34,6 +36,7 @@ from uipath_claude.query.bootstrap import run_bootstrap_flow
 from uipath_claude.query.conversation import ConversationEngine
 from uipath_claude.graph.builder import compile_chat_graph
 from uipath_claude.query.intent_classifier import IntentType, classify_intent
+from uipath_claude.query.plan_block import PLAN_BLOCK_HEADING, build_plan_block
 from uipath_claude.query.planner import run_planner_agent
 from uipath_claude.query.planner_router import find_planner_skill, should_use_planner
 from uipath_claude.query.router import route_user_input
@@ -43,7 +46,8 @@ from uipath_claude.rendering.branding import print_welcome_banner
 from uipath_claude.rendering.progress import ProgressReporter
 from uipath_claude.skills.loader import load_skill_content
 from uipath_claude.skills.registry import SkillRegistry
-from uipath_claude.skills.updater import check_for_updates
+from uipath_claude.skills.updater import check_for_updates, ensure_fresh
+from uipath_claude.sessions.store import SessionEvent, SessionStore
 from uipath_claude.hooks.session_hooks import check_uip_installed
 from uipath_claude.tools.profiles import is_command_allowed, resolve_tool_profile
 from uipath_claude.tools.skill_tool import create_skill_tool
@@ -89,7 +93,7 @@ def _load_dotenv_from_cwd() -> None:
 
 app = typer.Typer(help="UiPath Claude Code - Conversational AI for UiPath")
 
-_UIPATH_CHAT_SYSTEM = """You are UiPath Claude Code, an agentic AI assistant with direct access to the user's local file system, UiPath CLI, and UiPath skills. You build UiPath Studio automations (workflow XAML), not WPF desktop apps, unless the user explicitly asks for WPF.
+_UIPATH_CHAT_SYSTEM = f"""You are UiPath Claude Code, an agentic AI assistant with direct access to the user's local file system, UiPath CLI, and UiPath skills. You build UiPath Studio automations (workflow XAML), not WPF desktop apps, unless the user explicitly asks for WPF.
 
 CRITICAL CAPABILITIES:
 - You HAVE full capabilities to execute UiPath skills, read/write files, run CLI commands, and build automations directly on the user's machine.
@@ -97,18 +101,18 @@ CRITICAL CAPABILITIES:
 - When the user asks you to do something, DO IT using your tools (if in agentic mode) or by generating the necessary files.
 
 EXECUTING APPROVED IMPLEMENTATION PLANS:
-If the runtime context includes an "Approved Implementation Plan", treat it as your execution checklistΓÇönot background prose.
+If the runtime context includes a "{PLAN_BLOCK_HEADING}" section (markdown `## {PLAN_BLOCK_HEADING}` or legacy plain prefix), treat it as your execution checklist—not background prose.
 You MUST carry it out with tools and/or UIPATH_FILE blocks until the user's build request is satisfied (or you hit a hard blocker you report clearly).
-1. Read every plan step; map vague steps to concrete tools (e.g. scaffold ΓåÆ `ensure_project_structure`, new XAML ΓåÆ `write_file` or file blocks).
+1. Read every plan step; map vague steps to concrete tools (e.g. scaffold → `ensure_project_structure`, new XAML → `write_file` or file blocks).
 2. Prefer tool calls over narration; do not end the turn having only summarized the plan.
 3. If the plan mentions human-only steps (e.g. "open Studio"), substitute the closest supported automation (project structure, XAML files, validation) and continue.
 
 Example translations:
-- "Create project / use uip new" ΓåÆ call `ensure_project_structure` (or equivalent) for the target project directory, then add workflows.
-- "Add Main.xaml" ΓåÆ `write_file` or `<<<UIPATH_FILE path="Main.xaml">>>` blocks with valid XAML.
-- "Validate workflow" ΓåÆ `validate_and_fix_loop` on the XAML path when available.
+- "Create project / use uip new" → call `ensure_project_structure` (or equivalent) for the target project directory, then add workflows.
+- "Add Main.xaml" → `write_file` or `<<<UIPATH_FILE path="Main.xaml">>>` blocks with valid XAML.
+- "Validate workflow" → `validate_and_fix_loop` on the XAML path when available.
 
-Do not reply that the plan "looks good" or that you lack accessΓÇöexecute.
+Do not reply that the plan "looks good" or that you lack access—execute.
 
 IMPORTANT - Clarification Before Action:
 If the user's request is ambiguous, vague, or missing critical details needed to build a correct workflow, ASK for clarification BEFORE generating any files. Examples of when to ask:
@@ -672,6 +676,16 @@ async def _get_model_response(
     return await engine.run(messages=messages, tools=[], system_prompt=context_prompt)
 
 
+def _parse_numbered_questions_from_clarifier(text: str) -> list[str]:
+    """Split clarifier output into numbered questions (lines like ``1. ...`` or ``2) ...``)."""
+    out: list[str] = []
+    for line in (text or "").splitlines():
+        m = re.match(r"^\s*\d+[.)]\s+(.+)$", line)
+        if m:
+            out.append(m.group(1).strip())
+    return out
+
+
 @app.command()
 def chat(
     no_banner: bool = typer.Option(False, "--no-banner", help="Skip welcome banner"),
@@ -711,7 +725,22 @@ def chat(
                 pass
 
     _stdio_line_buffered()
-    
+
+    if os.environ.get("UIPATH_SKILLS_AUTO_REFRESH", "1").strip().lower() in ("1", "true", "yes"):
+        try:
+            msg = ensure_fresh(max_age_seconds=6 * 3600)
+            if msg.startswith("updated"):
+                console.print(f"[dim]Skills cache: {msg}[/dim]")
+        except Exception:
+            pass
+
+    try:
+        from uipath_claude.skills.retirement_scheduler import maybe_run_retirement_scheduled
+
+        maybe_run_retirement_scheduled()
+    except Exception:
+        pass
+
     # Track processes before starting (for smart cleanup)
     before_pids = None
     if track_processes:
@@ -833,7 +862,7 @@ def chat(
                             "[dim]Authenticated with UiPath Orchestrator[/dim]\n"
                         )
         except typer.Exit:
-            # User chose "exit and authenticate"; typer.Exit subclasses Exception ΓÇö re-raise
+            # User chose "exit and authenticate"; typer.Exit subclasses Exception — re-raise
             raise
         except Exception as e:
             # Don't block startup on auth check failures
@@ -878,6 +907,8 @@ def chat(
         return result.final_response
 
     registry = _build_command_registry(skill_registry, _status, _history, run_planner=_run_planner)
+    register_resume_command(registry)
+    register_knowledge_command(registry, Path.cwd().resolve())
 
     try:
         engine = _create_engine()
@@ -904,9 +935,46 @@ def chat(
             on_delta=stream_hooks["on_delta"] if stream else None,
         )
 
-    # Import skill execution tools for agentic mode
     from uipath_claude.tools.skill_execution_tools import get_skill_execution_tools
+
     agentic_tools = get_skill_execution_tools()
+
+    console.print("Chat session started. Type 'exit' or 'quit' to leave.\n")
+    stream_enabled = _resolve_stream_enabled(stream)
+    output_mode = _resolve_output_mode()
+    session_store = SessionStore()
+    env_sid = os.environ.get("UIPATH_CHAT_SESSION_ID", "").strip()
+    if env_sid:
+        chat_session_id = re.sub(r"[^A-Za-z0-9._-]", "-", env_sid) or session_store.new_session_id()
+    else:
+        chat_session_id = session_store.new_session_id()
+    os.environ["UIPATH_CHAT_SESSION_ID"] = chat_session_id
+    (_get_output_root() / chat_session_id).mkdir(parents=True, exist_ok=True)
+    console.print(f"[dim]Session: {chat_session_id}[/dim]\n")
+
+    from uipath_claude.tools.approval import ApprovalDecision, ApprovalPolicy
+
+    approval_policy: ApprovalPolicy | None = None
+    if os.environ.get("UIPATH_TOOL_APPROVAL", "0").strip().lower() in ("1", "true", "yes"):
+
+        def _approval_prompter(tool_name: str, _tool_args: dict) -> ApprovalDecision:
+            if not sys.stdin.isatty():
+                return ApprovalDecision.DENY
+            choice = (
+                Prompt.ask(
+                    f"Allow destructive tool `{tool_name}`? [once/always/deny]",
+                    default="once",
+                )
+                .strip()
+                .lower()
+            )
+            if choice in ("always", "a"):
+                return ApprovalDecision.ALLOW_ALWAYS
+            if choice in ("deny", "d", "no", "n"):
+                return ApprovalDecision.DENY
+            return ApprovalDecision.ALLOW_ONCE
+
+        approval_policy = ApprovalPolicy(prompter=_approval_prompter)
 
     chat_graph = compile_chat_graph(
         skills,
@@ -919,16 +987,9 @@ def chat(
         agentic_tools=agentic_tools,
         model_name=model_name,
         region=region,
+        approval_policy=approval_policy,
+        session_logging=(session_store, chat_session_id),
     )
-
-    console.print("Chat session started. Type 'exit' or 'quit' to leave.\n")
-    stream_enabled = _resolve_stream_enabled(stream)
-    output_mode = _resolve_output_mode()
-    chat_session_id = _make_chat_session_id()
-    # Set session ID in environment for agentic tools to use
-    os.environ["UIPATH_CHAT_SESSION_ID"] = chat_session_id
-    (_get_output_root() / chat_session_id).mkdir(parents=True, exist_ok=True)
-    console.print(f"Chat trace id: {chat_session_id}\n")
 
     try:
         while True:
@@ -1036,7 +1097,7 @@ def chat(
 
                     history.append({"role": "user", "content": user_input})
                     history.append({"role": "assistant", "content": answer})
-                    
+
                     continue
                 except Exception as exc:
                     progress.error("Simple answer failed")
@@ -1065,13 +1126,24 @@ def chat(
                         from rich.panel import Panel
                         console.print(Panel(Markdown(plan_result.final_response), title="Implementation Plan", border_style="cyan"))
                     
-                        is_interactive = sys.stdin.isatty()
+                        force_interactive = os.environ.get(
+                            "UIPATH_FORCE_INTERACTIVE", "0"
+                        ).strip().lower() in ("1", "true", "yes")
+                        is_interactive = force_interactive or sys.stdin.isatty()
                         if auto_approve_plan or not is_interactive:
                             console.print("[dim]Auto-approving plan (non-interactive mode)[/dim]")
                             confirm = "y"
                         else:
-                            confirm = Prompt.ask("Approve plan? [y/n/edit]", default="y").strip().lower()
-                        if confirm in ("y", "yes"):
+                            console.print(
+                                "[dim]Type 'y' to approve, 'n' to cancel, 'e'/'edit' to revise, "
+                                "or describe changes to revise "
+                                '(e.g. \"add Try/Catch around the log\").[/dim]'
+                            )
+                            raw_confirm = Prompt.ask(
+                                "Approve plan? \\[y/n/edit]", default="y"
+                            ).strip()
+                            confirm = raw_confirm.lower()
+                        if confirm in ("y", "yes", ""):
                             approved_plan = plan_result.final_response
                             # Save plan to file
                             plan_path = _save_plan_to_file(
@@ -1085,17 +1157,67 @@ def chat(
                         elif confirm in ("n", "no"):
                             progress.info("Plan cancelled.")
                             break
+                        elif confirm in ("e", "edit"):
+                            feedback = Prompt.ask(
+                                "What should change? (describe revisions)"
+                            ).strip()
+                            if not feedback:
+                                console.print(
+                                    "[dim]No feedback provided; showing plan again.[/dim]"
+                                )
+                                continue
+                            user_input = f"{user_input}\n\nFeedback on plan: {feedback}"
+                            continue
                         else:
-                            # Treat other input as feedback
-                            user_input = f"{user_input}\n\nFeedback on plan: {confirm}"
+                            user_input = (
+                                f"{user_input}\n\nFeedback on plan: {raw_confirm}"
+                            )
                             continue
                 
                     if confirm in ("n", "no"):
                         continue
 
+            _post_q_env = os.environ.get("UIPATH_PLAN_POST_QUESTIONS", "0").strip().lower() in (
+                "1",
+                "true",
+                "yes",
+            )
+            _force_interactive = os.environ.get("UIPATH_FORCE_INTERACTIVE", "0").strip().lower() in (
+                "1",
+                "true",
+                "yes",
+            )
+            if approved_plan and _post_q_env and (_force_interactive or sys.stdin.isatty()):
+                from uipath_claude.query.clarifier import run_clarifier_agent
+
+                clar_text = asyncio.run(
+                    run_clarifier_agent(
+                        f"{user_input}\n\n(An implementation plan was just approved.)",
+                        model_name=model_name,
+                        region=region,
+                    )
+                )
+                post_qs = _parse_numbered_questions_from_clarifier(clar_text)
+                if not post_qs and clar_text.strip():
+                    post_qs = [clar_text.strip()[:500]]
+                post_parts: list[str] = []
+                for q in post_qs[:3]:
+                    if not (q or "").strip():
+                        continue
+                    ans = Prompt.ask(q).strip()
+                    if ans:
+                        post_parts.append(f"Q: {q}\nA: {ans}")
+                if post_parts:
+                    block = "\n\n".join(post_parts)
+                    clarification_prefix = (
+                        f"{clarification_prefix}\n\n{block}".strip()
+                        if clarification_prefix
+                        else block
+                    )
+
             runtime_context = _build_runtime_skill_context(user_input, skills)
             if approved_plan:
-                runtime_context = f"Approved Implementation Plan:\n\n{approved_plan}\n\n{runtime_context}"
+                runtime_context = f"{build_plan_block(approved_plan).rstrip()}\n\n{runtime_context}"
             allow_project_files = _allow_project_file_generation(user_input)
             file_intent = _is_file_generation_intent(user_input)
             if os.environ.get("UIPATH_CHAT_DEBUG_SKILLS", "0").strip().lower() in {"1", "true", "yes"}:
@@ -1130,9 +1252,7 @@ def chat(
                 if extra_ctx:
                     runtime_extra_parts.append(extra_ctx)
                 if approved_plan:
-                    runtime_extra_parts.append(
-                        f"Approved Implementation Plan:\n\n{approved_plan}"
-                    )
+                    runtime_extra_parts.append(build_plan_block(approved_plan).rstrip())
                 runtime_extra_merged = "\n\n".join(runtime_extra_parts)
 
                 invocation: dict[str, Any] = {
@@ -1145,6 +1265,13 @@ def chat(
                 agentic_mode_on = os.environ.get("UIPATH_AGENTIC_MODE", "1").lower() in ("1", "true", "yes")
                 debug_mode_on = os.environ.get("UIPATH_DEBUG_AGENT", "1").lower() in ("1", "true", "yes")
                 use_spinner = not (agentic_mode_on and debug_mode_on)
+
+                try:
+                    session_store.append(
+                        chat_session_id, SessionEvent(kind="user", text=user_input)
+                    )
+                except Exception:
+                    pass
 
                 # Always print [EXECUTING] marker for evaluation parser
                 console.print("[bold yellow][EXECUTING][/bold yellow]")
@@ -1161,6 +1288,12 @@ def chat(
 
                 history[:] = list(result.get("messages") or [])
                 response = str(result.get("assistant_response", ""))
+                try:
+                    session_store.append(
+                        chat_session_id, SessionEvent(kind="assistant", text=response)
+                    )
+                except Exception:
+                    pass
                 pending_q = result.get("pending_question")
                 if pending_q:
                     clarification_prefix = (

@@ -64,6 +64,7 @@ Thumbs.db
 # Local runtime / tooling data
 .uipath-claude/
 .uipath/
+.skills_refresh_at
 
 # Scratch / generated local projects
 HelloWorld/

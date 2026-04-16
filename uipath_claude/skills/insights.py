@@ -304,6 +304,36 @@ class SkillInsightsStore:
             lines.append(stats_line)
         
         return "\n".join(lines)
+
+    def iter_insights(self, skill_name: str):
+        """Yield insights across layers with first-layer-wins dedup by ``content_hash``."""
+        seen_hashes: set[str] = set()
+        for layer in (InsightLayer.USER, InsightLayer.PROJECT, InsightLayer.SHARED):
+            path = self._get_insights_path(skill_name, layer)
+            if not path.exists():
+                continue
+            file = self._load_insights_file(path)
+            if not file:
+                continue
+            for ins in file.insights:
+                h = ins.content_hash
+                if h in seen_hashes:
+                    continue
+                seen_hashes.add(h)
+                yield ins
+
+    def append(
+        self,
+        insight: SkillInsight,
+        layer: InsightLayer = InsightLayer.PROJECT,
+    ) -> None:
+        """Append a single insight to the given layer (creates file if missing)."""
+        path = self._get_insights_path(insight.skill_name, layer)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        data = self._load_insights_file(path) or SkillInsightsFile(skill_name=insight.skill_name)
+        data.insights.append(insight)
+        self._update_stats(data)
+        self._save_insights_file(path, data)
     
     def update_insight_stats(
         self,
@@ -395,3 +425,15 @@ class SkillInsightsStore:
                     result[skill_name] = file.stats
         
         return result
+
+
+def top_insights(
+    store: SkillInsightsStore,
+    skill_name: str,
+    *,
+    limit: int = 5,
+    min_confidence: float = 0.0,
+) -> List[SkillInsight]:
+    """Return up to ``limit`` insights for ``skill_name`` above ``min_confidence``."""
+    items = store.get_insights(skill_name, min_confidence=min_confidence)
+    return items[:limit]

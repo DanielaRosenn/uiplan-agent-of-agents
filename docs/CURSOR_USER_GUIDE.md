@@ -237,6 +237,12 @@ When the MCP server is enabled, Cursor can call the same Python entry points the
 | `uipath_skill_match` | Same scoring heuristic as CLI chat (`_select_relevant_skills`) |
 | `uipath_skill_insights_query` / `uipath_skill_insights_add` | Skill insights store |
 | `uipath_skill_manifest` | Provenance manifest JSON |
+| `uipath_skill_check_updates` | Check whether the skills submodule has upstream updates |
+| `uipath_skill_update` | Refresh the skills submodule cache (`force=true` bypasses the 6h throttle) |
+| `uipath_skill_lessons_list` | List ranked lessons for a skill (from the insights store) |
+| `uipath_skill_lessons_approve` | Persist an approved lesson for a skill |
+
+The skills submodule auto-refreshes on CLI `chat` startup at most every six hours when `UIPATH_SKILLS_AUTO_REFRESH` is enabled (default). In Cursor, call `uipath_skill_update` to refresh on demand.
 
 ### Agent tools (`uipath_agent_*`) — require AWS Bedrock
 

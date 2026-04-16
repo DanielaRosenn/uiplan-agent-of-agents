@@ -31,7 +31,8 @@ class TestReadFile:
         monkeypatch.setenv("UIPATH_CHAT_SESSION_ID", "")
         
         result = read_file.invoke({"file_path": str(test_file)})
-        assert result == "Hello, World!"
+        assert result.startswith("[OK]")
+        assert "Hello, World!" in result
 
     def test_read_nonexistent_file(self, tmp_path, monkeypatch):
         monkeypatch.setenv("UIPATH_CHAT_OUTPUT_DIR", str(tmp_path))
@@ -131,7 +132,8 @@ class TestReadProjectJson:
         monkeypatch.setenv("UIPATH_CHAT_SESSION_ID", "")
         
         result = read_project_json.invoke({"project_dir": str(tmp_path)})
-        parsed = json.loads(result)
+        raw = result.removeprefix("[OK]").lstrip().removeprefix(":").lstrip()
+        parsed = json.loads(raw)
         
         assert parsed["name"] == "TestProject"
         assert "UiPath.System.Activities" in parsed["dependencies"]
@@ -299,8 +301,9 @@ class TestFindActivityInfo:
             "project_dir": str(tmp_path),
         })
         
+        assert result.startswith("[OK]")
         assert "GetOutlookMailMessages" in result
-        assert "UiPath.Mail.Activities" in result
+        assert "bundled_docs" in result or "UiPath.Mail.Activities" in result
 
 
 class TestValidateAndFixLoop:

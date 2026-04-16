@@ -18,23 +18,23 @@ def make_execute_node(
     ],
     *,
     default_stream: bool = False,
-    agentic_executor: Any | None = None,
     agentic_tools: list | None = None,
     model_name: str | None = None,
     region: str | None = None,
+    approval: Any | None = None,
+    session_logging: tuple[Any, str] | None = None,
 ) -> Callable[[dict[str, Any]], Awaitable[dict[str, Any]]]:
     """Create the execute node.
-    
+
     Args:
         skills_by_name: Mapping of skill name to skill dict
         build_runtime_for_selected: Function to build runtime context
         run_model: Function to call LLM (single-shot mode)
         default_stream: Whether to stream by default
-        agentic_executor: Optional AgenticExecutor instance for tool-use mode
         agentic_tools: Optional list of tools for agentic execution
         model_name: Model name for agentic execution
         region: AWS region for agentic execution
-    
+
     Returns:
         Async execute node function
     """
@@ -65,8 +65,24 @@ def make_execute_node(
         if use_agentic and agentic_tools:
             # Run with agentic tool-use loop
             from uipath_claude.query.agentic_executor import AgenticExecutor
-            
-            executor = AgenticExecutor(model_name=model_name, region=region)
+            from uipath_claude.sessions.store import SessionEvent
+
+            def _on_tool_result(tool_name: str, res: str) -> None:
+                if not session_logging:
+                    return
+                store, sid = session_logging
+                try:
+                    ok = isinstance(res, str) and res.startswith("[OK]")
+                    store.append(sid, SessionEvent(kind="tool", name=tool_name, text=res[:8000], ok=ok))
+                except Exception:
+                    return
+
+            executor = AgenticExecutor(
+                model_name=model_name,
+                region=region,
+                approval=approval,
+                on_tool_result=_on_tool_result if session_logging else None,
+            )
             
             project_context = {
                 "output_dir": os.environ.get("UIPATH_CHAT_OUTPUT_DIR", ""),

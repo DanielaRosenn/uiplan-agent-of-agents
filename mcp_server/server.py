@@ -26,6 +26,7 @@ except ImportError:
     sys.exit(1)
 
 from mcp_server.resources.docs import fetch_doc_resource, get_doc_resources
+from mcp_server.resources.knowledge import fetch_knowledge_resource, get_knowledge_resources
 from mcp_server.resources.project import fetch_project_resource, get_project_resources
 from mcp_server.resources.skills import fetch_skill_resource, get_skill_resources
 from mcp_server.tools.agent_tools import call_agent_tool, get_agent_tools
@@ -80,6 +81,7 @@ async def list_resources() -> list[Resource]:
     resources.extend(await get_skill_resources())
     resources.extend(await get_doc_resources())
     resources.extend(await get_project_resources())
+    resources.extend(await get_knowledge_resources())
     return resources
 
 
@@ -91,6 +93,8 @@ async def read_resource(uri: str):
         return await fetch_doc_resource(str(uri))
     if str(uri).startswith("uipath://project/"):
         return await fetch_project_resource(str(uri))
+    if str(uri).startswith("uipath://knowledge/"):
+        return await fetch_knowledge_resource(str(uri))
     return [
         ReadResourceContents(
             content=f"Unknown resource: {uri}",

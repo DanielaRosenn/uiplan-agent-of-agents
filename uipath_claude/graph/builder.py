@@ -23,6 +23,8 @@ def compile_chat_graph(
     agentic_tools: list | None = None,
     model_name: str | None = None,
     region: str | None = None,
+    approval_policy: Any | None = None,
+    session_logging: tuple[Any, str] | None = None,
 ):
     """Build ``route`` → ``execute`` → ``END`` workflow.
     
@@ -52,6 +54,8 @@ def compile_chat_graph(
             agentic_tools=agentic_tools,
             model_name=model_name,
             region=region,
+            approval=approval_policy,
+            session_logging=session_logging,
         ),
     )
     workflow.add_edge(START, "route")

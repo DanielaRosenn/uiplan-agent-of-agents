@@ -17,6 +17,7 @@ from typing import Any, Optional, Tuple
 
 from langchain_core.tools import tool
 
+from uipath_claude.tools._result import ToolOutcome
 from uipath_claude.tools.library_tools import get_library_tools
 from uipath_claude.tools.uipath.cli_runner import (
     _find_uip_cli,
@@ -117,6 +118,10 @@ def _resolve_safe_path(base: Path, relative: str) -> Path | None:
     return dest
 
 
+def _tool(ok: bool, message: str) -> str:
+    return ToolOutcome(ok=ok, message=message).to_text()
+
+
 @tool
 def read_file(file_path: str) -> str:
     """Read contents of a file.
@@ -133,16 +138,19 @@ def read_file(file_path: str) -> str:
     path = _resolve_file_path(file_path)
     
     if not path.exists():
-        return f"Error: File not found: {file_path}"
+        return _tool(False, f"Error: File not found: {file_path}")
     
     try:
         size = path.stat().st_size
         if size > MAX_FILE_SIZE:
             content = path.read_text(encoding="utf-8")[:MAX_FILE_SIZE]
-            return f"{content}\n\n[TRUNCATED - file is {size} bytes, showing first {MAX_FILE_SIZE}]"
-        return path.read_text(encoding="utf-8")
+            return _tool(
+                True,
+                f"{content}\n\n[TRUNCATED - file is {size} bytes, showing first {MAX_FILE_SIZE}]",
+            )
+        return _tool(True, path.read_text(encoding="utf-8"))
     except Exception as e:
-        return f"Error reading file: {e}"
+        return _tool(False, f"Error reading file: {e}")
 
 
 def _validate_xml_structure(content: str) -> str | None:
@@ -204,7 +212,7 @@ def write_file(file_path: str, content: str) -> str:
     
     dest = _resolve_safe_path(base, file_path)
     if dest is None:
-        return f"Error: Invalid file path: {file_path}"
+        return _tool(False, f"Error: Invalid file path: {file_path}")
     
     # For XAML files, validate XML structure and fix common issues
     if file_path.lower().endswith(".xaml"):
@@ -214,16 +222,19 @@ def write_file(file_path: str, content: str) -> str:
         # Validate XML structure
         xml_error = _validate_xml_structure(fixed_content)
         if xml_error:
-            return f"Error: Invalid XAML - {xml_error}. Make sure all XML tags use < and > directly, not &lt; and &gt;."
+            return _tool(
+                False,
+                f"Error: Invalid XAML - {xml_error}. Make sure all XML tags use < and > directly, not &lt; and &gt;.",
+            )
         
         content = fixed_content
     
     try:
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(content, encoding="utf-8")
-        return f"Successfully wrote {len(content)} bytes to {dest}"
+        return _tool(True, f"Successfully wrote {len(content)} bytes to {dest}")
     except Exception as e:
-        return f"Error writing file: {e}"
+        return _tool(False, f"Error writing file: {e}")
 
 
 @tool
@@ -242,15 +253,15 @@ def list_directory(dir_path: str = ".", pattern: str = "*") -> str:
     path = _resolve_project_path(dir_path)
     
     if not path.exists():
-        return f"Error: Directory not found: {dir_path}"
+        return _tool(False, f"Error: Directory not found: {dir_path}")
     
     if not path.is_dir():
-        return f"Error: Not a directory: {dir_path}"
+        return _tool(False, f"Error: Not a directory: {dir_path}")
     
     try:
         matches = list(path.glob(pattern))
         if not matches:
-            return f"No files matching '{pattern}' in {dir_path}"
+            return _tool(True, f"No files matching '{pattern}' in {dir_path}")
         
         result = []
         for m in sorted(matches)[:100]:  # Limit to 100 results
@@ -261,9 +272,10 @@ def list_directory(dir_path: str = ".", pattern: str = "*") -> str:
                 except ValueError:
                     result.append(str(m))
         
-        return "\n".join(result) if result else f"No files matching '{pattern}'"
+        body = "\n".join(result) if result else f"No files matching '{pattern}'"
+        return _tool(True, body)
     except Exception as e:
-        return f"Error listing directory: {e}"
+        return _tool(False, f"Error listing directory: {e}")
 
 
 @tool
@@ -283,7 +295,7 @@ def read_project_json(project_dir: str = ".") -> str:
     
     project_json = path / "project.json"
     if not project_json.exists():
-        return f"Error: project.json not found in {project_dir}"
+        return _tool(False, f"Error: project.json not found in {project_dir}")
     
     try:
         data = json.loads(project_json.read_text(encoding="utf-8"))
@@ -297,9 +309,9 @@ def read_project_json(project_dir: str = ".") -> str:
             "targetFramework": data.get("targetFramework", "Windows"),
             "schemaVersion": data.get("schemaVersion", "unknown"),
         }
-        return json.dumps(summary, indent=2)
+        return _tool(True, json.dumps(summary, indent=2))
     except Exception as e:
-        return f"Error reading project.json: {e}"
+        return _tool(False, f"Error reading project.json: {e}")
 
 
 @tool
@@ -322,7 +334,7 @@ def install_package(project_dir: str, package_id: str, version: str | None = Non
     path = _resolve_project_path(project_dir)
     
     if not (path / "project.json").exists():
-        return f"Error: No project.json found in {project_dir}"
+        return _tool(False, f"Error: No project.json found in {project_dir}")
     
     uip_cli = _find_uip_cli()
     
@@ -348,20 +360,23 @@ def install_package(project_dir: str, package_id: str, version: str | None = Non
             check=False,
         )
     except FileNotFoundError:
-        return "Error: uip CLI not found. Install with: npm install -g @uipath/cli"
+        return _tool(False, "Error: uip CLI not found. Install with: npm install -g @uipath/cli")
     except subprocess.TimeoutExpired:
-        return "Error: Package installation timed out after 120s"
+        return _tool(False, "Error: Package installation timed out after 120s")
     
     output = "\n".join(part for part in (proc.stdout, proc.stderr) if part)
     
     if proc.returncode == 0:
-        return f"Successfully installed {package_id}" + (f" version {version}" if version else "")
+        return _tool(
+            True,
+            f"Successfully installed {package_id}" + (f" version {version}" if version else ""),
+        )
     
     result = _parse_first_json_payload(output)
     if result and result.get("Message"):
-        return f"Error installing package: {result['Message']}"
+        return _tool(False, f"Error installing package: {result['Message']}")
     
-    return f"Error installing package: {output[:500]}"
+    return _tool(False, f"Error installing package: {output[:500]}")
 
 
 @tool
@@ -392,7 +407,7 @@ def validate_file(project_dir: str, file_path: str | None = None) -> str:
             msg += f", {len(result['warnings'])} warning(s)"
             for w in result["warnings"][:5]:
                 msg += f"\n  - {w}"
-        return msg
+        return _tool(True, msg)
     
     msg = f"Validation failed: {len(result['errors'])} error(s)"
     for e in result["errors"][:10]:
@@ -405,7 +420,7 @@ def validate_file(project_dir: str, file_path: str | None = None) -> str:
     if result.get("studio_required"):
         msg += "\n\nNote: Full validation requires UiPath Studio to be running."
     
-    return msg
+    return _tool(False, msg)
 
 
 @tool
@@ -462,9 +477,9 @@ def run_uip_command(
             check=False,
         )
     except FileNotFoundError:
-        return "Error: uip CLI not found. Install with: npm install -g @uipath/cli"
+        return _tool(False, "Error: uip CLI not found. Install with: npm install -g @uipath/cli")
     except subprocess.TimeoutExpired:
-        return f"Error: Command timed out after 60s"
+        return _tool(False, "Error: Command timed out after 60s")
     
     output = "\n".join(part for part in (proc.stdout, proc.stderr) if part)
 
@@ -482,13 +497,14 @@ def run_uip_command(
         if result.get("Result") == "Success":
             data = result.get("Data", result)
             body = json.dumps(data, indent=2)[:5000]
-            return note + body if note else body
+            return _tool(True, note + body if note else body)
         elif result.get("Message"):
-            return note + f"Error: {result['Message']}"
+            return _tool(False, note + f"Error: {result['Message']}")
 
     # Return raw output (truncated)
     tail = output[:5000] if output else "(no output)"
-    return note + tail if note else tail
+    ok = proc.returncode == 0
+    return _tool(ok, note + tail if note else tail)
 
 
 @tool
@@ -526,7 +542,10 @@ def find_activity_info(query: str, project_dir: str | None = None) -> str:
                 content = md_file.read_text(encoding="utf-8")
                 # Extract package from path
                 package = md_file.parent.name if md_file.parent != activity_docs else "unknown"
-                return f"Activity: {md_file.stem}\nPackage: {package}\nSource: bundled_docs\n\n{content[:4000]}"
+                return _tool(
+                    True,
+                    f"Activity: {md_file.stem}\nPackage: {package}\nSource: bundled_docs\n\n{content[:4000]}",
+                )
     
     # Fallback to ActivityDiscovery
     from uipath_claude.activities.discovery import ActivityDiscovery
@@ -541,7 +560,10 @@ def find_activity_info(query: str, project_dir: str | None = None) -> str:
     info = discovery.find_activity(query, path)
     
     if info is None:
-        return f"No documentation found for activity: {query}. Try searching UiPath docs at https://docs.uipath.com/activities"
+        return _tool(
+            False,
+            f"No documentation found for activity: {query}. Try searching UiPath docs at https://docs.uipath.com/activities",
+        )
     
     result = [
         f"Activity: {info.name}",
@@ -556,7 +578,7 @@ def find_activity_info(query: str, project_dir: str | None = None) -> str:
     if info.example_xaml:
         result.extend(["", "Example XAML:", info.example_xaml[:2000]])
     
-    return "\n".join(result)
+    return _tool(True, "\n".join(result))
 
 
 @tool
@@ -595,7 +617,7 @@ def validate_and_fix_loop(
     )
     
     if result["success"]:
-        return f"VALIDATION PASSED: {file_path} has 0 errors"
+        return _tool(True, f"VALIDATION PASSED: {file_path} has 0 errors")
     
     errors = result["errors"]
     warnings = result["warnings"]
@@ -612,7 +634,7 @@ def validate_and_fix_loop(
     
     msg += "\nINSTRUCTIONS: Fix the FIRST error, then call validate_and_fix_loop again."
     
-    return msg
+    return _tool(False, msg)
 
 
 @tool
@@ -654,16 +676,19 @@ def debug_workflow(project_dir: str, file_path: str) -> str:
             check=False,
         )
     except FileNotFoundError:
-        return "Error: uip CLI not found. Install with: npm install -g @uipath/cli"
+        return _tool(False, "Error: uip CLI not found. Install with: npm install -g @uipath/cli")
     except subprocess.TimeoutExpired:
-        return "Error: Workflow execution timed out after 5 minutes"
+        return _tool(False, "Error: Workflow execution timed out after 5 minutes")
     
     output = "\n".join(part for part in (proc.stdout, proc.stderr) if part)
     
     if proc.returncode == 0:
-        return f"Workflow executed successfully.\n\nOutput:\n{output[:2000]}"
+        return _tool(True, f"Workflow executed successfully.\n\nOutput:\n{output[:2000]}")
     
-    return f"Workflow execution failed (exit code {proc.returncode}).\n\nOutput:\n{output[:2000]}"
+    return _tool(
+        False,
+        f"Workflow execution failed (exit code {proc.returncode}).\n\nOutput:\n{output[:2000]}",
+    )
 
 
 def _analyze_error_message(error_msg: str, activity_name: str = "") -> str:
@@ -947,7 +972,7 @@ def run_workflow(
     # Check if file exists
     workflow_file = path / file_path
     if not workflow_file.exists():
-        return f"Error: Workflow file not found: {workflow_file}"
+        return _tool(False, f"Error: Workflow file not found: {workflow_file}")
     
     # 2. BUILD COMMAND
     uip_cli = _find_uip_cli()
@@ -977,9 +1002,10 @@ def run_workflow(
                 cmd, timeout_seconds, stream_cli=True
             )
             if rc == -1:
-                return (
+                return _tool(
+                    False,
                     f"Error: Workflow execution timed out after {timeout_seconds} seconds. "
-                    "The workflow may be stuck or taking too long."
+                    "The workflow may be stuck or taking too long.",
                 )
             output_text = stdout if stdout else stderr
         else:
@@ -992,14 +1018,17 @@ def run_workflow(
             )
             output_text = proc.stdout if proc.stdout else proc.stderr
     except FileNotFoundError:
-        return "Error: uip CLI not found. Install with: npm install -g @uipath/cli"
+        return _tool(False, "Error: uip CLI not found. Install with: npm install -g @uipath/cli")
     except subprocess.TimeoutExpired:
-        return f"Error: Workflow execution timed out after {timeout_seconds} seconds. The workflow may be stuck or taking too long."
+        return _tool(
+            False,
+            f"Error: Workflow execution timed out after {timeout_seconds} seconds. The workflow may be stuck or taking too long.",
+        )
 
     # 4. PARSE JSON RESPONSE
     
     if not output_text:
-        return "Error: No output from CLI command. The workflow may not have executed."
+        return _tool(False, "Error: No output from CLI command. The workflow may not have executed.")
     
     parsed = _parse_runtime_response(output_text, verbose)
     
@@ -1010,7 +1039,7 @@ def run_workflow(
     if len(result) > 2000 and not verbose:
         result = result[:2000] + "\n\n... (TRUNCATED - use verbose=True for full output)"
     
-    return result
+    return _tool(bool(parsed.get("success")), result)
 
 
 @tool
@@ -1032,7 +1061,7 @@ def ensure_project_structure(project_dir: str = ".") -> str:
     
     project_json = path / "project.json"
     if project_json.exists():
-        return f"Project structure OK: {project_json} exists"
+        return _tool(True, f"Project structure OK: {project_json} exists")
     
     # Create minimal project.json
     import uuid
@@ -1088,9 +1117,9 @@ def ensure_project_structure(project_dir: str = ".") -> str:
     
     try:
         project_json.write_text(json.dumps(template, indent=2), encoding="utf-8")
-        return f"Created project.json at {project_json}"
+        return _tool(True, f"Created project.json at {project_json}")
     except Exception as e:
-        return f"Error creating project.json: {e}"
+        return _tool(False, f"Error creating project.json: {e}")
 
 
 @tool
@@ -1119,24 +1148,30 @@ def query_uipath_docs(question: str) -> str:
             
             config_path = skills_path / "uipath_askai_config.json"
             if not config_path.exists():
-                return "Error: uipath_askai_config.json not configured. See skills/skills/uipath-askai/UIPATH_ASKAI_SETUP.md"
+                return _tool(
+                    False,
+                    "Error: uipath_askai_config.json not configured. See skills/skills/uipath-askai/UIPATH_ASKAI_SETUP.md",
+                )
             
             client = UiPathAskAIClient(str(config_path))
             result = client.ask(question)
             
             if result.get("success"):
-                return client.format_response(result)
+                return _tool(True, client.format_response(result))
             else:
-                return f"Error querying UiPath docs: {result.get('error', 'Unknown error')}"
+                return _tool(False, f"Error querying UiPath docs: {result.get('error', 'Unknown error')}")
         except ImportError as e:
-            return f"Error importing UiPath Ask AI client: {e}"
+            return _tool(False, f"Error importing UiPath Ask AI client: {e}")
         except Exception as e:
-            return f"Error querying UiPath docs: {e}"
+            return _tool(False, f"Error querying UiPath docs: {e}")
         finally:
             if str(skills_path) in sys.path:
                 sys.path.remove(str(skills_path))
     
-    return "Error: UiPath Ask AI skill not found. Install it in skills/skills/uipath-askai/"
+    return _tool(
+        False,
+        "Error: UiPath Ask AI skill not found. Install it in skills/skills/uipath-askai/",
+    )
 
 
 def get_planning_tools() -> list:
@@ -1248,54 +1283,69 @@ def deploy_to_orchestrator(
         # Validate folder name first (security check)
         is_valid_folder, folder_error = _validate_folder_name(folder_path)
         if not is_valid_folder:
-            return json.dumps({
-                "success": False,
-                "error": f"Invalid folder name: {folder_error}",
-                "help": "Folder names must contain only letters, numbers, spaces, hyphens, underscores, and forward slashes"
-            })
+            return _tool(
+                False,
+                json.dumps({
+                    "success": False,
+                    "error": f"Invalid folder name: {folder_error}",
+                    "help": "Folder names must contain only letters, numbers, spaces, hyphens, underscores, and forward slashes",
+                }),
+            )
         
         # Check project exists
         if not (proj_path / "project.json").exists():
-            return json.dumps({
-                "success": False,
-                "error": f"project.json not found at {proj_path}",
-                "help": "Ensure the project is created before deploying"
-            })
+            return _tool(
+                False,
+                json.dumps({
+                    "success": False,
+                    "error": f"project.json not found at {proj_path}",
+                    "help": "Ensure the project is created before deploying",
+                }),
+            )
         
         # Get config from environment variables (no defaults)
         orch_url = orchestrator_url or os.getenv("UIPATH_ORCHESTRATOR_URL")
         tenant = tenant_name or os.getenv("UIPATH_TENANT_NAME")
         
         if not orch_url:
-            return json.dumps({
-                "success": False,
-                "error": "Missing Orchestrator URL",
-                "help": (
-                    "Set environment variable UIPATH_ORCHESTRATOR_URL or provide orchestrator_url parameter.\n\n"
-                    "Example (Cloud Orchestrator):\n"
-                    "  UIPATH_ORCHESTRATOR_URL=https://cloud.uipath.com/[org]/[tenant]/orchestrator_\n\n"
-                    "Example (On-Premise):\n"
-                    "  UIPATH_ORCHESTRATOR_URL=https://orchestrator.company.com/[tenant]/orchestrator_"
-                )
-            })
+            return _tool(
+                False,
+                json.dumps({
+                    "success": False,
+                    "error": "Missing Orchestrator URL",
+                    "help": (
+                        "Set environment variable UIPATH_ORCHESTRATOR_URL or provide orchestrator_url parameter.\n\n"
+                        "Example (Cloud Orchestrator):\n"
+                        "  UIPATH_ORCHESTRATOR_URL=https://cloud.uipath.com/[org]/[tenant]/orchestrator_\n\n"
+                        "Example (On-Premise):\n"
+                        "  UIPATH_ORCHESTRATOR_URL=https://orchestrator.company.com/[tenant]/orchestrator_"
+                    ),
+                }),
+            )
         
         if not tenant:
-            return json.dumps({
-                "success": False,
-                "error": "Missing tenant name",
-                "help": (
-                    "Set environment variable UIPATH_TENANT_NAME or provide tenant_name parameter.\n\n"
-                    "Example:\n"
-                    "  UIPATH_TENANT_NAME=DefaultTenant"
-                )
-            })
+            return _tool(
+                False,
+                json.dumps({
+                    "success": False,
+                    "error": "Missing tenant name",
+                    "help": (
+                        "Set environment variable UIPATH_TENANT_NAME or provide tenant_name parameter.\n\n"
+                        "Example:\n"
+                        "  UIPATH_TENANT_NAME=DefaultTenant"
+                    ),
+                }),
+            )
         
         if not orch_url or not tenant:
-            return json.dumps({
-                "success": False,
-                "error": "Missing Orchestrator URL or tenant name",
-                "help": "Set environment variables: UIPATH_ORCHESTRATOR_URL and UIPATH_TENANT_NAME, or provide as arguments"
-            })
+            return _tool(
+                False,
+                json.dumps({
+                    "success": False,
+                    "error": "Missing Orchestrator URL or tenant name",
+                    "help": "Set environment variables: UIPATH_ORCHESTRATOR_URL and UIPATH_TENANT_NAME, or provide as arguments",
+                }),
+            )
         
         # Read project metadata
         with open(proj_path / "project.json", "r", encoding="utf-8") as f:
@@ -1328,11 +1378,14 @@ def deploy_to_orchestrator(
         
         if pack_result.returncode != 0:
             steps.append(f"Pack failed: {pack_result.stderr[:200]}")
-            return json.dumps({
-                "success": False,
-                "error": f"Packaging failed: {pack_result.stderr}",
-                "steps": steps
-            })
+            return _tool(
+                False,
+                json.dumps({
+                    "success": False,
+                    "error": f"Packaging failed: {pack_result.stderr}",
+                    "steps": steps,
+                }),
+            )
         
         steps.append(f"Packed successfully: {pack_output.name}")
         
@@ -1374,57 +1427,75 @@ def deploy_to_orchestrator(
                     f"Then retry the deployment."
                 )
                 
-                return json.dumps({
+                return _tool(
+                    False,
+                    json.dumps({
+                        "success": False,
+                        "error": f"Authentication error: {error_msg[:200]}",
+                        "steps": steps,
+                        "package_created": str(pack_output) if pack_output.exists() else None,
+                        "help": auth_help,
+                    }),
+                )
+            
+            return _tool(
+                False,
+                json.dumps({
                     "success": False,
-                    "error": f"Authentication error: {error_msg[:200]}",
+                    "error": f"Deployment failed: {error_msg}",
                     "steps": steps,
                     "package_created": str(pack_output) if pack_output.exists() else None,
-                    "help": auth_help
-                })
-            
-            return json.dumps({
-                "success": False,
-                "error": f"Deployment failed: {error_msg}",
-                "steps": steps,
-                "package_created": str(pack_output) if pack_output.exists() else None
-            })
+                }),
+            )
         
         steps.append("Deployed successfully to Orchestrator")
         steps.append(f"Package: {proj_name} v{proj_version}")
         steps.append(f"Folder: {folder_path}")
         steps.append("Next: Create process in Orchestrator UI to assign to robots")
         
-        return json.dumps({
-            "success": True,
-            "project_name": proj_name,
-            "project_version": proj_version,
-            "package_path": str(pack_output),
-            "orchestrator_url": orch_url,
-            "tenant": tenant,
-            "folder": folder_path,
-            "process_name": proc_name,
-            "steps": steps,
-            "message": f"Deployment successful! Package '{proj_name}' v{proj_version} deployed to {folder_path}. Create a process in Orchestrator to assign to robots."
-        })
+        return _tool(
+            True,
+            json.dumps({
+                "success": True,
+                "project_name": proj_name,
+                "project_version": proj_version,
+                "package_path": str(pack_output),
+                "orchestrator_url": orch_url,
+                "tenant": tenant,
+                "folder": folder_path,
+                "process_name": proc_name,
+                "steps": steps,
+                "message": f"Deployment successful! Package '{proj_name}' v{proj_version} deployed to {folder_path}. Create a process in Orchestrator to assign to robots.",
+            }),
+        )
         
     except FileNotFoundError:
-        return json.dumps({
-            "success": False,
-            "error": "UiPath CLI not found. Install from: https://docs.uipath.com/automation-cloud/automation-cloud/latest/admin-guide/managing-automation-suite-using-the-cli",
-            "steps": ["UiPath CLI not installed"]
-        })
+        return _tool(
+            False,
+            json.dumps({
+                "success": False,
+                "error": "UiPath CLI not found. Install from: https://docs.uipath.com/automation-cloud/automation-cloud/latest/admin-guide/managing-automation-suite-using-the-cli",
+                "steps": ["UiPath CLI not installed"],
+            }),
+        )
     except subprocess.TimeoutExpired:
-        return json.dumps({
-            "success": False,
-            "error": "Deployment operation timed out",
-            "steps": steps + ["Operation timed out after 120 seconds"]
-        })
+        return _tool(
+            False,
+            json.dumps({
+                "success": False,
+                "error": "Deployment operation timed out",
+                "steps": steps + ["Operation timed out after 120 seconds"],
+            }),
+        )
     except Exception as e:
-        return json.dumps({
-            "success": False,
-            "error": str(e),
-            "steps": steps + [f"Unexpected error: {str(e)}"]
-        })
+        return _tool(
+            False,
+            json.dumps({
+                "success": False,
+                "error": str(e),
+                "steps": steps + [f"Unexpected error: {str(e)}"],
+            }),
+        )
 
 
 def get_skill_execution_tools() -> list:
