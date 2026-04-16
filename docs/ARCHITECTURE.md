@@ -37,12 +37,14 @@ All agents share the same conversation engine, specialized via:
 
 ## Skill Loading
 
-Skills are loaded from multiple sources with precedence:
+Skills are loaded from multiple roots; **first source wins** on duplicate skill names. Resolution is implemented in `uipath_claude.skills.sources.build_skill_sources` (see [SKILL_LAYOUT.md](SKILL_LAYOUT.md) for how folders relate on disk).
 
-1. Project-local (`.uipath-claude/skills/`)
-2. User custom (`~/.cursor/skills/`)
-3. Official UiPath (`skills/skills/` submodule)
-4. Cato templates (`templates/` submodule)
+1. Optional paths from `.uipath-claude/config.yaml` (`skills.sources`)
+2. User (`~/.cursor/skills/`)
+3. Project (`.uipath-claude/skills/`)
+4. Team extensions (`extensions/skills/`)
+5. Official UiPath submodule (`skills/skills/`)
+6. Template-bundled skills (only when `UIPATH_INCLUDE_TEMPLATE_SKILLS=1`)
 
 ## Runtime Controls
 

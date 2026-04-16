@@ -39,12 +39,13 @@ def build_skill_sources(project_root: Path) -> list[tuple[str, SkillOrigin]]:
     Returns list of (resolved_path, origin) tuples. Only includes paths that exist.
     Order matters: first source wins when skill names collide.
     
-    Priority order:
-      1. User (~/.cursor/skills) - personal overrides
-      2. Project (.uipath-claude/skills) - per-checkout overrides  
-      3. Extensions (extensions/skills) - team-shared extensions
-      4. UiPath Submodule (skills/skills) - official baseline
-      5. Templates (opt-in) - template-bundled skills
+    Priority order (first wins; only existing paths are returned):
+      1. Optional paths from `.uipath-claude/config.yaml` `skills.sources` (project origin)
+      2. User (`~/.cursor/skills`)
+      3. Project (`.uipath-claude/skills`)
+      4. Extensions (`extensions/skills`)
+      5. UiPath Submodule (`skills/skills`)
+      6. Templates (opt-in via `UIPATH_INCLUDE_TEMPLATE_SKILLS`)
     """
     ordered_sources: list[tuple[Path, SkillOrigin]] = []
     
@@ -61,8 +62,6 @@ def build_skill_sources(project_root: Path) -> list[tuple[str, SkillOrigin]]:
     default_sources: list[tuple[Path, SkillOrigin]] = [
         (Path.home() / ".cursor" / "skills", SkillOrigin.USER),
         (project_root / ".uipath-claude" / "skills", SkillOrigin.PROJECT),
-        (project_root / ".claude" / "skills" / "base", SkillOrigin.PROJECT),
-        (project_root / ".claude" / "skills", SkillOrigin.PROJECT),
         (project_root / "extensions" / "skills", SkillOrigin.EXTENSIONS),
         (project_root / "skills" / "skills", SkillOrigin.UIPATH_SUBMODULE),
     ]

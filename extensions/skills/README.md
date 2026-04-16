@@ -20,13 +20,14 @@ Skills in this folder are **team/project extensions** (not from UiPath/skills su
 
 ## Priority Order
 
-When skill names collide, first source wins:
+When skill names collide, first source wins (see `uipath_claude.skills.sources` and [docs/SKILL_LAYOUT.md](../../docs/SKILL_LAYOUT.md)):
 
-1. User (~/.cursor/skills) - personal overrides
-2. Project (.uipath-claude/skills) - per-checkout overrides
-3. **Extensions (this folder)** - team-shared extensions
-4. UiPath Submodule (skills/skills) - official baseline
-5. Templates (opt-in) - template-bundled skills
+1. Paths listed in `.uipath-claude/config.yaml` under `skills.sources` (if present)
+2. User (`~/.cursor/skills`) - personal overrides
+3. Project (`.uipath-claude/skills`) - per-checkout overrides
+4. **Extensions (this folder)** - team-shared extensions
+5. UiPath Submodule (`skills/skills`) - official baseline
+6. Templates (opt-in) - template-bundled skills
 
 ## Creating a New Skill
 

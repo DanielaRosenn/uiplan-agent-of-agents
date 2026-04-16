@@ -208,13 +208,14 @@ Skills are domain playbooks (`SKILL.md` under a folder named after the skill). T
 
 | Order | Origin | Path | Purpose |
 |------:|--------|------|---------|
+| 0 | `project` | Paths from `.uipath-claude/config.yaml` `skills.sources` (if present) | Declared extra roots (same origin label as checkout overrides) |
 | 1 | `user` | `~/.cursor/skills/` | Personal overrides (not in git) |
-| 2 | `project` | `.uipath-claude/skills/`, `.claude/skills/` | Per-checkout / project-local |
+| 2 | `project` | `.uipath-claude/skills/` | Per-checkout overrides |
 | 3 | `extensions` | `extensions/skills/` | **Team-shared** skills in this repo (safe from submodule updates) |
 | 4 | `uipath-submodule` | `skills/skills/` | Official **UiPath/skills** submodule |
 | 5 | `template` | `templates/**/.cursor/skills` (and `.claude/skills`) | Opt-in via `UIPATH_INCLUDE_TEMPLATE_SKILLS=1` |
 
-If `.uipath-claude/config.yaml` defines `skills.sources`, those paths are merged with defaults (see `uipath_claude/skills/sources.py`).
+See [docs/SKILL_LAYOUT.md](docs/SKILL_LAYOUT.md) for how this maps to directories (including the `.cursor/skills` junction on Windows).
 
 ### Team extensions
 
