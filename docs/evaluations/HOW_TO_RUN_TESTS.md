@@ -129,15 +129,19 @@ See **[Always close Studio after each test](#always-close-studio-after-each-test
     "technical": {
       "mode": "direct_response",
       "tool_calls_required": [],
-      "no_file_creation": true
+      "no_file_creation": true,
+      "crash_not_allowed": true
     },
     "conceptual": {
       "response_must_contain_all": ["project.json"],
-      "response_must_explain": ["configuration", "dependencies"]
+      "response_must_explain": ["configuration", "dependencies"],
+      "response_should_mention": ["project name", "packages", "framework"]
     }
   }
 }
 ```
+
+This matches the live definition in `docs/evaluations/test_cases.json`. Question-style cases use **`direct_response`**: the CLI prints `[ANSWERING]` for a non-planning answer turn, and the harness still appends `Goodbye`/`exit` at the end of stdin — the parser must not classify that as mode `exit`.
 
 ### Command
 ```powershell
@@ -283,10 +287,13 @@ The CLI emits structured markers that the evaluation parser uses:
 |--------|---------|
 | `[PLANNING]` | Planning phase started |
 | `[EXECUTING]` | Execution phase started |
+| `[ANSWERING]` | Direct answer turn (no plan/execute loop); maps to technical mode **`direct_response`** |
 | `[TOOL_CALL: name]` | Tool `name` was invoked |
 | `[SKILL: name]` | Skill `name` is in context |
 
 These markers appear in CLI output and are parsed by `run_evaluations.py` to determine test pass/fail.
+
+**Technical `mode` in `test_cases.json`:** Typical values are `planning`, `execution`, `planning_then_execution`, `direct_response` (Q&A / `[ANSWERING]`), `clarification`, and `exit` (only when the transcript is effectively banner + goodbye with no answer phase). See `OutputParser.detect_mode` in `run_evaluations.py`.
 
 ## Non-Interactive Mode
 

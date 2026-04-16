@@ -433,7 +433,11 @@ class OutputParser:
             return 'planning'
         if has_executing:
             return 'execution'
-        
+
+        # Direct Q&A (non-planning chat turn); must win over scripted "Goodbye" at end of harness input
+        if '[ANSWERING]' in stdout:
+            return 'direct_response'
+
         # Fallback heuristics
         if '?' in stdout and 'clarif' in stdout.lower():
             return 'clarification'

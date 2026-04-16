@@ -31,6 +31,18 @@ def test_detect_mode_exit(ev):
     assert ev.OutputParser.detect_mode(stdout) == "exit"
 
 
+def test_detect_mode_answering_then_goodbye_is_direct_response(ev):
+    """Harness ends with Goodbye; must not override [ANSWERING] Q&A classification."""
+    stdout = (
+        "Chat session started.\n\n"
+        "You: What is project.json?\n"
+        "[ANSWERING]\n"
+        "Assistant: project.json is the project manifest.\n"
+        "You: Goodbye!\n"
+    )
+    assert ev.OutputParser.detect_mode(stdout) == "direct_response"
+
+
 def test_mode_compatible_execution_vs_pte(ev):
     assert ev.TechnicalEvaluator._mode_compatible("execution", "planning_then_execution")
 
