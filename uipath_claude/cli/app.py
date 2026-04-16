@@ -36,6 +36,7 @@ from uipath_claude.query.intent_classifier import IntentType, classify_intent
 from uipath_claude.query.planner import run_planner_agent
 from uipath_claude.query.planner_router import find_planner_skill, should_use_planner
 from uipath_claude.query.router import route_user_input
+from uipath_claude.query.simple_answer import simple_llm_answer
 from uipath_claude.skills.execution_hook import get_execution_hooks
 from uipath_claude.rendering.branding import print_welcome_banner
 from uipath_claude.rendering.progress import ProgressReporter
@@ -989,6 +990,41 @@ def chat(
                         continue
                     if cl not in ("", "y", "yes"):
                         user_input = f"{user_input}\n\nAdditional details from user: {confirm}"
+
+            # QUESTION intents bypass planning and agentic graph
+            if intent == IntentType.QUESTION:
+                console.print("[bold cyan][ANSWERING][/bold cyan]")
+                _flush_stdio()
+                
+                def _print_delta(delta: str) -> None:
+                    console.print(delta, end="")
+                
+                stream_callback = _print_delta if stream_enabled else None
+                console.print("[magenta]Assistant:[/magenta] ", end="")
+                
+                try:
+                    answer = asyncio.run(
+                        simple_llm_answer(
+                            user_input=user_input,
+                            history=history,
+                            model_name=model_name,
+                            region=region,
+                            stream=stream_enabled,
+                            on_delta=stream_callback,
+                        )
+                    )
+                    if not stream_enabled:
+                        console.print(answer, end="")
+                    console.print("")
+                    
+                    history.append({"role": "user", "content": user_input})
+                    history.append({"role": "assistant", "content": answer})
+                    
+                    continue
+                except Exception as exc:
+                    progress.error("Simple answer failed")
+                    console.print(f"Error: {exc}")
+                    continue
 
             # Plan Mode logic
             approved_plan = ""
