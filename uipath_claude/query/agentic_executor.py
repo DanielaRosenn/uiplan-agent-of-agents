@@ -393,6 +393,8 @@ class AgenticExecutor:
             "",
             "1. You have access to tools for reading/writing files, running CLI commands, validation, and deployment.",
             "2. ALWAYS use tools to perform actions - do not just describe what you would do.",
+            "2b. If SKILL INSTRUCTIONS contain an \"Approved Implementation Plan\", that block is your "
+            "ordered checklist: implement it with tools (scaffold, read/write files, validate) before you stop.",
             "3. After writing any XAML or .cs file, ALWAYS validate it with validate_file.",
             "4. If validation fails, fix the errors one at a time and re-validate.",
             "5. CRITICAL: Do NOT stop or finish until validation passes (0 errors). Keep fixing and re-validating.",

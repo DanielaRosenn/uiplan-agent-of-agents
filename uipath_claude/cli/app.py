@@ -1118,12 +1118,24 @@ def chat(
                 if stream_enabled and not suppress_stream_output:
                     console.print("[magenta]Assistant:[/magenta] ", end="")
 
-                extra_ctx = clarification_prefix
+                extra_ctx = clarification_prefix.strip() if clarification_prefix else ""
                 clarification_prefix = ""
+                # execute.py merges runtime_extra into skill_content for AgenticExecutor.
+                # Approved plan was previously built but never passed here, so the executor
+                # never saw it; include the plan block explicitly.
+                runtime_extra_parts: list[str] = []
+                if extra_ctx:
+                    runtime_extra_parts.append(extra_ctx)
+                if approved_plan:
+                    runtime_extra_parts.append(
+                        f"Approved Implementation Plan:\n\n{approved_plan}"
+                    )
+                runtime_extra_merged = "\n\n".join(runtime_extra_parts)
+
                 invocation: dict[str, Any] = {
                     "messages": history + [{"role": "user", "content": user_input}],
                     "stream": bool(stream_enabled),
-                    "runtime_extra": extra_ctx,
+                    "runtime_extra": runtime_extra_merged,
                 }
             
                 # Check if agentic mode is enabled (has its own progress output)

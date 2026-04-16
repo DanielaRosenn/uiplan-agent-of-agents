@@ -202,35 +202,29 @@ def test_cli_chat_llm_error_message():
     assert "bedrock request failed" in result.stdout.lower()
 
 
-def test_cli_chat_question_invokes_graph():
-    """QUESTION intent runs the compiled chat graph (execute node / LLM path)."""
+def test_cli_chat_question_uses_simple_llm_answer_not_graph():
+    """QUESTION intent uses simple_llm_answer and does not invoke the chat graph."""
     with patch("uipath_claude.cli.app._create_engine") as create_engine:
         create_engine.return_value = object()
         mock_graph = MagicMock()
+        mock_graph.ainvoke = AsyncMock()
 
-        async def _ainvoke(state):
-            return {
-                "messages": list(state.get("messages") or [])
-                + [
-                    {
-                        "role": "assistant",
-                        "content": "project.json holds metadata; Main.xaml is the entry.",
-                    }
-                ],
-                "assistant_response": "project.json holds metadata; Main.xaml is the entry.",
-                "pending_question": None,
-            }
-
-        mock_graph.ainvoke = AsyncMock(side_effect=_ainvoke)
         with patch("uipath_claude.cli.app.compile_chat_graph", return_value=mock_graph):
-            result = runner.invoke(
-                app,
-                ["chat", "--no-banner", "--no-plan"],
-                input="What is project.json?\nexit\n",
-            )
+            with patch(
+                "uipath_claude.cli.app.simple_llm_answer",
+                new=AsyncMock(
+                    return_value="project.json holds metadata; Main.xaml is the entry."
+                ),
+            ):
+                result = runner.invoke(
+                    app,
+                    ["chat", "--no-banner", "--no-plan", "--no-stream"],
+                    input="What is project.json?\nexit\n",
+                )
     assert result.exit_code == 0
     assert "project.json" in result.stdout.lower()
-    mock_graph.ainvoke.assert_awaited()
+    assert "[ANSWERING]" in result.stdout
+    mock_graph.ainvoke.assert_not_awaited()
 
 
 def test_cli_chat_ambiguous_invokes_graph():
@@ -258,6 +252,46 @@ def test_cli_chat_ambiguous_invokes_graph():
     assert result.exit_code == 0
     assert "which email provider" in result.stdout.lower()
     mock_graph.ainvoke.assert_awaited()
+
+
+def test_cli_chat_auto_approve_plan_passes_approved_plan_in_runtime_extra():
+    """After plan approval, runtime_extra must include the plan for execute.py to merge."""
+    with patch("uipath_claude.cli.app._create_engine") as create_engine:
+        create_engine.return_value = object()
+        mock_graph = MagicMock()
+        captured: list[dict[str, Any]] = []
+
+        async def _ainvoke(state):
+            captured.append(dict(state))
+            msgs = list(state.get("messages") or [])
+            return {
+                "messages": msgs + [{"role": "assistant", "content": "ok"}],
+                "assistant_response": "ok",
+                "pending_question": None,
+            }
+
+        mock_graph.ainvoke = AsyncMock(side_effect=_ainvoke)
+        mock_plan_result = MagicMock()
+        mock_plan_result.final_response = (
+            "Step 1: Call ensure_project_structure\nStep 2: Add Main.xaml"
+        )
+
+        with patch("uipath_claude.cli.app.compile_chat_graph", return_value=mock_graph):
+            with patch(
+                "uipath_claude.cli.app.run_planner_agent",
+                new=AsyncMock(return_value=mock_plan_result),
+            ):
+                result = runner.invoke(
+                    app,
+                    ["chat", "--no-banner", "--auto-approve-plan"],
+                    input="Create Hello World workflow\nexit\n",
+                )
+
+    assert result.exit_code == 0
+    assert captured, "expected graph invoke after plan approval"
+    extra = str(captured[0].get("runtime_extra") or "")
+    assert "Approved Implementation Plan" in extra
+    assert "ensure_project_structure" in extra
 
 
 def test_cli_chat_clarification_loop_progresses():
@@ -297,35 +331,38 @@ def test_cli_chat_clarification_loop_progresses():
 
 
 def test_cli_chat_question_streaming_callback():
-    """Graph run returns assistant text (streaming is exercised when not suppressed)."""
+    """QUESTION path calls simple_llm_answer with streaming enabled from CLI default."""
     with patch("uipath_claude.cli.app._create_engine") as create_engine:
         create_engine.return_value = object()
         mock_graph = MagicMock()
+        mock_graph.ainvoke = AsyncMock()
 
-        async def _ainvoke(state):
-            return {
-                "messages": list(state.get("messages") or [])
-                + [
-                    {
-                        "role": "assistant",
-                        "content": "project.json contains metadata",
-                    }
-                ],
-                "assistant_response": "project.json contains metadata",
-                "pending_question": None,
-            }
+        captured: dict[str, Any] = {}
 
-        mock_graph.ainvoke = AsyncMock(side_effect=_ainvoke)
+        async def _simple_answer(**kwargs):
+            captured["stream"] = kwargs.get("stream")
+            captured["on_delta"] = kwargs.get("on_delta")
+            cb = kwargs.get("on_delta")
+            if cb:
+                cb("project.json contains metadata")
+            return ""
+
         with patch("uipath_claude.cli.app.compile_chat_graph", return_value=mock_graph):
-            result = runner.invoke(
-                app,
-                ["chat", "--no-banner"],
-                input="What is project.json?\nexit\n",
-            )
+            with patch(
+                "uipath_claude.cli.app.simple_llm_answer",
+                new=AsyncMock(side_effect=_simple_answer),
+            ):
+                result = runner.invoke(
+                    app,
+                    ["chat", "--no-banner"],
+                    input="What is project.json?\nexit\n",
+                )
 
     assert result.exit_code == 0
     assert "project.json" in result.stdout.lower()
-    mock_graph.ainvoke.assert_awaited()
+    mock_graph.ainvoke.assert_not_awaited()
+    assert captured.get("stream") is True
+    assert callable(captured.get("on_delta"))
 
 
 def test_select_relevant_skills_prefers_rpa_workflow():
