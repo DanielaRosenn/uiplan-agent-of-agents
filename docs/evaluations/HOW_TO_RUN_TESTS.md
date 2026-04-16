@@ -156,7 +156,7 @@ Look for these indicators in the output:
 
 | Indicator | Pattern | Meaning |
 |-----------|---------|---------|
-| Mode | `[PLANNING]` or `[EXECUTING]` | Which mode agent used |
+| Mode | `[PLANNING]`, `[EXECUTING]`, or `[ANSWERING]` | Plan/execute loop vs direct Q&A (`direct_response` in JSON) |
 | Tool calls | `-> tool_name` | Tools invoked |
 | Files written | `Wrote:` or `Created` | Artifacts created |
 | Errors | `x Error:` | Tool errors |
@@ -165,7 +165,7 @@ Look for these indicators in the output:
 ### Evaluation
 
 **Technical Stage:**
-- Check mode matches expected
+- Check mode matches expected when `expected.technical.mode` is set (omit it for cases where routing may be either Q&A or planner-driven, e.g. some Auth/Learning cases)
 - Check required tools were called
 - Check files created match expected
 - Verify no crash (no `Traceback` in stderr)
