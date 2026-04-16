@@ -208,35 +208,76 @@ The `uipath-code-reviewer` skill checks:
 
 ## MCP Tools (Advanced)
 
-When the MCP server is enabled, Cursor has access to UiPath CLI tools. These provide capabilities beyond static generation.
+When the MCP server is enabled, Cursor can call the same Python entry points the CLI uses: workflow tools, skill registry, planner/bootstrap agents, bundled activity-docs, and memory.
 
-### Available MCP Tools
+**Project root:** set `UIPATH_MCP_PROJECT_ROOT` to your UiPath project or repo root so skill discovery and paths resolve consistently (defaults to the process current working directory).
+
+### Workflow tools (`uipath_workflow_*`)
 
 | Tool | Description |
 |------|-------------|
-| `uipath_validate_file` | Validate XAML using UiPath Studio (`uip rpa get-errors --use-studio`) |
-| `uipath_run_workflow` | Execute workflow and capture runtime errors |
-| `uipath_install_package` | Install NuGet packages in a project |
-| `uipath_ensure_project_structure` | Create project scaffold with `project.json` |
-| `uipath_run_command` | Run arbitrary UiPath CLI commands |
-| `uipath_find_activity` | Search for activity information |
-| `uipath_query_docs` | Search UiPath documentation |
-| `uipath_read_file` / `uipath_write_file` | File operations in project context |
+| `uipath_workflow_read_file` / `uipath_workflow_write_file` | Read/write files under the agent path rules |
+| `uipath_workflow_list_directory` | List directory (`directory_path`, optional `pattern`) |
+| `uipath_workflow_read_project` | Summarize `project.json` |
+| `uipath_workflow_install_package` | `uip rpa install-or-update-packages` |
+| `uipath_workflow_validate` | Static validation (`validate_file`) |
+| `uipath_workflow_validate_loop` | Error listing loop (`validate_and_fix_loop`) |
+| `uipath_workflow_run` | Run workflow (`run_workflow`) |
+| `uipath_workflow_debug` | Start debugging run (`debug_workflow`) |
+| `uipath_workflow_ensure_project` | Ensure `project.json` (optional nested `project_name`) |
+| `uipath_workflow_run_command` | Raw `uip` (`command` + `args` + optional `project_dir`) |
+| `uipath_workflow_deploy` | Pack/deploy via `deploy_to_orchestrator` (URL + tenant required) |
+
+### Skill tools (`uipath_skill_*`)
+
+| Tool | Description |
+|------|-------------|
+| `uipath_skill_list` | List skills; optional `agent_role` filter |
+| `uipath_skill_get` | Full `SKILL.md` body for one skill |
+| `uipath_skill_match` | Same scoring heuristic as CLI chat (`_select_relevant_skills`) |
+| `uipath_skill_insights_query` / `uipath_skill_insights_add` | Skill insights store |
+| `uipath_skill_manifest` | Provenance manifest JSON |
+
+### Agent tools (`uipath_agent_*`) — require AWS Bedrock
+
+| Tool | Description |
+|------|-------------|
+| `uipath_agent_bootstrap` | BA → SA → Dev → QA (`run_bootstrap_flow`) |
+| `uipath_agent_plan` | Read-only planner (`run_planner_agent`) |
+| `uipath_agent_execute` | ReAct loop with full skill execution tools |
+| `uipath_agent_classify_intent` | `classify_intent` (no cloud) |
+| `uipath_agent_ba` / `uipath_agent_sa` | Single-shot PDD / SDD |
+
+### Documentation tools (`uipath_doc_*`)
+
+| Tool | Description |
+|------|-------------|
+| `uipath_doc_list_packages` / `uipath_doc_list_activities` | Bundled activity-docs index |
+| `uipath_doc_get_activity` / `uipath_doc_get_package_overview` | Markdown from repo |
+| `uipath_doc_search` | Name search across packages |
+| `uipath_doc_find_activity` | Bundled + `.local/docs` + CLI discovery |
+| `uipath_doc_query` | Ask AI (`query_uipath_docs`; needs client setup) |
+
+### Memory tools (`uipath_memory_*`)
+
+| Tool | Description |
+|------|-------------|
+| `uipath_memory_load` / `uipath_memory_save` / `uipath_memory_append` | Global + optional project `memory.md` |
+
+### MCP resources
+
+- `uipath://skill/<name>` — full skill markdown
+- `uipath://doc/<package>/overview` and `uipath://doc/<package>/<ActivityName>` — bundled activity-docs (when present under the repo `skills` layout)
+- `uipath://project/context` — JSON with `project.json` summary and memory excerpt when `project.json` exists under `UIPATH_MCP_PROJECT_ROOT`
 
 ### Pattern: Validate and Fix Loop
-
-With MCP tools enabled, you can ask Cursor to validate and fix:
 
 ```
 Validate this workflow using UiPath Studio and fix any errors:
 [paste XAML or point to file]
 ```
 
-Cursor will:
-1. Call `uipath_validate_file` to get Studio validation errors
-2. Analyze the errors
-3. Fix the XAML
-4. Re-validate until clean
+Cursor can call `uipath_workflow_validate` (and `uipath_workflow_validate_loop` for the error list contract), then edit files with `uipath_workflow_write_file`.
 
 ### Pattern: Runtime Testing
 
@@ -247,7 +288,7 @@ File: Main.xaml
 Input: {"orderId": "12345"}
 ```
 
-This executes the workflow and captures any runtime exceptions.
+Use `uipath_workflow_run` with `input_arguments` as a JSON string.
 
 ### Prerequisites for MCP Tools
 
