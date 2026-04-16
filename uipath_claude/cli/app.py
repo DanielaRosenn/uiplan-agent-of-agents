@@ -50,6 +50,40 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
+def _load_dotenv_from_cwd() -> None:
+    """Load ``.env`` from the current working directory.
+
+    Keys starting with ``UIPATH_`` always take values from ``.env`` so a project file
+    wins over stale User/Machine environment variables (common on Windows). Other
+    keys are only set when not already present in the environment.
+    """
+    path = Path.cwd() / ".env"
+    if not path.is_file():
+        return
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[7:].strip()
+        if "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key = key.strip()
+        if not key:
+            continue
+        val = val.strip()
+        if len(val) >= 2 and val[0] == val[-1] and val[0] in "'\"":
+            val = val[1:-1]
+        if key.startswith("UIPATH_") or key not in os.environ:
+            os.environ[key] = val
+
+
 app = typer.Typer(help="UiPath Claude Code - Conversational AI for UiPath")
 
 _UIPATH_CHAT_SYSTEM = """You are UiPath Claude Code, an agentic AI assistant with direct access to the user's local file system, UiPath CLI, and UiPath skills. You build UiPath Studio automations (workflow XAML), not WPF desktop apps, unless the user explicitly asks for WPF.
@@ -520,7 +554,15 @@ def _allow_project_file_generation(user_input: str) -> bool:
 
 
 def _is_file_generation_intent(user_input: str) -> bool:
-    """Detect whether the user likely expects generated files."""
+    """Detect whether the user likely expects generated files.
+
+    Pure QUESTION intents (e.g. asking what project.json is) often match tokens like
+    ``project`` or ``file`` but are not file-generation requests; treating them as
+    file intent incorrectly sets ``suppress_stream_output`` under default streaming.
+    """
+    intent, _ = classify_intent(user_input)
+    if intent == IntentType.QUESTION:
+        return False
     tokens = _tokenize(user_input)
     return bool(tokens & _FILE_INTENT_TOKENS)
 
@@ -622,10 +664,21 @@ def chat(
         "--stream/--no-stream",
         help="Stream assistant tokens while generating responses.",
     ),
+    track_processes: bool = typer.Option(True, "--track-processes/--no-track-processes", help="Track and cleanup only test-opened Studio processes"),
 ):
     """Start conversational chat mode."""
+    _load_dotenv_from_cwd()
     console = Console()
     progress = ProgressReporter(console)
+    
+    # Track processes before starting (for smart cleanup)
+    before_pids = None
+    if track_processes:
+        try:
+            from uipath_claude.utils.process_tracker import start_tracking_test
+            before_pids = start_tracking_test()
+        except Exception:
+            pass  # Process tracking is optional
     
     if not no_banner:
         print_welcome_banner()
@@ -662,6 +715,89 @@ def chat(
             console.print("")
     except Exception:
         pass
+    
+    # Check UiPath CLI authentication status (skip if running automated tests)
+    skip_auth_check = os.getenv("UIPATH_SKIP_AUTH_CHECK", "0").lower() in ("1", "true", "yes")
+    
+    if not skip_auth_check:
+        try:
+            from uipath_claude.utils.auth_check import (
+                check_uipath_cli_installed,
+                check_uipath_auth_status,
+                prompt_for_authentication,
+                resolve_uipath_auth_argv,
+                run_uipath_interactive_auth,
+            )
+            
+            # Check if CLI is installed
+            if not check_uipath_cli_installed():
+                progress.warning(
+                    "UiPath CLI not found. Deployment features will not be available.\n"
+                    "Install from: https://docs.uipath.com/automation-cloud/automation-cloud/latest/admin-guide/managing-automation-suite-using-the-cli"
+                )
+                console.print("")
+            else:
+                # Check authentication status
+                is_authenticated, account, error = check_uipath_auth_status()
+            
+                if not is_authenticated:
+                    # Prompt user to authenticate
+                    orchestrator_url = os.getenv("UIPATH_ORCHESTRATOR_URL")
+                    auth_choice = prompt_for_authentication(console, orchestrator_url)
+
+                    if auth_choice == "skip_auth":
+                        progress.warning(
+                            "Continuing without authentication. "
+                            "Deployment features disabled."
+                        )
+                        console.print("")
+                    else:
+                        argv, argv_err = resolve_uipath_auth_argv(orchestrator_url)
+                        if argv is None:
+                            console.print(f"\n[red]{argv_err}[/red]\n")
+                            raise typer.Exit(code=1)
+                        rc = run_uipath_interactive_auth(console, argv)
+                        if rc != 0:
+                            console.print(
+                                f"\n[red]uipath auth exited with code {rc}. "
+                                "Check UIPATH_TENANT_NAME and UIPATH_ORCHESTRATOR_URL against "
+                                "your Automation Cloud tenant (e.g. messages like "
+                                "'Tenant not found' mean the name does not match the portal). "
+                                "Then try again.[/red]\n"
+                            )
+                            raise typer.Exit(code=1)
+                        is_authenticated, account, verify_err = check_uipath_auth_status()
+                        if is_authenticated:
+                            if account:
+                                console.print(
+                                    f"\n[green]Authenticated as: {account}[/green]\n"
+                                )
+                            else:
+                                console.print(
+                                    "\n[green]Authenticated with UiPath Orchestrator.[/green]\n"
+                                )
+                        else:
+                            progress.warning(
+                                "Auth command finished, but Orchestrator verification "
+                                f"still failed: {verify_err or 'unknown error'}. "
+                                "Deployment may not work until this succeeds."
+                            )
+                            console.print("")
+                else:
+                    # Authenticated - show brief status
+                    if account:
+                        console.print(f"[dim]Authenticated as: {account}[/dim]\n")
+                    else:
+                        console.print(
+                            "[dim]Authenticated with UiPath Orchestrator[/dim]\n"
+                        )
+        except typer.Exit:
+            # User chose "exit and authenticate"; typer.Exit subclasses Exception — re-raise
+            raise
+        except Exception as e:
+            # Don't block startup on auth check failures
+            progress.warning(f"Could not verify authentication: {e}")
+            console.print("")
     
     skill_registry = SkillRegistry()
     model_name = os.getenv(
@@ -750,342 +886,359 @@ def chat(
     chat_session_id = _make_chat_session_id()
     # Set session ID in environment for agentic tools to use
     os.environ["UIPATH_CHAT_SESSION_ID"] = chat_session_id
+    (_get_output_root() / chat_session_id).mkdir(parents=True, exist_ok=True)
     console.print(f"Chat trace id: {chat_session_id}\n")
 
-    while True:
-        try:
-            user_input = Prompt.ask("[cyan]You[/cyan]").strip()
-        except (EOFError, KeyboardInterrupt):
-            console.print("\nGoodbye!")
-            break
+    try:
+        while True:
+            try:
+                user_input = Prompt.ask("[cyan]You[/cyan]").strip()
+            except (EOFError, KeyboardInterrupt):
+                console.print("\nGoodbye!")
+                break
 
-        if not user_input:
-            continue
-
-        if user_input.lower() in {"exit", "quit"}:
-            console.print("Goodbye!")
-            break
-
-        route, payload = route_user_input(user_input)
-        if route == "command":
-            command = payload["command"]
-            args = payload["args"]
-            if command == "chat":
-                console.print("You are already in chat mode.")
+            if not user_input:
                 continue
-            if command in {"exit", "quit"}:
+
+            if user_input.lower() in {"exit", "quit"}:
                 console.print("Goodbye!")
                 break
-            if not is_command_allowed(tool_profile, command):
-                progress.error(
-                    f"Command '/{command}' is blocked by tool profile '{tool_profile.name}'. "
-                    "Use /status to inspect active profile."
-                )
-                continue
-            console.print(registry.execute(command, *args))
-            continue
-        if route == "skill_usage":
-            console.print("Usage: /skill <skill-name> <query>")
-            continue
-        if route == "skill":
-            skill_name = payload["skill_name"]
-            query = payload["query"]
-            if not is_command_allowed(tool_profile, "skills"):
-                progress.error(
-                    f"Command '/skill' is blocked by tool profile '{tool_profile.name}'. "
-                    "Use /status to inspect active profile."
-                )
-                continue
-            skill = skills_by_name.get(skill_name)
-            if not skill:
-                progress.error(f"Unknown skill: {skill_name}")
-                continue
-            tool = create_skill_tool(skill, engine=engine)
-            result = tool.invoke({"query": query})
-            console.print(f"[magenta]Assistant:[/magenta] {result}\n")
-            continue
 
-        intent, intent_reason = classify_intent(user_input)
-        if os.environ.get("UIPATH_CONFIRM_BUILD", "0").strip().lower() in (
-            "1",
-            "true",
-            "yes",
-        ):
-            if intent in (IntentType.BUILD, IntentType.AMBIGUOUS):
-                preview = _select_relevant_skills(user_input, skills)
-                preview_names = ", ".join(str(s.get("name", "")) for s in preview) or "(none)"
-                console.print(f"[yellow]Planned skills:[/yellow] {preview_names}")
-                console.print(f"[yellow]Intent:[/yellow] {intent.value} ({intent_reason})")
-                confirm = Prompt.ask(
-                    "Proceed? [y/n or type details]",
-                    default="y",
-                ).strip()
-                cl = confirm.lower()
-                if cl in ("n", "no"):
-                    progress.info("Cancelled.")
+            route, payload = route_user_input(user_input)
+            if route == "command":
+                command = payload["command"]
+                args = payload["args"]
+                if command == "chat":
+                    console.print("You are already in chat mode.")
                     continue
-                if cl not in ("", "y", "yes"):
-                    user_input = f"{user_input}\n\nAdditional details from user: {confirm}"
-
-        # Plan Mode logic
-        approved_plan = ""
-        plan_mode_enabled = os.environ.get("UIPATH_PLAN_MODE", "1").strip().lower() in ("1", "true", "yes")
-        if plan_mode_enabled and not no_plan:
-            if intent in (IntentType.BUILD, IntentType.AMBIGUOUS):
-                while True:
-                    console.print("[bold cyan][PLANNING][/bold cyan]")
-                    with progress.generating("implementation plan"):
-                        plan_result = asyncio.run(
-                            run_planner_agent(
-                                user_input,
-                                project_context=project_context,
-                                model_name=model_name,
-                                region=region,
-                            )
-                        )
-                    
-                    from rich.markdown import Markdown
-                    from rich.panel import Panel
-                    console.print(Panel(Markdown(plan_result.final_response), title="Implementation Plan", border_style="cyan"))
-                    
-                    confirm = Prompt.ask("Approve plan? [y/n/edit]", default="y").strip().lower()
-                    if confirm in ("y", "yes"):
-                        approved_plan = plan_result.final_response
-                        # Save plan to file
-                        plan_path = _save_plan_to_file(
-                            session_id=chat_session_id,
-                            user_request=user_input,
-                            plan_content=approved_plan,
-                            output_root=_get_output_root(),
-                        )
-                        console.print(f"[dim]Plan saved to: {plan_path}[/dim]")
-                        break
-                    elif confirm in ("n", "no"):
-                        progress.info("Plan cancelled.")
-                        break
-                    else:
-                        # Treat other input as feedback
-                        user_input = f"{user_input}\n\nFeedback on plan: {confirm}"
-                        continue
-                
-                if confirm in ("n", "no"):
-                    continue
-
-        runtime_context = _build_runtime_skill_context(user_input, skills)
-        if approved_plan:
-            runtime_context = f"Approved Implementation Plan:\n\n{approved_plan}\n\n{runtime_context}"
-        allow_project_files = _allow_project_file_generation(user_input)
-        file_intent = _is_file_generation_intent(user_input)
-        if os.environ.get("UIPATH_CHAT_DEBUG_SKILLS", "0").strip().lower() in {"1", "true", "yes"}:
-            traces = _debug_skill_selection(user_input, skills)
-            if traces:
-                console.print("[dim]Skill selection:[/dim]")
-                for trace in traces:
-                    console.print(f"  [dim]-[/dim] {trace}")
-                console.print("")
-        try:
-            suppress_stream_output = stream_enabled and (
-                output_mode == "quiet" or (output_mode == "auto" and file_intent)
-            )
-            emitted_deltas = False
-
-            def _print_delta(delta: str) -> None:
-                nonlocal emitted_deltas
-                emitted_deltas = True
-                console.print(delta, end="")
-
-            stream_hooks["on_delta"] = None if suppress_stream_output else _print_delta
-
-            if stream_enabled and not suppress_stream_output:
-                console.print("[magenta]Assistant:[/magenta] ", end="")
-
-            extra_ctx = clarification_prefix
-            clarification_prefix = ""
-            invocation: dict[str, Any] = {
-                "messages": history + [{"role": "user", "content": user_input}],
-                "stream": bool(stream_enabled),
-                "runtime_extra": extra_ctx,
-            }
-            
-            # Check if agentic mode is enabled (has its own progress output)
-            agentic_mode_on = os.environ.get("UIPATH_AGENTIC_MODE", "1").lower() in ("1", "true", "yes")
-            debug_mode_on = os.environ.get("UIPATH_DEBUG_AGENT", "1").lower() in ("1", "true", "yes")
-            use_spinner = not (agentic_mode_on and debug_mode_on)
-            
-            if use_spinner and (stream_enabled and suppress_stream_output):
-                console.print("[bold yellow][EXECUTING][/bold yellow]")
-                with progress.generating("workflow"):
-                    result = asyncio.run(chat_graph.ainvoke(invocation))
-            elif use_spinner and (not stream_enabled and file_intent):
-                console.print("[bold yellow][EXECUTING][/bold yellow]")
-                with progress.generating("workflow"):
-                    result = asyncio.run(chat_graph.ainvoke(invocation))
-            else:
-                result = asyncio.run(chat_graph.ainvoke(invocation))
-
-            history[:] = list(result.get("messages") or [])
-            response = str(result.get("assistant_response", ""))
-            pending_q = result.get("pending_question")
-            if pending_q:
-                clarification_prefix = (
-                    "The assistant asked a clarifying question. Address it in your next message:\n"
-                    + str(pending_q)
-                )
-
-            if stream_enabled and not suppress_stream_output:
-                if not emitted_deltas:
-                    console.print(response, end="")
-                console.print("")
-        except Exception as exc:
-            progress.error("Bedrock request failed")
-            console.print(
-                "Check AWS credentials, IAM permissions, model access, and AWS_REGION. "
-                f"Details: {exc}"
-            )
-            continue
-
-        response_has_files = contains_file_blocks(str(response))
-        suppress_output = output_mode == "quiet" or (
-            output_mode == "auto" and response_has_files
-        )
-        if not stream_enabled:
-            if not suppress_output:
-                console.print(f"[magenta]Assistant:[/magenta] {response}\n")
-        elif not suppress_output and not file_intent:
-            console.print("")
-
-        if os.environ.get("UIPATH_CHAT_MATERIALIZE", "1").lower() not in (
-            "0",
-            "false",
-            "no",
-        ):
-            chat_output_base = Path(
-                os.environ.get(
-                    "UIPATH_CHAT_OUTPUT_DIR",
-                    str(Path.cwd() / "generated" / "chat"),
-                )
-            ).resolve()
-            chat_root = chat_output_base / chat_session_id
-            written = materialize_from_assistant_text(
-                str(response),
-                output_root=chat_root,
-                allow_project_files=allow_project_files,
-            )
-            if written:
-                console.print("Wrote:")
-                for path in written:
-                    progress.file_written(str(path))
-                console.print("")
-                
-                has_xaml = any(str(p).endswith(".xaml") for p in written)
-                auto_validate = os.environ.get("UIPATH_CHAT_AUTO_VALIDATE", "1").lower() not in ("0", "false", "no")
-                
-                if has_xaml and auto_validate:
-                    with progress.validating():
-                        validation = validate_generated_project(chat_root)
-                    if validation["success"]:
-                        if validation.get("fully_validated", False):
-                            progress.success("Validation passed - No errors found")
-                        else:
-                            progress.warning(
-                                "Structural validation passed, but Studio diagnostics were not fully run"
-                            )
-                        if validation.get("warnings"):
-                            for warning in validation["warnings"][:5]:
-                                progress.warning(warning)
-                        console.print("")
-                    else:
-                        progress.error(f"Validation failed - {len(validation['errors'])} error(s)")
-                        for error in validation["errors"][:5]:
-                            console.print(f"  [dim]-[/dim] {error}")
-                        if len(validation["errors"]) > 5:
-                            console.print(f"  [dim]... and {len(validation['errors']) - 5} more[/dim]")
-                        console.print("")
-                        
-                        # Auto-fix loop
-                        auto_fix = os.environ.get("UIPATH_CHAT_AUTO_FIX", "1").lower() not in ("0", "false", "no")
-                        max_fix_attempts = 3
-                        fix_attempt = 0
-                        previous_error_fingerprint: tuple[str, ...] | None = None
-                        previous_snapshot = _snapshot_files(chat_root)
-                        
-                        while not validation["success"] and auto_fix and fix_attempt < max_fix_attempts:
-                            error_fingerprint = tuple(sorted(validation["errors"]))
-                            if error_fingerprint == previous_error_fingerprint:
-                                progress.warning(
-                                    "Auto-fix stopped because the same validation errors repeated."
-                                )
-                                break
-                            previous_error_fingerprint = error_fingerprint
-                            fix_attempt += 1
-                            progress.info(f"Attempting auto-fix ({fix_attempt}/{max_fix_attempts})...")
-                            
-                            # Build fix prompt with error context
-                            fix_prompt = f"""The generated workflow has validation errors. Please fix them:
-
-Errors:
-{chr(10).join('- ' + e for e in validation['errors'])}
-
-Please regenerate the XAML file(s) with these errors fixed."""
-                            
-                            history.append({"role": "user", "content": fix_prompt})
-                            
-                            try:
-                                with progress.generating("fix"):
-                                    fix_response = asyncio.run(
-                                        _get_model_response(engine, history, memory, runtime_context, stream=False)
-                                    )
-                                
-                                history.append({"role": "assistant", "content": str(fix_response)})
-                                
-                                # Materialize the fix
-                                fix_written = materialize_from_assistant_text(
-                                    str(fix_response),
-                                    output_root=chat_root,
-                                    allow_project_files=allow_project_files,
-                                )
-                                current_snapshot = _snapshot_files(chat_root)
-                                
-                                if fix_written:
-                                    for path in fix_written:
-                                        progress.file_written(str(path))
-                                    if current_snapshot == previous_snapshot:
-                                        progress.warning(
-                                            f"Fix attempt {fix_attempt} produced no file changes"
-                                        )
-                                        break
-                                    previous_snapshot = current_snapshot
-                                    
-                                    # Re-validate
-                                    with progress.validating():
-                                        validation = validate_generated_project(chat_root)
-                                    
-                                    if validation["success"]:
-                                        progress.success("Auto-fix successful - Validation passed")
-                                        console.print("")
-                                        break
-                                    else:
-                                        progress.warning(f"Still {len(validation['errors'])} error(s) after fix attempt {fix_attempt}")
-                                        for error in validation["errors"][:3]:
-                                            console.print(f"  [dim]-[/dim] {error}")
-                                        console.print("")
-                                else:
-                                    progress.warning(f"Fix attempt {fix_attempt} produced no file changes")
-                                    break
-                            except Exception as fix_exc:
-                                progress.error(f"Auto-fix attempt {fix_attempt} failed: {fix_exc}")
-                                break
-                        
-                        if not validation["success"]:
-                            progress.error("Auto-fix exhausted. Manual intervention may be needed.")
-                            console.print("")
-                
-                if not allow_project_files:
-                    progress.info(
-                        "Generated files are artifacts. "
-                        "Use a real UiPath project root for full package restore/publish."
+                if command in {"exit", "quit"}:
+                    console.print("Goodbye!")
+                    break
+                if not is_command_allowed(tool_profile, command):
+                    progress.error(
+                        f"Command '/{command}' is blocked by tool profile '{tool_profile.name}'. "
+                        "Use /status to inspect active profile."
                     )
+                    continue
+                console.print(registry.execute(command, *args))
+                continue
+            if route == "skill_usage":
+                console.print("Usage: /skill <skill-name> <query>")
+                continue
+            if route == "skill":
+                skill_name = payload["skill_name"]
+                query = payload["query"]
+                if not is_command_allowed(tool_profile, "skills"):
+                    progress.error(
+                        f"Command '/skill' is blocked by tool profile '{tool_profile.name}'. "
+                        "Use /status to inspect active profile."
+                    )
+                    continue
+                skill = skills_by_name.get(skill_name)
+                if not skill:
+                    progress.error(f"Unknown skill: {skill_name}")
+                    continue
+                tool = create_skill_tool(skill, engine=engine)
+                result = tool.invoke({"query": query})
+                console.print(f"[magenta]Assistant:[/magenta] {result}\n")
+                continue
+
+            intent, intent_reason = classify_intent(user_input)
+            if os.environ.get("UIPATH_CONFIRM_BUILD", "0").strip().lower() in (
+                "1",
+                "true",
+                "yes",
+            ):
+                if intent in (IntentType.BUILD, IntentType.AMBIGUOUS):
+                    preview = _select_relevant_skills(user_input, skills)
+                    preview_names = ", ".join(str(s.get("name", "")) for s in preview) or "(none)"
+                    console.print(f"[yellow]Planned skills:[/yellow] {preview_names}")
+                    console.print(f"[yellow]Intent:[/yellow] {intent.value} ({intent_reason})")
+                    confirm = Prompt.ask(
+                        "Proceed? [y/n or type details]",
+                        default="y",
+                    ).strip()
+                    cl = confirm.lower()
+                    if cl in ("n", "no"):
+                        progress.info("Cancelled.")
+                        continue
+                    if cl not in ("", "y", "yes"):
+                        user_input = f"{user_input}\n\nAdditional details from user: {confirm}"
+
+            # Plan Mode logic
+            approved_plan = ""
+            plan_mode_enabled = os.environ.get("UIPATH_PLAN_MODE", "1").strip().lower() in ("1", "true", "yes")
+            if plan_mode_enabled and not no_plan:
+                if intent in (IntentType.BUILD, IntentType.AMBIGUOUS):
+                    while True:
+                        console.print("[bold cyan][PLANNING][/bold cyan]")
+                        with progress.generating("implementation plan"):
+                            plan_result = asyncio.run(
+                                run_planner_agent(
+                                    user_input,
+                                    project_context=project_context,
+                                    model_name=model_name,
+                                    region=region,
+                                )
+                            )
+                    
+                        from rich.markdown import Markdown
+                        from rich.panel import Panel
+                        console.print(Panel(Markdown(plan_result.final_response), title="Implementation Plan", border_style="cyan"))
+                    
+                        confirm = Prompt.ask("Approve plan? [y/n/edit]", default="y").strip().lower()
+                        if confirm in ("y", "yes"):
+                            approved_plan = plan_result.final_response
+                            # Save plan to file
+                            plan_path = _save_plan_to_file(
+                                session_id=chat_session_id,
+                                user_request=user_input,
+                                plan_content=approved_plan,
+                                output_root=_get_output_root(),
+                            )
+                            console.print(f"[dim]Plan saved to: {plan_path}[/dim]")
+                            break
+                        elif confirm in ("n", "no"):
+                            progress.info("Plan cancelled.")
+                            break
+                        else:
+                            # Treat other input as feedback
+                            user_input = f"{user_input}\n\nFeedback on plan: {confirm}"
+                            continue
+                
+                    if confirm in ("n", "no"):
+                        continue
+
+            runtime_context = _build_runtime_skill_context(user_input, skills)
+            if approved_plan:
+                runtime_context = f"Approved Implementation Plan:\n\n{approved_plan}\n\n{runtime_context}"
+            allow_project_files = _allow_project_file_generation(user_input)
+            file_intent = _is_file_generation_intent(user_input)
+            if os.environ.get("UIPATH_CHAT_DEBUG_SKILLS", "0").strip().lower() in {"1", "true", "yes"}:
+                traces = _debug_skill_selection(user_input, skills)
+                if traces:
+                    console.print("[dim]Skill selection:[/dim]")
+                    for trace in traces:
+                        console.print(f"  [dim]-[/dim] {trace}")
                     console.print("")
+            try:
+                suppress_stream_output = stream_enabled and (
+                    output_mode == "quiet" or (output_mode == "auto" and file_intent)
+                )
+                emitted_deltas = False
+
+                def _print_delta(delta: str) -> None:
+                    nonlocal emitted_deltas
+                    emitted_deltas = True
+                    console.print(delta, end="")
+
+                stream_hooks["on_delta"] = None if suppress_stream_output else _print_delta
+
+                if stream_enabled and not suppress_stream_output:
+                    console.print("[magenta]Assistant:[/magenta] ", end="")
+
+                extra_ctx = clarification_prefix
+                clarification_prefix = ""
+                invocation: dict[str, Any] = {
+                    "messages": history + [{"role": "user", "content": user_input}],
+                    "stream": bool(stream_enabled),
+                    "runtime_extra": extra_ctx,
+                }
+            
+                # Check if agentic mode is enabled (has its own progress output)
+                agentic_mode_on = os.environ.get("UIPATH_AGENTIC_MODE", "1").lower() in ("1", "true", "yes")
+                debug_mode_on = os.environ.get("UIPATH_DEBUG_AGENT", "1").lower() in ("1", "true", "yes")
+                use_spinner = not (agentic_mode_on and debug_mode_on)
+                
+                # Always print [EXECUTING] marker for evaluation parser
+                console.print("[bold yellow][EXECUTING][/bold yellow]")
+            
+                if use_spinner and (stream_enabled and suppress_stream_output):
+                    with progress.generating("workflow"):
+                        result = asyncio.run(chat_graph.ainvoke(invocation))
+                elif use_spinner and (not stream_enabled and file_intent):
+                    with progress.generating("workflow"):
+                        result = asyncio.run(chat_graph.ainvoke(invocation))
+                else:
+                    result = asyncio.run(chat_graph.ainvoke(invocation))
+
+                history[:] = list(result.get("messages") or [])
+                response = str(result.get("assistant_response", ""))
+                pending_q = result.get("pending_question")
+                if pending_q:
+                    clarification_prefix = (
+                        "The assistant asked a clarifying question. Address it in your next message:\n"
+                        + str(pending_q)
+                    )
+
+                if stream_enabled and not suppress_stream_output:
+                    if not emitted_deltas:
+                        console.print(response, end="")
+                    console.print("")
+            except Exception as exc:
+                progress.error("Bedrock request failed")
+                console.print(
+                    "Check AWS credentials, IAM permissions, model access, and AWS_REGION. "
+                    f"Details: {exc}"
+                )
+                continue
+
+            response_has_files = contains_file_blocks(str(response))
+            suppress_output = output_mode == "quiet" or (
+                output_mode == "auto" and response_has_files
+            )
+            if not stream_enabled:
+                if not suppress_output:
+                    console.print(f"[magenta]Assistant:[/magenta] {response}\n")
+            elif not suppress_output and not file_intent:
+                console.print("")
+
+            if os.environ.get("UIPATH_CHAT_MATERIALIZE", "1").lower() not in (
+                "0",
+                "false",
+                "no",
+            ):
+                chat_output_base = Path(
+                    os.environ.get(
+                        "UIPATH_CHAT_OUTPUT_DIR",
+                        str(Path.cwd() / "generated" / "chat"),
+                    )
+                ).resolve()
+                chat_root = chat_output_base / chat_session_id
+                written = materialize_from_assistant_text(
+                    str(response),
+                    output_root=chat_root,
+                    allow_project_files=allow_project_files,
+                )
+                if written:
+                    console.print("Wrote:")
+                    for path in written:
+                        progress.file_written(str(path))
+                    console.print("")
+                
+                    has_xaml = any(str(p).endswith(".xaml") for p in written)
+                    auto_validate = os.environ.get("UIPATH_CHAT_AUTO_VALIDATE", "1").lower() not in ("0", "false", "no")
+                
+                    if has_xaml and auto_validate:
+                        with progress.validating():
+                            validation = validate_generated_project(chat_root)
+                        if validation["success"]:
+                            if validation.get("fully_validated", False):
+                                progress.success("Validation passed - No errors found")
+                            else:
+                                progress.warning(
+                                    "Structural validation passed, but Studio diagnostics were not fully run"
+                                )
+                            if validation.get("warnings"):
+                                for warning in validation["warnings"][:5]:
+                                    progress.warning(warning)
+                            console.print("")
+                        else:
+                            progress.error(f"Validation failed - {len(validation['errors'])} error(s)")
+                            for error in validation["errors"][:5]:
+                                console.print(f"  [dim]-[/dim] {error}")
+                            if len(validation["errors"]) > 5:
+                                console.print(f"  [dim]... and {len(validation['errors']) - 5} more[/dim]")
+                            console.print("")
+                        
+                            # Auto-fix loop
+                            auto_fix = os.environ.get("UIPATH_CHAT_AUTO_FIX", "1").lower() not in ("0", "false", "no")
+                            max_fix_attempts = 3
+                            fix_attempt = 0
+                            previous_error_fingerprint: tuple[str, ...] | None = None
+                            previous_snapshot = _snapshot_files(chat_root)
+                        
+                            while not validation["success"] and auto_fix and fix_attempt < max_fix_attempts:
+                                error_fingerprint = tuple(sorted(validation["errors"]))
+                                if error_fingerprint == previous_error_fingerprint:
+                                    progress.warning(
+                                        "Auto-fix stopped because the same validation errors repeated."
+                                    )
+                                    break
+                                previous_error_fingerprint = error_fingerprint
+                                fix_attempt += 1
+                                progress.info(f"Attempting auto-fix ({fix_attempt}/{max_fix_attempts})...")
+                            
+                                # Build fix prompt with error context
+                                fix_prompt = f"""The generated workflow has validation errors. Please fix them:
+
+    Errors:
+    {chr(10).join('- ' + e for e in validation['errors'])}
+
+    Please regenerate the XAML file(s) with these errors fixed."""
+                            
+                                history.append({"role": "user", "content": fix_prompt})
+                            
+                                try:
+                                    with progress.generating("fix"):
+                                        fix_response = asyncio.run(
+                                            _get_model_response(engine, history, memory, runtime_context, stream=False)
+                                        )
+                                
+                                    history.append({"role": "assistant", "content": str(fix_response)})
+                                
+                                    # Materialize the fix
+                                    fix_written = materialize_from_assistant_text(
+                                        str(fix_response),
+                                        output_root=chat_root,
+                                        allow_project_files=allow_project_files,
+                                    )
+                                    current_snapshot = _snapshot_files(chat_root)
+                                
+                                    if fix_written:
+                                        for path in fix_written:
+                                            progress.file_written(str(path))
+                                        if current_snapshot == previous_snapshot:
+                                            progress.warning(
+                                                f"Fix attempt {fix_attempt} produced no file changes"
+                                            )
+                                            break
+                                        previous_snapshot = current_snapshot
+                                    
+                                        # Re-validate
+                                        with progress.validating():
+                                            validation = validate_generated_project(chat_root)
+                                    
+                                        if validation["success"]:
+                                            progress.success("Auto-fix successful - Validation passed")
+                                            console.print("")
+                                            break
+                                        else:
+                                            progress.warning(f"Still {len(validation['errors'])} error(s) after fix attempt {fix_attempt}")
+                                            for error in validation["errors"][:3]:
+                                                console.print(f"  [dim]-[/dim] {error}")
+                                            console.print("")
+                                    else:
+                                        progress.warning(f"Fix attempt {fix_attempt} produced no file changes")
+                                        break
+                                except Exception as fix_exc:
+                                    progress.error(f"Auto-fix attempt {fix_attempt} failed: {fix_exc}")
+                                    break
+                        
+                            if not validation["success"]:
+                                progress.error("Auto-fix exhausted. Manual intervention may be needed.")
+                                console.print("")
+                
+                    if not allow_project_files:
+                        progress.info(
+                            "Generated files are artifacts. "
+                            "Use a real UiPath project root for full package restore/publish."
+                        )
+                        console.print("")
+    
+    finally:
+        # Cleanup: close only Studio processes opened during this session
+        if track_processes and before_pids is not None:
+            try:
+                from uipath_claude.utils.process_tracker import finish_tracking_test, close_test_processes
+                new_pids = finish_tracking_test(before_pids)
+                if new_pids:
+                    result = close_test_processes(force=False)
+                    if result['closed']:
+                        # Only show message if we actually closed something
+                        console.print(f"\n[dim]Closed {len(result['closed'])} test Studio process(es)[/dim]")
+            except Exception:
+                pass  # Don't fail on cleanup errors
 
 
 def _resolve_stream_enabled(stream_flag: bool | None) -> bool:
