@@ -1,0 +1,80 @@
+{
+  "test_id": "LIB-001",
+  "category": "Library",
+  "input": "List the documentation books available.",
+  "duration_ms": 24384,
+  "timestamp": "2026-04-17T00:45:31.594728",
+  "expected": {
+    "technical": {
+      "tool_calls_required": [
+        "list_library_books"
+      ],
+      "no_file_creation": true,
+      "crash_not_allowed": true
+    },
+    "conceptual": {
+      "response_must_contain_any": [
+        "uipath-docs",
+        "UiPath Documentation"
+      ],
+      "expected_response_pattern": "Names at least one documentation book from the library."
+    }
+  },
+  "result": {
+    "test_id": "LIB-001",
+    "category": "Library",
+    "input": "List the documentation books available.",
+    "duration_ms": 24384,
+    "cli_success": true,
+    "cli_error": null,
+    "exit_code": 0,
+    "parsed": {
+      "mode": "planning_then_execution",
+      "tool_calls": [
+        "list_library_books",
+        "browse_book_toc",
+        "list_library_books"
+      ],
+      "skills": [
+        "uipath-planner"
+      ],
+      "files_written": [],
+      "errors": [],
+      "assistant_response_preview": "**Tool errors:** 1 of 1 tool call(s) returned messages containing errors or \nfailures (the agent still finished its loop). Check console debug output for \nfull tool text.\nThat covers the core UiPath documentation that is available in this reference \nlibrary. Let me know if you need to browse the table of contents for a specific \nbook or search for topics across the library."
+    },
+    "technical": {
+      "passed": true,
+      "checks_passed": 2,
+      "checks_failed": 0,
+      "warnings": 0,
+      "details": {
+        "passed": [
+          "No crash",
+          "Tool called: list_library_books"
+        ],
+        "failed": [],
+        "warnings": []
+      }
+    },
+    "conceptual": {
+      "passed": true,
+      "checks_passed": 1,
+      "checks_failed": 0,
+      "warnings": 0,
+      "details": {
+        "passed": [
+          "Contains one of: UiPath Documentation"
+        ],
+        "failed": [],
+        "warnings": []
+      },
+      "response_preview": "**Tool errors:** 1 of 1 tool call(s) returned messages containing errors or \nfailures (the agent still finished its loop). Check console debug output for \nfull tool text.\nThat covers the core UiPath documentation that is available in this reference \nlibrary. Let me know if you need to browse the table of contents for a specific \nbook or search for topics across the library."
+    },
+    "overall_passed": true,
+    "raw_output": {
+      "stdout": "Detected UiPath project: TestRPAProject\n\n-> Skills update available. Run /update-skills to update.\n\nChat session started. Type 'exit' or 'quit' to leave.\n\nSession: 20260417-004510-abd08a60\n\nYou: [PLANNING]\n[SKILL: uipath-planner]\nSkills in context: uipath-planner\n\n\nStep 1/10 [==>·················]\n  Thinking...\n    (still working...)\n[TOOL_CALL: list_library_books]\n  -> list_library_books\n     {}\n     x Available documentation books:\n\n- **UiPath Documentation** (`uipath-docs`): 4 chapters\n  Official UiPath product documentation\n┌────────────────────── Full output: list_library_books ───────────────────────┐\n│ Available documentation books:                                               │\n│                                                                              │\n│ - **UiPath Documentation** (`uipath-docs`): 4 chapters                       │\n│   Official UiPath product documentation                                      │\n└──────────────────────────────────────────────────────────────────────────────┘\n\nStep 2/10 [====>···············]\n  Thinking...\n[TOOL_CALL: browse_book_toc]\n  -> browse_book_toc\n     {\n  \"book_id\": \"uipath-docs\"\n}\n     x # UiPath Documentation\n┌──────────────────────── Full output: browse_book_toc ────────────────────────┐\n│ # UiPath Documentation                                                       │\n│                                                                              │\n│ Version: 2024.10                                                             │\n│ Source: docs.uipath.com                                                      │\n│                                                                              │\n│ ## Activities Reference                                                      │\n│   - Workflow Activities (foreach, if, while)                                 │\n│   - Mail Activities (outlook, email, smtp)                                   │\n│   - Excel Activities (readrange, writerange, workbook)                       │\n│   - UI Automation Activities (click, typeinto, gettext)                      │\n│                                                                              │\n│ ## Orchestrator Guide                                                        │\n│   - Queue Operations (queue, transaction, getqueueitems)                     │\n│   - Asset Management (asset, credential, getasset)                           │\n│   - Job Management (job, robot, trigger)                                     │\n│                                                                              │\n│ ## Studio User Guide                                                         │\n│   - REFramework (reframework, transactional, init)                           │\n│   - Selectors (selector, uiexplorer, wildcard)                               │\n│   - Variables and Arguments (variable, argument, datatable)                  │\n│                                                                              │\n│ ## Best Practices                                                            │\n│   - Error Handling (trycatch, exception, retry)                              │\n│   - Naming Conventions (naming, convention, standard)                        │\n└──────────────────────────────────────────────────────────────────────────────┘\n\nStep 3/10 [======>·············]\n  Thinking...\n    (still working...)\n  Finishing (no more tool calls this turn).\n  Preview: Browse the documentation library with `list_library_books`, \n`browse_book_toc`, and `read_section` to understand availabl…\n\nAgent finished after 3 iteration(s) (LLM rounds; not the same as 'all steps \nsucceeded')\nTokens: in=9,365 out=159\nTool calls this run: 0 ok, 2 reported errors\n! 2 tool call(s) reported errors (see lines above). Failed tools always show \nfull output above; set UIPATH_DEBUG_VERBOSE=0 or \nUIPATH_AGENTIC_FULL_TOOL_OUTPUT=0 for quieter successful-tool logs.\n\n┌──────────────────────────── Implementation Plan ─────────────────────────────┐\n│ Browse the documentation library with list_library_books, browse_book_toc,   │\n│ and read_section to understand available content.                            │\n└──────────────────────────────────────────────────────────────────────────────┘\nAuto-approving plan (non-interactive mode)\nPlan saved to: \nC:\\Users\\DanielaRosenstein\\projects\\uipath-builder-agent\\tests\\fixtures\\sample_p\nroject\\generated\\chat\\20260417-004510-abd08a60\\.plan.md\nAssistant: [EXECUTING]\n\nStep 1/25 [>···················]\n  Thinking...\n    (still working...)\n[TOOL_CALL: list_library_books]\n  -> list_library_books\n     {}\n     x Available documentation books:\n\n- **UiPath Documentation** (`uipath-docs`): 4 chapters\n  Official UiPath product documentation\n┌────────────────────── Full output: list_library_books ───────────────────────┐\n│ Available documentation books:                                               │\n│                                                                              │\n│ - **UiPath Documentation** (`uipath-docs`): 4 chapters                       │\n│   Official UiPath product documentation                                      │\n└──────────────────────────────────────────────────────────────────────────────┘\n\nStep 2/25 [=>··················]\n  Thinking...\n  Finishing (no more tool calls this turn).\n  Preview: That covers the core UiPath documentation that is available in this \nreference library. Let me know if you need to browse…\n\nAgent finished after 2 iteration(s) (LLM rounds; not the same as 'all steps \nsucceeded')\nTokens: in=9,781 out=92\nTool calls this run: 0 ok, 1 reported errors\n! 1 tool call(s) reported errors (see lines above). Failed tools always show \nfull output above; set UIPATH_DEBUG_VERBOSE=0 or \nUIPATH_AGENTIC_FULL_TOOL_OUTPUT=0 for quieter successful-tool logs.\n\n\n\n**Tool errors:** 1 of 1 tool call(s) returned messages containing errors or \nfailures (the agent still finished its loop). Check console debug output for \nfull tool text.\nThat covers the core UiPath documentation that is available in this reference \nlibrary. Let me know if you need to browse the table of contents for a specific \nbook or search for topics across the library.\n\nYou: Goodbye!\n",
+      "stderr": "",
+      "stdout_truncated": false
+    }
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "test_id": "LIB-004",
+  "category": "Library",
+  "input": "Search the library for 'quantumtelepathy'.",
+  "duration_ms": 24558,
+  "timestamp": "2026-04-17T00:47:01.584929",
+  "expected": {
+    "technical": {
+      "tool_calls_required": [
+        "search_library"
+      ],
+      "no_file_creation": true,
+      "crash_not_allowed": true
+    },
+    "conceptual": {
+      "response_must_contain_any": [
+        "No matches",
+        "no matching",
+        "did not return any matching",
+        "not find"
+      ],
+      "expected_response_pattern": "Graceful empty search result."
+    }
+  },
+  "result": {
+    "test_id": "LIB-004",
+    "category": "Library",
+    "input": "Search the library for 'quantumtelepathy'.",
+    "duration_ms": 24558,
+    "cli_success": true,
+    "cli_error": null,
+    "exit_code": 0,
+    "parsed": {
+      "mode": "planning_then_execution",
+      "tool_calls": [
+        "search_library",
+        "search_library"
+      ],
+      "skills": [
+        "uipath-planner"
+      ],
+      "files_written": [],
+      "errors": [],
+      "assistant_response_preview": "**Tool errors:** 1 of 1 tool call(s) returned messages containing errors or \nfailures (the agent still finished its loop). Check console debug output for \nfull tool text.\nThe search query 'quantumtelepathy' did not return any matching sections in the \ndocumentation library. This appears to be a nonsense term not covered in the \nofficial UiPath documentation.\n\nI could not find any information about \"quantumtelepathy\" in the UiPath \ndocumentation library. Please try a different search term related to UiPath \nproducts, activities, or concepts."
+    },
+    "technical": {
+      "passed": true,
+      "checks_passed": 2,
+      "checks_failed": 0,
+      "warnings": 0,
+      "details": {
+        "passed": [
+          "No crash",
+          "Tool called: search_library"
+        ],
+        "failed": [],
+        "warnings": []
+      }
+    },
+    "conceptual": {
+      "passed": true,
+      "checks_passed": 1,
+      "checks_failed": 0,
+      "warnings": 0,
+      "details": {
+        "passed": [
+          "Contains one of: did not return any matching"
+        ],
+        "failed": [],
+        "warnings": []
+      },
+      "response_preview": "**Tool errors:** 1 of 1 tool call(s) returned messages containing errors or \nfailures (the agent still finished its loop). Check console debug output for \nfull tool text.\nThe search query 'quantumtelepathy' did not return any matching sections in the \ndocumentation library. This appears to be a nonsense term not covered in the \nofficial UiPath documentation.\n\nI could not find any information about \"quantumtelepathy\" in the UiPath \ndocumentation library. Please try a different search term related"
+    },
+    "overall_passed": true,
+    "raw_output": {
+      "stdout": "Detected UiPath project: TestRPAProject\n\n-> Skills update available. Run /update-skills to update.\n\nChat session started. Type 'exit' or 'quit' to leave.\n\nSession: 20260417-004640-2a91f1f3\n\nYou: [PLANNING]\n[SKILL: uipath-planner]\nSkills in context: uipath-planner\n\n\nStep 1/10 [==>·················]\n  Thinking...\n    (still working...)\n[TOOL_CALL: search_library]\n  -> search_library\n     Query: quantumtelepathy\n     {\n  \"query\": \"quantumtelepathy\"\n}\n     x No matches found for: quantumtelepathy\n┌──────────────────────── Full output: search_library ─────────────────────────┐\n│ No matches found for: quantumtelepathy                                       │\n└──────────────────────────────────────────────────────────────────────────────┘\n\nStep 2/10 [====>···············]\n  Thinking...\n  Finishing (no more tool calls this turn).\n  Preview: The search query 'quantumtelepathy' did not return any matching book \nsections in the documentation library. Since this a…\n\nAgent finished after 2 iteration(s) (LLM rounds; not the same as 'all steps \nsucceeded')\nTokens: in=6,033 out=159\nTool calls this run: 0 ok, 1 reported errors\n! 1 tool call(s) reported errors (see lines above). Failed tools always show \nfull output above; set UIPATH_DEBUG_VERBOSE=0 or \nUIPATH_AGENTIC_FULL_TOOL_OUTPUT=0 for quieter successful-tool logs.\n\n┌──────────────────────────── Implementation Plan ─────────────────────────────┐\n│ The search query 'quantumtelepathy' did not return any matching book         │\n│ sections in the documentation library.                                       │\n│                                                                              │\n│ Since this appears to be related to pseudoscientific concepts that are not   │\n│ covered in the UiPath documentation, I do not have any authoritative         │\n│ information to provide. The documentation focuses on the factual             │\n│ capabilities and proper usage of the UiPath product and its activities.      │\n└──────────────────────────────────────────────────────────────────────────────┘\nAuto-approving plan (non-interactive mode)\nPlan saved to: \nC:\\Users\\DanielaRosenstein\\projects\\uipath-builder-agent\\tests\\fixtures\\sample_p\nroject\\generated\\chat\\20260417-004640-2a91f1f3\\.plan.md\nAssistant: [EXECUTING]\n\nStep 1/25 [>···················]\n  Thinking...\n    (still working...)\n[TOOL_CALL: search_library]\n  -> search_library\n     Query: quantumtelepathy\n     {\n  \"query\": \"quantumtelepathy\"\n}\n     x No matches found for: quantumtelepathy\n┌──────────────────────── Full output: search_library ─────────────────────────┐\n│ No matches found for: quantumtelepathy                                       │\n└──────────────────────────────────────────────────────────────────────────────┘\n\nStep 2/25 [=>··················]\n  Thinking...\n    (still working...)\n  Finishing (no more tool calls this turn).\n  Preview: The search query 'quantumtelepathy' did not return any matching \nsections in the documentation library. This appears to b…\n\nAgent finished after 2 iteration(s) (LLM rounds; not the same as 'all steps \nsucceeded')\nTokens: in=9,804 out=160\nTool calls this run: 0 ok, 1 reported errors\n! 1 tool call(s) reported errors (see lines above). Failed tools always show \nfull output above; set UIPATH_DEBUG_VERBOSE=0 or \nUIPATH_AGENTIC_FULL_TOOL_OUTPUT=0 for quieter successful-tool logs.\n\n\n\n**Tool errors:** 1 of 1 tool call(s) returned messages containing errors or \nfailures (the agent still finished its loop). Check console debug output for \nfull tool text.\nThe search query 'quantumtelepathy' did not return any matching sections in the \ndocumentation library. This appears to be a nonsense term not covered in the \nofficial UiPath documentation.\n\nI could not find any information about \"quantumtelepathy\" in the UiPath \ndocumentation library. Please try a different search term related to UiPath \nproducts, activities, or concepts.\n\nYou: Goodbye!\n",
+      "stderr": "",
+      "stdout_truncated": false
+    }
+  }
+}

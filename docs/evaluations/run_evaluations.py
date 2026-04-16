@@ -79,6 +79,7 @@ CATEGORY_TIMEOUTS = {
     'Integration': 180,             # 3 min
     'Performance': 120,             # 2 min
     'Learning': 120,              # memory preference can trigger broad exploration
+    'Library': 60,                # doc library tools + short answers
     'Full project E2E': 600,        # 10 min (deferred long tests)
 }
 DEFAULT_TIMEOUT = 180  # 3 min fallback
@@ -111,6 +112,13 @@ class CLITestRunner:
         env['PYTHONUNBUFFERED'] = '1'
         if 'UIPATH_PLANNER_MAX_ITERATIONS' not in env:
             env['UIPATH_PLANNER_MAX_ITERATIONS'] = '10'
+
+        if category.strip() == 'Library':
+            import tempfile
+
+            env['UIPATH_CLAUDE_LIBRARY_PROPOSALS'] = tempfile.mkdtemp(
+                prefix='uipath-lib-eval-proposals-'
+            )
 
         # Empty input still sends exit so the session closes
         full_input = f"{user_input}\nexit\n" if user_input else "exit\n"

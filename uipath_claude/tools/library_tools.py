@@ -1,7 +1,14 @@
 """Agent tools for documentation library."""
+import json
+
 from langchain_core.tools import tool
 
 from uipath_claude.library.catalog import LibraryCatalog
+from uipath_claude.library.proposals import (
+    LibraryProposal,
+    ProposalKind,
+    ProposalStore,
+)
 from uipath_claude.library.reader import LibraryReader
 
 
@@ -112,6 +119,36 @@ def search_library(query: str) -> str:
     return "\n".join(lines)
 
 
+@tool
+def propose_library_update(
+    book_id: str,
+    chapter_id: str,
+    section_id: str,
+    section_title: str,
+    content: str,
+    keywords: list[str],
+    rationale: str = "",
+) -> str:
+    """Propose a new library section; requires human approval before it is written.
+
+    Does not modify the library. Operator: ``uipath-claude library-proposals approve``.
+    """
+    store = ProposalStore()
+    proposal = LibraryProposal(
+        proposal_id="",
+        book_id=book_id,
+        chapter_id=chapter_id,
+        section_id=section_id,
+        section_title=section_title,
+        kind=ProposalKind.NEW_SECTION,
+        content=content,
+        keywords=list(keywords),
+        rationale=rationale,
+    )
+    saved = store.enqueue(proposal)
+    return json.dumps({"proposal_id": saved.proposal_id, "status": "pending"})
+
+
 def get_library_tools() -> list[tool]:
     """Return the list of library tools for agent use."""
     return [
@@ -119,4 +156,5 @@ def get_library_tools() -> list[tool]:
         browse_book_toc,
         read_section,
         search_library,
+        propose_library_update,
     ]

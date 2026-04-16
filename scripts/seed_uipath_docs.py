@@ -7,6 +7,7 @@ and organizing it into the book/chapter/section structure.
 Usage:
     python scripts/seed_uipath_docs.py
 """
+import argparse
 import sys
 from pathlib import Path
 
@@ -169,9 +170,9 @@ def fetch_from_ask_ai(topics: list[str]) -> str:
     return "\n".join(content_lines)
 
 
-def create_library_structure():
+def create_library_structure(target: Path | None = None) -> None:
     """Create the library directory structure and seed content."""
-    library_path = LibraryCatalog.get_library_path()
+    library_path = target or LibraryCatalog.get_library_path()
 
     catalog_file = library_path / "catalog.yaml"
     if catalog_file.exists():
@@ -259,10 +260,6 @@ title: {section_info["title"]}
             yaml.dump(chapter_data, f, default_flow_style=False)
         print(f"Created: {chapter_yaml}")
 
-    # Create _cache directory
-    cache_dir = book_path / "_cache"
-    cache_dir.mkdir(exist_ok=True)
-
     # Save book.yaml
     book_yaml = book_path / "book.yaml"
     with open(book_yaml, "w", encoding="utf-8") as f:
@@ -276,4 +273,12 @@ title: {section_info["title"]}
 
 
 if __name__ == "__main__":
-    create_library_structure()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--target",
+        type=Path,
+        default=None,
+        help="Target library directory (overrides UIPATH_CLAUDE_LIBRARY and default)",
+    )
+    args = parser.parse_args()
+    create_library_structure(target=args.target)

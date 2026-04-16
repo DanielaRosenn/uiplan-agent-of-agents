@@ -1,0 +1,6 @@
+books:
+- description: Official UiPath product documentation
+  id: uipath-docs
+  path: books/uipath-docs
+  title: UiPath Documentation
+version: 1

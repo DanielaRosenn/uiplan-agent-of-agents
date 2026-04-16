@@ -1023,6 +1023,104 @@
           "expected_response_pattern": "Lists the three child workflows, orchestration in Main, and documents architecture in ARCHITECTURE.md."
         }
       }
+    },
+    {
+      "test_id": "LIB-001",
+      "category": "Library",
+      "input": "List the documentation books available.",
+      "expected": {
+        "technical": {
+          "tool_calls_required": ["list_library_books"],
+          "no_file_creation": true,
+          "crash_not_allowed": true
+        },
+        "conceptual": {
+          "response_must_contain_any": ["uipath-docs", "UiPath Documentation"],
+          "expected_response_pattern": "Names at least one documentation book from the library."
+        }
+      }
+    },
+    {
+      "test_id": "LIB-002",
+      "category": "Library",
+      "input": "Show me the table of contents for uipath-docs.",
+      "expected": {
+        "technical": {
+          "tool_calls_required": ["browse_book_toc"],
+          "no_file_creation": true,
+          "crash_not_allowed": true
+        },
+        "conceptual": {
+          "response_must_contain_all": ["Activities", "Orchestrator", "Studio", "Best Practices"],
+          "expected_response_pattern": "TOC lists the four seeded chapters."
+        }
+      }
+    },
+    {
+      "test_id": "LIB-003",
+      "category": "Library",
+      "input": "Search the library for 'retry'.",
+      "expected": {
+        "technical": {
+          "tool_calls_required": ["search_library"],
+          "no_file_creation": true,
+          "crash_not_allowed": true
+        },
+        "conceptual": {
+          "response_must_contain_any": ["Queue", "retry", "Read", "section", "match"],
+          "expected_response_pattern": "Search returns at least one hit or explains matches for retry-related sections."
+        }
+      }
+    },
+    {
+      "test_id": "LIB-004",
+      "category": "Library",
+      "input": "Search the library for 'quantumtelepathy'.",
+      "expected": {
+        "technical": {
+          "tool_calls_required": ["search_library"],
+          "no_file_creation": true,
+          "crash_not_allowed": true
+        },
+        "conceptual": {
+          "response_must_contain_any": [
+            "No matches",
+            "no matching",
+            "did not return any matching",
+            "not find"
+          ],
+          "expected_response_pattern": "Graceful empty search result."
+        }
+      }
+    },
+    {
+      "test_id": "LIB-005",
+      "category": "Library",
+      "input": "Read the 'workflow' section from chapter 'activities' in book 'uipath-docs'.",
+      "expected": {
+        "technical": {
+          "tool_calls_required": ["read_section"],
+          "no_file_creation": true,
+          "crash_not_allowed": true
+        },
+        "conceptual": {
+          "response_must_contain_all": ["ForEach"],
+          "expected_response_pattern": "Returns seeded workflow section content mentioning ForEach."
+        }
+      }
+    },
+    {
+      "test_id": "LIB-006",
+      "category": "Library",
+      "input": "Remember for next time: always set UIPATH_SKIP_AUTH_CHECK=1 before running evals. Propose this as a library update in book uipath-docs chapter activities section id eval-harness-tip with title Eval harness tip.",
+      "expected": {
+        "technical": {
+          "tool_calls_required": ["propose_library_update"],
+          "no_file_creation": true,
+          "crash_not_allowed": true
+        },
+        "conceptual": {}
+      }
     }
   ]
 }

@@ -24,6 +24,7 @@ from uipath_claude.commands.knowledge import register_knowledge_command
 from uipath_claude.commands.resume import register_resume_command
 from uipath_claude.commands.update_skills import register_update_skills_command
 from uipath_claude.commands.validate import register_validate_command
+from uipath_claude.commands.library_proposals import register_library_proposals_command
 from uipath_claude.cli.capability_hint import maybe_print_capability_build_hint
 from uipath_claude.context.project import detect_uipath_project
 from uipath_claude.memory.loader import load_memory
@@ -92,6 +93,8 @@ def _load_dotenv_from_cwd() -> None:
 
 
 app = typer.Typer(help="UiPath Claude Code - Conversational AI for UiPath")
+
+register_library_proposals_command(app)
 
 _UIPATH_CHAT_SYSTEM = f"""You are UiPath Claude Code, an agentic AI assistant with direct access to the user's local file system, UiPath CLI, and UiPath skills. You build UiPath Studio automations (workflow XAML), not WPF desktop apps, unless the user explicitly asks for WPF.
 

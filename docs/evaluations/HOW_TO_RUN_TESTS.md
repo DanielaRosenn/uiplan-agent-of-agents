@@ -90,6 +90,9 @@ python docs/evaluations/run_evaluations.py --test QA-001 --test QA-002 --test DE
 # Category
 python docs/evaluations/run_evaluations.py --category "Workflow Building"
 
+# Documentation library (LIB-001 … LIB-006); see test_cases.json
+python docs/evaluations/run_evaluations.py --category Library
+
 # Custom project dir (timeout auto-set by category: e.g. Workflow Building=300s,
 # Question=180s, Learning=120s, Validation=180s; see CATEGORY_TIMEOUTS in run_evaluations.py)
 python docs/evaluations/run_evaluations.py --project-dir tests\fixtures\sample_project
@@ -208,6 +211,7 @@ The runner automatically selects an appropriate timeout based on test category:
 | Question | 60s (1 min) | Direct Q&A, no planning |
 | Error Handling | 90s (1.5 min) | Error detection scenarios |
 | Code Generation | 240s (4 min) | Planning + code generation |
+| Library | 60s (1 min) | Documentation library tools (`list_library_books`, `search_library`, etc.); see `CATEGORY_TIMEOUTS` in `run_evaluations.py` |
 | (other) | 180s (3 min) | Default fallback |
 
 Use `--timeout N` to override all category defaults with a fixed value.

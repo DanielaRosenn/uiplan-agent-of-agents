@@ -1,8 +1,11 @@
 """Library catalog management."""
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
+
+LIBRARY_PATH_ENV_VAR = "UIPATH_CLAUDE_LIBRARY"
 
 
 @dataclass
@@ -46,9 +49,26 @@ class LibraryCatalog:
     books: list[Book] = field(default_factory=list)
 
     @classmethod
+    def _default_library_path(cls) -> Path:
+        """Repo-relative default: ``<repo>/data/library``.
+
+        ``catalog.py`` lives at ``<repo>/uipath_claude/library/catalog.py``;
+        ``parents[2]`` is the repository root.
+        """
+        return Path(__file__).resolve().parents[2] / "data" / "library"
+
+    @classmethod
     def get_library_path(cls) -> Path:
-        """Get the library root path."""
-        return Path.home() / ".uipath-claude" / "library"
+        """Get the library root path.
+
+        Resolves in this order:
+        1. ``UIPATH_CLAUDE_LIBRARY`` environment variable, if set.
+        2. Repo-relative default: ``<repo>/data/library``.
+        """
+        override = os.environ.get(LIBRARY_PATH_ENV_VAR)
+        if override:
+            return Path(override).expanduser()
+        return cls._default_library_path()
 
     @classmethod
     def load(cls) -> "LibraryCatalog":

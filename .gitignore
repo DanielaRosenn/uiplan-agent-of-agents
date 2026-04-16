@@ -62,6 +62,8 @@ Thumbs.db
 .cursor/
 
 # Local runtime / tooling data
+# Legacy cache dirs accidentally created inside committed library content
+data/library/**/_cache/
 .uipath-claude/
 .uipath/
 .skills_refresh_at
@@ -72,6 +74,8 @@ HelloWorld/
 # Evaluation run outputs
 evaluation_results*.json
 docs/evaluations/results/
+!docs/evaluations/results/run_20260417_library/
+!docs/evaluations/results/run_20260417_library/**
 
 # Excel temporary lock files
 ~$*.xlsx

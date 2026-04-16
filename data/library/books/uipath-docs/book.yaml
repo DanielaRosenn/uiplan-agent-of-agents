@@ -1,0 +1,21 @@
+chapters:
+- id: activities
+  order: 1
+  path: chapters/01-activities
+  title: Activities Reference
+- id: orchestrator
+  order: 2
+  path: chapters/02-orchestrator
+  title: Orchestrator Guide
+- id: studio
+  order: 3
+  path: chapters/03-studio
+  title: Studio User Guide
+- id: best-practices
+  order: 4
+  path: chapters/04-best-practices
+  title: Best Practices
+id: uipath-docs
+source: docs.uipath.com
+title: UiPath Documentation
+version: '2024.10'

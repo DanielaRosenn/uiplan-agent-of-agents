@@ -1,0 +1,19 @@
+id: best-practices
+sections:
+- file: error-handling.md
+  id: error-handling
+  keywords:
+  - trycatch
+  - exception
+  - retry
+  - logging
+  title: Error Handling
+- file: naming-conventions.md
+  id: naming-conventions
+  keywords:
+  - naming
+  - convention
+  - standard
+  - style
+  title: Naming Conventions
+title: Best Practices

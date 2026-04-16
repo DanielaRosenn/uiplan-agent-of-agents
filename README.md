@@ -25,6 +25,25 @@ For deeper technical detail, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - **Memory System**: Global and project-specific memory persistence
 - **Hooks System**: Event-driven automation (session start, tool use, file changes)
 
+## Runtime data locations
+
+| Data | Default location | Override |
+|---|---|---|
+| Library (books/chapters/sections) | `<repo>/data/library/` | `UIPATH_CLAUDE_LIBRARY` |
+| Library query cache | `~/.uipath-claude/library-cache/` | `UIPATH_CLAUDE_LIBRARY_CACHE` or `LibraryReader(cache_path=...)` |
+| Structured event log | `~/.uipath-claude/logs/events.log` | `UIPATH_EVENT_LOG` |
+| Session JSONL | `~/.uipath-claude/sessions/` | `SessionStore(root=...)` |
+| Global memory | `~/.uipath-claude/memory.md` | Respects `HOME` |
+| Project memory | `<project>/.uipath-claude/memory.md` | Per-project |
+| Skill insights (project) | `<project>/.uipath-claude/skill-insights/` | Per-project |
+| Skill insights (user) | `~/.cursor/skill-insights/` | Per-user |
+| Tracked test PIDs | `~/.uipath-claude/tracked_processes.json` | `ProcessTracker(tracking_file=...)` |
+| Library proposal queue | `~/.uipath-claude/library-proposals/` | `UIPATH_CLAUDE_LIBRARY_PROPOSALS` |
+
+### Library learning loop
+
+The library can accept new or updated content via a proposal and approval flow. See [docs/LIBRARY_LEARNING.md](docs/LIBRARY_LEARNING.md) for the CLI and agent tool.
+
 ## Installation
 
 ```bash
