@@ -509,7 +509,8 @@ class TechnicalEvaluator:
             else:
                 self.results['failed'].append(f'Missing required tool: {tool}')
 
-        any_of = self.expected.get('tool_calls_required_any_of') or []
+        raw_any = self.expected.get('tool_calls_required_any_of')
+        any_of = raw_any if isinstance(raw_any, list) else []
         if any_of:
             if any(tool in actual_tools for tool in any_of):
                 self.results['passed'].append(
@@ -752,7 +753,10 @@ def main():
         '--timeout',
         type=int,
         default=None,
-        help='Override per-test CLI timeout in seconds (default: auto by category - BUILD: 300s, QA: 60s)',
+        help=(
+            'Override per-test CLI timeout in seconds (default: per CATEGORY_TIMEOUTS '
+            'in this file, e.g. Workflow Building 300s, Question 180s, Deployment 180s)'
+        ),
     )
     parser.add_argument(
         '--only-full-project-e2e',
@@ -898,7 +902,11 @@ def main():
 
     # Markdown triage list for fixing later
     md_path = log_dir / 'TRIAGE.md'
-    timeout_info = f'Fixed: {args.timeout}s' if args.timeout else 'Per-category (BUILD: 300s, QA: 60s, etc.)'
+    timeout_info = (
+        f'Fixed: {args.timeout}s'
+        if args.timeout
+        else 'Per-category (see CATEGORY_TIMEOUTS in run_evaluations.py)'
+    )
     lines = [
         '# Evaluation run triage',
         '',

@@ -69,6 +69,24 @@ def test_tool_calls_required_any_of_passes_when_one_present(ev):
     assert out["passed"] is True
 
 
+def test_tool_calls_required_any_of_ignored_when_not_list(ev):
+    evl = ev.TechnicalEvaluator(
+        {
+            "tool_calls": ["list_directory"],
+            "mode": "planning_then_execution",
+            "crashed": False,
+            "files_written": [],
+            "errors": [],
+        },
+        {
+            "tool_calls_required_any_of": "deploy_to_orchestrator",
+            "crash_not_allowed": True,
+        },
+    )
+    out = evl.evaluate()
+    assert out["passed"] is True
+
+
 def test_tool_calls_required_any_of_fails_when_none_present(ev):
     evl = ev.TechnicalEvaluator(
         {
