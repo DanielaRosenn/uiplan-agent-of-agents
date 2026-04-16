@@ -173,6 +173,11 @@ class AgenticProgressReporter:
         cleaned = [str(n).strip() for n in names if str(n).strip()]
         if not cleaned:
             return
+
+        # Structured marker for evaluation parser
+        for skill_name in cleaned:
+            self.console.print(f"[dim][SKILL: {skill_name}][/dim]")
+
         line = ", ".join(cleaned)
         extra = ""
         ps = str(primary_skill).strip() if primary_skill else ""
