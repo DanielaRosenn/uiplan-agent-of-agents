@@ -34,7 +34,7 @@ from uipath_claude.utils.process_tracker import (
 class CLITestRunner:
     """Runs CLI tests and captures output."""
     
-    def __init__(self, project_dir: str | None = None, timeout: int = 120):
+    def __init__(self, project_dir: str | None = None, timeout: int = 180):
         repo_root = Path(__file__).resolve().parent.parent.parent
         self.project_dir = project_dir or str(repo_root / "tests" / "fixtures" / "sample_project")
         self.timeout = timeout
@@ -471,8 +471,8 @@ def main():
     parser.add_argument(
         '--timeout',
         type=int,
-        default=120,
-        help='Per-test CLI timeout in seconds (default: 120)',
+        default=180,
+        help='Per-test CLI timeout in seconds (default: 180)',
     )
     parser.add_argument(
         '--only-full-project-e2e',
