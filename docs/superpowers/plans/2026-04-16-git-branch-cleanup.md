@@ -10,6 +10,14 @@
 
 ---
 
+## Repository policy (test projects)
+
+- Do **not** commit or push full UiPath test or solution trees (for example `.xaml`, `.uiproj`, `Main.xaml`, `Workflows/`, or other project folders under `tests/fixtures/sample_project/`).
+- The repo keeps only the minimal tracked fixture `tests/fixtures/sample_project/project.json` for automated tests.
+- Any extra files created by opening the sample in Studio or by local runs are **local-only**: delete them from disk when cleaning up, and rely on `.gitignore` so they never enter git history.
+
+---
+
 ## Pre-Flight Summary
 
 | Branch | Commit | Merge Status |
@@ -70,6 +78,8 @@ Expected: New commit hash with message "chore: batch commit..."
 **Files:**
 - Create: Various new files being tracked
 
+**Do not add:** Anything under `tests/fixtures/sample_project/` except the already-tracked `project.json` (see **Repository policy**). Never stage full UiPath test projects.
+
 - [ ] **Step 1: Review untracked files**
 
 Run: `git status --short | Select-String "^\?\?"`
@@ -121,59 +131,65 @@ Expected: New commit with message "feat: add deployment tooling..."
 ### Task 3: Handle Generated/Local-Only Content
 
 **Files:**
-- Modify: `.gitignore` (potentially)
+- Modify: `.gitignore`
+- Delete: Everything under `tests/fixtures/sample_project/` except `tests/fixtures/sample_project/project.json`
 
-- [ ] **Step 1: Verify these directories should NOT be committed**
+- [ ] **Step 1: Verify these paths should NOT be committed**
 
-The following are generated/local-only and should remain untracked:
+The following are generated/local-only and should remain untracked (or deleted locally):
 - `.cursor/` - IDE settings
 - `.uipath-claude/` - Local runtime data
 - `.uipath/` - Local UiPath data
 - `HelloWorld/` - Generated project
 - `docs/evaluations/results/` - Test run outputs
-- `evaluation_results.json` - Test run outputs
-- `evaluation_results_smoke.json` - Test run outputs
+- `evaluation_results.json` / `evaluation_results_smoke.json` - Test run outputs
 - `docs/~$Chat_UX_Test_Cases.xlsx` - Excel temp file
-- `tests/fixtures/sample_project/` generated files (`.codedworkflows/`, `.local/`, `.objects/`, etc.)
+- Full UiPath trees under `tests/fixtures/sample_project/` (see **Repository policy** above); only `project.json` is tracked
 
-- [ ] **Step 2: Confirm gitignore covers these patterns**
+- [ ] **Step 2: Delete local test project files under the sample fixture**
 
-Run: `git check-ignore -v .cursor .uipath-claude .uipath HelloWorld evaluation_results.json`
-
-Expected: Each path shows which gitignore rule matches (or no output if not ignored)
-
-- [ ] **Step 3: Add missing gitignore entries if needed**
-
-If any paths are NOT ignored, add them to `.gitignore`:
+Keep the single tracked file `tests/fixtures/sample_project/project.json`. Remove all other files and directories next to it (safe to delete; they must not be pushed).
 
 ```powershell
-# Only run if check-ignore showed gaps
-@"
-# Local IDE and runtime
-.cursor/
-.uipath-claude/
-.uipath/
-
-# Generated projects
-HelloWorld/
-
-# Evaluation outputs
-evaluation_results*.json
-docs/evaluations/results/
-
-# Excel temp files
-~`$*.xlsx
-"@ | Add-Content .gitignore
+Get-ChildItem -LiteralPath "tests/fixtures/sample_project" -Force |
+  Where-Object { $_.Name -ne "project.json" } |
+  ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force }
 ```
 
-- [ ] **Step 4: Commit gitignore updates if changed**
+Run: `dir tests\fixtures\sample_project`
+
+Expected: Only `project.json` is listed.
+
+- [ ] **Step 3: Ensure `.gitignore` blocks future test projects**
+
+Confirm `.gitignore` contains exactly these lines (add or adjust if missing):
+
+```
+# Sample UiPath test project: keep only tracked project.json; never commit full projects
+tests/fixtures/sample_project/*
+!tests/fixtures/sample_project/project.json
+```
+
+- [ ] **Step 4: Confirm gitignore covers local-only paths**
+
+Run:
+
+```powershell
+git check-ignore -v .cursor .uipath-claude .uipath HelloWorld evaluation_results.json
+git check-ignore -v tests/fixtures/sample_project/Main.xaml
+git check-ignore -v tests/fixtures/sample_project/project.json; if ($LASTEXITCODE -eq 0) { Write-Error "project.json must NOT be ignored" }
+```
+
+Expected: The first two commands list ignore rules for each path. `Main.xaml` is ignored. `git check-ignore` for `project.json` exits non-zero (file is not ignored).
+
+- [ ] **Step 5: Commit gitignore updates if changed**
 
 ```powershell
 git add .gitignore
-git diff --cached --quiet .gitignore; if ($LASTEXITCODE -ne 0) { git commit -m "chore: update gitignore for local/generated content" }
+git diff --cached --quiet .gitignore; if ($LASTEXITCODE -ne 0) { git commit -m "chore: ignore sample UiPath test projects; keep project.json only" }
 ```
 
-Expected: Commit created if changes were made, otherwise no action
+Expected: Commit created if `.gitignore` changed, otherwise no action
 
 ---
 

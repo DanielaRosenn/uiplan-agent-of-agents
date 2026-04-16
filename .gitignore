@@ -75,10 +75,6 @@ docs/evaluations/results/
 # Excel temporary lock files
 ~$*.xlsx
 
-# UiPath project metadata created when opening the sample fixture locally
-tests/fixtures/sample_project/.codedworkflows/
-tests/fixtures/sample_project/.local/
-tests/fixtures/sample_project/.objects/
-tests/fixtures/sample_project/.project/
-tests/fixtures/sample_project/.settings/
-tests/fixtures/sample_project/.tmh/
+# Sample UiPath test project: keep only tracked project.json; never commit full projects
+tests/fixtures/sample_project/*
+!tests/fixtures/sample_project/project.json
