@@ -29,7 +29,7 @@
 
 **Behavior:** If `expected["technical"]` contains key `tool_calls_required_any_of` with a non-empty list of tool name strings, pass when **at least one** of those names appears in `self.output["tool_calls"]` (same source as today: `[TOOL_CALL: name]` markers in stdout). Fail with message `Missing required tool (need any of): [...]` when none match. If the list is empty or key absent, do nothing (backward compatible).
 
-- [ ] **Step 1: Edit `_check_tool_calls`**
+- [x] **Step 1: Edit `_check_tool_calls`**
 
 Insert after the existing `for tool in required:` loop (after line that appends failures for missing required tools), before the `optional = ...` block:
 
@@ -47,7 +47,7 @@ Insert after the existing `for tool in required:` loop (after line that appends 
                 )
 ```
 
-- [ ] **Step 2: Run a quick smoke import**
+- [x] **Step 2: Run a quick smoke import**
 
 Run:
 
@@ -58,12 +58,7 @@ python -c "import importlib.util; from pathlib import Path; p=Path('docs/evaluat
 
 Expected: no traceback (assert passes).
 
-- [ ] **Step 3: Commit**
-
-```bash
-git add docs/evaluations/run_evaluations.py
-git commit -m "feat(eval): support tool_calls_required_any_of in technical checks"
-```
+- [x] **Step 3: Commit** (merged into `feat(eval): tool_calls_required_any_of, DEPLOY-001, parser tests, docs`)
 
 ---
 
@@ -73,7 +68,7 @@ git commit -m "feat(eval): support tool_calls_required_any_of in technical check
 
 - Modify: `docs/evaluations/test_cases.json` (object with `"test_id": "DEPLOY-001"`, path under `test_cases` array)
 
-- [ ] **Step 1: Replace `tool_calls_required` with `tool_calls_required_any_of`**
+- [x] **Step 1: Replace `tool_calls_required` with `tool_calls_required_any_of`**
 
 In the `DEPLOY-001` entry, inside `expected.technical`, remove:
 
@@ -93,7 +88,7 @@ Add:
 
 Leave `tool_calls_optional` as-is (duplicate names in optional vs any_of is harmless: optional loop only adds pass lines when present).
 
-- [ ] **Step 2: Run only this test**
+- [ ] **Step 2: Run only this test** (optional; slow LLM — run locally when needed)
 
 ```powershell
 Set-Location c:\Users\DanielaRosenstein\projects\uipath-builder-agent
@@ -102,12 +97,7 @@ python -u docs/evaluations/run_evaluations.py --test DEPLOY-001
 
 Expected: `Technical: PASS` in console (conceptual may still show `PASS (0/0)` if branching keys are not implemented; that is acceptable for this task).
 
-- [ ] **Step 3: Commit**
-
-```bash
-git add docs/evaluations/test_cases.json
-git commit -m "fix(eval): DEPLOY-001 accept any of structure/read/deploy tools"
-```
+- [x] **Step 3: Commit** (merged into single harness commit)
 
 ---
 
@@ -117,7 +107,7 @@ git commit -m "fix(eval): DEPLOY-001 accept any of structure/read/deploy tools"
 
 - Create: `tests/test_evaluation_output_parser.py`
 
-- [ ] **Step 1: Create the test file with full content**
+- [x] **Step 1: Create the test file with full content**
 
 ```python
 """Unit tests for docs/evaluations/run_evaluations.py parser and technical OR-tools."""
@@ -211,7 +201,7 @@ def test_tool_calls_required_any_of_fails_when_none_present(ev):
     assert any("need any of" in f for f in out["details"]["failed"])
 ```
 
-- [ ] **Step 2: Run pytest on this file**
+- [x] **Step 2: Run pytest on this file**
 
 ```powershell
 Set-Location c:\Users\DanielaRosenstein\projects\uipath-builder-agent
@@ -220,12 +210,7 @@ python -m pytest tests/test_evaluation_output_parser.py -v
 
 Expected: `5 passed`.
 
-- [ ] **Step 3: Commit**
-
-```bash
-git add tests/test_evaluation_output_parser.py
-git commit -m "test(eval): cover OutputParser and tool_calls_required_any_of"
-```
+- [x] **Step 3: Commit** (merged into single harness commit)
 
 ---
 
@@ -235,7 +220,7 @@ git commit -m "test(eval): cover OutputParser and tool_calls_required_any_of"
 
 - Modify: `docs/evaluations/HOW_TO_RUN_TESTS.md` (section “Options”, after the single-test example)
 
-- [ ] **Step 1: Insert documentation block**
+- [x] **Step 1: Insert documentation block**
 
 After the block that shows `python docs/evaluations/run_evaluations.py --test QA-001`, add:
 
@@ -246,12 +231,7 @@ python docs/evaluations/run_evaluations.py --test QA-001 --test QA-002 --test DE
 
 In the same section, update the comment on line that says `QA=60s` to reflect current defaults if still wrong, for example: `Question` category is **180s** unless `--timeout` overrides (grep `CATEGORY_TIMEOUTS` in `run_evaluations.py` and mirror the values in one sentence).
 
-- [ ] **Step 2: Commit**
-
-```bash
-git add docs/evaluations/HOW_TO_RUN_TESTS.md
-git commit -m "docs(eval): multi --test and timeout notes"
-```
+- [x] **Step 2: Commit** (merged into single harness commit)
 
 ---
 
@@ -267,11 +247,11 @@ git commit -m "docs(eval): multi --test and timeout notes"
 
 - **Option B (strip, recommended for YAGNI):** Remove `on_success`, `on_auth_error`, `expected_response_pattern_success`, `expected_response_pattern_error` from `DEPLOY-001` only, leaving a single flat `conceptual` block later when you add real phrases, **or** leave keys as documentation comments in `HOW_TO_RUN_TESTS.md` instead of JSON.
 
-- [ ] **Step 1:** Choose A or B in the PR description.
+- [x] **Step 1:** Chose **Option B** (strip non-enforced conceptual keys).
 
-- [ ] **Step 2:** Apply edits and run `python -u docs/evaluations/run_evaluations.py --test DEPLOY-001`.
+- [x] **Step 2:** `DEPLOY-001` now has `"conceptual": {}`.
 
-- [ ] **Step 3:** Commit with message explaining Option A or B.
+- [x] **Step 3:** Same commit as harness work.
 
 ---
 
