@@ -1,0 +1,442 @@
+# UiPath Builder Agent - Cursor User Guide
+
+This guide covers using the UiPath Builder Agent skills in Cursor IDE for building UiPath automations.
+
+## Quick Setup (5 minutes)
+
+### 1. Clone and Initialize
+
+```powershell
+git clone <repo-url>
+cd uipath-builder-agent
+git submodule update --init --recursive
+```
+
+### 2. Install Dependencies
+
+```powershell
+# Create virtual environment
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1  # Windows
+# source .venv/bin/activate   # macOS/Linux
+
+# Install with MCP support
+pip install -e ".[mcp]"
+```
+
+### 3. Setup Cursor Skills
+
+```powershell
+# Windows
+.\scripts\setup-cursor.ps1
+
+# macOS/Linux
+./scripts/setup-cursor.sh
+```
+
+### 4. Enable MCP Tools (Optional but Recommended)
+
+The MCP server gives Cursor access to UiPath CLI tools (validation, execution, package management).
+
+Copy `.cursor/mcp.json` to enable MCP:
+```powershell
+# The mcp.json is already in .cursor/ after setup
+# Cursor will auto-detect it when you open the folder
+```
+
+Or manually add to Cursor's MCP settings:
+```json
+{
+  "mcpServers": {
+    "uipath-builder-agent": {
+      "command": "python",
+      "args": ["-m", "mcp_server.server"],
+      "cwd": "c:/path/to/uipath-builder-agent",
+      "env": {
+        "PYTHONPATH": "c:/path/to/uipath-builder-agent"
+      }
+    }
+  }
+}
+```
+
+### 5. Install Superpowers Plugin (Recommended)
+
+In Cursor:
+1. Open Settings (`Ctrl+,`)
+2. Search for "cursor.plugins"
+3. Add `cursor-public/superpowers` to your plugins list
+
+Or add to your `settings.json`:
+```json
+{
+  "cursor.plugins": ["cursor-public/superpowers"]
+}
+```
+
+The superpowers plugin adds development workflow skills:
+- **brainstorming** - Design before implementation
+- **writing-plans** - Create detailed implementation plans
+- **executing-plans** - Execute plans task-by-task
+- **test-driven-development** - TDD workflow
+- **systematic-debugging** - Bug investigation
+- **code-review** - Request and receive reviews
+
+### 4. Open in Cursor
+
+Open the `uipath-builder-agent` folder in Cursor. Skills are now available.
+
+---
+
+## How It Works
+
+When you ask about UiPath topics, Cursor automatically uses the relevant skill. Skills provide:
+
+- **XAML templates** - Correct namespaces, activity patterns
+- **Project structure** - `project.json`, dependencies, folder layout
+- **Best practices** - Naming conventions, error handling, validation
+- **Activity reference** - Modern vs classic, properties, examples
+
+### Example: Create a Workflow
+
+You ask:
+```
+Create a workflow that reads an Excel file and logs each row
+```
+
+Cursor uses the `uipath-automation` skill and generates:
+
+1. `project.json` with Excel package dependency
+2. `Main.xaml` with:
+   - Proper namespace declarations (single-line Activity root)
+   - `UseExcelFile` scope
+   - `ForEachExcelRow` with typed iterator
+   - `LogMessage` activity
+
+---
+
+## Available UiPath Skills
+
+| Skill | Use For |
+|-------|---------|
+| `uipath-automation` | XAML workflows, project structure, activities |
+| `uipath-reframework` | REFramework template, transaction processing |
+| `uipath-maestro-flow` | Maestro/BPMN process flows |
+| `uipath-diagnostics` | Troubleshooting, error analysis |
+| `uipath-code-reviewer` | Code quality, best practices review |
+| `uipath-document-understanding` | Document Understanding, ML models |
+| `uipath-integration-service` | Connectors, Integration Service |
+| `uipath-orchestrator-api` | Orchestrator REST API |
+| `uipath-cli-git` | UiPath CLI, CI/CD, Git workflows |
+| `uipath-human-in-the-loop` | Action Center, approvals |
+| `uipath-agents` | Agentic automation |
+| `uipath-planner` | Planning workflows |
+| `uipath-test-generator` | Test case generation |
+
+### Trigger Keywords
+
+Skills activate on relevant keywords. Examples:
+
+- "create a workflow" / "XAML" / "sequence" → `uipath-automation`
+- "REFramework" / "transaction" / "queue processing" → `uipath-reframework`
+- "Maestro" / "BPMN" / "process diagram" → `uipath-maestro-flow`
+- "error" / "not working" / "debug" → `uipath-diagnostics`
+- "review" / "best practices" / "code quality" → `uipath-code-reviewer`
+
+---
+
+## Workflow Patterns
+
+### Pattern 1: Quick Workflow Generation
+
+For simple automations, just describe what you need:
+
+```
+Create a workflow that:
+- Opens Chrome and navigates to example.com
+- Types "hello" in the search box
+- Clicks the submit button
+```
+
+### Pattern 2: Project Bootstrap (with Superpowers)
+
+For larger projects, use the brainstorming + planning workflow:
+
+```
+I need to build a process that:
+- Reads invoices from a shared folder
+- Extracts data using Document Understanding
+- Validates against SAP
+- Creates queue items for exceptions
+
+Let's brainstorm this first.
+```
+
+This triggers:
+1. **Brainstorming skill** - Explore requirements, edge cases, architecture
+2. **Writing-plans skill** - Create detailed implementation plan
+3. **Executing-plans skill** - Build task-by-task with verification
+
+### Pattern 3: Fix and Debug
+
+When something doesn't work:
+
+```
+My workflow fails with "Selector not found" on the login button.
+Here's the XAML: [paste]
+```
+
+The `uipath-diagnostics` skill guides systematic debugging.
+
+### Pattern 4: Code Review
+
+Before deployment:
+
+```
+Review this workflow for best practices:
+[paste XAML or describe project]
+```
+
+The `uipath-code-reviewer` skill checks:
+- Naming conventions
+- Error handling
+- Selector reliability
+- Logging completeness
+- Security practices
+
+---
+
+## MCP Tools (Advanced)
+
+When the MCP server is enabled, Cursor has access to UiPath CLI tools. These provide capabilities beyond static generation.
+
+### Available MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `uipath_validate_file` | Validate XAML using UiPath Studio (`uip rpa get-errors --use-studio`) |
+| `uipath_run_workflow` | Execute workflow and capture runtime errors |
+| `uipath_install_package` | Install NuGet packages in a project |
+| `uipath_ensure_project_structure` | Create project scaffold with `project.json` |
+| `uipath_run_command` | Run arbitrary UiPath CLI commands |
+| `uipath_find_activity` | Search for activity information |
+| `uipath_query_docs` | Search UiPath documentation |
+| `uipath_read_file` / `uipath_write_file` | File operations in project context |
+
+### Pattern: Validate and Fix Loop
+
+With MCP tools enabled, you can ask Cursor to validate and fix:
+
+```
+Validate this workflow using UiPath Studio and fix any errors:
+[paste XAML or point to file]
+```
+
+Cursor will:
+1. Call `uipath_validate_file` to get Studio validation errors
+2. Analyze the errors
+3. Fix the XAML
+4. Re-validate until clean
+
+### Pattern: Runtime Testing
+
+```
+Run this workflow and check for runtime errors:
+Project: ./my-project
+File: Main.xaml
+Input: {"orderId": "12345"}
+```
+
+This executes the workflow and captures any runtime exceptions.
+
+### Prerequisites for MCP Tools
+
+- **UiPath CLI (`uip`)** installed and on PATH
+- **UiPath Studio** running (for `--use-studio` validation)
+- **Python environment** activated with `pip install -e ".[mcp]"`
+
+### Verify MCP is Working
+
+In Cursor, check MCP status in Settings > MCP. The `uipath-builder-agent` server should show as connected.
+
+If not connected:
+1. Check Python environment is active
+2. Verify `mcp` package is installed: `pip show mcp`
+3. Check `.cursor/mcp.json` exists and has correct paths
+
+---
+
+## Best Practices
+
+### 1. Be Specific About Requirements
+
+**Less effective:**
+```
+Create an Excel workflow
+```
+
+**More effective:**
+```
+Create a workflow that:
+- Reads data from Sheet1 of input.xlsx
+- Filters rows where Column A contains "Active"
+- Writes filtered results to output.xlsx Sheet1
+- Logs the count of filtered rows
+```
+
+### 2. Specify Project Context
+
+If you're working on an existing project:
+
+```
+I'm working on a REFramework project that processes invoices.
+The Config.xlsx has these settings: [list]
+I need to add retry logic to the HTTP calls in ProcessTransaction.xaml
+```
+
+### 3. Use Superpowers for Complex Work
+
+For multi-file changes or new features:
+
+```
+I need to add Document Understanding to my invoice processor.
+Let's use the brainstorming skill to design this properly.
+```
+
+### 4. Validate Generated Code
+
+Generated XAML should be validated in UiPath Studio:
+1. Copy generated files to your UiPath project
+2. Open in Studio
+3. Run Workflow Analyzer (Design > Analyze Project)
+4. Fix any warnings/errors
+
+If validation fails, share the errors:
+```
+The generated XAML has these errors:
+[paste Workflow Analyzer output]
+```
+
+---
+
+## Common Tasks
+
+### Create a New UiPath Project
+
+```
+Create a new UiPath project structure for an attended automation that:
+- Processes customer requests
+- Uses modern Excel activities
+- Targets Windows with .NET 6
+```
+
+### Add Error Handling
+
+```
+Add Try-Catch error handling to this workflow:
+[paste XAML]
+
+Requirements:
+- Catch BusinessRuleException separately
+- Log errors with full context
+- Set transaction status on failure
+```
+
+### Generate Test Cases
+
+```
+Generate test cases for this workflow:
+[paste XAML or describe logic]
+
+Include:
+- Happy path
+- Edge cases
+- Error scenarios
+```
+
+### Convert Classic to Modern
+
+```
+Convert this classic UI automation to modern design:
+[paste XAML with Attach Browser, etc.]
+```
+
+---
+
+## Troubleshooting
+
+### Skills Not Loading
+
+Verify the setup completed:
+```powershell
+# Check if skills link exists
+dir .cursor\skills
+```
+
+If missing, re-run setup:
+```powershell
+.\scripts\setup-cursor.ps1 -Force
+```
+
+### Submodule Not Initialized
+
+```
+Error: skills/skills directory not found
+```
+
+Run:
+```bash
+git submodule update --init --recursive
+```
+
+### Generated XAML Has Errors
+
+Common issues:
+
+1. **Missing namespace** - Ask Cursor to add the required namespace
+2. **Wrong activity name** - Specify the exact activity from UiPath docs
+3. **Invalid property** - Check the activity's property names in Studio
+
+Example fix request:
+```
+The generated XAML has error: "BC30451: 'UseExcelFile' is not declared"
+Add the required namespace for Excel activities.
+```
+
+### Superpowers Not Available
+
+If superpowers skills don't appear:
+1. Check plugin is installed in Cursor settings
+2. Restart Cursor
+3. Verify with: Settings > Extensions > Cursor Plugins
+
+---
+
+## Comparison: Cursor vs CLI
+
+| Feature | Cursor (no MCP) | Cursor (with MCP) | CLI (`uipath-claude chat`) |
+|---------|-----------------|-------------------|---------------------------|
+| Skills | All 21 UiPath skills | All 21 UiPath skills | All 21 UiPath skills |
+| Superpowers | Via plugin | Via plugin | Not available |
+| Runtime validation | Manual (Studio) | Via MCP tools | Automatic |
+| Package installation | Manual (Studio) | Via MCP tools | Automatic |
+| Static validation | Manual | Via MCP tools | Automatic |
+| Orchestrator API | Manual | Manual | Built-in tools |
+| Session memory | Cursor context | Cursor context | Persistent memory |
+| Subagents | Cursor Task tool | Cursor Task tool | LangGraph agents |
+| Best for | Quick generation | Full dev workflow | Batch automation |
+
+**Recommendation:**
+- Use **Cursor + MCP** for the best IDE experience with validation
+- Use **Cursor (no MCP)** for quick design and generation
+- Use **CLI** for batch operations and CI/CD integration
+
+---
+
+## Further Reading
+
+- [README.md](../README.md) - Project overview
+- [USER_GUIDE.md](USER_GUIDE.md) - CLI usage guide
+- [skills/skills/](../skills/skills/) - Browse skill source files
+- [mcp_server/](../mcp_server/) - MCP server source
+- [UiPath Documentation](https://docs.uipath.com/) - Official reference

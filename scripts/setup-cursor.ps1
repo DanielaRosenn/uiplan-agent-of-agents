@@ -1,0 +1,90 @@
+# Setup Cursor skills for UiPath Builder Agent
+# Run this script after cloning to enable Cursor skill discovery
+
+param(
+    [switch]$Force
+)
+
+$ErrorActionPreference = "Stop"
+$RepoRoot = Split-Path -Parent $PSScriptRoot
+$CursorSkillsDir = Join-Path $RepoRoot ".cursor\skills"
+$SourceSkillsDir = Join-Path $RepoRoot "skills\skills"
+
+Write-Host "Setting up Cursor skills..." -ForegroundColor Cyan
+
+# Check if source skills exist
+if (-not (Test-Path $SourceSkillsDir)) {
+    Write-Host "Error: skills/skills directory not found." -ForegroundColor Red
+    Write-Host "Run: git submodule update --init --recursive" -ForegroundColor Yellow
+    exit 1
+}
+
+# Create .cursor directory if needed
+$CursorDir = Join-Path $RepoRoot ".cursor"
+if (-not (Test-Path $CursorDir)) {
+    New-Item -ItemType Directory -Path $CursorDir | Out-Null
+}
+
+# Check if skills directory already exists
+if (Test-Path $CursorSkillsDir) {
+    if ($Force) {
+        Write-Host "Removing existing .cursor/skills..." -ForegroundColor Yellow
+        Remove-Item -Recurse -Force $CursorSkillsDir
+    } else {
+        Write-Host ".cursor/skills already exists. Use -Force to recreate." -ForegroundColor Yellow
+        exit 0
+    }
+}
+
+# Try to create a junction (works without admin on Windows 10+)
+try {
+    cmd /c "mklink /J `"$CursorSkillsDir`" `"$SourceSkillsDir`""
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Created junction: .cursor/skills -> skills/skills" -ForegroundColor Green
+    } else {
+        throw "Junction creation failed"
+    }
+} catch {
+    # Fallback: copy the skills
+    Write-Host "Junction failed, copying skills instead..." -ForegroundColor Yellow
+    Copy-Item -Recurse $SourceSkillsDir $CursorSkillsDir
+    Write-Host "Copied skills to .cursor/skills" -ForegroundColor Green
+    Write-Host "Note: Skills won't auto-update. Re-run this script after pulling changes." -ForegroundColor Yellow
+}
+
+Write-Host ""
+Write-Host "Cursor setup complete!" -ForegroundColor Green
+Write-Host ""
+Write-Host "Available UiPath skills:" -ForegroundColor Cyan
+Get-ChildItem -Path $CursorSkillsDir -Directory | ForEach-Object {
+    Write-Host "  - $($_.Name)" -ForegroundColor White
+}
+Write-Host ""
+Write-Host "========================================" -ForegroundColor Yellow
+Write-Host "STEP 2: Install MCP Tools (Optional)" -ForegroundColor Yellow
+Write-Host "========================================" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "For UiPath CLI integration (validation, execution, packages):" -ForegroundColor Cyan
+Write-Host "  pip install -e `".[mcp]`"" -ForegroundColor White
+Write-Host ""
+Write-Host "MCP config is at: .cursor/mcp.json" -ForegroundColor Cyan
+Write-Host "Cursor will auto-detect it when you open the folder." -ForegroundColor White
+Write-Host ""
+Write-Host "========================================" -ForegroundColor Yellow
+Write-Host "STEP 3: Install Superpowers Plugin" -ForegroundColor Yellow
+Write-Host "========================================" -ForegroundColor Yellow
+Write-Host ""
+Write-Host "Add to Cursor settings.json:" -ForegroundColor Cyan
+Write-Host '  "cursor.plugins": ["cursor-public/superpowers"]' -ForegroundColor White
+Write-Host ""
+Write-Host "Superpowers adds:" -ForegroundColor Cyan
+Write-Host "  - brainstorming      (design before code)" -ForegroundColor White
+Write-Host "  - writing-plans      (implementation plans)" -ForegroundColor White
+Write-Host "  - executing-plans    (task-by-task execution)" -ForegroundColor White
+Write-Host "  - test-driven-dev    (TDD workflow)" -ForegroundColor White
+Write-Host "  - systematic-debug   (bug investigation)" -ForegroundColor White
+Write-Host "  - code-review        (quality checks)" -ForegroundColor White
+Write-Host ""
+Write-Host "See docs/CURSOR_USER_GUIDE.md for full documentation." -ForegroundColor Cyan
+Write-Host ""
+Write-Host "Open this folder in Cursor to start building UiPath workflows." -ForegroundColor Green
