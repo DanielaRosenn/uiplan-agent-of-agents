@@ -58,3 +58,34 @@ def compile_chat_graph(
     workflow.add_edge("route", "execute")
     workflow.add_edge("execute", END)
     return workflow.compile()
+
+
+def get_documentation_handler(
+    *,
+    model_name: str,
+    region: str,
+):
+    """
+    Get a documentation handler function for use outside the main graph.
+    
+    This allows the CLI or other entry points to handle documentation
+    requests before entering the normal route->execute flow.
+    
+    Args:
+        model_name: Bedrock model ID
+        region: AWS region
+        
+    Returns:
+        Async function that handles documentation requests
+    """
+    from uipath_claude.graph.nodes.documentation import handle_documentation_request
+    
+    async def handler(user_input: str, state: dict) -> dict:
+        return await handle_documentation_request(
+            user_input=user_input,
+            state=state,
+            model_name=model_name,
+            region=region,
+        )
+    
+    return handler
