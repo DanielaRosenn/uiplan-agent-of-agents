@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 import os
 import re
 from pathlib import Path
+import sys
 import uuid
 from typing import Any
 
@@ -659,6 +660,11 @@ async def _get_model_response(
 def chat(
     no_banner: bool = typer.Option(False, "--no-banner", help="Skip welcome banner"),
     no_plan: bool = typer.Option(False, "--no-plan", help="Skip planning phase for BUILD intents"),
+    auto_approve_plan: bool = typer.Option(
+        False,
+        "--auto-approve-plan",
+        help="Auto-approve plans without prompting (for CI/testing)",
+    ),
     stream: bool | None = typer.Option(
         None,
         "--stream/--no-stream",
@@ -986,7 +992,12 @@ def chat(
                         from rich.panel import Panel
                         console.print(Panel(Markdown(plan_result.final_response), title="Implementation Plan", border_style="cyan"))
                     
-                        confirm = Prompt.ask("Approve plan? [y/n/edit]", default="y").strip().lower()
+                        is_interactive = sys.stdin.isatty()
+                        if auto_approve_plan or not is_interactive:
+                            console.print("[dim]Auto-approving plan (non-interactive mode)[/dim]")
+                            confirm = "y"
+                        else:
+                            confirm = Prompt.ask("Approve plan? [y/n/edit]", default="y").strip().lower()
                         if confirm in ("y", "yes"):
                             approved_plan = plan_result.final_response
                             # Save plan to file
