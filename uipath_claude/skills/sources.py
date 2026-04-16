@@ -9,10 +9,12 @@ import yaml
 
 class SkillOrigin(str, Enum):
     """
-    Where a skill comes from. Used for provenance tracking.
-    
-    Priority (first wins on name collision):
-      USER > PROJECT > EXTENSIONS > UIPATH_SUBMODULE > TEMPLATE
+    Provenance label for a skill directory (not the same as merge order).
+
+    Merge order is defined in ``build_skill_sources`` (config paths first,
+    then user, project checkout, extensions, submodule, optional templates).
+    When two sources define the same skill name, the earlier path in that
+    ordered list wins; its directory is tagged with one of these origins.
     """
     USER = "user"
     PROJECT = "project"
