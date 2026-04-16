@@ -24,6 +24,22 @@ from uipath_claude.query.intent_classifier import IntentType, classify_intent
         ),
         ("Explain what project.json contains", IntentType.QUESTION, "question"),
         ("What is Main.xaml for?", IntentType.QUESTION, "question"),
+        (
+            "can you read an sdd and build a project according to it?",
+            IntentType.BUILD,
+            "build",
+        ),
+        ("create a sdd for invoice processing", IntentType.DOCUMENTATION, "doc"),
+        ("what is an sdd?", IntentType.QUESTION, "question"),
+        ("use the pdd to build the agent", IntentType.BUILD, "build"),
+        (
+            "can you help me build a project if i provide with sdd?",
+            IntentType.QUESTION,
+            "capability",
+        ),
+        ("could you explain how queues work?", IntentType.QUESTION, "capability"),
+        ("are you able to read an SDD?", IntentType.QUESTION, "capability"),
+        ("can you build a dispatcher", IntentType.BUILD, "build"),
     ],
 )
 def test_classify_intent(text: str, expected: IntentType, reason_substr: str) -> None:

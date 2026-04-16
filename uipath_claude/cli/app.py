@@ -22,6 +22,7 @@ from uipath_claude.commands.skills import register_skills_command
 from uipath_claude.commands.status import register_status_command
 from uipath_claude.commands.update_skills import register_update_skills_command
 from uipath_claude.commands.validate import register_validate_command
+from uipath_claude.cli.capability_hint import maybe_print_capability_build_hint
 from uipath_claude.context.project import detect_uipath_project
 from uipath_claude.memory.loader import load_memory
 from uipath_claude.artifacts.materialize import (
@@ -96,18 +97,18 @@ CRITICAL CAPABILITIES:
 - When the user asks you to do something, DO IT using your tools (if in agentic mode) or by generating the necessary files.
 
 EXECUTING APPROVED IMPLEMENTATION PLANS:
-If the runtime context includes an "Approved Implementation Plan", treat it as your execution checklist—not background prose.
+If the runtime context includes an "Approved Implementation Plan", treat it as your execution checklistΓÇönot background prose.
 You MUST carry it out with tools and/or UIPATH_FILE blocks until the user's build request is satisfied (or you hit a hard blocker you report clearly).
-1. Read every plan step; map vague steps to concrete tools (e.g. scaffold → `ensure_project_structure`, new XAML → `write_file` or file blocks).
+1. Read every plan step; map vague steps to concrete tools (e.g. scaffold ΓåÆ `ensure_project_structure`, new XAML ΓåÆ `write_file` or file blocks).
 2. Prefer tool calls over narration; do not end the turn having only summarized the plan.
 3. If the plan mentions human-only steps (e.g. "open Studio"), substitute the closest supported automation (project structure, XAML files, validation) and continue.
 
 Example translations:
-- "Create project / use uip new" → call `ensure_project_structure` (or equivalent) for the target project directory, then add workflows.
-- "Add Main.xaml" → `write_file` or `<<<UIPATH_FILE path="Main.xaml">>>` blocks with valid XAML.
-- "Validate workflow" → `validate_and_fix_loop` on the XAML path when available.
+- "Create project / use uip new" ΓåÆ call `ensure_project_structure` (or equivalent) for the target project directory, then add workflows.
+- "Add Main.xaml" ΓåÆ `write_file` or `<<<UIPATH_FILE path="Main.xaml">>>` blocks with valid XAML.
+- "Validate workflow" ΓåÆ `validate_and_fix_loop` on the XAML path when available.
 
-Do not reply that the plan "looks good" or that you lack access—execute.
+Do not reply that the plan "looks good" or that you lack accessΓÇöexecute.
 
 IMPORTANT - Clarification Before Action:
 If the user's request is ambiguous, vague, or missing critical details needed to build a correct workflow, ASK for clarification BEFORE generating any files. Examples of when to ask:
@@ -832,7 +833,7 @@ def chat(
                             "[dim]Authenticated with UiPath Orchestrator[/dim]\n"
                         )
         except typer.Exit:
-            # User chose "exit and authenticate"; typer.Exit subclasses Exception — re-raise
+            # User chose "exit and authenticate"; typer.Exit subclasses Exception ΓÇö re-raise
             raise
         except Exception as e:
             # Don't block startup on auth check failures
@@ -1030,7 +1031,9 @@ def chat(
                     if not stream_enabled:
                         console.print(answer, end="")
                     console.print("")
-                    
+
+                    maybe_print_capability_build_hint(console, user_input)
+
                     history.append({"role": "user", "content": user_input})
                     history.append({"role": "assistant", "content": answer})
                     
