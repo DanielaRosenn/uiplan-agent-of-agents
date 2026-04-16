@@ -197,6 +197,7 @@ class AgenticExecutor:
         iterations = 0
         tool_success_count = 0
         tool_failure_count = 0
+        plan_tool_nudges = 0
 
         while iterations < max_iter:
             iterations += 1
@@ -247,7 +248,31 @@ class AgenticExecutor:
                     )
                     messages.append(HumanMessage(content=fix_instruction))
                     continue  # Continue the loop to fix validation errors
-                
+
+                # Approved plan was merged into skill_content (see cli chat + execute node) but the
+                # model sometimes replies with prose only. Nudge to require at least one tool call.
+                if (
+                    "Approved Implementation Plan" in (skill_content or "")
+                    and not tool_calls_made
+                    and plan_tool_nudges < 5
+                    and iterations < max_iter
+                ):
+                    plan_tool_nudges += 1
+                    messages.append(response)
+                    nudge = (
+                        "SYSTEM: Your skill instructions include an `Approved Implementation Plan`. "
+                        "You must not finish with text only — call tools now and execute that plan "
+                        "(e.g. read_project_json, list_directory, ensure_project_structure, write_file). "
+                        "Start with discovery or scaffolding, then implement. Plain summaries alone are invalid."
+                    )
+                    messages.append(HumanMessage(content=nudge))
+                    if progress:
+                        progress.info(
+                            "Approved plan present but no tools used yet; requesting tool calls "
+                            f"({plan_tool_nudges}/5)."
+                        )
+                    continue
+
                 if progress:
                     progress.model_finished_without_tools(
                         iteration=iterations,
