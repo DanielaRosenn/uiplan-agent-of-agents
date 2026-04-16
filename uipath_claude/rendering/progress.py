@@ -282,6 +282,10 @@ class AgenticProgressReporter:
             "list_files": "Listing files",
             "run_workflow": "Running workflow",
             "deploy_to_orchestrator": "Deploying to Orchestrator",
+            "write_documentation": "Writing documentation",
+            "read_doc_template": "Reading doc template",
+            "read_documentation": "Reading documentation",
+            "list_documentation": "Listing documentation",
         }
         
         description = tool_descriptions.get(name, name)
@@ -451,3 +455,67 @@ class AgenticProgressReporter:
             icon = "+"
         
         self.console.print(f"  [{style}][{icon}][/{style}] Validation: {errors} error(s), {warnings} warning(s)")
+
+    def doc_phase_start(self, doc_type: str, agent: str) -> None:
+        """
+        Show documentation phase starting.
+        
+        Args:
+            doc_type: Type of document (pdd, sdd, add, tdd)
+            agent: Agent type (ba or sa)
+        """
+        import sys
+        agent_label = "Business Analyst" if agent == "ba" else "Solution Architect"
+        # Structured marker for evaluation parser
+        self.console.print(f"[dim][DOC_PHASE: {doc_type.upper()}][/dim]")
+        self.console.print(f"[cyan]Creating {doc_type.upper()}[/cyan] using {agent_label} agent")
+        self.console.print()
+        sys.stdout.flush()
+
+    def doc_created(self, doc_type: str, path: str) -> None:
+        """
+        Show documentation created successfully.
+        
+        Args:
+            doc_type: Type of document (pdd, sdd, add, tdd)
+            path: Path where document was saved
+        """
+        import sys
+        # Structured marker for evaluation parser
+        self.console.print(f"[dim][DOC_CREATED: {doc_type.upper()}][/dim]")
+        self.console.print(f"[green]+[/green] {doc_type.upper()} created: {path}")
+        sys.stdout.flush()
+
+    def doc_skipped(self, doc_type: str, reason: str) -> None:
+        """
+        Show documentation skipped.
+        
+        Args:
+            doc_type: Type of document
+            reason: Why it was skipped
+        """
+        self.console.print(f"[yellow]![/yellow] {doc_type.upper()} skipped: {reason}")
+
+    def doc_need_detected(self, level: str, docs: list[str]) -> None:
+        """
+        Show detected documentation needs.
+        
+        Args:
+            level: Documentation need level (none, optional, recommended, required)
+            docs: List of recommended document types
+        """
+        if level == "none":
+            return
+        
+        level_colors = {
+            "optional": "dim",
+            "recommended": "yellow",
+            "required": "cyan bold",
+        }
+        color = level_colors.get(level, "dim")
+        
+        if docs:
+            docs_str = ", ".join(d.upper() for d in docs)
+            self.console.print(f"[{color}]Documentation {level}:[/{color}] {docs_str}")
+        else:
+            self.console.print(f"[{color}]Documentation {level}[/{color}]")
