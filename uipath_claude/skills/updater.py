@@ -31,6 +31,9 @@ def run_git_command(args: list[str], cwd: Path) -> Tuple[bool, str]:
             text=True,
             timeout=60,
             env=env,
+            # Do not inherit stdin: git may read prompts/credentials from it and can
+            # consume buffered lines intended for Rich/CLI tests (e.g. CliRunner input).
+            stdin=subprocess.DEVNULL,
         )
         output = result.stdout.strip() or result.stderr.strip()
         return result.returncode == 0, output

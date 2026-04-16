@@ -31,6 +31,7 @@ class HookManager:
                     shell=True,
                     capture_output=True,
                     timeout=30,
+                    stdin=subprocess.DEVNULL,
                 )
             except Exception:
                 # Silently ignore hook failures

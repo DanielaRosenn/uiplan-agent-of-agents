@@ -14,6 +14,8 @@ It uses the unified `agent_benchmark_evaluator` which combines:
 1. **Outcome Scoring**: Checks if the expected files were created, packages installed, and if static validation passed.
 2. **Trajectory Scoring**: Checks if the agent used the correct sequence of tools (e.g., `ensure_project_structure` -> `install_package` -> `write_file` -> `validate_file` -> `run_workflow`).
 
+The benchmark agent instructions live in `uipath_claude/evaluation/eval_skill_prompt.py` (`EVAL_AGENT_SKILL_PROMPT`). Each run sets `UIPATH_CHAT_SESSION_ID` so tools write under the same session folder as `project_context`. **Static validation in scores** uses `validation_passed`: true when `tool_failure_count == 0` and the executor reported no fatal `error` (not merely “the LLM finished the loop”).
+
 ### Running Evaluations
 
 To run the full evaluation suite:

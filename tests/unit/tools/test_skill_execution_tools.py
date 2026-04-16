@@ -243,10 +243,41 @@ class TestRunUipCommand:
         from uipath_claude.tools.skill_execution_tools import run_uip_command
         result = run_uip_command.func(
             command="rpa",
-            args=["find-activities", "--query", "Outlook", "--output", "json"],
+            command_args=["find-activities", "--query", "Outlook", "--output", "json"],
         )
         
         assert "activities" in result
+
+    @patch("uipath_claude.tools.skill_execution_tools.subprocess.run")
+    def test_strips_use_studio_flag(self, mock_run, tmp_path, monkeypatch):
+        monkeypatch.setenv("UIPATH_CHAT_OUTPUT_DIR", str(tmp_path))
+        monkeypatch.setenv("UIPATH_CHAT_SESSION_ID", "")
+
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout='{"Result": "Success", "Data": {"ok": true}}',
+            stderr="",
+        )
+
+        from uipath_claude.tools.skill_execution_tools import run_uip_command
+
+        result = run_uip_command.func(
+            command="rpa",
+            command_args=[
+                "find-activities",
+                "--use-studio",
+                "--query",
+                "X",
+                "--output",
+                "json",
+            ],
+        )
+
+        cmd = mock_run.call_args[0][0]
+        assert "--use-studio" not in cmd
+        assert "find-activities" in cmd
+        assert "removed unsupported uip flag" in result.lower()
+        assert "--use-studio" in result
 
 
 class TestFindActivityInfo:

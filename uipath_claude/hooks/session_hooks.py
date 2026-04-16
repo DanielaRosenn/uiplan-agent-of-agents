@@ -82,6 +82,7 @@ def run_session_start_hooks(verbose: bool = False) -> list[dict]:
                     timeout=timeout,
                     cwd=str(hooks_path.parent),
                     env={**os.environ, "CLAUDE_PLUGIN_ROOT": str(hooks_path.parent)},
+                    stdin=subprocess.DEVNULL,
                 )
                 result["output"] = proc.stdout or proc.stderr
                 if proc.returncode != 0:
@@ -109,6 +110,7 @@ def check_uip_installed() -> tuple[bool, str]:
             text=True,
             timeout=10,
             shell=True,
+            stdin=subprocess.DEVNULL,
         )
         if result.returncode == 0:
             version = result.stdout.strip().split('\n')[0]  # First line only

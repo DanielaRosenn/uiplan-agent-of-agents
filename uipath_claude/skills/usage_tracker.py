@@ -37,7 +37,7 @@ class UsageTrackerConfig:
     auto_capture_on_complex_success: bool = True
     complexity_threshold: int = 5
     auto_capture_on_recovery: bool = True
-    default_layer: InsightLayer = InsightLayer.PROJECT
+    default_layer: InsightLayer = InsightLayer.USER
     min_confidence: float = 0.3
 
 

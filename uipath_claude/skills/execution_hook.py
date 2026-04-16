@@ -242,3 +242,34 @@ def track_skill_execution(
     """
     hooks = get_execution_hooks()
     return hooks.create_context(skill_name, insights_used)
+
+
+def track_nonagentic_interaction(
+    interaction_type: str,
+    user_input: str,
+    success: bool,
+    error: Optional[str] = None,
+    context: Optional[str] = None,
+) -> Optional[SkillInsight]:
+    """
+    Track non-agentic interactions (questions, clarifications) for learning.
+    
+    Args:
+        interaction_type: Type of interaction ("question", "clarification", etc.)
+        user_input: The user's input
+        success: Whether the interaction was successful
+        error: Error message if failed
+        context: Additional context about the interaction
+        
+    Returns:
+        SkillInsight if one was auto-captured, None otherwise
+    """
+    skill_name = f"chat-{interaction_type}"
+    
+    return post_skill_execution_hook(
+        skill_name=skill_name,
+        success=success,
+        tool_calls=0,  # No tool calls for non-agentic paths
+        error=error,
+        context=context or user_input[:500],
+    )

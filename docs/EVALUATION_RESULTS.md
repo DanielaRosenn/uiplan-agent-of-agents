@@ -4,7 +4,7 @@ Test results from CLI benchmark runs with agentic execution mode.
 
 ## Test Environment
 
-- **Date**: April 14, 2026
+- **Date**: April 15, 2026
 - **Agent Version**: dev
 - **Max Iterations**: 25
 - **Debug Mode**: Enabled
@@ -76,6 +76,30 @@ Test results from CLI benchmark runs with agentic execution mode.
 
 **Status**: In progress (still running at time of documentation)
 
+## New Evaluation Cases Added (April 15, 2026)
+
+The following 4 new evaluation cases were added to the `EvaluationDataset` to expand the benchmark suite to 7 total cases:
+
+### 1. Data Manipulation (Medium)
+**Prompt**: "Create a UiPath workflow that reads a CSV file into a DataTable, filters it to keep only rows where Status is 'Active', and writes the result to a new CSV file"
+**Expected Activities**: `ReadCsvFile`, `FilterDataTable`, `WriteCsvFile`
+**Expected Packages**: `UiPath.System.Activities`
+
+### 2. API & JSON Parsing (Hard)
+**Prompt**: "Create a UiPath workflow that makes an HTTP GET request to a public API, parses the JSON response, and logs a specific field"
+**Expected Activities**: `HttpClient`, `DeserializeJson`, `LogMessage`
+**Expected Packages**: `UiPath.WebAPI.Activities`
+
+### 3. File System Operations (Easy)
+**Prompt**: "Create a UiPath workflow that gets all PDF files from an 'Input' folder and moves them to an 'Archive' folder using a For Each loop"
+**Expected Activities**: `ForEach`, `MoveFile`
+**Expected Packages**: `UiPath.System.Activities`
+
+### 4. Exception Handling (Medium)
+**Prompt**: "Create a UiPath workflow with a Try Catch block that attempts to read a text file. If a FileNotFoundException occurs, it should log a warning message instead of failing"
+**Expected Activities**: `TryCatch`, `ReadTextFile`, `LogMessage`
+**Expected Packages**: `UiPath.System.Activities`
+
 ## Debug Output Improvements
 
 The new `AgenticProgressReporter` provides much more readable output:
@@ -139,6 +163,6 @@ The new `AgenticProgressReporter` provides much more readable output:
 
 1. Fix `run_uip_command` tool argument handling
 2. Run remaining web automation test
-3. Add more test cases from workflow-benchmarks.md
+3. Run the 4 newly added evaluation cases (Data Manipulation, API, File System, Exception Handling)
 4. Implement trajectory tracking for evaluation
 5. Set up automated evaluation runs

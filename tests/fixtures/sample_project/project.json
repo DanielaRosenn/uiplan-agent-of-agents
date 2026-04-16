@@ -4,10 +4,59 @@
   "description": "Test UiPath project for unit tests",
   "main": "Main.xaml",
   "dependencies": {
-    "UiPath.System.Activities": "[25.10.3]",
-    "UiPath.UIAutomation.Activities": "[25.10.19]"
+    "Microsoft.VisualBasic": "10.3.0",
+    "UiPath.Core.Activities": "22.10.3",
+    "UiPath.Excel.Activities": "3.5.0-preview",
+    "UiPath.Mail.Activities": "2.8.10",
+    "UiPath.System.Activities": "26.2.4",
+    "UiPath.UIAutomation.Activities": "26.4.0-preview",
+    "UiPath.Web.Activities": "2.4.0"
   },
+  "webServices": [],
+  "entitiesStores": [],
   "schemaVersion": "4.0",
+  "runtimeOptions": {
+    "autoDispose": false,
+    "netFrameworkLazyLoading": false,
+    "isPausable": true,
+    "isAttended": false,
+    "requiresUserInteraction": true,
+    "supportsPersistence": false,
+    "workflowSerialization": "DataContract",
+    "excludedLoggedData": [
+      "Private:*",
+      "*password*"
+    ],
+    "executionType": "Workflow",
+    "readyForPiP": false,
+    "startsInPiP": false,
+    "mustRestoreAllDependencies": false,
+    "pipType": "ChildSession"
+  },
+  "designOptions": {
+    "projectProfile": "Developement",
+    "outputType": "Process",
+    "libraryOptions": {
+      "privateWorkflows": []
+    },
+    "processOptions": {
+      "ignoredFiles": []
+    },
+    "fileInfoCollection": [],
+    "modernBehavior": false,
+    "saveToCloud": false
+  },
   "expressionLanguage": "VisualBasic",
+  "entryPoints": [
+    {
+      "filePath": "Main.xaml",
+      "uniqueId": "dbc4e938-acf0-48c0-864d-f6de69e9de59",
+      "input": [],
+      "output": []
+    }
+  ],
+  "isTemplate": false,
+  "templateProjectData": {},
+  "publishData": {},
   "targetFramework": "Windows"
 }

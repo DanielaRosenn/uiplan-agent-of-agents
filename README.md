@@ -45,7 +45,41 @@ git submodule update --init --recursive
 
 ## Usage
 
-### Chat mode
+### Option 1: Use in Cursor (recommended for IDE users)
+
+The UiPath skills work directly in Cursor without the CLI. After cloning:
+
+```powershell
+# Windows
+.\scripts\setup-cursor.ps1
+```
+
+```bash
+# macOS/Linux
+./scripts/setup-cursor.sh
+```
+
+This creates a link from `.cursor/skills/` to the UiPath skills. Open the repo folder in Cursor and the skills are automatically available. When you ask about UiPath workflows, XAML, REFramework, etc., Cursor will use the relevant skill.
+
+**Available skills include:**
+- `uipath-automation` - XAML generation, project structure, activities
+- `uipath-reframework` - REFramework patterns
+- `uipath-maestro-flow` - Maestro/BPMN flows
+- `uipath-diagnostics` - Troubleshooting
+- `uipath-code-reviewer` - Quality gates
+- And 15+ more specialized skills
+
+**Recommended:** Install the Superpowers plugin for advanced workflows:
+```json
+// Add to Cursor settings.json
+"cursor.plugins": ["cursor-public/superpowers"]
+```
+
+Superpowers adds brainstorming, planning, TDD, debugging, and code review skills.
+
+**Full guide:** [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md)
+
+### Option 2: CLI Chat mode
 
 ```bash
 uipath-claude chat
@@ -100,7 +134,9 @@ Generated projects are saved to `generated/chat/{session-id}/`.
 | `UIPATH_CLAUDE_MODEL` | Bedrock model ID | `anthropic.claude-3-sonnet-20240229-v1:0` |
 | `UIPATH_AGENTIC_MODE` | Enable agentic tool-use loops | `0` |
 | `UIPATH_DEBUG_AGENT` | Show formatted debug output | `1` |
-| `UIPATH_DEBUG_VERBOSE` | Show full tool args/results (not truncated) | `0` |
+| `UIPATH_DEBUG_VERBOSE` | Show full tool args/results (not truncated) | `1` |
+| `UIPATH_AGENTIC_FULL_TOOL_OUTPUT` | In agentic debug, print full tool return bodies for successful tools too (failures always expand) | `0` |
+| `UIPATH_STREAM_UIP_CLI` | Stream `uip rpa run-file` stdout/stderr lines to stderr while `run_workflow` runs (JSON may be one long line) | `0` |
 | `UIPATH_DEBUG_RAW` | Show raw JSON output | `0` |
 | `UIPATH_MAX_ITERATIONS` | Maximum ReAct loop iterations | `25` |
 | `UIPATH_SKILL_AUTO_CAPTURE` | After agentic runs, record usage / auto-capture insights (`post_skill_execution_hook`) | `1` |
@@ -110,6 +146,10 @@ Generated projects are saved to `generated/chat/{session-id}/`.
 | `UIPATH_CLAUDE_REQUIRE_APPROVAL` | Require approval for CLI ops | `false` |
 | `UIPATH_CLAUDE_CLI_APPROVED` | Pre-approve CLI operations | `false` |
 | `UIPATH_INCLUDE_TEMPLATE_SKILLS` | Include `templates/**/.cursor/skills` (and `.claude/skills`) | `0` |
+| `UIPATH_CHAT_STREAM` | Stream assistant tokens during non-agentic LLM turns (`1` on, `0` off) | `1` |
+| `UIPATH_CHAT_OUTPUT_MODE` | `auto` \| `full` \| `quiet` — controls post-run assistant text re-print only; does **not** turn off streaming | `auto` |
+
+**Agentic console (interactive chat):** When `UIPATH_DEBUG_AGENT=1` (default), each line is `Step n/max` with a small ASCII track (`=` done, `>` caret, `·` remaining). Successful tool calls print **full tool arguments** (JSON) by default because `UIPATH_DEBUG_VERBOSE` defaults to `1`; set `UIPATH_DEBUG_VERBOSE=0` for one-line summaries, or set `UIPATH_AGENTIC_FULL_TOOL_OUTPUT=1` to also print full **return bodies** for successful tools (failed tools always expand). After the model uses tools and then returns **without** further tool calls, you should see a dim **Finishing (no more tool calls this turn).** line (and a short preview of the final text when non-empty). **Token streaming** (Bedrock deltas) is never suppressed by output mode: if `UIPATH_CHAT_STREAM=1` (default), hooks always receive deltas for non-agentic turns. Turn streaming off with `uipath-claude chat --no-stream` or `UIPATH_CHAT_STREAM=0`. Inner **agentic** tool steps still use the step reporter, not per-token Bedrock streaming, unless you extend the executor.
 
 ### Runtime controls
 
@@ -148,7 +188,8 @@ When `UIPATH_PLAN_MODE=1` (default), BUILD and AMBIGUOUS intents trigger a plann
 2. **Review**: The plan is displayed in a cyan-bordered panel. You can:
    - Type `y` or `yes` to approve and proceed to execution
    - Type `n` or `no` to cancel
-   - Type any other text as feedback to refine the plan
+   - Type `adjust` or `edit` to describe changes; the planner runs again with that feedback
+   - Type any other text as direct feedback to refine the plan (same as a one-line adjust)
 3. **Persistence**: Approved plans are saved to `generated/chat/<session>/.plan.md`
 4. **Execution**: The approved plan is injected into the execution context
 

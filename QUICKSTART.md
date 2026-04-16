@@ -71,9 +71,10 @@ set UIPATH_CHAT_STREAM=0
 Optional response-output mode:
 
 ```bash
-# auto (default): hide raw file blocks and show concise generation status
-# full: always print full assistant text
-# quiet: always suppress assistant body text
+# auto (default): after the run, avoid dumping huge assistant bodies when the reply
+#     contains file blocks (streaming deltas are unchanged)
+# full: always print full assistant text after the run
+# quiet: suppress extra assistant body re-print after streaming (deltas still stream if UIPATH_CHAT_STREAM=1)
 set UIPATH_CHAT_OUTPUT_MODE=auto
 ```
 

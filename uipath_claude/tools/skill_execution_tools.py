@@ -7,9 +7,13 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
+import sys
+import time
 from pathlib import Path
-from typing import Any
+from threading import Thread
+from typing import Any, Optional, Tuple
 
 from langchain_core.tools import tool
 
@@ -29,6 +33,70 @@ def _get_output_root() -> Path:
     """Get the output root directory for generated files."""
     default = Path.cwd() / "generated" / "chat"
     return Path(os.environ.get("UIPATH_CHAT_OUTPUT_DIR", str(default)))
+
+
+def _resolve_project_path(project_dir: str) -> Path:
+    """Resolve project directory, preferring CWD if it has project.json.
+    
+    This allows tools to work both:
+    1. In test fixtures where CWD has project.json
+    2. In normal operation where files go to generated/chat/<session_id>/
+    
+    Args:
+        project_dir: Relative or absolute path to project directory
+        
+    Returns:
+        Resolved Path to the project directory
+    """
+    path = Path(project_dir)
+    if path.is_absolute():
+        return path
+    
+    # Check if CWD has project.json (test fixture or real project scenario)
+    cwd_path = Path.cwd() / project_dir
+    if (cwd_path / "project.json").exists():
+        return cwd_path
+    
+    # Also check if CWD itself is a project (project_dir is ".")
+    if project_dir in (".", "") and (Path.cwd() / "project.json").exists():
+        return Path.cwd()
+    
+    # Fall back to generated output directory
+    output_root = _get_output_root()
+    session_id = os.environ.get("UIPATH_CHAT_SESSION_ID", "")
+    if session_id:
+        return output_root / session_id / project_dir
+    return output_root / project_dir
+
+
+def _resolve_file_path(file_path: str) -> Path:
+    """Resolve file path, preferring CWD if it's in a project directory.
+    
+    Args:
+        file_path: Relative or absolute path to a file
+        
+    Returns:
+        Resolved Path to the file
+    """
+    path = Path(file_path)
+    if path.is_absolute():
+        return path
+    
+    # Check if file exists in CWD (test fixture or real project scenario)
+    cwd_path = Path.cwd() / file_path
+    if cwd_path.exists():
+        return cwd_path
+    
+    # Check if CWD has project.json (we're in a project directory)
+    if (Path.cwd() / "project.json").exists():
+        return cwd_path
+    
+    # Fall back to generated output directory
+    output_root = _get_output_root()
+    session_id = os.environ.get("UIPATH_CHAT_SESSION_ID", "")
+    if session_id:
+        return output_root / session_id / file_path
+    return output_root / file_path
 
 
 def _resolve_safe_path(base: Path, relative: str) -> Path | None:
@@ -62,14 +130,7 @@ def read_file(file_path: str) -> str:
     Returns:
         File contents as string, or error message if file not found
     """
-    path = Path(file_path)
-    if not path.is_absolute():
-        output_root = _get_output_root()
-        session_id = os.environ.get("UIPATH_CHAT_SESSION_ID", "")
-        if session_id:
-            path = output_root / session_id / file_path
-        else:
-            path = output_root / file_path
+    path = _resolve_file_path(file_path)
     
     if not path.exists():
         return f"Error: File not found: {file_path}"
@@ -130,12 +191,16 @@ def write_file(file_path: str, content: str) -> str:
     Returns:
         Success message with absolute path, or error message
     """
-    output_root = _get_output_root()
-    session_id = os.environ.get("UIPATH_CHAT_SESSION_ID", "")
-    if session_id:
-        base = output_root / session_id
+    # Use CWD if it's a project directory (has project.json)
+    if (Path.cwd() / "project.json").exists():
+        base = Path.cwd()
     else:
-        base = output_root
+        output_root = _get_output_root()
+        session_id = os.environ.get("UIPATH_CHAT_SESSION_ID", "")
+        if session_id:
+            base = output_root / session_id
+        else:
+            base = output_root
     
     dest = _resolve_safe_path(base, file_path)
     if dest is None:
@@ -174,14 +239,7 @@ def list_directory(dir_path: str = ".", pattern: str = "*") -> str:
     Returns:
         List of matching file paths, one per line
     """
-    path = Path(dir_path)
-    if not path.is_absolute():
-        output_root = _get_output_root()
-        session_id = os.environ.get("UIPATH_CHAT_SESSION_ID", "")
-        if session_id:
-            path = output_root / session_id / dir_path
-        else:
-            path = output_root / dir_path
+    path = _resolve_project_path(dir_path)
     
     if not path.exists():
         return f"Error: Directory not found: {dir_path}"
@@ -221,14 +279,7 @@ def read_project_json(project_dir: str = ".") -> str:
     Returns:
         JSON string with project name, dependencies, entry points, and settings
     """
-    path = Path(project_dir)
-    if not path.is_absolute():
-        output_root = _get_output_root()
-        session_id = os.environ.get("UIPATH_CHAT_SESSION_ID", "")
-        if session_id:
-            path = output_root / session_id / project_dir
-        else:
-            path = output_root / project_dir
+    path = _resolve_project_path(project_dir)
     
     project_json = path / "project.json"
     if not project_json.exists():
@@ -268,14 +319,7 @@ def install_package(project_dir: str, package_id: str, version: str | None = Non
     Returns:
         Success or error message
     """
-    path = Path(project_dir)
-    if not path.is_absolute():
-        output_root = _get_output_root()
-        session_id = os.environ.get("UIPATH_CHAT_SESSION_ID", "")
-        if session_id:
-            path = output_root / session_id / project_dir
-        else:
-            path = output_root / project_dir
+    path = _resolve_project_path(project_dir)
     
     if not (path / "project.json").exists():
         return f"Error: No project.json found in {project_dir}"
@@ -334,14 +378,7 @@ def validate_file(project_dir: str, file_path: str | None = None) -> str:
     Returns:
         Validation result with errors and warnings
     """
-    path = Path(project_dir)
-    if not path.is_absolute():
-        output_root = _get_output_root()
-        session_id = os.environ.get("UIPATH_CHAT_SESSION_ID", "")
-        if session_id:
-            path = output_root / session_id / project_dir
-        else:
-            path = output_root / project_dir
+    path = _resolve_project_path(project_dir)
     
     result = run_uip_rpa_get_errors(
         str(path.resolve()),
@@ -372,7 +409,11 @@ def validate_file(project_dir: str, file_path: str | None = None) -> str:
 
 
 @tool
-def run_uip_command(command: str, args: list[str], project_dir: str | None = None) -> str:
+def run_uip_command(
+    command: str,
+    command_args: list[str],
+    project_dir: str | None = None,
+) -> str:
     """Run any uip CLI command.
     
     Use this for commands not covered by other tools, such as:
@@ -383,29 +424,31 @@ def run_uip_command(command: str, args: list[str], project_dir: str | None = Non
     
     Args:
         command: The uip subcommand (e.g., "rpa", "is")
-        args: List of arguments for the command
+        command_args: Arguments after the subcommand (e.g. ``["find-activities", "--query", "X"]``)
         project_dir: Optional project directory for context
     
     Returns:
         Command output or error message
     """
     uip_cli = _find_uip_cli()
-    
-    cmd = [uip_cli, command] + args
-    
-    # Note: --use-studio flag removed as it's not supported by all CLI versions
-    
+
+    # Flags not supported on all uip CLI builds (model sometimes still emits them)
+    _strip_flags = frozenset({"--use-studio"})
+    stripped: list[str] = []
+    filtered_args: list[str] = []
+    for arg in command_args:
+        if arg in _strip_flags:
+            stripped.append(arg)
+        else:
+            filtered_args.append(arg)
+    command_args = filtered_args
+
+    cmd = [uip_cli, command] + command_args
+
     # Set working directory if project_dir provided
     cwd = None
     if project_dir:
-        path = Path(project_dir)
-        if not path.is_absolute():
-            output_root = _get_output_root()
-            session_id = os.environ.get("UIPATH_CHAT_SESSION_ID", "")
-            if session_id:
-                path = output_root / session_id / project_dir
-            else:
-                path = output_root / project_dir
+        path = _resolve_project_path(project_dir)
         if path.exists():
             cwd = str(path.resolve())
     
@@ -424,18 +467,28 @@ def run_uip_command(command: str, args: list[str], project_dir: str | None = Non
         return f"Error: Command timed out after 60s"
     
     output = "\n".join(part for part in (proc.stdout, proc.stderr) if part)
-    
+
+    note = ""
+    if stripped:
+        note = (
+            "Note: removed unsupported uip flag(s): "
+            + ", ".join(stripped)
+            + "\n\n"
+        )
+
     # Try to extract JSON result if present
     result = _parse_first_json_payload(output)
     if result:
         if result.get("Result") == "Success":
             data = result.get("Data", result)
-            return json.dumps(data, indent=2)[:5000]
+            body = json.dumps(data, indent=2)[:5000]
+            return note + body if note else body
         elif result.get("Message"):
-            return f"Error: {result['Message']}"
-    
+            return note + f"Error: {result['Message']}"
+
     # Return raw output (truncated)
-    return output[:5000] if output else "(no output)"
+    tail = output[:5000] if output else "(no output)"
+    return note + tail if note else tail
 
 
 @tool
@@ -480,18 +533,9 @@ def find_activity_info(query: str, project_dir: str | None = None) -> str:
     
     # Determine project path
     if project_dir:
-        path = Path(project_dir)
-        if not path.is_absolute():
-            output_root = _get_output_root()
-            session_id = os.environ.get("UIPATH_CHAT_SESSION_ID", "")
-            if session_id:
-                path = output_root / session_id / project_dir
-            else:
-                path = output_root / project_dir
+        path = _resolve_project_path(project_dir)
     else:
-        output_root = _get_output_root()
-        session_id = os.environ.get("UIPATH_CHAT_SESSION_ID", "")
-        path = output_root / session_id if session_id else output_root
+        path = _resolve_project_path(".")
     
     discovery = ActivityDiscovery(skills_root)
     info = discovery.find_activity(query, path)
@@ -542,14 +586,7 @@ def validate_and_fix_loop(
     Returns:
         Validation status and list of errors to fix
     """
-    path = Path(project_dir)
-    if not path.is_absolute():
-        output_root = _get_output_root()
-        session_id = os.environ.get("UIPATH_CHAT_SESSION_ID", "")
-        if session_id:
-            path = output_root / session_id / project_dir
-        else:
-            path = output_root / project_dir
+    path = _resolve_project_path(project_dir)
     
     result = run_uip_rpa_get_errors(
         str(path.resolve()),
@@ -595,14 +632,7 @@ def debug_workflow(project_dir: str, file_path: str) -> str:
     Returns:
         Execution output or error message
     """
-    path = Path(project_dir)
-    if not path.is_absolute():
-        output_root = _get_output_root()
-        session_id = os.environ.get("UIPATH_CHAT_SESSION_ID", "")
-        if session_id:
-            path = output_root / session_id / project_dir
-        else:
-            path = output_root / project_dir
+    path = _resolve_project_path(project_dir)
     
     uip_cli = _find_uip_cli()
     
@@ -698,10 +728,21 @@ def _parse_runtime_response(response_text: str, verbose: bool = False) -> dict:
     error_message = response.get("ErrorMessage", "")
     data = response.get("Data", {})
     
-    errors = data.get("Errors", [])
-    log_entries = data.get("LogEntries", [])
-    output_data = data.get("Output", {})
-    execution_state = output_data.get("State", "Unknown")
+    # Handle case where Data is a string (error message) instead of dict
+    if isinstance(data, str):
+        return {
+            "success": False,
+            "error_message": data,
+            "execution_state": "Error",
+            "errors": [data],
+            "log_entries": [],
+            "has_more_logs": False
+        }
+    
+    errors = data.get("Errors", []) if isinstance(data, dict) else []
+    log_entries = data.get("LogEntries", []) if isinstance(data, dict) else []
+    output_data = data.get("Output", {}) if isinstance(data, dict) else {}
+    execution_state = output_data.get("State", "Unknown") if isinstance(output_data, dict) else "Unknown"
     
     # Filter log entries to only errors/critical unless verbose
     if not verbose:
@@ -714,13 +755,14 @@ def _parse_runtime_response(response_text: str, verbose: bool = False) -> dict:
     if len(log_entries) > 5 and not verbose:
         log_entries = log_entries[:5]
     
+    original_log_count = len(data.get("LogEntries", [])) if isinstance(data, dict) else 0
     return {
         "success": is_successful and execution_state == "Completed",
         "error_message": error_message,
         "execution_state": execution_state,
         "errors": errors,
         "log_entries": log_entries,
-        "has_more_logs": len(data.get("LogEntries", [])) > len(log_entries)
+        "has_more_logs": original_log_count > len(log_entries)
     }
 
 
@@ -794,6 +836,63 @@ def _format_runtime_result(parsed: dict, verbose: bool = False) -> str:
     return output
 
 
+_MAX_UIP_STREAM_LINES = 5000
+
+
+def _run_uip_with_optional_stream(
+    cmd: list[str],
+    timeout_seconds: int,
+    stream_cli: bool,
+) -> tuple[str, str, int]:
+    """Run ``uip`` with pipes; optionally print each line to stderr while running.
+
+    Returns ``(stdout, stderr, returncode)``. ``returncode`` is ``-1`` if the
+    process was killed due to timeout. Raises ``FileNotFoundError`` if the
+    executable is missing.
+    """
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+    out_parts: list[str] = []
+    err_parts: list[str] = []
+    stream_count = [0]
+
+    def pump(pipe, parts: list[str], label: str) -> None:
+        try:
+            for line in iter(pipe.readline, ""):
+                parts.append(line)
+                if stream_cli and stream_count[0] < _MAX_UIP_STREAM_LINES:
+                    stream_count[0] += 1
+                    print(f"[uip {label}] {line.rstrip()}", file=sys.stderr, flush=True)
+        finally:
+            pipe.close()
+
+    t_out = Thread(target=pump, args=(proc.stdout, out_parts, "stdout"), daemon=True)
+    t_err = Thread(target=pump, args=(proc.stderr, err_parts, "stderr"), daemon=True)
+    t_out.start()
+    t_err.start()
+
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        if proc.poll() is not None:
+            break
+        if time.monotonic() > deadline:
+            proc.kill()
+            t_out.join(timeout=5)
+            t_err.join(timeout=5)
+            return "".join(out_parts), "".join(err_parts), -1
+        time.sleep(0.05)
+
+    rc = proc.wait()
+    t_out.join(timeout=60)
+    t_err.join(timeout=60)
+    return "".join(out_parts), "".join(err_parts), rc
+
+
 @tool
 def run_workflow(
     project_dir: str,
@@ -816,8 +915,11 @@ def run_workflow(
     - API or connection failures
     
     The tool runs: uip rpa run-file --command StartExecution
-    
-    IMPORTANT: Only use this on workflows that are safe to execute (no 
+
+    Set environment variable ``UIPATH_STREAM_UIP_CLI=1`` to stream CLI stdout/stderr
+    lines to stderr while the process runs (useful for long runs; JSON may be one line).
+
+    IMPORTANT: Only use this on workflows that are safe to execute (no
     destructive operations, no production systems). This actually runs the code.
     
     Args:
@@ -840,14 +942,7 @@ def run_workflow(
         >>> run_workflow("MyProject", "Main.xaml", input_arguments='{"email":"test@example.com"}')
     """
     # 1. RESOLVE PATHS
-    path = Path(project_dir)
-    if not path.is_absolute():
-        output_root = _get_output_root()
-        session_id = os.environ.get("UIPATH_CHAT_SESSION_ID", "")
-        if session_id:
-            path = output_root / session_id / project_dir
-        else:
-            path = output_root / project_dir
+    path = _resolve_project_path(project_dir)
     
     # Check if file exists
     workflow_file = path / file_path
@@ -868,23 +963,40 @@ def run_workflow(
     # Add input arguments if provided
     if input_arguments:
         cmd.extend(["--input-arguments", input_arguments])
-    
+
+    stream_cli = os.environ.get("UIPATH_STREAM_UIP_CLI", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
     # 3. EXECUTE WITH TIMEOUT
     try:
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout_seconds,
-            check=False,
-        )
+        if stream_cli:
+            stdout, stderr, rc = _run_uip_with_optional_stream(
+                cmd, timeout_seconds, stream_cli=True
+            )
+            if rc == -1:
+                return (
+                    f"Error: Workflow execution timed out after {timeout_seconds} seconds. "
+                    "The workflow may be stuck or taking too long."
+                )
+            output_text = stdout if stdout else stderr
+        else:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=timeout_seconds,
+                check=False,
+            )
+            output_text = proc.stdout if proc.stdout else proc.stderr
     except FileNotFoundError:
         return "Error: uip CLI not found. Install with: npm install -g @uipath/cli"
     except subprocess.TimeoutExpired:
         return f"Error: Workflow execution timed out after {timeout_seconds} seconds. The workflow may be stuck or taking too long."
-    
+
     # 4. PARSE JSON RESPONSE
-    output_text = proc.stdout if proc.stdout else proc.stderr
     
     if not output_text:
         return "Error: No output from CLI command. The workflow may not have executed."
@@ -914,14 +1026,7 @@ def ensure_project_structure(project_dir: str = ".") -> str:
     Returns:
         Status message about project structure
     """
-    path = Path(project_dir)
-    if not path.is_absolute():
-        output_root = _get_output_root()
-        session_id = os.environ.get("UIPATH_CHAT_SESSION_ID", "")
-        if session_id:
-            path = output_root / session_id / project_dir
-        else:
-            path = output_root / project_dir
+    path = _resolve_project_path(project_dir)
     
     path.mkdir(parents=True, exist_ok=True)
     
@@ -1045,6 +1150,283 @@ def get_planning_tools() -> list:
     ] + get_library_tools()
 
 
+# Deployment validation constants
+VALID_FOLDER_NAME_PATTERN = re.compile(r'^[A-Za-z0-9_\- /]+$')
+MAX_FOLDER_NAME_LENGTH = 200
+
+
+def _validate_folder_name(folder: str) -> Tuple[bool, Optional[str]]:
+    """
+    Validate folder name for safety and correctness.
+    
+    Args:
+        folder: Folder path to validate
+        
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    if not folder or not folder.strip():
+        return False, "Folder name cannot be empty"
+    
+    if len(folder) > MAX_FOLDER_NAME_LENGTH:
+        return False, f"Folder name too long (max {MAX_FOLDER_NAME_LENGTH} characters)"
+    
+    if not VALID_FOLDER_NAME_PATTERN.match(folder):
+        return False, "Folder name contains invalid characters (use only letters, numbers, spaces, hyphens, underscores, and forward slashes)"
+    
+    # Check for path traversal attempts
+    if ".." in folder:
+        return False, "Folder name cannot contain '..' (path traversal not allowed)"
+    
+    return True, None
+
+
+def _is_authentication_error(error_message: str) -> bool:
+    """
+    Detect if error is authentication-related using pattern matching.
+    
+    Args:
+        error_message: Error output from CLI command
+        
+    Returns:
+        True if error indicates authentication failure
+    """
+    # Comprehensive patterns for auth errors
+    auth_patterns = [
+        r'\bnot\s+authenticated\b',
+        r'\bauthentication\s+(failed|required|error)\b',
+        r'\binvalid\s+(token|credentials|auth)\b',
+        r'\bexpired\s+token\b',
+        r'\bunauthorized\b',
+        r'\b401\b',
+        r'\b403\s+forbidden\b',
+        r'\blogin\s+required\b',
+        r'\bmissing\s+(token|credentials)\b'
+    ]
+    
+    error_lower = error_message.lower()
+    return any(re.search(pattern, error_lower, re.IGNORECASE) for pattern in auth_patterns)
+
+
+@tool
+def deploy_to_orchestrator(
+    project_path: str,
+    orchestrator_url: Optional[str] = None,
+    tenant_name: Optional[str] = None,
+    folder_path: str = "Test",
+    process_name: Optional[str] = None
+) -> str:
+    """
+    Deploy a UiPath project to Orchestrator or Studio Web.
+    
+    This packages the project and deploys it to UiPath Orchestrator (cloud or on-premise).
+    Requires UiPath CLI to be installed and authenticated.
+    
+    Args:
+        project_path: Project directory; relative paths use the chat session artifact
+            root (same as write_file / read_project_json), absolute paths are used as-is
+        orchestrator_url: Orchestrator URL (or use $env:UIPATH_ORCHESTRATOR_URL)
+        tenant_name: Tenant name (or use $env:UIPATH_TENANT_NAME)
+        folder_path: Target folder in Orchestrator (default: "Test")
+        process_name: Name for the process (optional, defaults to project name)
+    
+    Returns:
+        JSON string with deployment status, package path, and steps
+        
+    Example:
+        deploy_to_orchestrator(
+            project_path=".",
+            orchestrator_url="https://cloud.uipath.com/org/tenant/orchestrator_",
+            tenant_name="DefaultTenant",
+            folder_path="Prod"
+        )
+    """
+    try:
+        path = _resolve_project_path(project_path)
+        proj_path = path.resolve()
+        
+        # Validate folder name first (security check)
+        is_valid_folder, folder_error = _validate_folder_name(folder_path)
+        if not is_valid_folder:
+            return json.dumps({
+                "success": False,
+                "error": f"Invalid folder name: {folder_error}",
+                "help": "Folder names must contain only letters, numbers, spaces, hyphens, underscores, and forward slashes"
+            })
+        
+        # Check project exists
+        if not (proj_path / "project.json").exists():
+            return json.dumps({
+                "success": False,
+                "error": f"project.json not found at {proj_path}",
+                "help": "Ensure the project is created before deploying"
+            })
+        
+        # Get config from environment variables (no defaults)
+        orch_url = orchestrator_url or os.getenv("UIPATH_ORCHESTRATOR_URL")
+        tenant = tenant_name or os.getenv("UIPATH_TENANT_NAME")
+        
+        if not orch_url:
+            return json.dumps({
+                "success": False,
+                "error": "Missing Orchestrator URL",
+                "help": (
+                    "Set environment variable UIPATH_ORCHESTRATOR_URL or provide orchestrator_url parameter.\n\n"
+                    "Example (Cloud Orchestrator):\n"
+                    "  UIPATH_ORCHESTRATOR_URL=https://cloud.uipath.com/[org]/[tenant]/orchestrator_\n\n"
+                    "Example (On-Premise):\n"
+                    "  UIPATH_ORCHESTRATOR_URL=https://orchestrator.company.com/[tenant]/orchestrator_"
+                )
+            })
+        
+        if not tenant:
+            return json.dumps({
+                "success": False,
+                "error": "Missing tenant name",
+                "help": (
+                    "Set environment variable UIPATH_TENANT_NAME or provide tenant_name parameter.\n\n"
+                    "Example:\n"
+                    "  UIPATH_TENANT_NAME=DefaultTenant"
+                )
+            })
+        
+        if not orch_url or not tenant:
+            return json.dumps({
+                "success": False,
+                "error": "Missing Orchestrator URL or tenant name",
+                "help": "Set environment variables: UIPATH_ORCHESTRATOR_URL and UIPATH_TENANT_NAME, or provide as arguments"
+            })
+        
+        # Read project metadata
+        with open(proj_path / "project.json", "r", encoding="utf-8") as f:
+            proj_config = json.load(f)
+        
+        proj_name = proj_config.get("name", proj_path.name)
+        proj_version = proj_config.get("projectVersion", "1.0.0")
+        proc_name = process_name or proj_name
+        
+        steps = []
+        
+        # Step 1: Pack
+        steps.append("Packing project...")
+        pack_output = proj_path / f"{proj_name}.{proj_version}.nupkg"
+        
+        pack_cmd = [
+            "uipath", "package", "pack",
+            str(proj_path),
+            "-o", str(pack_output),
+            "--outputType", "Process"
+        ]
+        
+        pack_result = subprocess.run(
+            pack_cmd,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            cwd=str(proj_path)
+        )
+        
+        if pack_result.returncode != 0:
+            steps.append(f"Pack failed: {pack_result.stderr[:200]}")
+            return json.dumps({
+                "success": False,
+                "error": f"Packaging failed: {pack_result.stderr}",
+                "steps": steps
+            })
+        
+        steps.append(f"Packed successfully: {pack_output.name}")
+        
+        # Step 2: Deploy
+        steps.append(f"Deploying to {orch_url}...")
+        
+        deploy_cmd = [
+            "uipath", "package", "deploy",
+            str(pack_output),
+            orch_url,
+            tenant,
+            "--folder", folder_path
+        ]
+        
+        deploy_result = subprocess.run(
+            deploy_cmd,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd=str(proj_path)
+        )
+        
+        if deploy_result.returncode != 0:
+            error_msg = deploy_result.stderr
+            steps.append(f"Deploy failed: {error_msg[:200]}")
+            
+            # Check if it's an authentication error using pattern matching
+            if _is_authentication_error(error_msg):
+                # Get tenant for help message (don't hardcode)
+                tenant_for_help = tenant or "[your-tenant]"
+                
+                auth_help = (
+                    f"Authentication required. Run one of these commands:\n\n"
+                    f"For Cloud Orchestrator:\n"
+                    f"  uipath auth --cloud --tenant {tenant_for_help}\n\n"
+                    f"For On-Premise Orchestrator:\n"
+                    f"  uipath auth --base-url {orch_url} --tenant {tenant_for_help}\n\n"
+                    f"This will open a browser for interactive authentication.\n"
+                    f"Then retry the deployment."
+                )
+                
+                return json.dumps({
+                    "success": False,
+                    "error": f"Authentication error: {error_msg[:200]}",
+                    "steps": steps,
+                    "package_created": str(pack_output) if pack_output.exists() else None,
+                    "help": auth_help
+                })
+            
+            return json.dumps({
+                "success": False,
+                "error": f"Deployment failed: {error_msg}",
+                "steps": steps,
+                "package_created": str(pack_output) if pack_output.exists() else None
+            })
+        
+        steps.append("Deployed successfully to Orchestrator")
+        steps.append(f"Package: {proj_name} v{proj_version}")
+        steps.append(f"Folder: {folder_path}")
+        steps.append("Next: Create process in Orchestrator UI to assign to robots")
+        
+        return json.dumps({
+            "success": True,
+            "project_name": proj_name,
+            "project_version": proj_version,
+            "package_path": str(pack_output),
+            "orchestrator_url": orch_url,
+            "tenant": tenant,
+            "folder": folder_path,
+            "process_name": proc_name,
+            "steps": steps,
+            "message": f"Deployment successful! Package '{proj_name}' v{proj_version} deployed to {folder_path}. Create a process in Orchestrator to assign to robots."
+        })
+        
+    except FileNotFoundError:
+        return json.dumps({
+            "success": False,
+            "error": "UiPath CLI not found. Install from: https://docs.uipath.com/automation-cloud/automation-cloud/latest/admin-guide/managing-automation-suite-using-the-cli",
+            "steps": ["UiPath CLI not installed"]
+        })
+    except subprocess.TimeoutExpired:
+        return json.dumps({
+            "success": False,
+            "error": "Deployment operation timed out",
+            "steps": steps + ["Operation timed out after 120 seconds"]
+        })
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "error": str(e),
+            "steps": steps + [f"Unexpected error: {str(e)}"]
+        })
+
+
 def get_skill_execution_tools() -> list:
     """Return the list of tools available during skill execution."""
     return [
@@ -1061,4 +1443,5 @@ def get_skill_execution_tools() -> list:
         debug_workflow,       # Interactive debugging
         ensure_project_structure,
         query_uipath_docs,
+        deploy_to_orchestrator,  # Deploy to Orchestrator/Studio Web
     ] + get_library_tools()

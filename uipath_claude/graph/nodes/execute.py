@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Awaitable, Callable
+from pathlib import Path
 from typing import Any
 
 from uipath_claude.query.feedback_loop import detect_clarifying_question
@@ -70,21 +71,39 @@ def make_execute_node(
             project_context = {
                 "output_dir": os.environ.get("UIPATH_CHAT_OUTPUT_DIR", ""),
                 "session_id": os.environ.get("UIPATH_CHAT_SESSION_ID", ""),
+                "selected_skill_names": list(names),
             }
             
+            primary_skill = names[0] if names else "unknown"
             result = await executor.execute(
                 skill_content=runtime,
                 user_request=user_input,
                 tools=agentic_tools,
                 project_context=project_context,
+                skill_name=primary_skill,
             )
             
             if result.success:
                 text = result.final_response
+                if result.tool_failure_count > 0:
+                    total = result.tool_success_count + result.tool_failure_count
+                    warn = (
+                        f"\n\n**Tool errors:** {result.tool_failure_count} of {total} "
+                        "tool call(s) returned messages containing errors or failures "
+                        "(the agent still finished its loop). Check console debug output "
+                        "for full tool text.\n"
+                    )
+                    text = warn + text
                 # Add tool call summary if files were written
                 if result.files_written:
                     files_summary = "\n".join(f"  - {f}" for f in result.files_written)
                     text = f"{text}\n\n**Files created:**\n{files_summary}"
+                if project_context.get("output_dir") and project_context.get("session_id"):
+                    root = (
+                        Path(project_context["output_dir"]).expanduser().resolve()
+                        / project_context["session_id"]
+                    )
+                    text = f"{text}\n\n**Artifact root:** `{root}`"
             else:
                 text = f"Execution failed: {result.error or 'Unknown error'}"
                 if result.tool_calls_made:

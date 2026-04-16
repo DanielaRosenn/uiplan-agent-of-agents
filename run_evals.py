@@ -17,6 +17,7 @@ os.environ["AWS_REGION"] = "us-east-1"
 os.environ["UIPATH_CHAT_OUTPUT_DIR"] = str(Path.cwd() / "generated" / "evals")
 
 from uipath_claude.evaluation.datasets import EvaluationDataset
+from uipath_claude.evaluation.eval_skill_prompt import EVAL_AGENT_SKILL_PROMPT
 from uipath_claude.evaluation.evaluators import agent_benchmark_evaluator
 from uipath_claude.evaluation.runner import EvaluationRunner
 from uipath_claude.query.agentic_executor import AgenticExecutor
@@ -33,7 +34,9 @@ async def target_function(inputs: dict) -> dict:
         region=os.getenv("AWS_REGION", "us-east-1"),
     )
     
-    session_id = f"eval-{hash(question) % 10000}"
+    session_id = f"eval-{abs(hash(question)) % 100000:05d}"
+    # Tools (write_file, run_workflow, etc.) resolve paths via this env var.
+    os.environ["UIPATH_CHAT_SESSION_ID"] = session_id
     project_context = {
         "output_dir": os.environ["UIPATH_CHAT_OUTPUT_DIR"],
         "session_id": session_id,
@@ -41,7 +44,7 @@ async def target_function(inputs: dict) -> dict:
     
     # Run the agent
     result = await executor.execute(
-        skill_content="You are an expert UiPath developer. Create the requested workflow.",
+        skill_content=EVAL_AGENT_SKILL_PROMPT,
         user_request=question,
         tools=tools,
         project_context=project_context,
@@ -53,20 +56,20 @@ async def target_function(inputs: dict) -> dict:
     tool_calls = result.tool_calls_made
     trajectory = [call["name"] for call in tool_calls]
     
-    # Check if validation passed by looking at tool results
-    validation_passed = False
     packages_installed = []
-    
     for call in tool_calls:
-        if call["name"] == "validate_file":
-            pass
-        elif call["name"] == "install_package":
+        if call["name"] == "install_package":
             pkg = call["args"].get("package_name")
             if pkg:
                 packages_installed.append(pkg)
-                
-    # If the agent succeeded overall, we assume validation passed
-    validation_passed = result.success
+
+    # ``AgenticResult.success`` means the LLM exited the loop normally, not that
+    # every tool succeeded. For benchmarks, treat validation as clean only when
+    # no tool returned a failure signal and the run did not end in an executor error.
+    validation_passed = (
+        result.tool_failure_count == 0
+        and result.error is None
+    )
     
     return {
         "files_created": [Path(f).name for f in files_created],
@@ -76,6 +79,9 @@ async def target_function(inputs: dict) -> dict:
         "success": result.success,
         "final_response": result.final_response,
         "error": result.error,
+        "tool_success_count": result.tool_success_count,
+        "tool_failure_count": result.tool_failure_count,
+        "iterations": result.iterations,
     }
 
 async def run_evaluations(max_examples: int = None, category: str = None, output_file: str = "evaluation_results.json"):

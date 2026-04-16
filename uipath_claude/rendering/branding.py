@@ -122,26 +122,17 @@ def print_welcome_banner() -> None:
 
 
 def _print_plain_banner(console: Console) -> None:
-    """Print plain text banner for terminals that don't support rich formatting."""
+    """Print plain ASCII-only banner for maximum compatibility."""
     banner = """
-╔════════════════════════════════════════════════════╗
-║                                                    ║
-║           ╔══════════════╗                         ║
-║           ║  ●●●   ●●●   ║    UiPath Claude Code  ║
-║           ║      ▼▼      ║    AI Workflow Builder ║
-║           ║   \\_____/    ║    Version {version}   ║
-║           ╚══════╤═══════╝                         ║
-║           ╔══════╧══════╗                          ║
-║        ╔══╝             ╚══╗                       ║
-║        ║   ●  ●●●●●  ●   ║                       ║
-║        ║  ┌───────────┐  ║  🟠 Natural language  ║
-║        ║  │  UiPath   │  ║  🔵 XAML workflows    ║
-║        ║  │  Agent    │  ║  ⚡ 25 iterations      ║
-║        ║  └───────────┘  ║                        ║
-║        ╚══╗  [■][■][■] ╔══╝  Type /help           ║
-║           ╚═════╤═════╝                            ║
-║              ▓▓▓│▓▓▓                               ║
-║                                                    ║
-╚════════════════════════════════════════════════════╝
+====================================================
+    UiPath Claude Code - Version: {version}
+====================================================
+    Conversational AI for UiPath Automation
+====================================================
 """.format(version=get_version())
-    console.print(banner)
+    try:
+        # Try console.print first
+        console.print(banner)
+    except (UnicodeEncodeError, Exception):
+        # Ultimate fallback - just print to stdout
+        print(banner)

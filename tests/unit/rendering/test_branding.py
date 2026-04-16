@@ -66,9 +66,9 @@ def test_create_welcome_panel_has_content():
 
 
 def test_create_welcome_panel_border_style():
-    """Test that the panel has the correct border style."""
+    """Test that the panel uses the brand blue border color."""
     panel = create_welcome_panel()
-    assert panel.border_style == "bright_blue"
+    assert panel.border_style == UIPATH_BLUE
 
 
 def test_brand_colors_defined():

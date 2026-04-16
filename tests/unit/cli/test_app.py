@@ -1,15 +1,21 @@
 """Test CLI app."""
-from unittest.mock import AsyncMock, MagicMock, patch
 import asyncio
+import os
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from typer.testing import CliRunner
 from uipath_claude.cli.app import (
+    _UIPATH_CHAT_SYSTEM,
     _allow_project_file_generation,
+    _is_file_generation_intent,
     _canonical_skill_name,
     _debug_skill_selection,
     _build_runtime_skill_context,
+    _build_runtime_skill_context_for_selected,
     _get_model_response,
     _is_generated_chat_artifact_folder,
+    _load_dotenv_from_cwd,
     _resolve_output_mode,
     _make_chat_session_id,
     _select_relevant_skills,
@@ -18,6 +24,40 @@ from uipath_claude.cli.app import (
 
 
 runner = CliRunner()
+
+
+def test_load_dotenv_from_cwd_uipath_keys_override_shell(
+    monkeypatch: pytest.MonkeyPatch, tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("UIPATH_DOTENV_TEST_KEY", raising=False)
+    monkeypatch.delenv("UIPATH_QUOTED", raising=False)
+    (tmp_path / ".env").write_text(
+        'UIPATH_DOTENV_TEST_KEY=fromfile\nUIPATH_QUOTED="q"\n',
+        encoding="utf-8",
+    )
+    _load_dotenv_from_cwd()
+    assert os.environ["UIPATH_DOTENV_TEST_KEY"] == "fromfile"
+    assert os.environ["UIPATH_QUOTED"] == "q"
+    monkeypatch.setenv("UIPATH_DOTENV_TEST_KEY", "preset")
+    _load_dotenv_from_cwd()
+    assert os.environ["UIPATH_DOTENV_TEST_KEY"] == "fromfile"
+
+
+def test_load_dotenv_from_cwd_non_uipath_does_not_override_shell(
+    monkeypatch: pytest.MonkeyPatch, tmp_path,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("OTHER_DOTENV_KEY", "shell")
+    (tmp_path / ".env").write_text("OTHER_DOTENV_KEY=file\n", encoding="utf-8")
+    _load_dotenv_from_cwd()
+    assert os.environ["OTHER_DOTENV_KEY"] == "shell"
+
+
+@pytest.fixture(autouse=True)
+def _skip_uipath_auth_prompt_in_cli_tests(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Most chat tests mock the graph only; real auth would block on Rich Prompt."""
+    monkeypatch.setenv("UIPATH_SKIP_AUTH_CHECK", "1")
 
 
 def test_cli_chat_command():
@@ -44,6 +84,98 @@ def test_cli_chat_command_starts_and_exits():
     assert "goodbye" in result.stdout.lower()
 
 
+def test_cli_chat_auth_interactive_success_starts_repl(monkeypatch: pytest.MonkeyPatch):
+    """Option 1 runs uipath auth; on success + verification, chat REPL starts."""
+    monkeypatch.setenv("UIPATH_SKIP_AUTH_CHECK", "0")
+    _n = {"i": 0}
+
+    def _check_status():
+        _n["i"] += 1
+        if _n["i"] == 1:
+            return (False, None, "not authenticated")
+        return (True, "user@org", None)
+
+    with patch("uipath_claude.cli.app._create_engine") as create_engine:
+        create_engine.return_value = object()
+        with patch(
+            "uipath_claude.utils.auth_check.check_uipath_cli_installed",
+            return_value=True,
+        ):
+            with patch(
+                "uipath_claude.utils.auth_check.check_uipath_auth_status",
+                side_effect=_check_status,
+            ):
+                with patch(
+                    "uipath_claude.utils.auth_check.prompt_for_authentication",
+                    return_value="interactive_auth",
+                ):
+                    with patch(
+                        "uipath_claude.utils.auth_check.resolve_uipath_auth_argv",
+                        return_value=(["uipath", "auth", "--cloud", "--tenant", "x"], None),
+                    ):
+                        with patch(
+                            "uipath_claude.utils.auth_check.run_uipath_interactive_auth",
+                            return_value=0,
+                        ):
+                            result = runner.invoke(
+                                app, ["chat", "--no-banner"], input="exit\n"
+                            )
+    assert result.exit_code == 0
+    out = (result.stdout or "").lower()
+    assert "chat session started" in out
+    assert "authenticated" in out
+
+
+def test_cli_chat_auth_interactive_missing_tenant_exits(monkeypatch: pytest.MonkeyPatch):
+    """Option 1 without UIPATH_TENANT_NAME exits with error."""
+    monkeypatch.setenv("UIPATH_SKIP_AUTH_CHECK", "0")
+    with patch("uipath_claude.cli.app._create_engine") as create_engine:
+        create_engine.return_value = object()
+        with patch(
+            "uipath_claude.utils.auth_check.check_uipath_cli_installed",
+            return_value=True,
+        ):
+            with patch(
+                "uipath_claude.utils.auth_check.check_uipath_auth_status",
+                return_value=(False, None, "not authenticated"),
+            ):
+                with patch(
+                    "uipath_claude.utils.auth_check.prompt_for_authentication",
+                    return_value="interactive_auth",
+                ):
+                    with patch(
+                        "uipath_claude.utils.auth_check.resolve_uipath_auth_argv",
+                        return_value=(None, "Set UIPATH_TENANT_NAME"),
+                    ):
+                        result = runner.invoke(app, ["chat", "--no-banner"], input="")
+    assert result.exit_code == 1
+    assert "uipath_tenant_name" in (result.stdout or "").lower()
+
+
+def test_cli_chat_auth_skip_starts_repl(monkeypatch: pytest.MonkeyPatch):
+    """Option 2 continues without Orchestrator auth."""
+    monkeypatch.setenv("UIPATH_SKIP_AUTH_CHECK", "0")
+    with patch("uipath_claude.cli.app._create_engine") as create_engine:
+        create_engine.return_value = object()
+        with patch(
+            "uipath_claude.utils.auth_check.check_uipath_cli_installed",
+            return_value=True,
+        ):
+            with patch(
+                "uipath_claude.utils.auth_check.check_uipath_auth_status",
+                return_value=(False, None, "not authenticated"),
+            ):
+                with patch(
+                    "uipath_claude.utils.auth_check.prompt_for_authentication",
+                    return_value="skip_auth",
+                ):
+                    result = runner.invoke(app, ["chat", "--no-banner"], input="exit\n")
+    assert result.exit_code == 0
+    out = (result.stdout or "").lower()
+    assert "chat session started" in out
+    assert "continuing without authentication" in out
+
+
 def test_cli_chat_slash_chat_message():
     """Test /chat command inside REPL gives friendly message."""
     with patch("uipath_claude.cli.app._create_engine") as create_engine:
@@ -60,9 +192,140 @@ def test_cli_chat_llm_error_message():
         mock_graph = MagicMock()
         mock_graph.ainvoke = AsyncMock(side_effect=RuntimeError("model failed"))
         with patch("uipath_claude.cli.app.compile_chat_graph", return_value=mock_graph):
-            result = runner.invoke(app, ["chat", "--no-banner"], input="hello\nexit\n")
+            # BUILD + --no-plan reaches the chat graph; vague one-word prompts route to clarifier.
+            result = runner.invoke(
+                app,
+                ["chat", "--no-banner", "--no-plan"],
+                input="Create a minimal workflow that logs once in Main.xaml.\nexit\n",
+            )
     assert result.exit_code == 0
     assert "bedrock request failed" in result.stdout.lower()
+
+
+def test_cli_chat_question_invokes_graph():
+    """QUESTION intent runs the compiled chat graph (execute node / LLM path)."""
+    with patch("uipath_claude.cli.app._create_engine") as create_engine:
+        create_engine.return_value = object()
+        mock_graph = MagicMock()
+
+        async def _ainvoke(state):
+            return {
+                "messages": list(state.get("messages") or [])
+                + [
+                    {
+                        "role": "assistant",
+                        "content": "project.json holds metadata; Main.xaml is the entry.",
+                    }
+                ],
+                "assistant_response": "project.json holds metadata; Main.xaml is the entry.",
+                "pending_question": None,
+            }
+
+        mock_graph.ainvoke = AsyncMock(side_effect=_ainvoke)
+        with patch("uipath_claude.cli.app.compile_chat_graph", return_value=mock_graph):
+            result = runner.invoke(
+                app,
+                ["chat", "--no-banner", "--no-plan"],
+                input="What is project.json?\nexit\n",
+            )
+    assert result.exit_code == 0
+    assert "project.json" in result.stdout.lower()
+    mock_graph.ainvoke.assert_awaited()
+
+
+def test_cli_chat_ambiguous_invokes_graph():
+    """AMBIGUOUS intent still goes through the chat graph."""
+    with patch("uipath_claude.cli.app._create_engine") as create_engine:
+        create_engine.return_value = object()
+        mock_graph = MagicMock()
+
+        async def _ainvoke(state):
+            msg = "Which email provider do you use?"
+            return {
+                "messages": list(state.get("messages") or [])
+                + [{"role": "assistant", "content": msg}],
+                "assistant_response": msg,
+                "pending_question": None,
+            }
+
+        mock_graph.ainvoke = AsyncMock(side_effect=_ainvoke)
+        with patch("uipath_claude.cli.app.compile_chat_graph", return_value=mock_graph):
+            result = runner.invoke(
+                app,
+                ["chat", "--no-banner", "--no-plan"],
+                input="Automate my email.\nexit\n",
+            )
+    assert result.exit_code == 0
+    assert "which email provider" in result.stdout.lower()
+    mock_graph.ainvoke.assert_awaited()
+
+
+def test_cli_chat_clarification_loop_progresses():
+    """Multi-turn chat invokes the graph each turn; planner mocked when plan mode runs."""
+    with patch("uipath_claude.cli.app._create_engine") as create_engine:
+        create_engine.return_value = object()
+        mock_graph = MagicMock()
+        n = {"i": 0}
+
+        async def _ainvoke(state):
+            n["i"] += 1
+            text = f"assistant turn {n['i']}"
+            return {
+                "messages": list(state.get("messages") or [])
+                + [{"role": "assistant", "content": text}],
+                "assistant_response": text,
+                "pending_question": None,
+            }
+
+        mock_graph.ainvoke = AsyncMock(side_effect=_ainvoke)
+        mock_plan_result = MagicMock()
+        mock_plan_result.final_response = "# Plan\n- Step 1: Create project\n- Step 2: Add workflow"
+
+        with patch("uipath_claude.cli.app.compile_chat_graph", return_value=mock_graph):
+            with patch(
+                "uipath_claude.cli.app.run_planner_agent",
+                new=AsyncMock(return_value=mock_plan_result),
+            ):
+                result = runner.invoke(
+                    app,
+                    ["chat", "--no-banner"],
+                    input="Automate my email.\nOutlook\nRead emails\ny\nexit\n",
+                )
+
+    assert result.exit_code == 0
+    assert mock_graph.ainvoke.await_count >= 1
+
+
+def test_cli_chat_question_streaming_callback():
+    """Graph run returns assistant text (streaming is exercised when not suppressed)."""
+    with patch("uipath_claude.cli.app._create_engine") as create_engine:
+        create_engine.return_value = object()
+        mock_graph = MagicMock()
+
+        async def _ainvoke(state):
+            return {
+                "messages": list(state.get("messages") or [])
+                + [
+                    {
+                        "role": "assistant",
+                        "content": "project.json contains metadata",
+                    }
+                ],
+                "assistant_response": "project.json contains metadata",
+                "pending_question": None,
+            }
+
+        mock_graph.ainvoke = AsyncMock(side_effect=_ainvoke)
+        with patch("uipath_claude.cli.app.compile_chat_graph", return_value=mock_graph):
+            result = runner.invoke(
+                app,
+                ["chat", "--no-banner"],
+                input="What is project.json?\nexit\n",
+            )
+
+    assert result.exit_code == 0
+    assert "project.json" in result.stdout.lower()
+    mock_graph.ainvoke.assert_awaited()
 
 
 def test_select_relevant_skills_prefers_rpa_workflow():
@@ -149,6 +412,12 @@ def test_allow_project_file_generation_requires_explicit_request():
     assert _allow_project_file_generation("create a new project with project.json")
 
 
+def test_is_file_generation_intent_false_for_questions_about_project_files():
+    """QUESTION prompts mention ``project`` but must not trigger stream-suppression."""
+    assert not _is_file_generation_intent("What is project.json?")
+    assert _is_file_generation_intent("Add a new workflow file Main.xaml")
+
+
 def test_debug_skill_selection_returns_sorted_scores():
     skills = [
         {"name": "x", "description": "none", "triggers": []},
@@ -173,3 +442,32 @@ def test_generated_chat_artifact_folder_detection(tmp_path):
     artifact_path = tmp_path / "generated" / "chat" / "abc"
     artifact_path.mkdir(parents=True)
     assert _is_generated_chat_artifact_folder(artifact_path)
+
+
+def test_build_runtime_skill_context_for_selected_includes_insights(
+    tmp_path, monkeypatch
+):
+    """Learned-from-usage block is appended when insights summary exists."""
+    monkeypatch.chdir(tmp_path)
+    skill_file = tmp_path / "uipath-rpa" / "SKILL.md"
+    skill_file.parent.mkdir(parents=True)
+    skill_file.write_text(
+        "---\nname: uipath-rpa\ndescription: RPA\n---\n# Body\nHello skill\n",
+        encoding="utf-8",
+    )
+    selected = [{"name": "uipath-rpa", "path": str(skill_file)}]
+    with patch("uipath_claude.cli.app.get_execution_hooks") as mock_get_hooks:
+        hooks = MagicMock()
+        hooks.get_insights_summary.return_value = "## Learned from usage\n- Gotcha: test"
+        mock_get_hooks.return_value = hooks
+        out = _build_runtime_skill_context_for_selected("create workflow", selected)
+    assert "Learned from Usage" in out
+    assert "Gotcha: test" in out
+    hooks.get_insights_summary.assert_called_once_with("uipath-rpa", max_tokens=150)
+
+
+def test_uipath_chat_system_instructs_executor_on_approved_plans() -> None:
+    """Regression: executor must treat Approved Implementation Plan as actionable."""
+    assert "Approved Implementation Plan" in _UIPATH_CHAT_SYSTEM
+    assert "ensure_project_structure" in _UIPATH_CHAT_SYSTEM
+    assert "write_file" in _UIPATH_CHAT_SYSTEM or "UIPATH_FILE" in _UIPATH_CHAT_SYSTEM

@@ -124,8 +124,8 @@ Control debug verbosity with environment variables:
 # Show formatted debug output (default in debug mode)
 $env:UIPATH_DEBUG_AGENT = "1"
 
-# Show full tool arguments and results (not truncated)
-$env:UIPATH_DEBUG_VERBOSE = "1"
+# Quieter tool logs (default is verbose: full tool args JSON)
+# $env:UIPATH_DEBUG_VERBOSE = "0"
 
 # Show raw JSON output (for debugging the debugger)
 $env:UIPATH_DEBUG_RAW = "1"
@@ -133,7 +133,7 @@ $env:UIPATH_DEBUG_RAW = "1"
 
 **Formatted output** (default): Clean, human-readable with progress bars and status icons.
 
-**Verbose output**: Includes full tool arguments and complete results.
+**Verbose output** (default `UIPATH_DEBUG_VERBOSE=1`): Includes full tool arguments in the console; set to `0` for shorter summaries.
 
 **Raw output**: Shows complete JSON for all tool calls and results.
 
@@ -290,7 +290,7 @@ git submodule update --init --recursive
 | `UIPATH_CLAUDE_MODEL` | Bedrock model ID | Claude 3 Sonnet |
 | `UIPATH_AGENTIC_MODE` | Enable tool-use loops | `0` |
 | `UIPATH_DEBUG_AGENT` | Show debug output | `0` |
-| `UIPATH_DEBUG_VERBOSE` | Show full tool args/results | `0` |
+| `UIPATH_DEBUG_VERBOSE` | Show full tool args/results | `1` |
 | `UIPATH_DEBUG_RAW` | Show raw JSON output | `0` |
 | `UIPATH_MAX_ITERATIONS` | Maximum ReAct loop iterations | `25` |
 | `UIPATH_CHAT_OUTPUT_DIR` | Override output directory | `generated/chat/` |
