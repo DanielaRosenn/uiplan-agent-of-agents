@@ -2,6 +2,38 @@
 
 UiPath Claude Code follows the Claude Code architecture pattern, adapted for UiPath automation.
 
+## Runtime loop (ReAct + validator gate)
+
+```mermaid
+flowchart LR
+    User[User prompt] --> Router[Query router]
+    Router --> Executor[Agentic ReAct executor]
+    Executor --> Tools[Tool registry]
+    Tools --> Skills[Skills and Library]
+    Tools --> UiPath[UiPath CLI / Analyzer / Orchestrator]
+    Tools --> Validator{Validator gate}
+    Validator -->|errors| Executor
+    Validator -->|ok| Output[Generated project]
+    Executor -->|needs approval| Human[HITL approval]
+    Human --> Executor
+```
+
+The executor lives in [`uipath_claude/query/agentic_executor.py`](../uipath_claude/query/agentic_executor.py). The validator gate is implemented as `validate_file` + `validate_and_fix_loop` in [`uipath_claude/tools/skill_execution_tools.py`](../uipath_claude/tools/skill_execution_tools.py): every `write_file` is expected to be followed by a `validate_file`, and failures feed back into the executor until the workflow passes both static and runtime checks.
+
+## Bootstrap pipeline (BA -> SA -> Dev -> QA with HITL)
+
+```mermaid
+flowchart LR
+    Brief[One-paragraph brief] --> BA[BA agent: PDD]
+    BA -->|approve| SA[SA agent: SDD]
+    SA -->|approve| Dev[Developer agent: code + validate]
+    Dev -->|auto-fix loop| Dev
+    Dev -->|approve| QA[QA agent: test + report]
+    QA --> Done[Tagged release artifacts]
+```
+
+Each arrow labelled `approve` is a human-in-the-loop gate. Plan mode (`UIPATH_PLAN_MODE=1`, default) additionally wraps any build or ambiguous intent with a read-only planning step whose plan must be approved before any file is written. Approved plans are persisted as `.plan.md` files under `generated/chat/<session-id>/`.
+
 ## Directory Structure
 
 ```
