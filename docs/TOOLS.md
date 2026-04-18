@@ -8,6 +8,20 @@ The agent loads three sets of LangChain tools:
 
 The MCP server re-exports a subset of these with typed schemas.
 
+## Model routing
+
+Model selection is tier-based (`uipath_claude/llm/router.py`). Each call site
+names a task; the router maps task to tier to Bedrock model id.
+
+| Task id | Tier | Default model |
+|---|---|---|
+| `ba_agent`, `solution_architect`, `developer`, `qa`, `planner`, `agentic_executor` | HEAVY | `anthropic.claude-3-5-sonnet-20241022-v2:0` |
+| `distiller`, `intent_classifier`, `doc_need_detector`, `rename_summary` | LIGHT | `anthropic.claude-3-5-haiku-20241022-v1:0` |
+
+Overrides, in precedence order: `UIPATH_CLAUDE_MODEL_HEAVY` /
+`UIPATH_CLAUDE_MODEL_LIGHT` (per-tier), then `UIPATH_CLAUDE_MODEL`
+(legacy global), then the default. Unknown task ids fall back to HEAVY.
+
 ## Knowledge pipeline
 
 - `lookup_uipath_knowledge(question, allow_network=True)` — library first, then

@@ -43,7 +43,7 @@ from uipath_claude.artifacts.materialize import (
 from uipath_claude.query.bootstrap import run_bootstrap_flow
 from uipath_claude.query.conversation import ConversationEngine
 from uipath_claude.graph.builder import compile_chat_graph
-from uipath_claude.config import DEFAULT_BEDROCK_MODEL
+from uipath_claude.llm.router import heavy_model, model_for_task
 from uipath_claude.cli.documentation_flow import run_documentation_flow
 from uipath_claude.query.doc_need_detector import DocNeedLevel, detect_documentation_need
 from uipath_claude.query.intent_classifier import IntentType, classify_intent
@@ -672,7 +672,7 @@ def _build_command_registry(
 
 def _create_engine() -> ConversationEngine:
     """Create Bedrock conversation engine from environment settings."""
-    model_name = os.getenv("UIPATH_CLAUDE_MODEL", DEFAULT_BEDROCK_MODEL)
+    model_name = model_for_task("agentic_executor")
     region = os.getenv("AWS_REGION", "us-east-1")
     return ConversationEngine(model_name=model_name, region=region)
 
@@ -917,9 +917,9 @@ def chat(
             console.print("")
     
     skill_registry = SkillRegistry()
-    model_name = os.getenv("UIPATH_CLAUDE_MODEL", DEFAULT_BEDROCK_MODEL)
+    model_name = model_for_task("planner")
     region = os.getenv("AWS_REGION", "us-east-1")
-    tool_profile = resolve_tool_profile(os.getenv("UIPATH_CLAUDE_TOOL_PROFILE", "safe"))
+    tool_profile = resolve_tool_profile(os.getenv("UIPATH_CLAUDE_TOOL_PROFILE"))
     skills = skill_registry.load_skills()
     skills_by_name = {skill.get("name"): skill for skill in skills}
     history: list[dict[str, str]] = []

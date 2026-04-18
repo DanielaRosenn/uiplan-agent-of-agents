@@ -1,5 +1,25 @@
 # Smoke Tests
 
+## Model + profile env vars
+
+Optional environment overrides (everything has sensible defaults):
+
+| Variable | Purpose |
+|---|---|
+| `UIPATH_CLAUDE_MODEL_HEAVY` | Bedrock model for HEAVY tasks (BA, SA, Dev, QA, planner, agentic executor). Default: `anthropic.claude-3-5-sonnet-20241022-v2:0`. |
+| `UIPATH_CLAUDE_MODEL_LIGHT` | Bedrock model for LIGHT tasks (distiller, classifiers, short-text rewrites). Default: `anthropic.claude-3-5-haiku-20241022-v1:0`. |
+| `UIPATH_CLAUDE_MODEL` | Legacy global override; applies to both tiers unless a per-tier var is set. |
+| `UIPATH_CLAUDE_TOOL_PROFILE` | `all` (default), `safe`, or `uipath-dev`. Controls which slash commands the chat exposes. |
+| `UIPATH_DISTILLER_MODEL` | Explicit override for the skill distiller only (beats the tier router). |
+
+To use Sonnet 4.x when Bedrock has it enabled in your region:
+
+```powershell
+$env:UIPATH_CLAUDE_MODEL_HEAVY = "anthropic.claude-sonnet-4-5-20250929-v1:0"
+```
+
+
+
 Two focused smoke tests that exercise the full surface: knowledge pipeline,
 unified Ask AI, library proposals + chapters, book manifests, skills
 auto-refresh, upstream scan, harvest, and MCP parity.

@@ -10,8 +10,19 @@ class ToolProfile:
     commands: tuple[str, ...]
 
 
-_SAFE_COMMANDS = ("help", "status", "skills", "analyze", "bootstrap", "recall", "update-skills")
-_UIPATH_DEV_COMMANDS = (*_SAFE_COMMANDS, "validate")
+_SAFE_COMMANDS = (
+    "help",
+    "status",
+    "skills",
+    "analyze",
+    "bootstrap",
+    "recall",
+    "update-skills",
+    "books",
+    "scan-upstream-skills",
+    "library-proposals",
+)
+_UIPATH_DEV_COMMANDS = (*_SAFE_COMMANDS, "validate", "library-harvest")
 
 _PROFILES = {
     "safe": ToolProfile(name="safe", commands=_SAFE_COMMANDS),
@@ -26,12 +37,12 @@ def supported_profiles() -> dict[str, ToolProfile]:
 
 
 def resolve_tool_profile(profile_name: str | None) -> ToolProfile:
-    """Resolve configured profile name, defaulting to safe when unknown."""
+    """Resolve configured profile name, defaulting to ``all`` when unset/unknown."""
     if not profile_name:
-        return _PROFILES["safe"]
+        return _PROFILES["all"]
 
     normalized = profile_name.strip().lower()
-    return _PROFILES.get(normalized, _PROFILES["safe"])
+    return _PROFILES.get(normalized, _PROFILES["all"])
 
 
 def is_command_allowed(profile: ToolProfile, command_name: str) -> bool:

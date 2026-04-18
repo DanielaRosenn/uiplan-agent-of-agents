@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 from typing import Iterable
 
-from uipath_claude.config import DEFAULT_BEDROCK_MODEL
+from uipath_claude.llm.router import model_for_task
 from uipath_claude.skills.insights import SkillInsight
 
 _DISTILL_PROMPT = (
@@ -22,7 +22,7 @@ def _invoke_llm(prompt: str) -> str:
     model = (
         os.environ.get("UIPATH_DISTILLER_MODEL")
         or os.environ.get("UIPATH_MODEL_ID")
-        or DEFAULT_BEDROCK_MODEL
+        or model_for_task("distiller")
     )
     region = os.environ.get("AWS_REGION") or "us-east-1"
     llm = ChatBedrockConverse(model=model, region_name=region)
