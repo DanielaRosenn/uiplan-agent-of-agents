@@ -1,11 +1,18 @@
-"""Publish UiPath Claude Code docs to the Cato RPA Confluence space.
+"""Publish UiPath Claude Code docs to the Cato RPA Confluence space via UiPath.
 
-Reads Markdown drafts under ``docs/wiki/`` and creates or updates two Confluence
-pages via the Atlassian REST API v2. Idempotent: page IDs are persisted to
-``docs/wiki/.confluence-ids.json`` so subsequent runs update in place.
+Authentication and egress flow through the UiPath ``uip`` CLI, which talks to
+Integration Service on our behalf:
 
-Auth via basic auth with an Atlassian API token. See ``.env.example`` for the
-required environment variables.
+    Python publisher
+        -> uip is resources execute create/update ...
+            -> UiPath Integration Service (connection id below)
+                -> Confluence REST API v2
+
+Auth is whatever ``uip login`` has cached (``%USERPROFILE%/.uipath``). No
+Atlassian token, no UiPath PAT/client secret is required in env.
+
+Idempotency: page IDs are persisted to ``docs/wiki/.confluence-ids.json`` so
+subsequent runs update in place.
 
 Usage::
 
@@ -19,12 +26,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-
-import httpx
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WIKI_DIR = REPO_ROOT / "docs" / "wiki"
@@ -119,35 +126,123 @@ def _html_escape(s: str) -> str:
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def _build_client(base_url: str, email: str, token: str) -> httpx.Client:
-    return httpx.Client(
-        base_url=base_url.rstrip("/"),
-        auth=(email, token),
-        headers={
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        },
-        timeout=30.0,
-    )
+CONNECTOR_KEY = "uipath-atlassian-confluence"
 
 
-def _resolve_space_id(client: httpx.Client, space_key: str) -> str:
-    resp = client.get("/wiki/api/v2/spaces", params={"keys": space_key})
-    resp.raise_for_status()
-    results = resp.json().get("results", [])
-    if not results:
-        raise SystemExit(f"Confluence space not found: key={space_key}")
-    return str(results[0]["id"])
+class UipCliClient:
+    """Thin wrapper around the ``uip`` CLI's Integration Service commands.
+
+    Auth is whatever ``uip login`` has cached. The tenant with SSL inspection
+    requires ``NODE_TLS_REJECT_UNAUTHORIZED=0`` to be set in the environment,
+    which the caller is expected to arrange (see ``publish-confluence.ps1``).
+    """
+
+    def __init__(self, *, connection_id: str) -> None:
+        self._connection_id = connection_id
+        # Invoke the CLI's JS entry directly via node to avoid cmd.exe shell
+        # metachar mangling on Windows (&, <, >, | in --body JSON).
+        node = shutil.which("node") or "node"
+        npm_root = Path(os.environ.get("APPDATA", "")) / "npm"
+        js_entry = npm_root / "node_modules" / "@uipath" / "cli" / "dist" / "index.js"
+        if js_entry.exists():
+            self._cmd_prefix: list[str] = [node, str(js_entry)]
+        else:
+            self._cmd_prefix = [shutil.which("uip") or "uip"]
+
+    def _run(self, args: list[str], *, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        cmd = [*self._cmd_prefix, *args, "--output", "json"]
+        if body is not None:
+            cmd.extend(["--body", json.dumps(body)])
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            shell=False,
+        )
+        stdout = (result.stdout or "").strip()
+        if not stdout:
+            raise SystemExit(
+                f"uip returned no output (exit={result.returncode}). stderr:\n{result.stderr}"
+            )
+        # The CLI sometimes emits warnings before the JSON payload; take the
+        # last JSON object in stdout.
+        payload = _extract_last_json(stdout)
+        if payload.get("Result") != "Success":
+            raise SystemExit(
+                f"uip {' '.join(args)} failed: {json.dumps(payload)[:800]}"
+            )
+        return payload.get("Data", {})
+
+    def list_records(
+        self, object_name: str, *, query: dict[str, str] | None = None
+    ) -> list[dict[str, Any]]:
+        args = [
+            "is", "resources", "execute", "list",
+            CONNECTOR_KEY, object_name,
+            "--connection-id", self._connection_id,
+        ]
+        if query:
+            args += ["--query", "&".join(f"{k}={v}" for k, v in query.items())]
+        data = self._run(args)
+        return data if isinstance(data, list) else data.get("results") or data.get("items") or []
+
+    def create_record(
+        self, object_name: str, body: dict[str, Any], *, query: dict[str, str] | None = None
+    ) -> dict[str, Any]:
+        args = [
+            "is", "resources", "execute", "create",
+            CONNECTOR_KEY, object_name,
+            "--connection-id", self._connection_id,
+        ]
+        if query:
+            args += ["--query", "&".join(f"{k}={v}" for k, v in query.items())]
+        return self._run(args, body=body)
+
+    def update_record(
+        self, object_name: str, record_id: str, body: dict[str, Any]
+    ) -> dict[str, Any]:
+        args = [
+            "is", "resources", "execute", "update",
+            CONNECTOR_KEY, object_name,
+            "--connection-id", self._connection_id,
+            "--id", record_id,
+        ]
+        return self._run(args, body=body)
 
 
-def _get_current_version(client: httpx.Client, page_id: str) -> int:
-    resp = client.get(f"/wiki/api/v2/pages/{page_id}")
-    resp.raise_for_status()
-    return int(resp.json().get("version", {}).get("number", 1))
+def _extract_last_json(text: str) -> dict[str, Any]:
+    """Find the last top-level JSON object in the given text."""
+    depth = 0
+    start = -1
+    last: tuple[int, int] | None = None
+    for i, ch in enumerate(text):
+        if ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0 and start >= 0:
+                last = (start, i + 1)
+    if last is None:
+        raise SystemExit(f"No JSON object found in uip output:\n{text[:800]}")
+    return json.loads(text[last[0]:last[1]])
+
+
+def _resolve_space_id(client: UipCliClient, space_key: str, *, dry_run: bool) -> str:
+    if dry_run:
+        return "<dry-run-space-id>"
+    records = client.list_records("spaces_v2", query={"keys": space_key})
+    for rec in records:
+        if rec.get("key") == space_key:
+            return str(rec["id"])
+    raise SystemExit(f"Confluence space not found: key={space_key}")
 
 
 def _create_page(
-    client: httpx.Client,
+    client: UipCliClient,
     *,
     space_id: str,
     parent_id: str | None,
@@ -164,15 +259,14 @@ def _create_page(
     if parent_id:
         payload["parentId"] = parent_id
     if dry_run:
-        print(f"[dry-run] CREATE '{title}' payload keys: {sorted(payload)}")
+        print(f"[dry-run] create page title={title!r} space={space_id}")
         return "<dry-run-id>"
-    resp = client.post("/wiki/api/v2/pages", json=payload)
-    resp.raise_for_status()
-    return str(resp.json()["id"])
+    data = client.create_record("pages", payload, query={"space_type": "/spaces_v2"})
+    return str(data["id"])
 
 
 def _update_page(
-    client: httpx.Client,
+    client: UipCliClient,
     *,
     page_id: str,
     title: str,
@@ -180,19 +274,16 @@ def _update_page(
     dry_run: bool,
 ) -> str:
     if dry_run:
-        print(f"[dry-run] UPDATE id={page_id} title='{title}'")
+        print(f"[dry-run] update page id={page_id} title={title!r}")
         return page_id
-    current_version = _get_current_version(client, page_id)
     payload = {
         "id": page_id,
         "status": "current",
         "title": title,
         "body": {"representation": "storage", "value": storage},
-        "version": {"number": current_version + 1},
     }
-    resp = client.put(f"/wiki/api/v2/pages/{page_id}", json=payload)
-    resp.raise_for_status()
-    return str(resp.json()["id"])
+    data = client.update_record("pages", page_id, payload)
+    return str(data.get("id", page_id))
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -200,13 +291,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Print what would be sent without calling the Confluence API.",
+        help="Print what would be sent without calling UiPath or Confluence.",
     )
     args = parser.parse_args(argv)
 
-    base_url = _require_env("ATLASSIAN_BASE_URL")
-    email = _require_env("ATLASSIAN_EMAIL")
-    token = _require_env("ATLASSIAN_API_TOKEN")
+    connection_id = os.environ.get(
+        "UIPATH_CONFLUENCE_CONNECTION_ID"
+    ) or os.environ.get("UIPATH_ATLASSIAN_CONNECTION_ID") or _require_env(
+        "UIPATH_IS_CONFLUENCE_CONNECTION_ID"
+    )
     space_key = os.environ.get("CONFLUENCE_SPACE_KEY", "RPA")
     parent_id = os.environ.get("CONFLUENCE_PARENT_PAGE_ID") or None
 
@@ -216,35 +309,31 @@ def main(argv: list[str] | None = None) -> int:
 
     ids = _load_id_map()
 
-    with _build_client(base_url, email, token) as client:
-        space_id = (
-            "<dry-run-space-id>"
-            if args.dry_run
-            else _resolve_space_id(client, space_key)
-        )
-        for page in PAGES:
-            markdown = page.source.read_text(encoding="utf-8")
-            storage = _markdown_to_storage(markdown)
-            existing_id = ids.get(page.key)
-            if existing_id:
-                new_id = _update_page(
-                    client,
-                    page_id=existing_id,
-                    title=page.title,
-                    storage=storage,
-                    dry_run=args.dry_run,
-                )
-            else:
-                new_id = _create_page(
-                    client,
-                    space_id=space_id,
-                    parent_id=parent_id,
-                    title=page.title,
-                    storage=storage,
-                    dry_run=args.dry_run,
-                )
-            ids[page.key] = new_id
-            print(f"[{'dry-run' if args.dry_run else 'ok'}] {page.key}: id={new_id}")
+    client = UipCliClient(connection_id=connection_id)
+    space_id = _resolve_space_id(client, space_key, dry_run=args.dry_run)
+    for page in PAGES:
+        markdown = page.source.read_text(encoding="utf-8")
+        storage = _markdown_to_storage(markdown)
+        existing_id = ids.get(page.key)
+        if existing_id:
+            new_id = _update_page(
+                client,
+                page_id=existing_id,
+                title=page.title,
+                storage=storage,
+                dry_run=args.dry_run,
+            )
+        else:
+            new_id = _create_page(
+                client,
+                space_id=space_id,
+                parent_id=parent_id,
+                title=page.title,
+                storage=storage,
+                dry_run=args.dry_run,
+            )
+        ids[page.key] = new_id
+        print(f"[{'dry-run' if args.dry_run else 'ok'}] {page.key}: id={new_id}")
 
     if not args.dry_run:
         _save_id_map(ids)

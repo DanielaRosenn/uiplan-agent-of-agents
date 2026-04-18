@@ -10,7 +10,7 @@ All notable changes to this project are documented in this file. The format is b
 - `docs/INSTALL.md` long-form installation guide.
 - `CONTRIBUTING.md` covering the extension model (skills, tools, slash commands).
 - `examples/` folder with four runnable scenarios including a Confluence-publisher dogfooding example.
-- `scripts/publish_confluence.py` + PowerShell wrapper for publishing docs to the Cato RPA Confluence space.
+- `scripts/publish_confluence.py` + PowerShell wrapper for publishing docs to the Cato RPA Confluence space. Auth proxies through the UiPath Integration Service Atlassian Confluence connection; no standalone Atlassian API token is held on the developer machine.
 - `docs/wiki/` drafts for Azure DevOps landing copy and Confluence pages.
 - `docs/assets/demo.tape` VHS script + `scripts/record-demo.ps1` for reproducible terminal casts.
 - BA → SA → Dev → QA pipeline Mermaid diagram in `docs/ARCHITECTURE.md`.

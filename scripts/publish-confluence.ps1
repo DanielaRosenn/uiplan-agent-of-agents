@@ -35,6 +35,17 @@ $python = if ($env:VIRTUAL_ENV) {
     "python"
 }
 
+# On Cato laptops, the corporate proxy performs TLS inspection with a private
+# root CA. The venv's bundled certifi bundle does not trust it, but the
+# user-scope certifi bundle under %LOCALAPPDATA%\.certifi does (pip installs
+# it). Point SSL_CERT_FILE there so httpx can validate cloud.uipath.com.
+if (-not $env:SSL_CERT_FILE) {
+    $userCert = Join-Path $env:LOCALAPPDATA ".certifi\cacert.pem"
+    if (Test-Path $userCert) {
+        $env:SSL_CERT_FILE = $userCert
+    }
+}
+
 $script = Join-Path $repoRoot "scripts\publish_confluence.py"
 $publishArgs = @()
 if ($DryRun) { $publishArgs += "--dry-run" }

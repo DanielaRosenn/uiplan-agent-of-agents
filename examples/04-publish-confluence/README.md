@@ -2,7 +2,7 @@
 
 **Goal:** the agent that builds UiPath projects also publishes its own docs. This example is a UiPath coded workflow that reads the Markdown drafts in [docs/wiki/](../../docs/wiki/) and publishes them to the [Cato RPA Confluence space](https://catonetworks.atlassian.net/wiki/spaces/RPA/overview) through the UiPath Integration Service's Atlassian Confluence connector.
 
-A pragmatic Python alternative also exists — see [scripts/publish_confluence.py](../../scripts/publish_confluence.py) — for cases where a UiPath round-trip is overkill. Both publish the same two pages, read from the same Markdown source of truth.
+A Python alternative also exists — see [scripts/publish_confluence.py](../../scripts/publish_confluence.py) — for cases where running a full UiPath pack/run is overkill. Both paths authenticate the same way: via the UiPath Integration Service Atlassian Confluence connection. The Python path uses the Integration Service as a proxy (no standalone Atlassian token is ever held on the developer machine). Both publish the same two pages, read from the same Markdown source of truth.
 
 ## When to use this example
 
@@ -26,12 +26,11 @@ The connection is reused across projects. You only do this once per tenant.
 - Installed per [docs/INSTALL.md](../../docs/INSTALL.md).
 - Authenticated: `uipath auth --cloud --tenant <YourTenant>`.
 - Integration Service Atlassian Confluence connection configured per above.
-- Environment variables set (see `.env.example` in the repo root):
-  - `UIPATH_ORCHESTRATOR_URL`
-  - `UIPATH_TENANT_NAME`
-  - `UIPATH_DEFAULT_FOLDER`
+- Environment variables set (see `.env.example` in the repo root). For the coded workflow the relevant vars are the standard UiPath project vars (`UIPATH_ORCHESTRATOR_URL`, `UIPATH_TENANT_NAME`, `UIPATH_DEFAULT_FOLDER`) plus:
   - `CONFLUENCE_SPACE_KEY=RPA`
-  - `CONFLUENCE_PARENT_PAGE_ID` (Confluence page ID under which both pages are created)
+  - `CONFLUENCE_PARENT_PAGE_ID` (optional; Confluence page ID under which both pages are created)
+
+For the Python publisher path (`scripts/publish_confluence.py`), the extra vars are `UIPATH_ACCOUNT_NAME`, `UIPATH_IS_CONFLUENCE_CONNECTION_ID`, and either `UIPATH_PAT` or `UIPATH_CLIENT_ID` + `UIPATH_CLIENT_SECRET`. No Atlassian token is required on the developer machine — authentication flows through the Integration Service connection.
 
 ## Files
 
