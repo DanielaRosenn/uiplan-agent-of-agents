@@ -87,42 +87,77 @@ def check_for_updates(skills_path: Optional[Path] = None) -> Tuple[bool, str, Op
     if not remote:
         return False, "Could not fetch remote (network issue?)", current, None
     
-    if current == remote:
+    # If the working tree is dirty, treat it as needing an update so that
+    # ``ensure_fresh`` triggers the force-reset path in ``update_skills``.
+    ok_status, status = run_git_command(["status", "--porcelain"], skills_path)
+    dirty = bool(ok_status and status)
+
+    if current == remote and not dirty:
         return False, f"Skills are up to date (commit {current})", current, remote
-    
-    return True, f"Updates available: {current} -> {remote}", current, remote
+
+    suffix = " (dirty working tree)" if dirty else ""
+    return True, f"Updates available: {current} -> {remote}{suffix}", current, remote
 
 
-def update_skills(skills_path: Optional[Path] = None) -> Tuple[bool, str]:
-    """
-    Update the skills submodule to the latest version.
-    
+def update_skills(
+    skills_path: Optional[Path] = None,
+    *,
+    force: bool = True,
+) -> Tuple[bool, str]:
+    """Update the skills submodule to the latest version.
+
+    When ``force`` is ``True`` (default), local drift in the submodule is
+    preserved on a timestamped backup branch and then the working tree is
+    hard-reset to ``origin/main``. This guarantees the submodule is never
+    left "dirty" in a way that blocks future auto-refreshes.
+
     Returns:
         (success, message)
     """
+    import time as _time
+
     if skills_path is None:
         skills_path = get_skills_submodule_path()
-    
+
     if not skills_path.exists():
         return False, "Skills submodule not found"
-    
-    # Check for local changes
+
+    # Fetch latest first (non-fatal if offline).
+    run_git_command(["fetch", "origin", "main"], skills_path)
+
     success, status = run_git_command(["status", "--porcelain"], skills_path)
+    notes: list[str] = []
     if success and status:
-        # Has local changes - stash them
-        run_git_command(["stash"], skills_path)
-    
-    # Checkout main and pull
+        if force:
+            # Preserve local drift on a backup branch before resetting.
+            backup = f"backup/local-{int(_time.time())}"
+            run_git_command(["branch", backup], skills_path)
+            run_git_command(["reset", "--hard", "HEAD"], skills_path)
+            run_git_command(["clean", "-fd"], skills_path)
+            notes.append(f"preserved local drift on branch {backup}")
+        else:
+            run_git_command(["stash", "push", "-m", "auto-stash by update_skills"], skills_path)
+            notes.append("stashed local drift")
+
+    # Check out main, then hard-reset to origin/main so we always match upstream.
     success, output = run_git_command(["checkout", "main"], skills_path)
     if not success:
         return False, f"Failed to checkout main: {output}"
-    
-    success, output = run_git_command(["pull", "origin", "main"], skills_path)
-    if not success:
-        return False, f"Failed to pull: {output}"
-    
+
+    if force:
+        success, output = run_git_command(["reset", "--hard", "origin/main"], skills_path)
+        if not success:
+            return False, f"Failed to reset to origin/main: {output}"
+    else:
+        success, output = run_git_command(["pull", "--ff-only", "origin", "main"], skills_path)
+        if not success:
+            return False, f"Failed to pull: {output}"
+
     new_commit = get_current_commit(skills_path)
-    return True, f"Skills updated to commit {new_commit}"
+    msg = f"Skills updated to commit {new_commit}"
+    if notes:
+        msg += " (" + "; ".join(notes) + ")"
+    return True, msg
 
 
 def _default_marker_path() -> Path:

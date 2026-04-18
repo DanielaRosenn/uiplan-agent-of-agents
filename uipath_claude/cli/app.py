@@ -23,6 +23,9 @@ from uipath_claude.commands.status import register_status_command
 from uipath_claude.commands.knowledge import register_knowledge_command
 from uipath_claude.commands.resume import register_resume_command
 from uipath_claude.commands.books import register_books_command
+from uipath_claude.commands.install_git_hooks import (
+    register_install_git_hooks_command,
+)
 from uipath_claude.commands.library_harvest import (
     register_library_harvest_command,
 )
@@ -648,6 +651,7 @@ def _build_command_registry(
     register_scan_upstream_skills_command(registry)
     register_library_harvest_command(registry)
     register_books_command(registry)
+    register_install_git_hooks_command(registry)
     register_recall_command(registry, get_history=get_history)
     if run_planner:
         register_plan_command(registry, run_planner=run_planner)
