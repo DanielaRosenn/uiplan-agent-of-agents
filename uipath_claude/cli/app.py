@@ -106,7 +106,19 @@ def _load_dotenv_from_cwd() -> None:
             os.environ[key] = val
 
 
-app = typer.Typer(help="UiPath Claude Code - Conversational AI for UiPath")
+app = typer.Typer(
+    help="UiPath Claude Code - Conversational AI for UiPath",
+    invoke_without_command=True,
+    no_args_is_help=False,
+)
+
+
+@app.callback()
+def _default(ctx: typer.Context) -> None:
+    """Default to `chat` when no subcommand is provided."""
+    if ctx.invoked_subcommand is None:
+        ctx.invoke(chat)
+
 
 register_library_proposals_command(app)
 
