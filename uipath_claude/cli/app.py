@@ -23,9 +23,6 @@ from uipath_claude.commands.status import register_status_command
 from uipath_claude.commands.knowledge import register_knowledge_command
 from uipath_claude.commands.resume import register_resume_command
 from uipath_claude.commands.books import register_books_command
-from uipath_claude.commands.install_git_hooks import (
-    register_install_git_hooks_command,
-)
 from uipath_claude.commands.library_harvest import (
     register_library_harvest_command,
 )
@@ -60,7 +57,11 @@ from uipath_claude.rendering.branding import print_welcome_banner
 from uipath_claude.rendering.progress import ProgressReporter
 from uipath_claude.skills.loader import load_skill_content
 from uipath_claude.skills.registry import SkillRegistry
-from uipath_claude.skills.updater import check_for_updates, ensure_fresh
+from uipath_claude.skills.updater import (
+    check_for_updates,
+    ensure_fresh,
+    ensure_fresh_for_session,
+)
 from uipath_claude.sessions.store import SessionEvent, SessionStore
 from uipath_claude.hooks.session_hooks import check_uip_installed
 from uipath_claude.tools.profiles import is_command_allowed, resolve_tool_profile
@@ -651,7 +652,6 @@ def _build_command_registry(
     register_scan_upstream_skills_command(registry)
     register_library_harvest_command(registry)
     register_books_command(registry)
-    register_install_git_hooks_command(registry)
     register_recall_command(registry, get_history=get_history)
     if run_planner:
         register_plan_command(registry, run_planner=run_planner)
@@ -745,7 +745,11 @@ def chat(
 
     if os.environ.get("UIPATH_SKILLS_AUTO_REFRESH", "1").strip().lower() in ("1", "true", "yes"):
         try:
-            msg = ensure_fresh(max_age_seconds=6 * 3600)
+            session_id = (
+                os.environ.get("UIPATH_CHAT_SESSION_ID", "").strip()
+                or _make_chat_session_id()
+            )
+            msg = ensure_fresh_for_session(session_id)
             if msg.startswith("updated"):
                 console.print(f"[dim]Skills cache: {msg}[/dim]")
                 try:

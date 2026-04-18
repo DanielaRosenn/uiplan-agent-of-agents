@@ -1,4 +1,5 @@
 """Skills submodule updater - keeps UiPath/skills in sync."""
+import json
 import os
 import subprocess
 import time
@@ -164,6 +165,10 @@ def _default_marker_path() -> Path:
     return get_skills_submodule_path().parent / ".skills_refresh_at"
 
 
+def _default_session_marker_path() -> Path:
+    return get_skills_submodule_path().parent / ".skills_session_refresh"
+
+
 def ensure_fresh(
     marker_path: Path | None = None,
     max_age_seconds: int = 6 * 3600,
@@ -197,6 +202,58 @@ def ensure_fresh(
     except OSError:
         pass
     return ("updated: " if ok else "failed: ") + result
+
+
+def ensure_fresh_for_session(
+    session_id: str,
+    marker_path: Path | None = None,
+) -> str:
+    """Refresh the skills submodule at most once per ``session_id``.
+
+    Stores the last-seen session id in ``<repo>/.skills_session_refresh``
+    (JSON). If the stored id matches, returns early; otherwise force-syncs
+    the submodule and atomically updates the marker. Soft-fails on all
+    errors so offline use is never blocked.
+    """
+    import os as _os
+
+    marker = marker_path or _default_session_marker_path()
+    prev_id = ""
+    if marker.exists():
+        try:
+            data = json.loads(marker.read_text(encoding="utf-8"))
+            prev_id = str(data.get("session_id", ""))
+        except (OSError, ValueError):
+            prev_id = ""
+
+    if session_id and prev_id == session_id:
+        return "skipped: same session"
+
+    has_updates, message, _cur, _rem = check_for_updates()
+    if not has_updates:
+        _write_session_marker(marker, session_id)
+        return f"skipped: {message}"
+
+    ok, result = update_skills()
+    _write_session_marker(marker, session_id)
+    return ("updated: " if ok else "failed: ") + result
+
+
+def _write_session_marker(marker: Path, session_id: str) -> None:
+    import os as _os
+
+    tmp = marker.with_suffix(marker.suffix + ".tmp")
+    try:
+        tmp.write_text(
+            json.dumps({"session_id": session_id}), encoding="utf-8"
+        )
+        _os.replace(tmp, marker)
+    except OSError:
+        try:
+            if tmp.exists():
+                tmp.unlink()
+        except OSError:
+            pass
 
 
 def get_skills_info(skills_path: Optional[Path] = None) -> dict:

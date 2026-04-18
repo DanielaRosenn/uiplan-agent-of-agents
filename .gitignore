@@ -67,6 +67,7 @@ data/library/**/_cache/
 .uipath-claude/
 .uipath/
 .skills_refresh_at
+.skills_session_refresh
 
 # Scratch / generated local projects
 HelloWorld/

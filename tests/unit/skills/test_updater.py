@@ -94,3 +94,64 @@ def test_update_skills_non_force_uses_stash_and_pull(fake_skills):
     assert ok is True
     assert any(c[:2] == ["stash", "push"] for c in fg.calls)
     assert any(c[:2] == ["pull", "--ff-only"] for c in fg.calls)
+
+
+def test_ensure_fresh_for_session_skips_same_session(tmp_path, monkeypatch):
+    marker = tmp_path / ".skills_session_refresh"
+    marker.write_text('{"session_id": "sid-X"}', encoding="utf-8")
+    called = {"n": 0}
+
+    def _fail_update(*args, **kwargs):
+        called["n"] += 1
+        return True, "should not run"
+
+    monkeypatch.setattr(updater, "update_skills", _fail_update)
+    monkeypatch.setattr(
+        updater, "check_for_updates",
+        lambda *a, **kw: (True, "needs update", "a", "b"),
+    )
+    msg = updater.ensure_fresh_for_session("sid-X", marker_path=marker)
+    assert msg.startswith("skipped: same session")
+    assert called["n"] == 0
+
+
+def test_ensure_fresh_for_session_runs_on_new_session(tmp_path, monkeypatch):
+    import json as _json
+
+    marker = tmp_path / ".skills_session_refresh"
+    marker.write_text('{"session_id": "sid-X"}', encoding="utf-8")
+    invoked = {"n": 0}
+
+    def _fake_update(*args, **kwargs):
+        invoked["n"] += 1
+        return True, "Skills updated to commit deadbeef"
+
+    monkeypatch.setattr(updater, "update_skills", _fake_update)
+    monkeypatch.setattr(
+        updater, "check_for_updates",
+        lambda *a, **kw: (True, "needs update", "a", "b"),
+    )
+    msg = updater.ensure_fresh_for_session("sid-Y", marker_path=marker)
+    assert msg.startswith("updated:")
+    assert invoked["n"] == 1
+    data = _json.loads(marker.read_text(encoding="utf-8"))
+    assert data["session_id"] == "sid-Y"
+
+
+def test_ensure_fresh_for_session_tolerates_corrupt_marker(tmp_path, monkeypatch):
+    marker = tmp_path / ".skills_session_refresh"
+    marker.write_text("not-json", encoding="utf-8")
+    invoked = {"n": 0}
+
+    def _fake_update(*args, **kwargs):
+        invoked["n"] += 1
+        return True, "ok"
+
+    monkeypatch.setattr(updater, "update_skills", _fake_update)
+    monkeypatch.setattr(
+        updater, "check_for_updates",
+        lambda *a, **kw: (True, "needs update", "a", "b"),
+    )
+    msg = updater.ensure_fresh_for_session("sid-Z", marker_path=marker)
+    assert msg.startswith("updated:")
+    assert invoked["n"] == 1

@@ -36,13 +36,10 @@ The MCP server re-exports a subset of these with typed schemas.
 
 ## Skills upstream
 
-- Auto-refresh at CLI startup via `ensure_fresh` (6h TTL). The updater
-  force-syncs to `origin/main`; any local drift inside the `skills/` submodule
-  is preserved on a `backup/local-<timestamp>` branch first.
-- Git hooks: `/install-git-hooks` (or `python -m uipath_claude.hooks.install_git_hooks`)
-  installs `post-merge`, `post-checkout`, and `post-rewrite` hooks that run
-  `git submodule update --init --remote --merge skills` best-effort, so every
-  `git pull`/`checkout` keeps the submodule fresh too.
+- Auto-refresh once per chat session (local only) via
+  `ensure_fresh_for_session`. The updater force-syncs to `origin/main`; any
+  local drift inside the `skills/` submodule is preserved on a
+  `backup/local-<timestamp>` branch first. No git hooks — Cursor-driven only.
 - `/scan-upstream-skills` — diff new/removed skills and tool packs in the
   `UiPath/skills` submodule.
 - `/library-harvest` — enqueue library proposals from every upstream
