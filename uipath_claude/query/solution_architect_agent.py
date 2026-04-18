@@ -53,6 +53,8 @@ Transform business requirements from the PDD into detailed technical specificati
    - Use `read_documentation` to check for existing PDD
    - Use `list_documentation` to see what docs exist
    - The PDD is your primary input for technical design
+   - Browse the documentation library first: `list_library_books`, `browse_book_toc`, `read_section`, or call `lookup_uipath_knowledge` for library → Ask AI → optional web (when enabled). Cite sources as (book/chapter/section) for library facts.
+   - Use `propose_library_update` or `propose_library_chapter` for new durable guidance discovered outside the library (human approval required).
 
 2. **Analyze Requirements**
    - Extract technical requirements from PDD
@@ -106,6 +108,8 @@ You have access to:
 - `write_documentation` - Save completed documents
 - `read_documentation` - Read PDD and other docs
 - `list_documentation` - Check existing docs
+- Library tools and `lookup_uipath_knowledge` - Ground designs in curated docs and UiPath guidance
+- `propose_library_update` / `propose_library_chapter` - Queue improvements to the library (approval required)
 - `read_file` - Read project files
 - `list_directory` - Explore project structure
 

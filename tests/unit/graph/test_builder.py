@@ -2,7 +2,15 @@
 
 import asyncio
 
+from uipath_claude.graph import graph as langgraph_studio_graph
 from uipath_claude.graph.builder import compile_chat_graph
+
+
+def test_langgraph_json_graph_importable() -> None:
+    """``langgraph.json`` points at ``uipath_claude.graph:graph``."""
+    assert langgraph_studio_graph is not None
+    assert "route" in langgraph_studio_graph.nodes
+    assert "execute" in langgraph_studio_graph.nodes
 
 
 def test_compile_chat_graph_runs_route_execute() -> None:

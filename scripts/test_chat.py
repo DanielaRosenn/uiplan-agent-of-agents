@@ -88,7 +88,9 @@ When creating files, use this format:
         system_prompt += f"\n\n{skill_context}"
     
     # Create engine
-    model_name = os.getenv("UIPATH_CLAUDE_MODEL", "anthropic.claude-3-sonnet-20240229-v1:0")
+    from uipath_claude.config import DEFAULT_BEDROCK_MODEL
+
+    model_name = os.getenv("UIPATH_CLAUDE_MODEL", DEFAULT_BEDROCK_MODEL)
     region = os.getenv("AWS_REGION", "us-east-1")
     
     print(f"\nModel: {model_name}")
@@ -161,7 +163,9 @@ def interactive_mode():
     print(f"Loaded {len(skills)} skills\n")
     
     # Create engine
-    model_name = os.getenv("UIPATH_CLAUDE_MODEL", "anthropic.claude-3-sonnet-20240229-v1:0")
+    from uipath_claude.config import DEFAULT_BEDROCK_MODEL
+
+    model_name = os.getenv("UIPATH_CLAUDE_MODEL", DEFAULT_BEDROCK_MODEL)
     region = os.getenv("AWS_REGION", "us-east-1")
     
     try:

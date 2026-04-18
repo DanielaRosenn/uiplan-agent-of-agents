@@ -89,17 +89,6 @@ def _has_executed_plan(tool_calls_made: list[dict[str, Any]]) -> bool:
     return any(tc.get("name") in WRITE_TOOL_NAMES for tc in tool_calls_made)
 
 
-def _is_tool_failure(observation: str) -> bool:
-    """Structured tools return ``[ERROR]`` / ``[OK]``; treat anything else as failure."""
-    if not isinstance(observation, str):
-        return True
-    if observation.startswith("[ERROR]"):
-        return True
-    if observation.startswith("[OK]"):
-        return False
-    return True
-
-
 def _tool_return_indicates_success(result: str) -> bool:
     """Prefer ``[OK]/[ERROR]`` markers; fall back to legacy substring rules for older tools."""
     if not isinstance(result, str):
@@ -124,6 +113,11 @@ def _tool_return_indicates_success(result: str) -> bool:
     if "error" in rl:
         return False
     return True
+
+
+def _is_tool_failure(observation: str) -> bool:
+    """True if the tool observation should be treated as a failed tool call."""
+    return not _tool_return_indicates_success(observation)
 
 
 @dataclass

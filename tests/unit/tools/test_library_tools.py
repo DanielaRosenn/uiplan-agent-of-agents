@@ -33,9 +33,9 @@ def test_read_section_returns_error_for_missing():
     assert "not found" in result.lower()
 
 
-def test_get_library_tools_returns_five_tools():
+def test_get_library_tools_returns_expected_count():
     tools = get_library_tools()
-    assert len(tools) == 5
+    assert len(tools) == 6
 
 
 def test_get_library_tools_contains_expected_tools():

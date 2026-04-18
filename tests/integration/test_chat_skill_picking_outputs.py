@@ -11,6 +11,13 @@ from uipath_claude.cli.app import app
 runner = CliRunner()
 
 
+@pytest.fixture(autouse=True)
+def _integration_chat_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("UIPATH_SKIP_AUTH_CHECK", "1")
+    monkeypatch.setenv("UIPATH_PLAN_MODE", "0")
+    monkeypatch.setenv("UIPATH_AGENTIC_MODE", "0")
+
+
 @pytest.mark.integration
 def test_chat_skill_picking_creates_persistent_output_artifact(monkeypatch):
     repo_root = Path(__file__).resolve().parents[2]
@@ -98,6 +105,8 @@ def _file_block(rel_path: str, body: str) -> str:
 @pytest.mark.integration
 def test_chat_generates_dispatcher_performer_long_running_projects(monkeypatch):
     repo_root = Path(__file__).resolve().parents[2]
+    if not (repo_root / "templates" / "dispatcher" / "project.json").is_file():
+        pytest.skip("Optional template bundle missing (templates/dispatcher, performer, long-running).")
     output_root = repo_root / "generated" / "test-runs" / "chat-project-bundles"
     output_root.mkdir(parents=True, exist_ok=True)
 

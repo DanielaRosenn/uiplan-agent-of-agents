@@ -1,35 +1,87 @@
-"""UiPath Ask AI tool."""
+"""Unified UiPath Ask AI / documentation query (SDK skill or HTTP endpoint)."""
+from __future__ import annotations
+
 import os
+import sys
+from pathlib import Path
 
 import httpx
 from langchain_core.tools import tool
 
+from uipath_claude.tools._result import ToolOutcome
 
-@tool
-def uipath_askai_tool(query: str) -> str:
+
+def _skills_askai_dir() -> Path:
+    return (
+        Path(__file__).resolve().parent.parent.parent.parent
+        / "skills"
+        / "skills"
+        / "uipath-askai"
+    )
+
+
+def query_uipath_documentation(question: str) -> ToolOutcome:
     """
-    Query UiPath documentation using Ask AI.
-    
-    Args:
-        query: Question to ask
-        
-    Returns:
-        Answer from UiPath docs
+    Ask authoritative UiPath documentation: prefer bundled uipath-askai skill SDK,
+    else HTTP endpoint from UIPATH_ASKAI_ENDPOINT (+ optional UIPATH_ASKAI_API_KEY).
     """
+    skills_path = _skills_askai_dir()
+    if skills_path.exists():
+        sys.path.insert(0, str(skills_path))
+        try:
+            from uipath_askai_client import UiPathAskAIClient
+
+            config_path = skills_path / "uipath_askai_config.json"
+            if not config_path.exists():
+                return ToolOutcome(
+                    ok=False,
+                    message=(
+                        "uipath_askai_config.json not configured. "
+                        "See skills/skills/uipath-askai/UIPATH_ASKAI_SETUP.md"
+                    ),
+                )
+
+            client = UiPathAskAIClient(str(config_path))
+            result = client.ask(question)
+
+            if result.get("success"):
+                return ToolOutcome(ok=True, message=client.format_response(result))
+            return ToolOutcome(
+                ok=False,
+                message=f"Error querying UiPath docs: {result.get('error', 'Unknown error')}",
+            )
+        except ImportError as e:
+            return ToolOutcome(ok=False, message=f"Error importing UiPath Ask AI client: {e}")
+        except Exception as e:
+            return ToolOutcome(ok=False, message=f"Error querying UiPath docs: {e}")
+        finally:
+            if str(skills_path) in sys.path:
+                sys.path.remove(str(skills_path))
+
     endpoint = os.getenv("UIPATH_ASKAI_ENDPOINT", "").strip()
     api_key = os.getenv("UIPATH_ASKAI_API_KEY", "").strip()
     if not endpoint:
-        return (
-            "AskAI is not configured. Set UIPATH_ASKAI_ENDPOINT "
-            "(and UIPATH_ASKAI_API_KEY if required)."
+        return ToolOutcome(
+            ok=False,
+            message=(
+                "UiPath Ask AI not available: install skills/skills/uipath-askai/ "
+                "or set UIPATH_ASKAI_ENDPOINT (and UIPATH_ASKAI_API_KEY if required)."
+            ),
         )
 
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
-    payload = {"query": query}
+    payload = {"query": question}
     try:
-        response = httpx.post(endpoint, json=payload, headers=headers, timeout=30.0)
+        response = httpx.post(endpoint, json=payload, headers=headers, timeout=60.0)
         response.raise_for_status()
         data = response.json()
-        return str(data.get("answer") or data.get("result") or data)
+        text = str(data.get("answer") or data.get("result") or data)
+        return ToolOutcome(ok=True, message=text)
     except Exception as exc:
-        return f"AskAI request failed: {exc}"
+        return ToolOutcome(ok=False, message=f"AskAI HTTP request failed: {exc}")
+
+
+@tool
+def uipath_askai_tool(query: str) -> str:
+    """Query UiPath documentation via unified Ask AI (SDK or HTTP)."""
+    return query_uipath_documentation(query).to_text()

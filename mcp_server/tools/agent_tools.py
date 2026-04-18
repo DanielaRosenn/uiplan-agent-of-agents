@@ -7,6 +7,7 @@ from typing import Any
 
 from mcp.types import Tool
 
+from uipath_claude.config import DEFAULT_BEDROCK_MODEL
 from uipath_claude.query.agentic_executor import AgenticExecutor
 from uipath_claude.query.bootstrap import run_bootstrap_flow
 from uipath_claude.query.intent_classifier import classify_intent
@@ -86,7 +87,7 @@ def get_agent_tools() -> list[Tool]:
 
 
 def _model_region() -> tuple[str, str]:
-    model = os.environ.get("UIPATH_CLAUDE_MODEL", "anthropic.claude-3-sonnet-20240229-v1:0")
+    model = os.environ.get("UIPATH_CLAUDE_MODEL", DEFAULT_BEDROCK_MODEL)
     region = os.environ.get("AWS_REGION", "us-east-1")
     return model, region
 

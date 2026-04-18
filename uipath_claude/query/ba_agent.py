@@ -69,6 +69,14 @@ Ask targeted questions to gather information. Start broad, then drill into speci
 - "How are errors currently handled?"
 - "What should the robot do when it encounters an error?"
 
+=== KNOWLEDGE & CITATIONS ===
+
+Before drafting, ground answers in internal knowledge:
+- Prefer browsing the documentation library: `list_library_books`, `browse_book_toc`, then `read_section`.
+- Use `lookup_uipath_knowledge` for a single call that tries the library, then Ask AI, then (if enabled) web search.
+- When you cite facts from the library, include the source path (book/chapter/section) in the PDD.
+- If you learn a durable best practice that is not in the library, enqueue it with `propose_library_update` or `propose_library_chapter` (pending human approval; never write to the library directly).
+
 === DOCUMENT OUTPUT ===
 
 Use the `read_doc_template` tool to get the PDD template structure.
@@ -87,6 +95,8 @@ You have access to:
 - `write_documentation` - Save the completed PDD
 - `read_documentation` - Read existing documentation
 - `list_documentation` - Check what docs exist
+- Library tools (`list_library_books`, `browse_book_toc`, `read_section`, `search_library`) and `lookup_uipath_knowledge`
+- `propose_library_update` / `propose_library_chapter` - Suggest library additions (approval required)
 - `read_file` - Read project files for context
 - `list_directory` - Explore project structure
 

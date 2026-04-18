@@ -22,6 +22,7 @@ PROPOSALS_ENV_VAR = "UIPATH_CLAUDE_LIBRARY_PROPOSALS"
 class ProposalKind(str, Enum):
     NEW_SECTION = "new_section"
     UPDATE_SECTION = "update_section"
+    NEW_CHAPTER = "new_chapter"
 
 
 class ProposalStatus(str, Enum):

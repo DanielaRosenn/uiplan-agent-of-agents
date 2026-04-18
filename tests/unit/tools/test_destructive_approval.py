@@ -6,6 +6,8 @@ from uipath_claude.tools.approval import ApprovalDecision, ApprovalPolicy, is_de
 
 def test_is_destructive_set() -> None:
     assert is_destructive("write_file") is True
+    assert is_destructive("write_documentation") is True
+    assert is_destructive("run_uip_command") is True
     assert is_destructive("read_project_json") is False
 
 

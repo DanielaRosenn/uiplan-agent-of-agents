@@ -146,7 +146,9 @@ def test_skill_selection(prompt: str, expected_skill: str) -> tuple[bool, str, l
 
 async def run_llm_test(prompt: str, skills: list[dict]) -> tuple[str, str]:
     """Run an actual LLM call with skill context."""
-    model_name = os.getenv("UIPATH_CLAUDE_MODEL", "anthropic.claude-3-sonnet-20240229-v1:0")
+    from uipath_claude.config import DEFAULT_BEDROCK_MODEL
+
+    model_name = os.getenv("UIPATH_CLAUDE_MODEL", DEFAULT_BEDROCK_MODEL)
     region = os.getenv("AWS_REGION", "us-east-1")
     
     engine = ConversationEngine(model_name=model_name, region=region)

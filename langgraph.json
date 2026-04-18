@@ -1,6 +1,6 @@
 {
   "graphs": {
-    "builder": "agent/graph.py:graph"
+    "builder": "uipath_claude.graph:graph"
   },
   "python_version": "3.11",
   "dependencies": ["."]

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 import yaml
 
@@ -94,3 +94,72 @@ class LibraryWriter:
             )
         md_path.write_text(content, encoding="utf-8")
         return md_path
+
+    def create_chapter(
+        self,
+        *,
+        book_id: str,
+        chapter_id: str,
+        chapter_title: str,
+        order: int | None = None,
+        initial_sections: list[dict[str, Any]] | None = None,
+    ) -> Path:
+        """Add a new chapter directory, book.yaml entry, and optional starter sections."""
+        _assert_safe_segment(chapter_id, "chapter_id")
+        book_dir = self._book_dir(book_id)
+        book_yaml_path = book_dir / "book.yaml"
+        if not book_yaml_path.exists():
+            raise ValueError(f"no book.yaml at {book_yaml_path}")
+        data = yaml.safe_load(book_yaml_path.read_text(encoding="utf-8")) or {}
+        chapters = list(data.get("chapters", []))
+        if order is None:
+            orders = [int(c.get("order", 0)) for c in chapters]
+            order = max(orders, default=0) + 1
+        rel_path = f"chapters/{order:02d}-{chapter_id}"
+        ch_dir = book_dir / rel_path
+        if ch_dir.exists():
+            raise ValueError(f"chapter path already exists: {rel_path}")
+        ch_dir.mkdir(parents=True)
+
+        sections_yaml: list[dict[str, Any]] = []
+        for sec in initial_sections or []:
+            sid = sec.get("id") or ""
+            _assert_safe_segment(sid, "section_id")
+            title = sec.get("title") or sid
+            content = sec.get("content", "")
+            keywords = sec.get("keywords") or []
+            md_path = ch_dir / f"{sid}.md"
+            md_path.write_text(str(content), encoding="utf-8")
+            sections_yaml.append(
+                {
+                    "id": sid,
+                    "title": title,
+                    "file": f"{sid}.md",
+                    "keywords": list(keywords),
+                }
+            )
+
+        chapter_yaml_data = {
+            "id": chapter_id,
+            "title": chapter_title,
+            "sections": sections_yaml,
+        }
+        (ch_dir / "chapter.yaml").write_text(
+            yaml.dump(chapter_yaml_data, default_flow_style=False, sort_keys=False),
+            encoding="utf-8",
+        )
+
+        chapters.append(
+            {
+                "id": chapter_id,
+                "order": order,
+                "path": rel_path,
+                "title": chapter_title,
+            }
+        )
+        data["chapters"] = sorted(chapters, key=lambda c: int(c.get("order", 0)))
+        book_yaml_path.write_text(
+            yaml.dump(data, default_flow_style=False, sort_keys=False),
+            encoding="utf-8",
+        )
+        return ch_dir

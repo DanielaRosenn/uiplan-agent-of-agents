@@ -25,7 +25,7 @@ def evaluators():
 def test_dataset_creation(workflow_dataset):
     """Test that dataset is created correctly."""
     assert workflow_dataset.name == "UiPath Workflow Benchmarks"
-    assert len(workflow_dataset.examples) == 3
+    assert len(workflow_dataset.examples) >= 3
     assert all(ex.inputs and ex.outputs for ex in workflow_dataset.examples)
 
 

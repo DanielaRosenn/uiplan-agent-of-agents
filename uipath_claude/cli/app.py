@@ -36,6 +36,9 @@ from uipath_claude.artifacts.materialize import (
 from uipath_claude.query.bootstrap import run_bootstrap_flow
 from uipath_claude.query.conversation import ConversationEngine
 from uipath_claude.graph.builder import compile_chat_graph
+from uipath_claude.config import DEFAULT_BEDROCK_MODEL
+from uipath_claude.cli.documentation_flow import run_documentation_flow
+from uipath_claude.query.doc_need_detector import DocNeedLevel, detect_documentation_need
 from uipath_claude.query.intent_classifier import IntentType, classify_intent
 from uipath_claude.query.plan_block import PLAN_BLOCK_HEADING, build_plan_block
 from uipath_claude.query.planner import run_planner_agent
@@ -643,10 +646,7 @@ def _build_command_registry(
 
 def _create_engine() -> ConversationEngine:
     """Create Bedrock conversation engine from environment settings."""
-    model_name = os.getenv(
-        "UIPATH_CLAUDE_MODEL",
-        "anthropic.claude-3-sonnet-20240229-v1:0",
-    )
+    model_name = os.getenv("UIPATH_CLAUDE_MODEL", DEFAULT_BEDROCK_MODEL)
     region = os.getenv("AWS_REGION", "us-east-1")
     return ConversationEngine(model_name=model_name, region=region)
 
@@ -873,10 +873,7 @@ def chat(
             console.print("")
     
     skill_registry = SkillRegistry()
-    model_name = os.getenv(
-        "UIPATH_CLAUDE_MODEL",
-        "anthropic.claude-3-sonnet-20240229-v1:0",
-    )
+    model_name = os.getenv("UIPATH_CLAUDE_MODEL", DEFAULT_BEDROCK_MODEL)
     region = os.getenv("AWS_REGION", "us-east-1")
     tool_profile = resolve_tool_profile(os.getenv("UIPATH_CLAUDE_TOOL_PROFILE", "safe"))
     skills = skill_registry.load_skills()
@@ -958,7 +955,13 @@ def chat(
     from uipath_claude.tools.approval import ApprovalDecision, ApprovalPolicy
 
     approval_policy: ApprovalPolicy | None = None
-    if os.environ.get("UIPATH_TOOL_APPROVAL", "0").strip().lower() in ("1", "true", "yes"):
+    # Default "1": prompt for destructive tools. Opt out with 0 / false / no (e.g. CI).
+    _skip_approval_prompts = os.environ.get("UIPATH_TOOL_APPROVAL", "1").strip().lower() in (
+        "0",
+        "false",
+        "no",
+    )
+    if not _skip_approval_prompts:
 
         def _approval_prompter(tool_name: str, _tool_args: dict) -> ApprovalDecision:
             if not sys.stdin.isatty():
@@ -1070,6 +1073,30 @@ def chat(
                     if cl not in ("", "y", "yes"):
                         user_input = f"{user_input}\n\nAdditional details from user: {confirm}"
 
+            if intent == IntentType.DOCUMENTATION:
+                console.print("[bold cyan][DOCUMENTATION][/bold cyan]")
+                _flush_stdio()
+                project_path = (
+                    project_context["project_path"]
+                    if project_context
+                    else str(Path.cwd())
+                )
+                _created, reply = asyncio.run(
+                    run_documentation_flow(
+                        user_input=user_input,
+                        history=history,
+                        project_path=project_path,
+                        session_id=chat_session_id,
+                        model_name=model_name,
+                        region=region,
+                        progress=progress,
+                    )
+                )
+                console.print(f"[magenta]Assistant:[/magenta] {reply}\n")
+                history.append({"role": "user", "content": user_input})
+                history.append({"role": "assistant", "content": reply})
+                continue
+
             # QUESTION intents bypass planning and agentic graph
             if intent == IntentType.QUESTION:
                 console.print("[bold cyan][ANSWERING][/bold cyan]")
@@ -1106,6 +1133,43 @@ def chat(
                     progress.error("Simple answer failed")
                     console.print(f"Error: {exc}")
                     continue
+
+            if intent in (IntentType.BUILD, IntentType.AMBIGUOUS):
+                doc_need = detect_documentation_need(user_input)
+                if (
+                    doc_need.recommended_docs
+                    and doc_need.level
+                    in (DocNeedLevel.RECOMMENDED, DocNeedLevel.REQUIRED)
+                ):
+                    default = "y" if doc_need.level == DocNeedLevel.REQUIRED else "n"
+                    doc_label = ", ".join(d.upper() for d in doc_need.recommended_docs)
+                    choice = Prompt.ask(
+                        f"Documentation [{doc_need.level.value}]. "
+                        f"Generate {doc_label} before coding?",
+                        choices=["y", "n"],
+                        default=default,
+                    )
+                    if choice.strip().lower() in ("y", "yes"):
+                        project_path = (
+                            project_context["project_path"]
+                            if project_context
+                            else str(Path.cwd())
+                        )
+                        _pre_docs, doc_reply = asyncio.run(
+                            run_documentation_flow(
+                                user_input=user_input,
+                                history=history,
+                                project_path=project_path,
+                                session_id=chat_session_id,
+                                model_name=model_name,
+                                region=region,
+                                progress=progress,
+                            )
+                        )
+                        if doc_reply.strip():
+                            console.print(
+                                f"[magenta]Assistant (documentation):[/magenta] {doc_reply}\n"
+                            )
 
             # Plan Mode logic
             approved_plan = ""

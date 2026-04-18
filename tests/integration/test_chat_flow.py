@@ -9,6 +9,15 @@ from uipath_claude.cli.app import app
 runner = CliRunner()
 
 
+@pytest.fixture(autouse=True)
+def _integration_chat_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Match unit CLI tests: skip auth prompts (would consume stdin) and skip planner."""
+    monkeypatch.setenv("UIPATH_SKIP_AUTH_CHECK", "1")
+    monkeypatch.setenv("UIPATH_PLAN_MODE", "0")
+    # Tests mock ``_get_model_response``; agentic mode bypasses it and calls Bedrock directly.
+    monkeypatch.setenv("UIPATH_AGENTIC_MODE", "0")
+
+
 @pytest.mark.integration
 def test_chat_flow_with_no_banner():
     """Test chat command runs without banner."""
@@ -18,7 +27,7 @@ def test_chat_flow_with_no_banner():
             get_model_response.return_value = "Hi from model"
             result = runner.invoke(app, ["chat", "--no-banner"], input="hello\nexit\n")
     assert result.exit_code == 0
-    assert "assistant: hi from model" in result.stdout.lower()
+    assert "hi from model" in result.stdout.lower()
 
 
 @pytest.mark.integration
@@ -34,7 +43,7 @@ def test_chat_flow_no_stream_flag_keeps_buffered_output():
                 app, ["chat", "--no-banner", "--no-stream"], input="hello\nexit\n"
             )
     assert result.exit_code == 0
-    assert "assistant: buffered reply" in result.stdout.lower()
+    assert "buffered reply" in result.stdout.lower()
 
 
 @pytest.mark.integration

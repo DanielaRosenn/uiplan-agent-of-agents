@@ -18,7 +18,9 @@ from typing import Any, Optional, Tuple
 from langchain_core.tools import tool
 
 from uipath_claude.tools._result import ToolOutcome
+from uipath_claude.tools.knowledge_tools import get_knowledge_tools
 from uipath_claude.tools.library_tools import get_library_tools
+from uipath_claude.tools.uipath.askai import query_uipath_documentation
 from uipath_claude.tools.uipath.cli_runner import (
     _find_uip_cli,
     _parse_first_json_payload,
@@ -1137,41 +1139,8 @@ def query_uipath_docs(question: str) -> str:
     Returns:
         Answer from UiPath documentation with sources
     """
-    import sys
-    
-    # Add skills path to find the client
-    skills_path = Path(__file__).resolve().parent.parent.parent / "skills" / "skills" / "uipath-askai"
-    if skills_path.exists():
-        sys.path.insert(0, str(skills_path))
-        try:
-            from uipath_askai_client import UiPathAskAIClient
-            
-            config_path = skills_path / "uipath_askai_config.json"
-            if not config_path.exists():
-                return _tool(
-                    False,
-                    "Error: uipath_askai_config.json not configured. See skills/skills/uipath-askai/UIPATH_ASKAI_SETUP.md",
-                )
-            
-            client = UiPathAskAIClient(str(config_path))
-            result = client.ask(question)
-            
-            if result.get("success"):
-                return _tool(True, client.format_response(result))
-            else:
-                return _tool(False, f"Error querying UiPath docs: {result.get('error', 'Unknown error')}")
-        except ImportError as e:
-            return _tool(False, f"Error importing UiPath Ask AI client: {e}")
-        except Exception as e:
-            return _tool(False, f"Error querying UiPath docs: {e}")
-        finally:
-            if str(skills_path) in sys.path:
-                sys.path.remove(str(skills_path))
-    
-    return _tool(
-        False,
-        "Error: UiPath Ask AI skill not found. Install it in skills/skills/uipath-askai/",
-    )
+    out = query_uipath_documentation(question)
+    return out.to_text()
 
 
 def get_planning_tools() -> list:
@@ -1182,7 +1151,7 @@ def get_planning_tools() -> list:
         read_project_json,
         find_activity_info,
         query_uipath_docs,
-    ] + get_library_tools()
+    ] + get_library_tools() + get_knowledge_tools()
 
 
 # Deployment validation constants
@@ -1515,4 +1484,4 @@ def get_skill_execution_tools() -> list:
         ensure_project_structure,
         query_uipath_docs,
         deploy_to_orchestrator,  # Deploy to Orchestrator/Studio Web
-    ] + get_library_tools()
+    ] + get_library_tools() + get_knowledge_tools()

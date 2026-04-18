@@ -149,6 +149,44 @@ def propose_library_update(
     return json.dumps({"proposal_id": saved.proposal_id, "status": "pending"})
 
 
+@tool
+def propose_library_chapter(
+    book_id: str,
+    chapter_id: str,
+    chapter_title: str,
+    order: int = 99,
+    rationale: str = "",
+    initial_sections_json: str = "[]",
+) -> str:
+    """Propose a new chapter (TOC entry + folder); requires human approval before apply.
+
+    initial_sections_json: JSON list of objects with keys id, title, content, keywords (optional).
+    Does not modify the library until approved via ``uipath-claude library-proposals approve``.
+    """
+    try:
+        parsed = json.loads(initial_sections_json) if initial_sections_json.strip() else []
+    except json.JSONDecodeError as e:
+        return json.dumps({"error": f"invalid initial_sections_json: {e}"})
+    if not isinstance(parsed, list):
+        return json.dumps({"error": "initial_sections_json must be a JSON array"})
+
+    store = ProposalStore()
+    payload = {"order": order, "initial_sections": parsed}
+    proposal = LibraryProposal(
+        proposal_id="",
+        book_id=book_id,
+        chapter_id=chapter_id,
+        section_id="__new_chapter__",
+        section_title=chapter_title,
+        kind=ProposalKind.NEW_CHAPTER,
+        content=json.dumps(payload),
+        keywords=[],
+        rationale=rationale,
+    )
+    saved = store.enqueue(proposal)
+    return json.dumps({"proposal_id": saved.proposal_id, "status": "pending"})
+
+
 def get_library_tools() -> list[tool]:
     """Return the list of library tools for agent use."""
     return [
@@ -157,4 +195,5 @@ def get_library_tools() -> list[tool]:
         read_section,
         search_library,
         propose_library_update,
+        propose_library_chapter,
     ]

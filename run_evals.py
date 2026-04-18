@@ -16,6 +16,7 @@ os.environ["UIPATH_SKILL_AUTO_CAPTURE"] = "0"
 os.environ["AWS_REGION"] = "us-east-1"
 os.environ["UIPATH_CHAT_OUTPUT_DIR"] = str(Path.cwd() / "generated" / "evals")
 
+from uipath_claude.config import DEFAULT_BEDROCK_MODEL
 from uipath_claude.evaluation.datasets import EvaluationDataset
 from uipath_claude.evaluation.eval_skill_prompt import EVAL_AGENT_SKILL_PROMPT
 from uipath_claude.evaluation.evaluators import agent_benchmark_evaluator
@@ -30,7 +31,7 @@ async def target_function(inputs: dict) -> dict:
     
     tools = get_skill_execution_tools()
     executor = AgenticExecutor(
-        model_name=os.getenv("UIPATH_CLAUDE_MODEL", "anthropic.claude-3-sonnet-20240229-v1:0"),
+        model_name=os.getenv("UIPATH_CLAUDE_MODEL", DEFAULT_BEDROCK_MODEL),
         region=os.getenv("AWS_REGION", "us-east-1"),
     )
     

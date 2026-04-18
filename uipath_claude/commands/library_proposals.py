@@ -67,7 +67,24 @@ def approve_cmd(proposal_id: str) -> None:
         raise typer.Exit(code=1)
 
     writer = LibraryWriter()
-    if p.kind == ProposalKind.UPDATE_SECTION:
+    if p.kind == ProposalKind.NEW_CHAPTER:
+        try:
+            meta = json.loads(p.content) if p.content else {}
+        except json.JSONDecodeError:
+            typer.echo("Invalid proposal content JSON.", err=True)
+            raise typer.Exit(code=1)
+        try:
+            writer.create_chapter(
+                book_id=p.book_id,
+                chapter_id=p.chapter_id,
+                chapter_title=p.section_title,
+                order=meta.get("order"),
+                initial_sections=meta.get("initial_sections"),
+            )
+        except ValueError as e:
+            typer.echo(str(e), err=True)
+            raise typer.Exit(code=1)
+    elif p.kind == ProposalKind.UPDATE_SECTION:
         try:
             writer.update_section(
                 book_id=p.book_id,
@@ -75,7 +92,10 @@ def approve_cmd(proposal_id: str) -> None:
                 section_id=p.section_id,
                 content=p.content,
             )
-        except ValueError:
+        except ValueError as e:
+            if "section does not exist" not in str(e).lower():
+                typer.echo(str(e), err=True)
+                raise typer.Exit(code=1)
             writer.create_section(
                 book_id=p.book_id,
                 chapter_id=p.chapter_id,

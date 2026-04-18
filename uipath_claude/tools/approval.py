@@ -9,11 +9,13 @@ from dataclasses import dataclass, field
 DESTRUCTIVE_TOOLS: frozenset[str] = frozenset(
     {
         "write_file",
+        "write_documentation",
         "ensure_project_structure",
         "deploy_to_orchestrator",
         "run_workflow",
         "debug_workflow",
         "install_package",
+        "run_uip_command",
     }
 )
 
