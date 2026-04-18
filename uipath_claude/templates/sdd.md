@@ -300,6 +300,62 @@ Organization
 - **Priority Levels**: High, Normal, Low
 - **SLA**: {{queue_sla}}
 
+### 4.6 Runtime Cost Estimate
+
+> Estimates only. Validate platform numbers against the UiPath licensing contract and cloud provider against live billing.
+
+**Assumed volumes**: {{exec_per_day}} executions/day, {{avg_duration_min}} min avg, {{peak_concurrency}} peak concurrent, {{business_days_per_month}} business days/month.
+
+#### 4.6.1 UiPath Platform Consumption
+
+| Unit | Qty/Month | Unit Cost | Monthly $ | Source |
+|------|-----------|-----------|-----------|--------|
+| Robot Units (Maestro Cloud Robot) | | | | AskAI / licensing |
+| Unattended Robot license | | | | Licensing |
+| Attended Robot license | | | | Licensing |
+| AI Units (Document Understanding / Communications Mining / Autopilot) | | | | AskAI |
+| Agent Units (LangGraph / Autopilot for Developers) | | | | AskAI |
+| Integration Service connector calls | | | | AskAI |
+| Action Center tasks (HITL) | | | | AskAI |
+| Data Service storage (GB) | | | | AskAI |
+
+#### 4.6.2 Self-Hosted Infrastructure
+
+Skip this subsection when deployment is Maestro-only (serverless cloud robots).
+
+| Component | Spec | Hrs/Month Active | $/Hr | Monthly $ |
+|-----------|------|------------------|------|-----------|
+| Robot host VM / EC2 | {{cpu_requirement}} / {{ram_requirement}} | | | |
+| EBS / Disk | {{disk_requirement}} GB | n/a | $/GB-mo | |
+| Windows Server license | BYOL or included in AMI | | | |
+| Network egress | GB | n/a | $/GB | |
+
+#### 4.6.3 LLM and Agent Runtime Cost
+
+Applies when the solution includes a LangGraph agent, Autopilot, IntelliText, or GenAI activities (Context Grounding, Completion, Chat).
+
+| Call Site | Model | Calls/Month | Avg Input Tokens | Avg Output Tokens | $/1M in | $/1M out | Monthly $ |
+|-----------|-------|-------------|------------------|-------------------|---------|----------|-----------|
+| Agent reasoning (primary) | | | | | | | |
+| Tool-use / function-call loop | | | | | | | |
+| Context Grounding / RAG | | | | | | | |
+| GenAI activity (in workflow) | | | | | | | |
+| Embeddings | | | | | | | |
+
+**Vector / retrieval store**: {{vector_store}} — storage $/GB-month {{vector_storage_cost}}, query cost {{vector_query_cost}}.
+
+#### 4.6.4 Total and Unit Economics
+
+| Metric | Value |
+|--------|-------|
+| Total monthly run cost (4.6.1 + 4.6.2 + 4.6.3) | $ |
+| Cost per transaction | $ |
+| Cost per successful outcome | $ |
+| Cost mix: platform / infra / LLM | % / % / % |
+| Payback vs. manual (see PDD Run Cost Estimate) | months |
+
+**Optimization levers**: off-peak scheduling, auto-stop VMs/EC2 when idle, model tiering (small model first, escalate only on low confidence), prompt caching, batching transactions to amortize Robot-Unit overhead, reusing embeddings, Context Grounding over repeated full-document re-reads.
+
 ---
 
 ## 5. Data Model

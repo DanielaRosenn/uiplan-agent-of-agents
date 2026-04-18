@@ -121,6 +121,19 @@
 | --- | --- | --- |
 {{roi_summary}}
 
+### Run Cost Estimate
+<!-- Estimates only. Source values from SDD section 4.6. -->
+| Cost Type | Monthly $ | Source |
+| --- | --- | --- |
+| UiPath platform (robots, AI Units, Agent Units) | | SDD §4.6.1 |
+| Infrastructure (EC2/VM, storage, egress) | | SDD §4.6.2 |
+| LLM & vector store (if agentic) | | SDD §4.6.3 |
+| Support / ops allocation | | |
+| **Total monthly run cost** | | |
+
+**Net monthly benefit**: (Business value from §VI) − (Total monthly run cost) = $ {{net_monthly_benefit}}
+**Payback period**: (Implementation cost) ÷ (Net monthly benefit) = {{payback_months}} months
+
 ---
 
 ## VII. Additional Documentation
