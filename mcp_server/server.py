@@ -31,6 +31,10 @@ from mcp_server.resources.project import fetch_project_resource, get_project_res
 from mcp_server.resources.skills import fetch_skill_resource, get_skill_resources
 from mcp_server.tools.agent_tools import call_agent_tool, get_agent_tools
 from mcp_server.tools.doc_tools import call_doc_tool, get_doc_tools
+from mcp_server.tools.library_tools import (
+    call_library_tool,
+    get_library_tools as _get_library_tools,
+)
 from mcp_server.tools.memory_tools import call_memory_tool, get_memory_tools
 from mcp_server.tools.skill_tools import call_skill_tool, get_skill_tools
 from mcp_server.tools.workflow_tools import call_workflow_tool, get_workflow_tools
@@ -52,6 +56,7 @@ async def list_tools() -> list[Tool]:
     tools.extend(get_agent_tools())
     tools.extend(get_doc_tools())
     tools.extend(get_memory_tools())
+    tools.extend(_get_library_tools())
     return tools
 
 
@@ -68,6 +73,8 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             result = await call_doc_tool(name, arguments)
         elif name.startswith("uipath_memory_"):
             result = await call_memory_tool(name, arguments)
+        elif name.startswith("uipath_library_"):
+            result = await call_library_tool(name, arguments)
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
         return _text_result(result)

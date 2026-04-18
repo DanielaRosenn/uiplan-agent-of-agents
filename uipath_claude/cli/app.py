@@ -22,6 +22,13 @@ from uipath_claude.commands.skills import register_skills_command
 from uipath_claude.commands.status import register_status_command
 from uipath_claude.commands.knowledge import register_knowledge_command
 from uipath_claude.commands.resume import register_resume_command
+from uipath_claude.commands.books import register_books_command
+from uipath_claude.commands.library_harvest import (
+    register_library_harvest_command,
+)
+from uipath_claude.commands.scan_upstream_skills import (
+    register_scan_upstream_skills_command,
+)
 from uipath_claude.commands.update_skills import register_update_skills_command
 from uipath_claude.commands.validate import register_validate_command
 from uipath_claude.commands.library_proposals import register_library_proposals_command
@@ -638,6 +645,9 @@ def _build_command_registry(
     register_repair_restore_command(registry)
     register_bootstrap_command(registry, run_bootstrap=run_bootstrap_flow)
     register_update_skills_command(registry)
+    register_scan_upstream_skills_command(registry)
+    register_library_harvest_command(registry)
+    register_books_command(registry)
     register_recall_command(registry, get_history=get_history)
     if run_planner:
         register_plan_command(registry, run_planner=run_planner)
@@ -734,8 +744,22 @@ def chat(
             msg = ensure_fresh(max_age_seconds=6 * 3600)
             if msg.startswith("updated"):
                 console.print(f"[dim]Skills cache: {msg}[/dim]")
-        except Exception:
-            pass
+                try:
+                    from uipath_claude.skills.upstream_scan import (
+                        format_diff,
+                        scan_upstream,
+                    )
+
+                    # Do not persist on startup banner: leaves the diff
+                    # available for explicit /scan-upstream-skills or
+                    # /library-harvest runs.
+                    diff = scan_upstream(persist=False)
+                    if diff.has_changes():
+                        console.print(f"[dim]{format_diff(diff)}[/dim]")
+                except Exception as exc:  # noqa: BLE001
+                    logger.debug("upstream skill scan failed: %s", exc)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("skills auto-refresh failed: %s", exc)
 
     try:
         from uipath_claude.skills.retirement_scheduler import maybe_run_retirement_scheduled

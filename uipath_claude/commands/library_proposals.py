@@ -5,12 +5,8 @@ import json
 
 import typer
 
-from uipath_claude.library.proposals import (
-    ProposalKind,
-    ProposalStore,
-)
-from uipath_claude.library.writer import LibraryWriter
-from uipath_claude.observability.logger import StructuredLogger
+from uipath_claude.library.apply import apply_proposal, reject_proposal
+from uipath_claude.library.proposals import ProposalStore
 
 library_proposals_app = typer.Typer(
     help="Review, approve, or reject proposed documentation library updates.",
@@ -60,82 +56,21 @@ def show_cmd(proposal_id: str) -> None:
 @library_proposals_app.command("approve")
 def approve_cmd(proposal_id: str) -> None:
     """Apply a proposal to the library, then remove it from the queue."""
-    store = ProposalStore()
-    p = store.get(proposal_id)
-    if not p:
-        typer.echo(f"Proposal not found: {proposal_id}", err=True)
+    result = apply_proposal(proposal_id)
+    if not result.ok:
+        typer.echo(result.message, err=True)
         raise typer.Exit(code=1)
-
-    writer = LibraryWriter()
-    if p.kind == ProposalKind.NEW_CHAPTER:
-        try:
-            meta = json.loads(p.content) if p.content else {}
-        except json.JSONDecodeError:
-            typer.echo("Invalid proposal content JSON.", err=True)
-            raise typer.Exit(code=1)
-        try:
-            writer.create_chapter(
-                book_id=p.book_id,
-                chapter_id=p.chapter_id,
-                chapter_title=p.section_title,
-                order=meta.get("order"),
-                initial_sections=meta.get("initial_sections"),
-            )
-        except ValueError as e:
-            typer.echo(str(e), err=True)
-            raise typer.Exit(code=1)
-    elif p.kind == ProposalKind.UPDATE_SECTION:
-        try:
-            writer.update_section(
-                book_id=p.book_id,
-                chapter_id=p.chapter_id,
-                section_id=p.section_id,
-                content=p.content,
-            )
-        except ValueError as e:
-            if "section does not exist" not in str(e).lower():
-                typer.echo(str(e), err=True)
-                raise typer.Exit(code=1)
-            writer.create_section(
-                book_id=p.book_id,
-                chapter_id=p.chapter_id,
-                section_id=p.section_id,
-                section_title=p.section_title,
-                content=p.content,
-                keywords=p.keywords,
-            )
-    else:
-        writer.create_section(
-            book_id=p.book_id,
-            chapter_id=p.chapter_id,
-            section_id=p.section_id,
-            section_title=p.section_title,
-            content=p.content,
-            keywords=p.keywords,
-        )
-    store.remove(proposal_id)
-    StructuredLogger().emit(
-        event="library_proposal_approved",
-        proposal_id=p.proposal_id,
-        book_id=p.book_id,
-        chapter_id=p.chapter_id,
-        section_id=p.section_id,
-    )
-    typer.echo(f"Applied: {p.book_id}/{p.chapter_id}/{p.section_id}")
+    typer.echo(result.message)
 
 
 @library_proposals_app.command("reject")
 def reject_cmd(proposal_id: str) -> None:
     """Drop a proposal without applying it."""
-    store = ProposalStore()
-    if not store.remove(proposal_id):
-        typer.echo(f"Proposal not found: {proposal_id}", err=True)
+    result = reject_proposal(proposal_id)
+    if not result.ok:
+        typer.echo(result.message, err=True)
         raise typer.Exit(code=1)
-    StructuredLogger().emit(
-        event="library_proposal_rejected",
-        proposal_id=proposal_id,
-    )
-    typer.echo(f"Rejected: {proposal_id}")
+    typer.echo(result.message)
 
 
 def register_library_proposals_command(app: typer.Typer) -> None:

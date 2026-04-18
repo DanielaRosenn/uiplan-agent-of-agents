@@ -30,6 +30,17 @@ class Chapter:
 
 
 @dataclass
+class BookManifest:
+    """Optional per-book metadata loaded from ``MANIFEST.yaml``."""
+
+    audience: str = ""  # "agent" | "human" | ""
+    curator: str = ""
+    last_reviewed: str = ""
+    homepage: str = ""
+    license: str = ""
+
+
+@dataclass
 class Book:
     """A documentation book."""
 
@@ -40,6 +51,7 @@ class Book:
     version: str = ""
     source: str = ""
     chapters: list[Chapter] = field(default_factory=list)
+    manifest: BookManifest = field(default_factory=BookManifest)
 
 
 @dataclass
@@ -120,6 +132,22 @@ class LibraryCatalog:
                         )
                     )
 
+                manifest = BookManifest()
+                manifest_file = book_path / "MANIFEST.yaml"
+                if manifest_file.exists():
+                    try:
+                        with open(manifest_file, encoding="utf-8") as f:
+                            m = yaml.safe_load(f) or {}
+                        manifest = BookManifest(
+                            audience=str(m.get("audience", "")),
+                            curator=str(m.get("curator", "")),
+                            last_reviewed=str(m.get("last_reviewed", "")),
+                            homepage=str(m.get("homepage", "")),
+                            license=str(m.get("license", "")),
+                        )
+                    except (OSError, yaml.YAMLError):
+                        manifest = BookManifest()
+
                 books.append(
                     Book(
                         id=book_data.get("id", book_entry["id"]),
@@ -129,6 +157,7 @@ class LibraryCatalog:
                         version=book_data.get("version", ""),
                         source=book_data.get("source", ""),
                         chapters=chapters,
+                        manifest=manifest,
                     )
                 )
 

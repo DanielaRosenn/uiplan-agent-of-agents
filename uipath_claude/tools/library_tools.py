@@ -30,6 +30,15 @@ def list_library_books() -> str:
         lines.append(f"- **{book.title}** (`{book.id}`): {chapter_count} chapters")
         if book.description:
             lines.append(f"  {book.description}")
+        audience = getattr(book.manifest, "audience", "") if book.manifest else ""
+        curator = getattr(book.manifest, "curator", "") if book.manifest else ""
+        tags = []
+        if audience:
+            tags.append(f"audience={audience}")
+        if curator:
+            tags.append(f"curator={curator}")
+        if tags:
+            lines.append("  " + ", ".join(tags))
 
     return "\n".join(lines)
 
