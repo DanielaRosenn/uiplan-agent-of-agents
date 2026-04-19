@@ -1,0 +1,19 @@
+id: coded-workflows
+title: Coded workflows
+sections:
+- id: errortype-namespace
+  title: ErrorType lives in UiPath.Core.Activities
+  file: errortype-namespace.md
+  keywords:
+  - ErrorType
+  - UiPath.Core.Activities
+  - SetTransactionStatus
+  - coded workflow
+- id: invoke-coded-workflow
+  title: Calling a coded workflow from XAML
+  file: invoke-coded-workflow.md
+  keywords:
+  - InvokeWorkflowFile
+  - InvokeCodedWorkflow
+  - Main.xaml
+  - coded workflow

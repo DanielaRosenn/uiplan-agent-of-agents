@@ -62,6 +62,11 @@ READ_ONLY = {
     "uipath_workflow_read_project",
     "uipath_workflow_validate",
     "uipath_workflow_environment_probe",
+    # ensure_project_structure no longer hand-writes scaffolds; it returns
+    # success or refuses + routes to create_project. Read-only in practice.
+    "uipath_workflow_ensure_project",
+    # status getter; surfaces session metadata only.
+    "uipath_workflow_session_status",
 }
 
 DESTRUCTIVE = {
@@ -90,7 +95,6 @@ DESTRUCTIVE = {
     "uipath_workflow_create_project",
     "uipath_workflow_run",
     "uipath_workflow_debug",
-    "uipath_workflow_ensure_project",
     "uipath_workflow_run_command",
     "uipath_workflow_deploy",
 }

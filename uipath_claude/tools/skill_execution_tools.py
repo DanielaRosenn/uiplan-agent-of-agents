@@ -27,6 +27,27 @@ from uipath_claude.tools.uipath.cli_runner import (
     run_uip_rpa_get_errors,
 )
 
+try:
+    from uipath_claude.audit import append_event as _audit_append, sha256_file as _audit_sha
+except Exception:  # pragma: no cover - audit must never break tools
+    def _audit_append(*_a, **_kw):  # type: ignore[no-redef]
+        return None
+
+    def _audit_sha(_p):  # type: ignore[no-redef]
+        return None
+
+
+def _project_dir_for_audit(path_or_dest: Path) -> Path | None:
+    """Walk upward from a path until a project.json is found; None otherwise."""
+    p = path_or_dest if path_or_dest.is_dir() else path_or_dest.parent
+    for candidate in [p, *p.parents]:
+        try:
+            if (candidate / "project.json").exists():
+                return candidate
+        except OSError:
+            continue
+    return None
+
 
 # Maximum file size to read (50KB)
 MAX_FILE_SIZE = 50 * 1024
@@ -193,11 +214,59 @@ def _is_scaffold_file(file_path: str) -> bool:
     return name in _SCAFFOLD_FILE_NAMES
 
 
+_CODED_WORKFLOW_PATTERN = re.compile(r":\s*CodedWorkflow\b")
+
+
+def _project_root_from_dest(dest: Path) -> Path | None:
+    """Walk up from dest to find the project root (folder with project.json)."""
+    cur = dest.parent
+    for _ in range(10):
+        if (cur / "project.json").exists():
+            return cur
+        if cur.parent == cur:
+            return None
+        cur = cur.parent
+    return None
+
+
+def _is_first_coded_workflow_in_xaml_project(dest: Path, content: str) -> bool:
+    """Return True if writing this .cs CodedWorkflow would be the first
+    coded workflow in an otherwise XAML-only project.
+
+    Activities-first policy: a XAML project should only acquire a coded
+    workflow when there is an explicit justification. This check is the
+    enforcement hook used by ``write_file``.
+    """
+    if dest.suffix.lower() != ".cs":
+        return False
+    if not _CODED_WORKFLOW_PATTERN.search(content):
+        return False
+    project_root = _project_root_from_dest(dest)
+    if project_root is None:
+        return False
+    for existing in project_root.rglob("*.cs"):
+        if any(part.startswith(".") for part in existing.relative_to(project_root).parts):
+            continue
+        try:
+            if existing.resolve() == dest.resolve():
+                continue
+        except OSError:
+            continue
+        try:
+            existing_text = existing.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        if _CODED_WORKFLOW_PATTERN.search(existing_text):
+            return False
+    return True
+
+
 @tool
 def write_file(
     file_path: str,
     content: str,
     allow_scaffold_overwrite: bool = False,
+    justification: str | None = None,
 ) -> str:
     """Write content to a file.
     
@@ -216,12 +285,26 @@ def write_file(
     (e.g. ``UiPath.Core.Activities`` 22.x next to ``UiPath.System.Activities``
     26.x). Always run ``environment_probe`` first to learn the local Studio's
     actual installed package versions before touching scaffold files.
-    
+
+    ACTIVITIES-FIRST GUARD: this tool soft-blocks writing the FIRST
+    ``CodedWorkflow`` ``.cs`` file into an otherwise-XAML project unless a
+    ``justification`` is provided. UiPath best practice — and the planner
+    skill at ``skills/skills/uipath-planner/SKILL.md`` — is to default to
+    XAML/activities and only fall back to coded for the reasons listed in
+    ``skills/skills/uipath-rpa/references/coded-vs-xaml-guide.md``. Pass a
+    one-line ``justification`` citing the relevant rule when a coded
+    workflow is genuinely the right call; the justification is logged into
+    ``BUILD_LOG.md`` so reviewers can see why.
+
     Args:
         file_path: Relative path for the file (relative to session output dir)
         content: File content to write
         allow_scaffold_overwrite: Set True only when the user explicitly asks
             to overwrite ``project.json`` / ``project.uiproj``. Default False.
+        justification: When writing the first coded workflow into a XAML
+            project, a brief reason (citing the coded-vs-xaml-guide rule
+            number or quoting the user's explicit request) that unblocks
+            the activities-first guard and is recorded in BUILD_LOG.md.
     
     Returns:
         Success message with absolute path, or error message
@@ -270,10 +353,55 @@ def write_file(
             )
         
         content = fixed_content
-    
+
+    just_text = (justification or "").strip()
+    activities_first_block = _is_first_coded_workflow_in_xaml_project(dest, content)
+    if activities_first_block and not just_text:
+        return _tool(
+            False,
+            (
+                "Activities-first policy: this would be the FIRST coded "
+                f"(`CodedWorkflow`) workflow in '{dest.parent.name}', a XAML "
+                "project. UiPath best practice (and the planner skill at "
+                "skills/skills/uipath-planner/SKILL.md) is to default to "
+                "XAML/activities and only fall back to coded for the reasons "
+                "listed in skills/skills/uipath-rpa/references/"
+                "coded-vs-xaml-guide.md. Either: "
+                "(a) write a `.xaml` workflow instead, or "
+                "(b) re-call write_file with a one-line `justification` "
+                "citing the rule number you are satisfying (e.g. "
+                "justification=\"rule 3: SDK call with no equivalent activity\")."
+            ),
+        )
+
     try:
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_text(content, encoding="utf-8")
+        proj = _project_dir_for_audit(dest)
+        if proj is not None:
+            try:
+                rel = str(dest.resolve().relative_to(proj.resolve()))
+            except ValueError:
+                rel = str(dest)
+            audit_event: dict[str, Any] = {
+                "actor": "agent",
+                "action": "write_file",
+                "outcome": "pass",
+                "files_written": [
+                    {
+                        "path": rel,
+                        "sha256": _audit_sha(dest),
+                        "bytes": len(content.encode("utf-8")),
+                    }
+                ],
+            }
+            if activities_first_block and just_text:
+                audit_event["notes"] = (
+                    f"activities-first override: justification={just_text!r}"
+                )
+            elif just_text:
+                audit_event["notes"] = f"justification={just_text!r}"
+            _audit_append(proj, audit_event)
         return _tool(True, f"Successfully wrote {len(content)} bytes to {dest}")
     except Exception as e:
         return _tool(False, f"Error writing file: {e}")
@@ -407,17 +535,33 @@ def install_package(project_dir: str, package_id: str, version: str | None = Non
         return _tool(False, "Error: Package installation timed out after 120s")
     
     output = "\n".join(part for part in (proc.stdout, proc.stderr) if part)
-    
+
+    pkg_label = f"{package_id}" + (f"@{version}" if version else "")
+    outcome = "pass" if proc.returncode == 0 else "needs_llm_fix"
+    _audit_append(
+        path,
+        {
+            "actor": "agent",
+            "action": "install_package",
+            "command": cmd,
+            "exit_code": proc.returncode,
+            "stdout_excerpt": proc.stdout,
+            "stderr_excerpt": proc.stderr,
+            "outcome": outcome,
+            "notes": f"package={pkg_label}",
+        },
+    )
+
     if proc.returncode == 0:
         return _tool(
             True,
             f"Successfully installed {package_id}" + (f" version {version}" if version else ""),
         )
-    
+
     result = _parse_first_json_payload(output)
     if result and result.get("Message"):
         return _tool(False, f"Error installing package: {result['Message']}")
-    
+
     return _tool(False, f"Error installing package: {output[:500]}")
 
 
@@ -437,31 +581,37 @@ def validate_file(project_dir: str, file_path: str | None = None) -> str:
     """
     path = _resolve_project_path(project_dir)
     
+    # Two-pass error-only validation. The Studio IPC behind get-errors is stateful
+    # and a single call right after a write can return a stale "No diagnostics
+    # found" while the next pass surfaces the real C# compile errors.
     result = run_uip_rpa_get_errors(
         str(path.resolve()),
         file_path=file_path,
-        use_studio=False,
+        use_studio=True,
+        min_severity="error",
+        passes=2,
     )
-    
+    passes_run = result.get("passes_run", 0)
+
     if result["success"]:
-        msg = "Validation passed: 0 errors"
+        msg = f"Validation passed: 0 errors (passes_run={passes_run})"
         if result["warnings"]:
             msg += f", {len(result['warnings'])} warning(s)"
             for w in result["warnings"][:5]:
                 msg += f"\n  - {w}"
         return _tool(True, msg)
-    
-    msg = f"Validation failed: {len(result['errors'])} error(s)"
+
+    msg = f"Validation failed: {len(result['errors'])} error(s) (passes_run={passes_run})"
     for e in result["errors"][:10]:
         msg += f"\n  - {e}"
     if result["warnings"]:
         msg += f"\n{len(result['warnings'])} warning(s):"
         for w in result["warnings"][:5]:
             msg += f"\n  - {w}"
-    
+
     if result.get("studio_required"):
         msg += "\n\nNote: Full validation requires UiPath Studio to be running."
-    
+
     return _tool(False, msg)
 
 
@@ -1156,10 +1306,15 @@ def _run_one_verify_attempt(
     val: dict | None = None
 
     for target in targets:
+        # Verify-gate contract: two clean passes of `uip rpa get-errors --min-severity error`
+        # are required to defeat the Studio IPC stale-cache failure mode that previously
+        # let real C# compile errors slip through (see docs/build-logs/README.md).
         result = run_uip_rpa_get_errors(
             str(path.resolve()),
             file_path=target,
-            use_studio=False,
+            use_studio=True,
+            min_severity="error",
+            passes=2,
         )
         aggregated_warnings.extend(result.get("warnings") or [])
         if not result.get("success"):
@@ -1369,6 +1524,32 @@ def build_and_verify_workflow(
 
     assert payload is not None
     text = _format_build_verify_text(payload)
+
+    try:
+        proj_for_log = _resolve_project_path(project_dir)
+        _audit_append(
+            proj_for_log,
+            {
+                "actor": "agent",
+                "action": "build_and_verify",
+                "exit_code": 0 if payload.get("success") else "non-zero",
+                "outcome": payload.get("verdict") or ("pass" if payload.get("success") else "needs_llm_fix"),
+                "studio_attached": (
+                    True if payload.get("studio_debug_log") else (
+                        "skipped" if payload.get("studio_debug_skipped_reason") else "unknown"
+                    )
+                ),
+                "notes": (
+                    f"phase={payload.get('phase')} files_checked={len(payload.get('files_checked') or [])} "
+                    f"errors={len(payload.get('errors') or [])} warnings={len(payload.get('warnings') or [])}"
+                ),
+                "stdout_excerpt": payload.get("headless_log") or "",
+                "stderr_excerpt": payload.get("studio_debug_log") or "",
+            },
+        )
+    except Exception:
+        pass
+
     return _tool(bool(payload.get("success")), text + "\n\n" + json.dumps(payload, default=str))
 
 
@@ -1449,10 +1630,26 @@ def debug_workflow(project_dir: str, file_path: str) -> str:
         return _tool(False, "Error: Workflow execution timed out after 5 minutes")
     
     output = "\n".join(part for part in (proc.stdout, proc.stderr) if part)
-    
-    if proc.returncode == 0:
+
+    success = proc.returncode == 0
+    _audit_append(
+        path,
+        {
+            "actor": "agent",
+            "action": "start_debugging",
+            "command": cmd,
+            "exit_code": proc.returncode,
+            "stdout_excerpt": proc.stdout,
+            "stderr_excerpt": proc.stderr,
+            "outcome": "pass" if success else "needs_llm_fix",
+            "studio_attached": True,
+            "notes": f"file={file_path} command=StartDebugging",
+        },
+    )
+
+    if success:
         return _tool(True, f"Workflow executed successfully.\n\nOutput:\n{output[:2000]}")
-    
+
     return _tool(
         False,
         f"Workflow execution failed (exit code {proc.returncode}).\n\nOutput:\n{output[:2000]}",
@@ -1796,18 +1993,42 @@ def run_workflow(
     # 4. PARSE JSON RESPONSE
     
     if not output_text:
+        _audit_append(
+            path,
+            {
+                "actor": "agent",
+                "action": "run_file",
+                "command": cmd,
+                "exit_code": "no-output",
+                "outcome": "needs_llm_fix",
+                "notes": "no output from uip rpa run-file",
+            },
+        )
         return _tool(False, "Error: No output from CLI command. The workflow may not have executed.")
-    
+
     parsed = _parse_runtime_response(output_text, verbose)
-    
+
     # 5. FORMAT RESPONSE
     result = _format_runtime_result(parsed, verbose)
-    
+
     # 6. TOKEN EFFICIENCY - Truncate if too long
     if len(result) > 2000 and not verbose:
         result = result[:2000] + "\n\n... (TRUNCATED - use verbose=True for full output)"
-    
-    return _tool(bool(parsed.get("success")), result)
+
+    success = bool(parsed.get("success"))
+    _audit_append(
+        path,
+        {
+            "actor": "agent",
+            "action": "run_file",
+            "command": cmd,
+            "exit_code": 0 if success else "non-zero",
+            "stdout_excerpt": output_text,
+            "outcome": "pass" if success else "needs_llm_fix",
+            "notes": f"file={file_path} command=StartExecution",
+        },
+    )
+    return _tool(success, result)
 
 
 @tool
@@ -2146,7 +2367,29 @@ def deploy_to_orchestrator(
         steps.append(f"Package: {proj_name} v{proj_version}")
         steps.append(f"Folder: {folder_path}")
         steps.append("Next: Create process in Orchestrator UI to assign to robots")
-        
+
+        _audit_append(
+            proj_path,
+            {
+                "actor": "agent",
+                "action": "deploy_to_orchestrator",
+                "command": deploy_cmd,
+                "exit_code": 0,
+                "outcome": "pass",
+                "notes": (
+                    f"package={proj_name}@{proj_version} folder={folder_path} "
+                    f"orch={orch_url} tenant={tenant}"
+                ),
+                "files_written": [
+                    {
+                        "path": pack_output.name,
+                        "sha256": _audit_sha(pack_output),
+                        "bytes": pack_output.stat().st_size if pack_output.exists() else 0,
+                    }
+                ],
+            },
+        )
+
         return _tool(
             True,
             json.dumps({

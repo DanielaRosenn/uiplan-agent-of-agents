@@ -91,6 +91,7 @@ tests/fixtures/sample_project/*
 **/.settings/
 **/.tmh/
 **/.entities/
+**/.objects/
 *.nupkg
 
 # Locally scaffolded example projects (build artifacts, not source)

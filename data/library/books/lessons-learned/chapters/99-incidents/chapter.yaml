@@ -1,0 +1,12 @@
+id: incidents
+title: Incidents
+sections:
+- id: 2026-04-19-invoice-queue-processor
+  title: 2026-04-19 InvoiceQueueProcessor — ErrorType + stale get-errors
+  file: 2026-04-19-invoice-queue-processor.md
+  keywords:
+  - ErrorType
+  - get-errors
+  - InvoiceQueueProcessor
+  - stale cache
+  - verify gate

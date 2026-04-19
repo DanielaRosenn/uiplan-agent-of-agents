@@ -139,7 +139,11 @@ def test_get_errors_parses_json_from_stderr(mock_run):
     assert result["success"] is True
     assert result["errors"] == []
     cmd = mock_run.call_args[0][0]
-    assert "--use-studio" in cmd
+    # `--use-studio` is intentionally NOT forwarded to `uip rpa get-errors`:
+    # the current CLI rejects it as `unknown option '--use-studio'` and uses
+    # the running Studio backend automatically (see cli_runner.py around the
+    # `_ = use_studio` line in run_uip_rpa_get_errors).
+    assert "--use-studio" not in cmd
 
 
 @patch("uipath_claude.tools.uipath.cli_runner.subprocess.run")

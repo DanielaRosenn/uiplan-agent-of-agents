@@ -102,8 +102,15 @@ class ValidationPipeline:
             xamls = list(project_root.rglob("*.xaml"))
         for xaml in xamls:
             rel = str(xaml.relative_to(project_root)).replace("\\", "/")
+            # Two-pass, error-only validation to defeat Studio IPC stale-cache results.
+            # See uipath_claude/tools/uipath/cli_runner.run_uip_rpa_get_errors and
+            # docs/build-logs/README.md (validation contract).
             cli_result = run_uip_rpa_get_errors(
-                project_root, file_path=rel, use_studio=True
+                project_root,
+                file_path=rel,
+                use_studio=True,
+                min_severity="error",
+                passes=2,
             )
             if cli_result.get("studio_required"):
                 warnings.append(

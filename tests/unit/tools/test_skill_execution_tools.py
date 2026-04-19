@@ -15,7 +15,6 @@ from uipath_claude.tools.skill_execution_tools import (
     validate_file,
     run_uip_command,
     find_activity_info,
-    validate_and_fix_loop,
     ensure_project_structure,
     get_skill_execution_tools,
 )
@@ -91,6 +90,95 @@ class TestWriteFile:
         })
         
         assert "Error: Invalid file path" in result
+
+    def test_write_refuses_project_json_without_flag(self, tmp_path, monkeypatch):
+        # Scaffold guard: project.json must go through create_project, never
+        # write_file, to avoid Studio dependency mismatches.
+        monkeypatch.setenv("UIPATH_CHAT_OUTPUT_DIR", str(tmp_path))
+        monkeypatch.setenv("UIPATH_CHAT_SESSION_ID", "test-session")
+
+        result = write_file.invoke({
+            "file_path": "project.json",
+            "content": "{}",
+        })
+
+        assert "Refusing to write 'project.json'" in result
+        assert "create_project" in result
+
+    def test_first_coded_workflow_blocked_without_justification(
+        self, tmp_path, monkeypatch
+    ):
+        # Activities-first soft-block: first CodedWorkflow .cs in a XAML
+        # project requires an explicit justification.
+        (tmp_path / "project.json").write_text("{}")
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("UIPATH_CHAT_OUTPUT_DIR", str(tmp_path))
+        monkeypatch.setenv("UIPATH_CHAT_SESSION_ID", "")
+
+        result = write_file.invoke({
+            "file_path": "Process.cs",
+            "content": "public class Process : CodedWorkflow {}",
+        })
+
+        assert result.startswith("[ERROR]")
+        assert "Activities-first policy" in result
+        assert "justification" in result
+        assert not (tmp_path / "Process.cs").exists()
+
+    def test_first_coded_workflow_allowed_with_justification(
+        self, tmp_path, monkeypatch
+    ):
+        (tmp_path / "project.json").write_text("{}")
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("UIPATH_CHAT_OUTPUT_DIR", str(tmp_path))
+        monkeypatch.setenv("UIPATH_CHAT_SESSION_ID", "")
+
+        result = write_file.invoke({
+            "file_path": "Process.cs",
+            "content": "public class Process : CodedWorkflow {}",
+            "justification": "rule 3: SDK call with no equivalent activity",
+        })
+
+        assert "Successfully wrote" in result
+        assert (tmp_path / "Process.cs").exists()
+
+    def test_second_coded_workflow_not_blocked(self, tmp_path, monkeypatch):
+        # Guard fires only on the FIRST coded workflow in the project.
+        (tmp_path / "project.json").write_text("{}")
+        (tmp_path / "Existing.cs").write_text(
+            "public class Existing : CodedWorkflow {}"
+        )
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("UIPATH_CHAT_OUTPUT_DIR", str(tmp_path))
+        monkeypatch.setenv("UIPATH_CHAT_SESSION_ID", "")
+
+        result = write_file.invoke({
+            "file_path": "Second.cs",
+            "content": "public class Second : CodedWorkflow {}",
+        })
+
+        assert "Successfully wrote" in result
+        assert (tmp_path / "Second.cs").exists()
+
+    def test_xaml_write_not_blocked_by_activities_guard(
+        self, tmp_path, monkeypatch
+    ):
+        (tmp_path / "project.json").write_text("{}")
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("UIPATH_CHAT_OUTPUT_DIR", str(tmp_path))
+        monkeypatch.setenv("UIPATH_CHAT_SESSION_ID", "")
+
+        xaml = (
+            '<Activity xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities" />'
+        )
+        result = write_file.invoke({
+            "file_path": "Main.xaml",
+            "content": xaml,
+        })
+
+        assert "Successfully wrote" in result
+        assert "Activities-first" not in result
+        assert (tmp_path / "Main.xaml").exists()
 
 
 class TestListDirectory:
@@ -306,67 +394,24 @@ class TestFindActivityInfo:
         assert "bundled_docs" in result or "UiPath.Mail.Activities" in result
 
 
-class TestValidateAndFixLoop:
-    """Tests for validate_and_fix_loop tool."""
-
-    @patch("uipath_claude.tools.skill_execution_tools.run_uip_rpa_get_errors")
-    def test_validation_passed(self, mock_validate, tmp_path, monkeypatch):
-        monkeypatch.setenv("UIPATH_CHAT_OUTPUT_DIR", str(tmp_path))
-        monkeypatch.setenv("UIPATH_CHAT_SESSION_ID", "")
-        
-        mock_validate.return_value = {
-            "success": True,
-            "errors": [],
-            "warnings": [],
-            "raw_output": "",
-        }
-        
-        result = validate_and_fix_loop.invoke({
-            "project_dir": str(tmp_path),
-            "file_path": "Main.xaml",
-        })
-        
-        assert "VALIDATION PASSED" in result
-
-    @patch("uipath_claude.tools.skill_execution_tools.run_uip_rpa_get_errors")
-    def test_validation_failed_lists_errors(self, mock_validate, tmp_path, monkeypatch):
-        monkeypatch.setenv("UIPATH_CHAT_OUTPUT_DIR", str(tmp_path))
-        monkeypatch.setenv("UIPATH_CHAT_SESSION_ID", "")
-        
-        mock_validate.return_value = {
-            "success": False,
-            "errors": ["Error 1", "Error 2"],
-            "warnings": ["Warning 1"],
-            "raw_output": "",
-        }
-        
-        result = validate_and_fix_loop.invoke({
-            "project_dir": str(tmp_path),
-            "file_path": "Main.xaml",
-        })
-        
-        assert "VALIDATION FAILED" in result
-        assert "Error 1" in result
-        assert "Error 2" in result
-        assert "fix one at a time" in result.lower()
-
-
 class TestEnsureProjectStructure:
     """Tests for ensure_project_structure tool."""
 
-    def test_creates_project_json(self, tmp_path, monkeypatch):
+    def test_missing_project_json_routes_to_create_project(self, tmp_path, monkeypatch):
+        # ensure_project_structure no longer hand-writes a minimal project.json
+        # because that caused multi-major dependency mismatches against Studio.
+        # When project.json is absent it now refuses and routes the caller at
+        # create_project (which wraps `uip rpa create-project`).
         monkeypatch.setenv("UIPATH_CHAT_OUTPUT_DIR", str(tmp_path))
         monkeypatch.setenv("UIPATH_CHAT_SESSION_ID", "test-session")
-        
+
         result = ensure_project_structure.invoke({"project_dir": "."})
-        
-        assert "Created project.json" in result
+
+        assert result.startswith("[ERROR]")
+        assert "No project.json at" in result
+        assert "create_project" in result
         project_json = tmp_path / "test-session" / "project.json"
-        assert project_json.exists()
-        
-        data = json.loads(project_json.read_text())
-        assert "dependencies" in data
-        assert "entryPoints" in data
+        assert not project_json.exists()
 
     def test_existing_project_json_unchanged(self, tmp_path, monkeypatch):
         project_dir = tmp_path / "existing"

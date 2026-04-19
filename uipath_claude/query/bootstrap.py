@@ -56,7 +56,14 @@ async def run_bootstrap_flow(
         (
             "Implement based on:\n\nPDD:\n"
             f"{pdd}\n\nSDD:\n{sdd}\n\n"
-            "Produce an implementation plan, file layout, and minimal XAML outline."
+            "Produce an implementation plan, file layout, and minimal XAML "
+            "outline. Default to XAML/activities for the workflow body. Only "
+            "emit a `.cs` `CodedWorkflow` when (a) the user explicitly asked "
+            "for a coded workflow, or (b) the implementation plan includes a "
+            "one-line justification citing the rule number it satisfies in "
+            "`skills/skills/uipath-rpa/references/coded-vs-xaml-guide.md`. "
+            "Without that justification, treat picking coded over XAML as a "
+            "planning regression and switch back to XAML."
         ),
     )
     dev_paths = writer.write_developer_artifacts(code, user_request)
