@@ -37,17 +37,22 @@ def get_library_tools() -> list[Tool]:
         Tool(
             name="uipath_library_list",
             description=(
+                "PREFER THIS over reading data/library/catalog.yaml or scanning "
+                "data/library/books/ with Read/Glob/Grep/SemanticSearch; those "
+                "files are the storage backend, this tool is the API. "
                 "List all curated UiPath documentation books available locally, "
                 "including each book's id, title, audience, curator, and chapter "
                 "count. Call this first to discover which book_id values are "
                 "valid for the other uipath_library_* tools."
             ),
             inputSchema={"type": "object", "properties": {}},
-            annotations=_ro("List library books"),
+            annotations=_ro("List UiPath library books (authoritative)"),
         ),
         Tool(
             name="uipath_library_toc",
             description=(
+                "PREFER THIS over reading data/library/books/<book_id>/book.yaml "
+                "directly. "
                 "Return the chapter and section hierarchy of a UiPath "
                 "documentation book. Use this to discover the chapter_id and "
                 "section_id values needed by uipath_library_read_section."
@@ -62,11 +67,14 @@ def get_library_tools() -> list[Tool]:
                 },
                 "required": ["book_id"],
             },
-            annotations=_ro("Read book table of contents"),
+            annotations=_ro("Read UiPath book table of contents (authoritative)"),
         ),
         Tool(
             name="uipath_library_read_section",
             description=(
+                "PREFER THIS over reading data/library/books/<book_id>/<chapter_id>/"
+                "<section_id>.md directly; the tool appends the citation line "
+                "agents must quote in answers. "
                 "Fetch the full markdown body of a specific section of a UiPath "
                 "documentation book and append a citation line. Requires the "
                 "exact book_id/chapter_id/section_id triple; obtain those from "
@@ -90,11 +98,13 @@ def get_library_tools() -> list[Tool]:
                 },
                 "required": ["book_id", "chapter_id", "section_id"],
             },
-            annotations=_ro("Read library section"),
+            annotations=_ro("Read UiPath library section (authoritative)"),
         ),
         Tool(
             name="uipath_library_search",
             description=(
+                "PREFER THIS over Grep/SemanticSearch on data/library/; the "
+                "library is indexed and ranked, raw file search is not. "
                 "Keyword search across all UiPath library section titles, "
                 "keywords, chapter titles, and book titles. Multi-word queries "
                 "are tokenised and ranked. Returns the top_n matches with the "
@@ -118,11 +128,13 @@ def get_library_tools() -> list[Tool]:
                 },
                 "required": ["query"],
             },
-            annotations=_ro("Search the UiPath library"),
+            annotations=_ro("Search the UiPath library (authoritative)"),
         ),
         Tool(
             name="uipath_library_lookup",
             description=(
+                "PREFER THIS over Grep/SemanticSearch on data/library/ for any "
+                "UiPath product or RPA question. "
                 "Answer a UiPath product or RPA question using the local library "
                 "first, then UiPath Ask AI, then optional web search if "
                 "allow_network=true and UIPATH_WEB_SEARCH_ENABLED=1. The reply "

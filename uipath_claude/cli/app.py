@@ -13,6 +13,7 @@ from rich.console import Console
 from rich.prompt import Prompt
 from uipath_claude.commands.analyze import register_analyze_command
 from uipath_claude.commands.bootstrap import register_bootstrap_command
+from uipath_claude.commands.pdd import register_pdd_command
 from uipath_claude.commands.help import register_help_command
 from uipath_claude.commands.plan import register_plan_command
 from uipath_claude.commands.recall import register_recall_command
@@ -108,6 +109,36 @@ def _load_dotenv_from_cwd() -> None:
             val = val[1:-1]
         if key.startswith("UIPATH_") or key not in os.environ:
             os.environ[key] = val
+    # #region agent log
+    try:
+        _dbg = {
+            "sessionId": "7bfa30",
+            "runId": "run1",
+            "hypothesisId": "H1_H2",
+            "location": "uipath_claude/cli/app.py:_load_dotenv_from_cwd:after_load",
+            "message": "Dotenv loaded for chat startup",
+            "data": {
+                "cwd": str(Path.cwd()),
+                "env_path": str(path),
+                "exists": path.is_file(),
+                "uipath_claude_model": os.environ.get("UIPATH_CLAUDE_MODEL", ""),
+                "uipath_claude_model_heavy": os.environ.get(
+                    "UIPATH_CLAUDE_MODEL_HEAVY", ""
+                ),
+                "uipath_claude_model_light": os.environ.get(
+                    "UIPATH_CLAUDE_MODEL_LIGHT", ""
+                ),
+                "fallback_enabled": os.environ.get(
+                    "UIPATH_CLAUDE_FALLBACK_ENABLED", ""
+                ),
+            },
+            "timestamp": __import__("time").time_ns() // 1_000_000,
+        }
+        with open("debug-7bfa30.log", "a", encoding="utf-8") as _f:
+            _f.write(__import__("json").dumps(_dbg, ensure_ascii=True) + "\n")
+    except Exception:
+        pass
+    # #endregion
 
 
 app = typer.Typer(
@@ -664,6 +695,8 @@ def _build_command_registry(
     register_validate_command(registry)
     register_repair_restore_command(registry)
     register_bootstrap_command(registry, run_bootstrap=run_bootstrap_flow)
+    from uipath_claude.query.pdd_lifecycle import run_pdd_lifecycle
+    register_pdd_command(registry, run_lifecycle=run_pdd_lifecycle)
     register_update_skills_command(registry)
     register_scan_upstream_skills_command(registry)
     register_library_harvest_command(registry)
@@ -679,6 +712,22 @@ def _create_engine() -> ConversationEngine:
     """Create Bedrock conversation engine from environment settings."""
     model_name = model_for_task("agentic_executor")
     region = os.getenv("AWS_REGION", "us-east-1")
+    # #region agent log
+    try:
+        _dbg = {
+            "sessionId": "7bfa30",
+            "runId": "run1",
+            "hypothesisId": "H2_H4",
+            "location": "uipath_claude/cli/app.py:_create_engine",
+            "message": "Engine model resolved",
+            "data": {"task": "agentic_executor", "model_name": model_name, "region": region},
+            "timestamp": __import__("time").time_ns() // 1_000_000,
+        }
+        with open("debug-7bfa30.log", "a", encoding="utf-8") as _f:
+            _f.write(__import__("json").dumps(_dbg, ensure_ascii=True) + "\n")
+    except Exception:
+        pass
+    # #endregion
     return ConversationEngine(model_name=model_name, region=region)
 
 
@@ -924,6 +973,22 @@ def chat(
     skill_registry = SkillRegistry()
     model_name = model_for_task("planner")
     region = os.getenv("AWS_REGION", "us-east-1")
+    # #region agent log
+    try:
+        _dbg = {
+            "sessionId": "7bfa30",
+            "runId": "run1",
+            "hypothesisId": "H2_H3_H4",
+            "location": "uipath_claude/cli/app.py:chat:model_init",
+            "message": "Chat model initialized for planner/simple-answer path",
+            "data": {"task": "planner", "model_name": model_name, "region": region},
+            "timestamp": __import__("time").time_ns() // 1_000_000,
+        }
+        with open("debug-7bfa30.log", "a", encoding="utf-8") as _f:
+            _f.write(__import__("json").dumps(_dbg, ensure_ascii=True) + "\n")
+    except Exception:
+        pass
+    # #endregion
     tool_profile = resolve_tool_profile(os.getenv("UIPATH_CLAUDE_TOOL_PROFILE"))
     skills = skill_registry.load_skills()
     skills_by_name = {skill.get("name"): skill for skill in skills}
@@ -1195,6 +1260,27 @@ def chat(
 
                     continue
                 except Exception as exc:
+                    # #region agent log
+                    try:
+                        _dbg = {
+                            "sessionId": "7bfa30",
+                            "runId": "run1",
+                            "hypothesisId": "H3_H4",
+                            "location": "uipath_claude/cli/app.py:chat:question_exception",
+                            "message": "Simple answer failed with provider error",
+                            "data": {
+                                "model_name": model_name,
+                                "region": region,
+                                "error_type": type(exc).__name__,
+                                "error": str(exc),
+                            },
+                            "timestamp": __import__("time").time_ns() // 1_000_000,
+                        }
+                        with open("debug-7bfa30.log", "a", encoding="utf-8") as _f:
+                            _f.write(__import__("json").dumps(_dbg, ensure_ascii=True) + "\n")
+                    except Exception:
+                        pass
+                    # #endregion
                     progress.error("Simple answer failed")
                     console.print(f"Error: {exc}")
                     continue

@@ -47,6 +47,8 @@ def get_skill_tools() -> list[Tool]:
         Tool(
             name="uipath_skill_list",
             description=(
+                "PREFER THIS over Glob/Read on the skills/ submodule; this tool "
+                "is the API, those files are the storage backend. "
                 "Enumerate every loaded UiPath skill, optionally filtered by "
                 "agent role (ba, sa, developer, qa, conversational). Read-only. "
                 "Use for discovery; uipath_skill_match ranks by relevance to a "
@@ -67,6 +69,8 @@ def get_skill_tools() -> list[Tool]:
         Tool(
             name="uipath_skill_get",
             description=(
+                "PREFER THIS over reading skills/skills/<skill_name>/SKILL.md "
+                "directly; this resolver applies overlay/origin precedence. "
                 "Load the full markdown body of a single skill by name. "
                 "Read-only. Use after uipath_skill_list or uipath_skill_match "
                 "identifies the skill you want to apply."

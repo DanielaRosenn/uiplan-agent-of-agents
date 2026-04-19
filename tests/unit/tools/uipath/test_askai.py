@@ -30,6 +30,18 @@ def test_askai_success(monkeypatch):
     assert "add queue item" in out.lower()
 
 
+def test_askai_mock_endpoint_returns_deterministic(monkeypatch):
+    """mock:// endpoint short-circuits to a deterministic local response."""
+    monkeypatch.setenv("UIPATH_ASKAI_ENDPOINT", "mock://localfixture")
+    with patch.object(
+        askai, "_skills_askai_dir", return_value=Path("/__no_such_skill__/askai")
+    ):
+        out = askai.query_uipath_documentation("what about queues?")
+    assert out.ok
+    assert "SOURCE: askai-mock" in out.message
+    assert "queues" in out.message.lower()
+
+
 def test_query_uipath_documentation_http_ok(monkeypatch):
     monkeypatch.setenv("UIPATH_ASKAI_ENDPOINT", "https://example.com/askai")
     with (

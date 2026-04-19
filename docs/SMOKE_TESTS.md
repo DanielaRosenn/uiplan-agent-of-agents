@@ -209,52 +209,88 @@ skills, and Studio integration end-to-end.
 ## Cursor test (MCP tools)
 
 Point Cursor's MCP config at this repo's server (already wired via
-`mcp_server/server.py`). In a Cursor chat, run these prompts in order — each
-one forces a specific `uipath_library_*` tool and exercises the same surface
-without the CLI.
+`mcp_server/server.py` and `.cursor/mcp.json`). Setup prerequisites are in
+the "MCP setup (Cursor)" section of [CONTRIBUTING.md](../CONTRIBUTING.md#mcp-setup-cursor).
+In a Cursor chat, run these prompts in order — each one forces a specific
+`uipath_library_*` tool and exercises the same surface without the CLI.
+
+> **Why these prompts name the tool explicitly:** Cursor's tool router will
+> happily answer "List books" by reading `data/library/catalog.yaml` with
+> `Read`/`Glob`/`SemanticSearch`, which bypasses the MCP surface entirely
+> and silently passes the test. Each prompt below names the MCP tool and
+> forbids raw file reads so the test actually verifies the MCP path. If a
+> step still resolves to a file read, that is itself a failure — flag it.
+
+0. **Verify the MCP server is loaded.** In Cursor, open the tool picker (or
+   ask the agent: "What MCP tools do you have available? List every tool
+   whose name starts with `uipath_`."). Confirm at least
+   `uipath_library_list`, `uipath_library_search`, and `query_uipath_docs`
+   appear. If they do not, **stop** — fix the MCP wiring per
+   [CONTRIBUTING.md](../CONTRIBUTING.md#mcp-setup-cursor) before continuing.
+   Every step below assumes those tools are visible; without them the test
+   will silently "pass" by falling back to `SemanticSearch`/`Read` and the
+   smoke test loses all signal. Two recent transcripts hit exactly this
+   failure mode: the agent answered "List books" with a workspace search
+   one session and a clarifying question the next, both because no
+   `uipath_library_*` tool was actually registered.
 
 1. **List books**
-   > "List all UiPath library books with their manifests."
+   > "Use the `uipath_library_list` MCP tool to list all UiPath library books with their manifests. Do not read `data/library/catalog.yaml` or scan `data/library/books/` directly."
    Calls `uipath_library_list`; shows audience/curator/license.
 
 2. **TOC**
-   > "Show the table of contents for the uipath-docs book."
+   > "Use the `uipath_library_toc` MCP tool to show the table of contents for the `uipath-docs` book. Do not read `data/library/books/uipath-docs/book.yaml` directly."
    Calls `uipath_library_toc`.
 
 3. **Search**
-   > "Search the library for 'orchestrator schedule' and show the top 3 sections."
+   > "Use the `uipath_library_search` MCP tool to search the library for 'orchestrator schedule' and show the top 3 sections. Do not Grep or SemanticSearch `data/library/`."
    Calls `uipath_library_search`.
 
 4. **Read section**
-   > "Read section <paste id from step 3>."
+   > "Use the `uipath_library_read_section` MCP tool to read section <paste id from step 3>. Do not read the underlying `.md` file directly."
    Calls `uipath_library_read_section`.
 
 5. **Full knowledge lookup**
-   > "Look up 'how to create an attended robot' using the full knowledge pipeline. Cite sources."
+   > "Use the `uipath_library_lookup` MCP tool to answer 'how to create an attended robot' using the full knowledge pipeline. Cite sources."
    Calls `uipath_library_lookup` (library → Ask AI → web if enabled). The
    answer always ends in a `SOURCE:` line (`library:`, `askai`, web, or
    `none` on full miss); citations **must** be present whenever any backend
    succeeds.
 
 6. **Propose a chapter**
-   > "Propose a new chapter 'Patterns' in uipath-docs with an initial section called 'Retry loops'."
+   > "Use the `uipath_library_propose_chapter` MCP tool to propose a new chapter 'Patterns' in `uipath-docs` with an initial section called 'Retry loops', then call `uipath_library_list_proposals` to confirm it queued."
    Calls `uipath_library_propose_chapter` (and optionally
    `uipath_library_propose_section` for individual sections), then
    `uipath_library_list_proposals`. Verify the proposal shows `kind = new_chapter`.
 
 7. **Approve**
-   > "Approve proposal <id from step 6>."
+   > "Use the `uipath_library_approve_proposal` MCP tool to approve proposal <id from step 6>."
    Calls `uipath_library_approve_proposal`. Check that
    `data/library/books/uipath-docs/patterns/` now exists with `chapter.yaml`.
 
 8. **Reject**
-   > "Reject proposal <another id>."
+   > "Use the `uipath_library_reject_proposal` MCP tool to reject proposal <another id>."
    Calls `uipath_library_reject_proposal`; it should disappear from the list.
 
 9. **Unified Ask AI**
-   > "Ask UiPath AI: what's the difference between attended and unattended?"
+   > "Use the `query_uipath_docs` MCP tool to ask UiPath AI: what's the difference between attended and unattended?"
    Invokes `query_uipath_docs` (SDK-first, HTTP fallback). The legacy alias
    `uipath_doc_query` still resolves to the same handler for one release.
+
+   **Step 9 prerequisites (clean clone).** Out of the box this step has no
+   backend wired up. Pick one of:
+
+   1. **Production path.** Set `UIPATH_ASKAI_ENDPOINT=<your Ask AI URL>`
+      (and `UIPATH_ASKAI_API_KEY` if the endpoint requires it) before
+      starting the MCP server. The HTTP fallback above will be used.
+   2. **Local-fixture path (for smoke verification only).** Set
+      `UIPATH_ASKAI_ENDPOINT=mock://localfixture` before starting the MCP
+      server. The tool short-circuits to a deterministic local response
+      that includes a `SOURCE: askai-mock` line, which is enough to mark
+      the smoke step PASS without provisioning Ask AI.
+   3. **Bundled SDK path.** If `skills/skills/uipath-askai/` is installed
+      and its `uipath_askai_config.json` is configured, the SDK path is
+      preferred over both options above.
 
 ### What to verify in Cursor
 
@@ -830,4 +866,29 @@ uip rpa run-file `
 - [ ] BUILD_LOG.md diff covering all commands.
 - [ ] Snapshot of the inserted `dbo.Invoices` rows.
 - [ ] Orchestrator queue tab showing one Successful + one Failed item.
+
+## Post-fix smoke matrix (defect fixes 1-5)
+
+Run after applying the smoke-driven defect fixes (`fix-path-resolution`,
+`fix-studio-enforcement`, `fix-create-project-postcheck`,
+`fix-session-status-oob`, `fix-askai-mock`). The MCP server should be
+launched with `UIPATH_MCP_GATE_ENABLED=1`,
+`UIPATH_DESIGN_APPROVAL_ENABLED=1`, and
+`UIPATH_ASKAI_ENDPOINT=mock://localfixture`.
+
+| Check | Expected | 2026-04-19 |
+| --- | --- | --- |
+| design-gate blocks absolute write into a project with no approval | `[BLOCKED]` text returned, project not modified | PASS |
+| design-gate blocks relative write that resolves into an unapproved project | `[BLOCKED]` text returned, file not created | PASS |
+| approved design unblocks a write and the dirty marker fires on the resolved path | `[OK]` returned and `session_gate.status(project).status == "dirty"` | PASS |
+| `build_and_verify { run_after_validate: false, require_studio_debug: true }` | `verdict='needs_human'`, `next_action='start_studio_or_waive'` | PASS |
+| `session_status` after an out-of-band edit | status flips to `dirty` (real-time `detect_out_of_band_changes`) | PASS |
+| `query_uipath_docs` with `UIPATH_ASKAI_ENDPOINT=mock://localfixture` | answer body contains `SOURCE: askai-mock` | PASS |
+
+Reproduce locally by running `pytest tests/unit/tools/test_write_file_paths.py
+tests/unit/tools/test_session_gate_integration.py
+tests/unit/tools/test_build_and_verify_studio_gate.py
+tests/unit/tools/test_create_project_postcheck.py
+tests/unit/tools/uipath/test_askai.py`; the same checks above are encoded
+as deterministic unit tests.
 

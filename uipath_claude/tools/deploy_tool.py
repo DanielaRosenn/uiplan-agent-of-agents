@@ -1,21 +1,201 @@
 """
 Tool for deploying UiPath workflows to Orchestrator/Studio Web
 """
-import subprocess
 import json
+import os
+import re
+import shutil
+import subprocess
 from pathlib import Path
-from typing import Optional, Literal
+from typing import Any, Literal, Optional
+
+
+def _uip_bin() -> str:
+    return shutil.which("uip") or "uip"
+
+
+def _run_uip(args: list[str], cwd: Optional[str | Path] = None, timeout: int = 600) -> dict[str, Any]:
+    """Run a uip CLI command, returning a structured result."""
+    cmd = [_uip_bin(), *args]
+    try:
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            cwd=str(cwd) if cwd else None,
+        )
+    except FileNotFoundError:
+        return {"status": "failed", "error": "uip CLI not found on PATH", "cmd": cmd}
+    except subprocess.TimeoutExpired as exc:
+        return {"status": "failed", "error": f"timeout: {exc}", "cmd": cmd}
+    payload = {
+        "status": "ok" if proc.returncode == 0 else "failed",
+        "returncode": proc.returncode,
+        "stdout": proc.stdout,
+        "stderr": proc.stderr,
+        "cmd": cmd,
+    }
+    if proc.returncode != 0 and "error" not in payload:
+        payload["error"] = (proc.stderr or proc.stdout or "uip command failed")[:400]
+    return payload
+
+
+_NUPKG_PATTERN = re.compile(r"([^\s\"']+\.nupkg)", re.IGNORECASE)
+
+
+def _extract_nupkg(text: str, search_dir: Optional[Path] = None) -> Optional[str]:
+    """Best-effort: pull a .nupkg path out of CLI stdout, falling back to a fs scan."""
+    for line in (text or "").splitlines():
+        match = _NUPKG_PATTERN.search(line)
+        if match:
+            return match.group(1)
+    if search_dir is not None and search_dir.exists():
+        nupkgs = sorted(search_dir.rglob("*.nupkg"), key=lambda p: p.stat().st_mtime, reverse=True)
+        if nupkgs:
+            return str(nupkgs[0])
+    return None
+
+
+def publish_project(project_dir: str, project_type: str = "process") -> dict[str, Any]:
+    """Pack and publish a UiPath project to Orchestrator using the modern ``uip`` CLI.
+
+    For ``project_type="process"`` (default RPA): runs ``uip solution pack`` then
+    ``uip solution publish`` to push the resulting ``.nupkg`` to the tenant.
+
+    For ``project_type="maestro"``: runs ``uip flow pack`` then ``uip solution publish``.
+
+    Args:
+        project_dir: Absolute path to the project (folder containing ``project.json``
+            for ``process``, or the Maestro project folder for ``maestro``).
+        project_type: ``process`` or ``maestro``.
+
+    Returns:
+        ``{"status": "ok"|"failed", "package_path": str?, "publish": <uip result>}``
+    """
+    pdir = Path(project_dir).resolve()
+    if not pdir.exists():
+        return {"status": "failed", "error": f"project dir not found: {pdir}"}
+    out_dir = pdir.parent / "_packages"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    if project_type == "maestro":
+        pack = _run_uip(["flow", "pack", str(pdir), "--output", str(out_dir), "--output-format", "json"])
+    else:
+        pack = _run_uip(["solution", "pack", str(pdir), "--output", str(out_dir), "--output-format", "json"])
+
+    if pack["status"] != "ok":
+        return {"status": "failed", "stage": "pack", "error": pack.get("error", "pack failed"), "pack": pack}
+
+    nupkg = _extract_nupkg(pack.get("stdout", ""), out_dir)
+    if not nupkg:
+        return {
+            "status": "failed",
+            "stage": "pack",
+            "error": "could not locate .nupkg after pack",
+            "pack": pack,
+        }
+
+    publish = _run_uip(["solution", "publish", nupkg, "--output-format", "json"])
+    if publish["status"] != "ok":
+        return {
+            "status": "failed",
+            "stage": "publish",
+            "error": publish.get("error", "publish failed"),
+            "package_path": nupkg,
+            "pack": pack,
+            "publish": publish,
+        }
+
+    return {
+        "status": "ok",
+        "package_path": nupkg,
+        "pack": pack,
+        "publish": publish,
+    }
+
+
+def deploy_to_orchestrator_v2(
+    project_dir: str,
+    project_type: str = "process",
+    folder: str = "Shared",
+    process_name: Optional[str] = None,
+    publish_payload: Optional[dict[str, Any]] = None,
+    environment: Optional[str] = None,
+) -> dict[str, Any]:
+    """Modern deploy: publish (if needed) then create the Orchestrator process.
+
+    Calls ``publish_project`` first when ``publish_payload`` is not supplied,
+    then materializes the process via ``uip or processes create`` (RPA) or
+    ``uip flow process create`` (Maestro).
+
+    Args:
+        project_dir: Project directory.
+        project_type: ``process`` or ``maestro``.
+        folder: Orchestrator folder for the new process.
+        process_name: Display name for the process (defaults to project folder name).
+        publish_payload: Optional pre-computed payload from ``publish_project``;
+            avoids re-packing when the orchestrator wants the same artefact reused.
+        environment: Optional environment to associate with the process.
+
+    Returns:
+        ``{"status": "ok"|"failed", "publish": ..., "create": ...,
+            "process_name": ..., "folder": ...}``
+    """
+    pdir = Path(project_dir).resolve()
+    name = process_name or pdir.name
+
+    publish = publish_payload
+    if publish is None:
+        publish = publish_project(project_dir=str(pdir), project_type=project_type)
+    if publish.get("status") != "ok":
+        return {"status": "failed", "stage": "publish", "publish": publish}
+
+    if project_type == "maestro":
+        create_args = ["flow", "process", "create", name, "--folder", folder, "--output-format", "json"]
+    else:
+        create_args = ["or", "processes", "create", name, "--folder", folder, "--output-format", "json"]
+    if environment:
+        create_args += ["--environment", environment]
+
+    create = _run_uip(create_args)
+    if create["status"] != "ok":
+        return {
+            "status": "failed",
+            "stage": "create",
+            "publish": publish,
+            "create": create,
+            "error": create.get("error", "create failed"),
+        }
+
+    process_key: Optional[str] = None
+    try:
+        data = json.loads(create.get("stdout") or "{}")
+        process_key = data.get("Key") or data.get("key") or data.get("Id") or data.get("id")
+    except Exception:
+        process_key = None
+
+    return {
+        "status": "ok",
+        "publish": publish,
+        "create": create,
+        "process_name": name,
+        "process_key": process_key,
+        "folder": folder,
+    }
+
 
 
 def deploy_to_orchestrator(
     project_path: str,
-    orchestrator_url: str,
-    tenant_name: str,
+    orchestrator_url: str = "",
+    tenant_name: str = "",
     folder_path: str = "Shared",
     account_name: Optional[str] = None,
     process_name: Optional[str] = None,
     create_process: bool = True,
-    environment: Optional[str] = None
+    environment: Optional[str] = None,
+    project_type: str = "process",
 ) -> dict:
     """
     Deploy a UiPath project to Orchestrator or Studio Web.
@@ -47,122 +227,35 @@ def deploy_to_orchestrator(
             process_name="MyProcess"
         )
     """
-    project_path = Path(project_path).resolve()
-    
-    if not (project_path / "project.json").exists():
+    pdir = Path(project_path).resolve()
+    if project_type != "maestro" and not (pdir / "project.json").exists():
         return {
             "success": False,
-            "error": f"project.json not found in {project_path}"
+            "error": f"project.json not found in {pdir}",
         }
-    
-    # Read project.json for metadata
-    with open(project_path / "project.json", "r", encoding="utf-8") as f:
-        project_config = json.load(f)
-    
-    project_name = project_config.get("name", project_path.name)
-    project_version = project_config.get("projectVersion", "1.0.0")
-    
-    if not process_name:
-        process_name = project_name
-    
-    result = {
-        "success": False,
-        "project_name": project_name,
-        "project_version": project_version,
-        "steps": []
+
+    v2 = deploy_to_orchestrator_v2(
+        project_dir=str(pdir),
+        project_type=project_type,
+        folder=folder_path,
+        process_name=process_name,
+        environment=environment,
+    )
+
+    legacy = {
+        "success": v2.get("status") == "ok",
+        "project_name": (process_name or pdir.name),
+        "process_name": v2.get("process_name"),
+        "process_key": v2.get("process_key"),
+        "package_path": (v2.get("publish") or {}).get("package_path"),
+        "folder": v2.get("folder", folder_path),
+        "tenant": tenant_name,
+        "orchestrator_url": orchestrator_url,
+        "v2": v2,
     }
-    
-    try:
-        # Step 1: Pack the project
-        result["steps"].append("Packing project...")
-        pack_output = project_path / f"{project_name}.{project_version}.nupkg"
-        
-        pack_cmd = [
-            "uipath", "package", "pack",
-            str(project_path),
-            "-o", str(pack_output),
-            "--outputType", "Process"
-        ]
-        
-        pack_result = subprocess.run(
-            pack_cmd,
-            capture_output=True,
-            text=True,
-            timeout=60
-        )
-        
-        if pack_result.returncode != 0:
-            result["error"] = f"Pack failed: {pack_result.stderr}"
-            result["steps"].append(f"❌ Pack failed: {pack_result.stderr[:200]}")
-            return result
-        
-        result["steps"].append(f"✅ Packed: {pack_output.name}")
-        result["package_path"] = str(pack_output)
-        
-        # Step 2: Deploy to Orchestrator
-        result["steps"].append("Deploying to Orchestrator...")
-        
-        deploy_cmd = [
-            "uipath", "package", "deploy",
-            str(pack_output),
-            orchestrator_url,
-            tenant_name,
-            "--folder", folder_path
-        ]
-        
-        if account_name:
-            deploy_cmd.extend(["--accountName", account_name])
-        
-        deploy_result = subprocess.run(
-            deploy_cmd,
-            capture_output=True,
-            text=True,
-            timeout=120
-        )
-        
-        if deploy_result.returncode != 0:
-            result["error"] = f"Deploy failed: {deploy_result.stderr}"
-            result["steps"].append(f"❌ Deploy failed: {deploy_result.stderr[:200]}")
-            return result
-        
-        result["steps"].append("✅ Deployed to Orchestrator")
-        result["deployed"] = True
-        
-        # Step 3: Create/Update Process (optional)
-        if create_process:
-            result["steps"].append("Creating/updating process...")
-            
-            # Note: Process creation typically requires additional Orchestrator API calls
-            # This is a placeholder for the full implementation
-            result["steps"].append(f"⚠️  Process '{process_name}' - manual creation may be needed")
-            result["process_name"] = process_name
-            result["message"] = "Package deployed. Create process in Orchestrator UI if needed."
-        
-        result["success"] = True
-        result["orchestrator_url"] = orchestrator_url
-        result["tenant"] = tenant_name
-        result["folder"] = folder_path
-        
-        return result
-        
-    except FileNotFoundError:
-        return {
-            "success": False,
-            "error": "UiPath CLI not found. Install from https://docs.uipath.com/automation-cloud/automation-cloud/latest/admin-guide/managing-automation-suite-using-the-cli",
-            "steps": ["❌ UiPath CLI not installed"]
-        }
-    except subprocess.TimeoutExpired:
-        return {
-            "success": False,
-            "error": "Deployment timed out",
-            "steps": result["steps"] + ["❌ Operation timed out"]
-        }
-    except Exception as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "steps": result["steps"] + [f"❌ Error: {str(e)}"]
-        }
+    if not legacy["success"]:
+        legacy["error"] = v2.get("error") or "deploy failed"
+    return legacy
 
 
 def deploy_to_studio_web(
@@ -231,7 +324,11 @@ Set environment variables:
     
     config["orchestrator_url"] = orchestrator_url
     config["tenant_name"] = tenant_name
-    config["folder_path"] = os.getenv("UIPATH_FOLDER_PATH", "Shared")
+    config["folder_path"] = (
+        os.getenv("UIPATH_FOLDER_PATH")
+        or os.getenv("UIPATH_DEFAULT_FOLDER")
+        or "Shared"
+    )
     config["account_name"] = os.getenv("UIPATH_ACCOUNT_NAME")
     config["success"] = True
     

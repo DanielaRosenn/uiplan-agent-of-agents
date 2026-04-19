@@ -75,6 +75,40 @@ python run_evals.py
 - `pytest tests/unit/<path>` to iterate on a single area.
 - Run evaluations before merging anything that touches the executor, planner, or skill registry.
 
+## MCP setup (Cursor)
+
+The repo ships a project-scoped `.cursor/mcp.json` that registers the
+`uipath-builder-agent` MCP server (stdio transport, `python -m mcp_server.server`).
+Cursor will only pick it up when three conditions are met:
+
+1. **Python deps installed in a venv on PATH.** Run `pip install -e ".[dev]"`
+   inside an active venv, then make sure `python` resolves to that venv when
+   Cursor is launched (Windows: confirm with `where python`; macOS/Linux:
+   `which python`). The MCP entry uses bare `python` so it follows whatever
+   venv is active for the Cursor process.
+2. **Open `uipath-builder-agent/` as the Cursor workspace root.** Not a
+   parent like `c:\Users\<you>\projects\`. Project-scoped `.cursor/mcp.json`
+   and `.cursor/rules/library-tools.mdc` only load when the workspace root
+   matches this folder.
+3. **Verify in Cursor.** Settings -> MCP should list `uipath-builder-agent`
+   with a green status. If it is red, run `python -m mcp_server.server` in a
+   terminal from the repo root - the import or startup error will surface
+   there. The most common failures are a wrong venv (missing the `mcp`
+   package) and a missing `pip install -e .` (so `mcp_server`/`uipath_claude`
+   aren't importable).
+
+Smoke-test the wiring by following the "Cursor test (MCP tools)" section in
+[docs/SMOKE_TESTS.md](docs/SMOKE_TESTS.md), starting at Step 0.
+
+Step 9 (`query_uipath_docs`) needs an Ask AI backend. For a clean clone the
+fastest way to mark Step 9 PASS is to set
+`UIPATH_ASKAI_ENDPOINT=mock://localfixture` before launching the MCP
+server; the tool then returns a deterministic local fixture that includes
+`SOURCE: askai-mock`. For real answers, point `UIPATH_ASKAI_ENDPOINT` at
+your Ask AI URL (and set `UIPATH_ASKAI_API_KEY` if the endpoint requires
+it) or install the bundled `skills/skills/uipath-askai/` SDK and configure
+its `uipath_askai_config.json`.
+
 ## MCP design-approval gate
 
 Before the first write to a project the agent must propose a design and the

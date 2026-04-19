@@ -65,9 +65,22 @@ def query_uipath_documentation(question: str) -> ToolOutcome:
             ok=False,
             message=(
                 "UiPath Ask AI not available: install skills/skills/uipath-askai/ "
-                "or set UIPATH_ASKAI_ENDPOINT (and UIPATH_ASKAI_API_KEY if required)."
+                "or set UIPATH_ASKAI_ENDPOINT (and UIPATH_ASKAI_API_KEY if required). "
+                "For local smoke verification set "
+                "UIPATH_ASKAI_ENDPOINT=mock://localfixture."
             ),
         )
+
+    if endpoint.startswith("mock://"):
+        fixture = endpoint[len("mock://"):] or "localfixture"
+        body = (
+            f"[mock askai] question={question!r}\n"
+            f"This is a deterministic local fixture response from the\n"
+            f"`mock://{fixture}` endpoint. Configure UIPATH_ASKAI_ENDPOINT to a\n"
+            f"real Ask AI URL for production answers.\n"
+            f"SOURCE: askai-mock"
+        )
+        return ToolOutcome(ok=True, message=body)
 
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
     payload = {"query": question}

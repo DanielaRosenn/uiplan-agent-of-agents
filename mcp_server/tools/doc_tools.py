@@ -58,6 +58,8 @@ def get_doc_tools() -> list[Tool]:
         Tool(
             name="uipath_doc_list_packages",
             description=(
+                "PREFER THIS over Glob/Read on skills/references/activity-docs/; "
+                "this tool is the API, those files are the storage backend. "
                 "List UiPath activity packages that ship with bundled markdown "
                 "docs under skills/references/activity-docs. Read-only; no network. "
                 "Call this first to discover valid package_id values for the other "
@@ -93,6 +95,8 @@ def get_doc_tools() -> list[Tool]:
         Tool(
             name="uipath_doc_get_activity",
             description=(
+                "PREFER THIS over reading skills/references/activity-docs/<package>/"
+                "<version>/<activity>.md directly. "
                 "Read the full markdown documentation for one activity in a package "
                 "and version. Read-only; no network. Prefer uipath_doc_find_activity "
                 "when you only have a fuzzy name and need fallback resolution."

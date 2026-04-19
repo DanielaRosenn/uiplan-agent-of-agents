@@ -24,7 +24,10 @@ def _destructive(title: str, idempotent: bool = False) -> ToolAnnotations:
     )
 
 from uipath_claude.tools import session_gate
-from uipath_claude.tools.deploy_tool import deploy_to_orchestrator as _deploy
+from uipath_claude.tools.deploy_tool import (
+    deploy_to_orchestrator as _deploy,
+    publish_project as _publish_project,
+)
 from uipath_claude.tools.skill_execution_tools import (
     build_and_verify_workflow as _build_and_verify_workflow,
     create_project as _create_project,
@@ -35,12 +38,19 @@ from uipath_claude.tools.skill_execution_tools import (
     list_directory as _list_directory,
     read_file as _read_file,
     read_project_json as _read_project_json,
+    resolve_write_destination as _resolve_write_destination,
     run_uip_command as _run_uip_command,
     run_workflow as _run_workflow,
     validate_and_fix_loop as _validate_and_fix_loop,
     validate_file as _validate_file,
     write_file as _write_file,
 )
+
+
+def _resolved_write_path(file_path: str) -> str:
+    """Best-effort resolved string path for ``file_path`` (gate keying)."""
+    resolved = _resolve_write_destination(file_path)
+    return str(resolved) if resolved is not None else file_path
 
 
 _GATED_DIRTY_EXTENSIONS = {".xaml", ".cs", ".json", ".uiproj"}
@@ -54,7 +64,8 @@ def _project_dir_for(arguments: dict[str, Any], file_key: str | None = None) -> 
     if file_key:
         path = arguments.get(file_key)
         if path:
-            resolved = session_gate._project_dir_for_file(path)
+            resolved_path = _resolved_write_path(str(path))
+            resolved = session_gate._project_dir_for_file(resolved_path)
             if resolved:
                 return resolved
     return None
@@ -718,6 +729,16 @@ def get_workflow_tools() -> list[Tool]:
                         "type": "string",
                         "description": "Optional environment to associate with the process.",
                     },
+                    "project_type": {
+                        "type": "string",
+                        "enum": ["process", "maestro"],
+                        "default": "process",
+                        "description": (
+                            "Project family. 'process' uses uip solution pack/publish + "
+                            "uip or processes create. 'maestro' uses uip flow pack + "
+                            "uip solution publish + uip flow process create."
+                        ),
+                    },
                     "allow_unverified": {
                         "type": "boolean",
                         "default": False,
@@ -730,6 +751,37 @@ def get_workflow_tools() -> list[Tool]:
                 "required": ["project_path", "orchestrator_url", "tenant_name"],
             },
             annotations=_destructive("Deploy project to Orchestrator"),
+        ),
+        Tool(
+            name="uipath_workflow_publish",
+            description=(
+                "Pack and publish a UiPath project to Orchestrator without creating "
+                "a Process. Wraps the modern uip CLI (uip solution pack/publish for "
+                "RPA, uip flow pack + uip solution publish for Maestro). Returns the "
+                "package path and CLI output. GATED by the MCP session gate; blocked "
+                "until uipath_workflow_build_and_verify reports success."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "project_dir": {
+                        "type": "string",
+                        "description": "Path to the project directory to pack and publish.",
+                    },
+                    "project_type": {
+                        "type": "string",
+                        "enum": ["process", "maestro"],
+                        "default": "process",
+                    },
+                    "allow_unverified": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": "Bypass the session gate.",
+                    },
+                },
+                "required": ["project_dir"],
+            },
+            annotations=_destructive("Publish project package to Orchestrator"),
         ),
         Tool(
             name="uipath_workflow_session_status",
@@ -765,7 +817,8 @@ async def call_workflow_tool(name: str, arguments: dict[str, Any]) -> Any:
         return _read_file.invoke({"file_path": arguments["file_path"]})
 
     if name == "uipath_workflow_write_file":
-        owning_project = session_gate._project_dir_for_file(arguments["file_path"])
+        resolved = _resolved_write_path(arguments["file_path"])
+        owning_project = session_gate._project_dir_for_file(resolved)
         blocked = _design_block_or_text(
             owning_project,
             "uipath_workflow_write_file",
@@ -782,7 +835,7 @@ async def call_workflow_tool(name: str, arguments: dict[str, Any]) -> Any:
                 ),
             }
         )
-        _maybe_mark_dirty_after_write(arguments["file_path"], result)
+        _maybe_mark_dirty_after_write(resolved, result)
         return result
 
     if name == "uipath_workflow_list_directory":
@@ -949,12 +1002,31 @@ async def call_workflow_tool(name: str, arguments: dict[str, Any]) -> Any:
             process_name=arguments.get("process_name"),
             create_process=bool(arguments.get("create_process", True)),
             environment=arguments.get("environment"),
+            project_type=arguments.get("project_type", "process"),
         )
-        return json.dumps(result, indent=2)
+        return json.dumps(result, indent=2, default=str)
+
+    if name == "uipath_workflow_publish":
+        blocked = _gate_block_or_text(
+            arguments.get("project_dir"),
+            "uipath_workflow_publish",
+            bool(arguments.get("allow_unverified", False)),
+        )
+        if blocked:
+            return blocked
+        result = _publish_project(
+            project_dir=arguments["project_dir"],
+            project_type=arguments.get("project_type", "process"),
+        )
+        return json.dumps(result, indent=2, default=str)
 
     if name == "uipath_workflow_session_status":
         pd = arguments.get("project_dir")
         if pd:
+            try:
+                session_gate.detect_out_of_band_changes(str(pd))
+            except Exception:
+                pass
             state = session_gate.status(str(pd))
             data = {
                 "project_dir": session_gate._normalize(str(pd)),
@@ -962,6 +1034,11 @@ async def call_workflow_tool(name: str, arguments: dict[str, Any]) -> Any:
                 **session_gate.state_to_dict(state),
             }
             return json.dumps(data, indent=2, default=str)
+        for tracked_key in list(session_gate._STATES.keys()):
+            try:
+                session_gate.detect_out_of_band_changes(tracked_key)
+            except Exception:
+                continue
         snapshot = {
             "gate_enabled": session_gate._gate_enabled(),
             "projects": {

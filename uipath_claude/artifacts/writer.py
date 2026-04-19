@@ -38,6 +38,18 @@ class BootstrapArtifactWriter:
         path.write_text(content, encoding="utf-8")
         return path
 
+    def write_add(self, content: str) -> Path:
+        path = self.output_root / "docs" / "add" / f"{self.stamp}-add.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+        return path
+
+    def write_tdd(self, content: str) -> Path:
+        path = self.output_root / "docs" / "tdd" / f"{self.stamp}-tdd.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+        return path
+
     def write_developer_artifacts(
         self,
         llm_output: str,

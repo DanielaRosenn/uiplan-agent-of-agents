@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Callable
 
 from langchain_aws import ChatBedrockConverse
@@ -45,6 +47,27 @@ async def simple_llm_answer(
     Returns:
         String containing the answer
     """
+    # #region agent log
+    try:
+        _dbg = {
+            "sessionId": "7bfa30",
+            "runId": "run1",
+            "hypothesisId": "H2_H3",
+            "location": "uipath_claude/query/simple_answer.py:simple_llm_answer:before_chat_init",
+            "message": "Simple answer model selection",
+            "data": {
+                "model_name": model_name,
+                "region": region,
+                "cwd": str(Path.cwd()),
+            },
+            "timestamp": __import__("time").time_ns() // 1_000_000,
+        }
+        with open("debug-7bfa30.log", "a", encoding="utf-8") as _f:
+            _f.write(json.dumps(_dbg, ensure_ascii=True) + "\n")
+    except Exception:
+        pass
+    # #endregion
+
     chat = ChatBedrockConverse(
         model=model_name,
         region_name=region,

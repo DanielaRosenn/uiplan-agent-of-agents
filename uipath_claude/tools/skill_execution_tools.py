@@ -105,17 +105,18 @@ def _resolve_file_path(file_path: str) -> Path:
     path = Path(file_path)
     if path.is_absolute():
         return path
-    
-    # Check if file exists in CWD (test fixture or real project scenario)
+
     cwd_path = Path.cwd() / file_path
     if cwd_path.exists():
         return cwd_path
-    
-    # Check if CWD has project.json (we're in a project directory)
+
     if (Path.cwd() / "project.json").exists():
         return cwd_path
-    
-    # Fall back to generated output directory
+
+    resolved = resolve_write_destination(file_path)
+    if resolved is not None and resolved.exists():
+        return resolved
+
     output_root = _get_output_root()
     session_id = os.environ.get("UIPATH_CHAT_SESSION_ID", "")
     if session_id:
@@ -139,6 +140,108 @@ def _resolve_safe_path(base: Path, relative: str) -> Path | None:
     except ValueError:
         return None
     return dest
+
+
+def _candidate_write_bases() -> list[Path]:
+    """Allowed roots for resolving write destinations.
+
+    Order matters: earlier entries win when a relative path matches multiple
+    bases. We prefer the current working directory when it is itself a
+    UiPath project, then any explicit session output dir, then the chat
+    output root.
+    """
+    bases: list[Path] = []
+    cwd = Path.cwd()
+    if (cwd / "project.json").exists():
+        bases.append(cwd)
+    output_root = _get_output_root()
+    session_id = os.environ.get("UIPATH_CHAT_SESSION_ID", "")
+    if session_id:
+        bases.append(output_root / session_id)
+    bases.append(output_root)
+    bases.append(cwd)
+    seen: set[str] = set()
+    unique: list[Path] = []
+    for base in bases:
+        try:
+            key = str(base.resolve())
+        except OSError:
+            key = str(base)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(base)
+    return unique
+
+
+def _has_project_json_ancestor(path: Path, max_depth: int = 12) -> bool:
+    """True when ``path`` (or any ancestor up to ``max_depth``) contains project.json."""
+    cur = path if path.is_dir() else path.parent
+    for _ in range(max_depth):
+        try:
+            if (cur / "project.json").exists():
+                return True
+        except OSError:
+            return False
+        if cur.parent == cur:
+            return False
+        cur = cur.parent
+    return False
+
+
+def resolve_write_destination(file_path: str) -> Path | None:
+    """Resolve ``file_path`` to the actual destination on disk.
+
+    Accepts:
+
+    - Absolute paths under any candidate base (CWD project, session dir,
+      chat output root) OR any path with a ``project.json`` ancestor.
+    - Relative paths resolved against the candidate bases. The first base
+      whose resulting path either already exists or whose resolved
+      destination has a ``project.json`` ancestor wins. When no candidate
+      satisfies that, the first base is used as a last resort.
+
+    Returns the resolved destination, or ``None`` for paths that escape
+    every allowed root and have no ``project.json`` ancestor (these are
+    rejected as unsafe).
+    """
+    if not file_path or not file_path.strip():
+        return None
+    raw = file_path.strip()
+    path = Path(raw)
+    if path.is_absolute():
+        try:
+            absolute = path.resolve()
+        except OSError:
+            absolute = path
+        for base in _candidate_write_bases():
+            try:
+                absolute.relative_to(base.resolve())
+                return absolute
+            except (OSError, ValueError):
+                continue
+        if _has_project_json_ancestor(absolute):
+            return absolute
+        return None
+
+    normalised = raw.replace("\\", "/")
+    if normalised.startswith("/"):
+        return None
+    if ".." in Path(normalised).parts:
+        return None
+
+    fallback: Path | None = None
+    for base in _candidate_write_bases():
+        candidate = (base / normalised).resolve()
+        try:
+            candidate.relative_to(base.resolve())
+        except (OSError, ValueError):
+            continue
+        if fallback is None:
+            fallback = candidate
+        if candidate.exists() or _has_project_json_ancestor(candidate):
+            return candidate
+    return fallback
 
 
 def _tool(ok: bool, message: str) -> str:
@@ -324,18 +427,7 @@ def write_file(
             ),
         )
 
-    # Use CWD if it's a project directory (has project.json)
-    if (Path.cwd() / "project.json").exists():
-        base = Path.cwd()
-    else:
-        output_root = _get_output_root()
-        session_id = os.environ.get("UIPATH_CHAT_SESSION_ID", "")
-        if session_id:
-            base = output_root / session_id
-        else:
-            base = output_root
-    
-    dest = _resolve_safe_path(base, file_path)
+    dest = resolve_write_destination(file_path)
     if dest is None:
         return _tool(False, f"Error: Invalid file path: {file_path}")
     
@@ -1032,6 +1124,117 @@ def environment_probe(project_dir: str | None = None) -> str:
     return _tool(ok, "\n".join(summary_lines))
 
 
+_TEMPLATE_ID_BY_TYPE = {
+    "process": "BlankTemplate",
+    "library": "LibraryProcessTemplate",
+    "coded": "BlankTemplate",
+    "test": "TestAutomationProjectTemplate",
+}
+
+_STUDIO_UNRESOLVABLE_MARKERS = (
+    "could not resolve studio installation directory",
+    "studio installation directory",
+    "use --studio-dir",
+)
+
+
+def _resolve_studio_dir() -> str | None:
+    """Return the first existing Studio installation directory.
+
+    Resolution order:
+      1. ``UIPATH_STUDIO_DIR`` env var
+      2. ``C:\\Program Files\\UiPath\\Studio``
+      3. ``C:\\Program Files (x86)\\UiPath\\Studio``
+      4. ``%LOCALAPPDATA%\\UiPath\\Studio``
+      5. ``%LOCALAPPDATA%\\Programs\\UiPath\\Studio``
+
+    Returns ``None`` on non-Windows or when none of the above exist.
+    """
+    env = os.environ.get("UIPATH_STUDIO_DIR")
+    if env and Path(env).exists():
+        return env
+
+    if os.name != "nt":
+        return None
+
+    candidates = [
+        r"C:\Program Files\UiPath\Studio",
+        r"C:\Program Files (x86)\UiPath\Studio",
+    ]
+    local = os.environ.get("LOCALAPPDATA")
+    if local:
+        candidates.append(str(Path(local) / "UiPath" / "Studio"))
+        candidates.append(str(Path(local) / "Programs" / "UiPath" / "Studio"))
+
+    for c in candidates:
+        if Path(c).exists():
+            return c
+    return None
+
+
+def _minimal_main_xaml_for_scaffold() -> str:
+    """Minimal Sequence workflow used by the CLI-only fallback path."""
+    return (
+        '<?xml version="1.0" encoding="utf-8"?>\n'
+        '<Activity x:Class="Main"\n'
+        ' xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities"\n'
+        ' xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">\n'
+        '  <Sequence DisplayName="Main Sequence">\n'
+        '    <WriteLine Text="Generated scaffold (CLI fallback) - replace in Studio." />\n'
+        '  </Sequence>\n'
+        '</Activity>\n'
+    )
+
+
+def _cli_fallback_scaffold(target: Path, project_name: str, project_type: str) -> str:
+    """Hand-build a minimal project.json + Main.xaml when Studio IPC is unavailable.
+
+    Writes empty ``dependencies`` so ``install_package`` (which wraps
+    ``uip rpa install-or-update-packages``) can populate them later from the
+    real Studio install when one becomes available.
+    """
+    target.mkdir(parents=True, exist_ok=True)
+    proj_type_camel = "Library" if project_type == "library" else "Process"
+    expression_language = (
+        "CSharp" if project_type == "coded" else "VisualBasic"
+    )
+    project_json = {
+        "name": project_name,
+        "projectId": "",
+        "description": f"{project_name} (CLI-fallback scaffold)",
+        "main": "Main.xaml",
+        "dependencies": {},
+        "webServices": [],
+        "entitiesStores": [],
+        "schemaVersion": "4.0",
+        "studioVersion": "0.0.0.0",
+        "projectVersion": "1.0.0",
+        "runtimeOptions": {"autoDispose": False, "isAttended": False},
+        "designOptions": {"projectProfile": "Development"},
+        "expressionLanguage": expression_language,
+        "entryPoints": [
+            {"filePath": "Main.xaml", "uniqueId": "00000000-0000-0000-0000-000000000000", "input": [], "output": []}
+        ],
+        "isTemplate": False,
+        "templateProjectData": {},
+        "publishData": {},
+        "targetFramework": "Windows",
+        "projectType": proj_type_camel,
+    }
+    (target / "project.json").write_text(
+        json.dumps(project_json, indent=2), encoding="utf-8"
+    )
+    (target / "Main.xaml").write_text(_minimal_main_xaml_for_scaffold(), encoding="utf-8")
+    return str(target / "project.json")
+
+
+def _looks_like_studio_unresolvable(output: str) -> bool:
+    if not output:
+        return False
+    low = output.lower()
+    return any(marker in low for marker in _STUDIO_UNRESOLVABLE_MARKERS)
+
+
 @tool
 def create_project(
     project_dir: str,
@@ -1046,66 +1249,100 @@ def create_project(
     avoiding the legacy-vs-modern dependency mismatches that occur when an
     LLM hand-pins package versions.
 
-    By default this tool also runs ``build_and_verify_workflow`` on the
-    freshly created project (static validation only, every ``.xaml``) so you
-    have proof the scaffold is sound before writing any business logic. Set
-    ``auto_verify=False`` only when you intentionally want to skip the
-    verification step (e.g. throwaway smoke tests).
+    Strategy (uip 0.1.21+):
+      1. Try ``uip rpa [--studio-dir <auto>] create-project --template-id <tpl>``
+         where ``<tpl>`` is mapped from ``project_type``:
+           - ``process`` -> ``BlankTemplate``
+           - ``library`` -> ``LibraryProcessTemplate``
+           - ``coded``   -> ``BlankTemplate`` + ``--expression-language CSharp``
+      2. If Studio IPC is unavailable (CLI reports "Could not resolve Studio
+         installation directory" or returns success without writing
+         ``project.json``), fall back to a CLI-only scaffold: ``uip solution
+         new`` (best-effort) then write a minimal ``project.json`` + ``Main.xaml``
+         with empty dependencies. The result is marked
+         ``created_via: "cli-fallback"`` for diagnostics.
 
     Args:
         project_dir: Parent directory in which to create the project folder.
         project_name: Name of the new project (folder + project.name).
-        project_type: One of ``process`` (default), ``library``, ``coded``.
-            Mapped onto the CLI's ``--type`` argument when supported.
+        project_type: ``process`` (default), ``library``, ``coded``, or ``test``.
         auto_verify: When True (default), call ``build_and_verify_workflow``
             on the new project (``run_after_validate=False``) and append its
             payload to the result.
 
     Returns:
-        CLI output, the path to the generated project.json, and (when
-        ``auto_verify=True``) the verification payload.
+        CLI output, the path to the generated project.json, the
+        ``created_via`` marker, and (when ``auto_verify=True``) the
+        verification payload.
     """
     base = _resolve_project_path(project_dir)
     base.mkdir(parents=True, exist_ok=True)
 
     uip_cli = _find_uip_cli()
-    cmd = [
-        uip_cli,
-        "rpa",
-        "create-project",
-        "--name",
-        project_name,
-        "--location",
-        str(base.resolve()),
-        "--output",
-        "json",
-    ]
-    if project_type and project_type != "process":
-        cmd.extend(["--type", project_type])
+    studio_dir = _resolve_studio_dir()
+    template_id = _TEMPLATE_ID_BY_TYPE.get(project_type, "BlankTemplate")
+
+    cmd: list[str] = [uip_cli, "rpa"]
+    if studio_dir:
+        cmd.extend(["--studio-dir", studio_dir])
+    cmd.extend(
+        [
+            "create-project",
+            "--name",
+            project_name,
+            "--location",
+            str(base.resolve()),
+            "--template-id",
+            template_id,
+            "--output",
+            "json",
+        ]
+    )
+    if project_type == "coded":
+        cmd.extend(["--expression-language", "CSharp"])
+
+    try:
+        timeout_s = int(os.environ.get("UIPATH_CREATE_PROJECT_TIMEOUT", "300"))
+    except ValueError:
+        timeout_s = 300
 
     try:
         proc = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=timeout_s,
             check=False,
         )
     except FileNotFoundError:
         return _tool(False, "Error: uip CLI not found. Install with: npm install -g @uipath/cli")
     except subprocess.TimeoutExpired:
-        return _tool(False, "Error: create-project timed out after 120s")
+        return _tool(False, f"Error: create-project timed out after {timeout_s}s")
 
     output = "\n".join(part for part in (proc.stdout, proc.stderr) if part)
     parsed = _parse_first_json_payload(output) or {}
     target = (base / project_name).resolve()
     project_json = target / "project.json"
 
-    if proc.returncode == 0 and project_json.exists():
+    studio_failed = (
+        _looks_like_studio_unresolvable(output)
+        or (proc.returncode == 0 and not project_json.exists())
+        or (proc.returncode != 0 and _looks_like_studio_unresolvable(output))
+    )
+
+    def _success_body(via: str, extra: str = "") -> str:
         head = (
             f"Created project at {target}\n"
-            f"project.json: {project_json}\n\n{output[:1500]}"
+            f"project.json: {project_json}\n"
+            f"created_via: {via}\n\n"
+            f"{output[:1500]}"
         )
+        if extra:
+            head += "\n\n--- fallback log ---\n" + extra[:1500]
+        return head
+
+    if proc.returncode == 0 and project_json.exists() and project_json.stat().st_size > 0:
+        head = _success_body("studio")
         if not auto_verify:
             return _tool(True, head)
         verify_text = build_and_verify_workflow.invoke(
@@ -1113,6 +1350,7 @@ def create_project(
                 "project_dir": str(target),
                 "max_attempts": 5,
                 "run_after_validate": False,
+                "require_studio_debug": False,
             }
         )
         verify_ok = isinstance(verify_text, str) and verify_text.startswith("[OK]")
@@ -1120,6 +1358,44 @@ def create_project(
             verify_text or ""
         )
         return _tool(verify_ok, body)
+
+    if studio_failed:
+        # CLI-only fallback: best-effort uip solution new then hand-build project.json
+        fb_log_parts: list[str] = []
+        try:
+            fb_proc = subprocess.run(
+                [uip_cli, "solution", "new", project_name, "--output", "json"],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
+                cwd=str(base.resolve()),
+            )
+            fb_log_parts.append(
+                f"solution new exit={fb_proc.returncode}\n{(fb_proc.stdout or '') + (fb_proc.stderr or '')}"
+            )
+        except Exception as exc:
+            fb_log_parts.append(f"solution new error: {exc}")
+
+        try:
+            _cli_fallback_scaffold(target, project_name, project_type)
+        except Exception as exc:
+            return _tool(
+                False,
+                f"create-project: Studio IPC unavailable AND CLI fallback failed: {exc}\n\n--- CLI log ---\n{output[:1500]}",
+            )
+
+        if not (project_json.exists() and project_json.stat().st_size > 0):
+            return _tool(
+                False,
+                f"create-project: CLI fallback ran but project.json missing at {project_json}\n\n--- CLI log ---\n{output[:1500]}",
+            )
+
+        head = _success_body("cli-fallback", extra="\n".join(fb_log_parts))
+        if not auto_verify:
+            return _tool(True, head)
+        # Skip auto_verify on fallback: it requires Studio (which is what failed).
+        return _tool(True, head + "\n\n[note] auto-verify skipped: fallback path has no Studio.")
 
     if isinstance(parsed, dict) and parsed.get("Message"):
         return _tool(False, f"create-project failed: {parsed['Message']}\n\n{output[:1500]}")
@@ -1336,6 +1612,19 @@ def _run_one_verify_attempt(
     payload["warnings"] = aggregated_warnings
 
     if not run_after_validate:
+        if require_studio_debug:
+            payload["phase"] = "studio_debug"
+            payload["errors"] = [
+                "Studio debug step did not run (run_after_validate=False). "
+                "Verify gate refuses to mark the project verified without an "
+                "attached Studio debug pass. Set run_after_validate=True with "
+                "Studio running, or rerun with require_studio_debug=False "
+                "after the user explicitly waives the Studio debug requirement."
+            ]
+            payload["next_action"] = "start_studio_or_waive"
+            payload["verdict"] = "needs_human"
+            payload["success"] = False
+            return payload
         payload["success"] = True
         payload["phase"] = "done"
         payload["next_action"] = "none"

@@ -5,29 +5,45 @@ Single source of truth for model selection. Call sites pick a tier
 distillation/classification/short-text tasks) or a task id; resolution
 walks per-tier env overrides, then the legacy global override, then a
 hard-coded default.
+
+Internally backed by :mod:`uipath_claude.llm.routing` (config, complexity
+scoring, fallback invoker, telemetry). The legacy synchronous API
+(``heavy_model``, ``light_model``, ``model_for_task``) preserves backward
+compatibility; new opt-in APIs (``select_model_for_task``,
+``invoke_with_fallback``) expose the dynamic routing + fallback features
+behind feature flags.
 """
 from __future__ import annotations
 
 import logging
 import os
-from enum import Enum
 
+from uipath_claude.llm.routing.complexity import (
+    ComplexitySignals,
+    RoutingDecision,
+    select_model,
+)
+from uipath_claude.llm.routing.config import (
+    DEFAULT_FALLBACK_HEAVY_MODEL,
+    DEFAULT_FALLBACK_LIGHT_MODEL,
+    DEFAULT_HEAVY_MODEL,
+    DEFAULT_LIGHT_MODEL,
+    ModelTier,
+    RoutingConfig,
+    load_config,
+)
+from uipath_claude.llm.routing.invoker import (
+    InvocationResult,
+    Invoker,
+    ModelCall,
+)
+from uipath_claude.llm.routing.telemetry import EventSink
 
 logger = logging.getLogger(__name__)
 
 
-class ModelTier(str, Enum):
-    """Capability tier for a Bedrock model selection."""
-
-    HEAVY = "heavy"
-    LIGHT = "light"
-
-
-DEFAULT_HEAVY_MODEL = "anthropic.claude-3-5-sonnet-20241022-v2:0"
-DEFAULT_LIGHT_MODEL = "anthropic.claude-3-5-haiku-20241022-v1:0"
-
-# Inference-profile region prefixes accepted by Bedrock Converse for cross-region
-# routing (e.g. ``us.anthropic.claude-sonnet-4-5-...``).
+# Inference-profile region prefixes accepted by Bedrock Converse for
+# cross-region routing (e.g. ``us.anthropic.claude-sonnet-4-5-...``).
 _INFERENCE_PROFILE_PREFIXES = ("us.", "eu.", "apac.", "us-gov.")
 
 # Anthropic model families on Bedrock that are *not* available with on-demand
@@ -42,7 +58,6 @@ _REQUIRES_INFERENCE_PROFILE_PREFIXES = (
 _warned_models: set[str] = set()
 _rewritten_models: set[str] = set()
 
-# Direct AWS docs links for operators verifying model IDs.
 AWS_SUPPORTED_MODELS_URL = (
     "https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html"
 )
@@ -51,8 +66,6 @@ AWS_INFERENCE_PROFILES_URL = (
     "cross-region-inference-support.html"
 )
 
-# Default cross-region prefix used when auto-rewriting profile-required ids.
-# Override via ``UIPATH_CLAUDE_INFERENCE_PROFILE_REGION`` (e.g. ``eu``, ``apac``).
 _DEFAULT_INFERENCE_REGION = "us"
 
 
@@ -143,9 +156,15 @@ _TASK_TIERS: dict[str, ModelTier] = {
 }
 
 
-def _legacy_override() -> str | None:
-    val = os.environ.get("UIPATH_CLAUDE_MODEL", "").strip()
-    return val or None
+def _resolve_tier_model(tier: ModelTier) -> str:
+    """Resolve a tier model id via the routing.config precedence chain.
+
+    Applies inference-profile auto-rewrite + warning as a final pass.
+    """
+    cfg = load_config()
+    raw = cfg.primary_for(tier)
+    _maybe_warn(raw)
+    return _maybe_rewrite_to_profile(raw)
 
 
 def heavy_model() -> str:
@@ -158,13 +177,7 @@ def heavy_model() -> str:
     ``UIPATH_CLAUDE_AUTO_INFERENCE_PROFILE=0``; configure region via
     ``UIPATH_CLAUDE_INFERENCE_PROFILE_REGION`` (``us`` | ``eu`` | ``apac``).
     """
-    model = (
-        os.environ.get("UIPATH_CLAUDE_MODEL_HEAVY", "").strip()
-        or _legacy_override()
-        or DEFAULT_HEAVY_MODEL
-    )
-    _maybe_warn(model)
-    return _maybe_rewrite_to_profile(model)
+    return _resolve_tier_model(ModelTier.HEAVY)
 
 
 def light_model() -> str:
@@ -172,19 +185,13 @@ def light_model() -> str:
 
     See :func:`heavy_model` for inference-profile handling.
     """
-    model = (
-        os.environ.get("UIPATH_CLAUDE_MODEL_LIGHT", "").strip()
-        or _legacy_override()
-        or DEFAULT_LIGHT_MODEL
-    )
-    _maybe_warn(model)
-    return _maybe_rewrite_to_profile(model)
+    return _resolve_tier_model(ModelTier.LIGHT)
 
 
 def model_for(tier: ModelTier | str) -> str:
     """Return the model id for a given tier."""
     resolved = tier if isinstance(tier, ModelTier) else ModelTier(str(tier).lower())
-    return heavy_model() if resolved is ModelTier.HEAVY else light_model()
+    return _resolve_tier_model(resolved)
 
 
 def model_for_task(task_id: str) -> str:
@@ -199,6 +206,57 @@ def model_for_task(task_id: str) -> str:
     return model
 
 
+def select_model_for_task(
+    task_id: str,
+    signals: ComplexitySignals | None = None,
+) -> str:
+    """Resolve a model id for a task using complexity-driven routing when enabled.
+
+    When ``UIPATH_CLAUDE_ROUTING_DYNAMIC`` is on, this consults the supplied
+    ``signals`` (intent, planner triggered, retries, etc.) via
+    :func:`uipath_claude.llm.routing.complexity.select_model`. When off, it
+    behaves identically to :func:`model_for_task`.
+
+    The returned id always passes through the inference-profile auto-rewrite.
+    """
+    cfg = load_config()
+    default_tier = _TASK_TIERS.get(task_id, ModelTier.HEAVY)
+    decision: RoutingDecision = select_model(
+        cfg, signals, default_tier=default_tier
+    )
+    logger.debug(
+        "select_model_for_task task=%s tier=%s score=%s reason=%s model=%s",
+        task_id,
+        decision.tier.value,
+        decision.score,
+        decision.reason,
+        decision.model_id,
+    )
+    _maybe_warn(decision.model_id)
+    return _maybe_rewrite_to_profile(decision.model_id)
+
+
+def invoke_with_fallback(
+    call: ModelCall,
+    *,
+    task_id: str | None = None,
+    signals: ComplexitySignals | None = None,
+    sink: EventSink | None = None,
+) -> InvocationResult:
+    """Run ``call(model_id)`` with single-shot fallback on model-related failures.
+
+    Off by default. Set ``UIPATH_CLAUDE_FALLBACK_ENABLED=1`` to opt in.
+    The supplied ``call`` receives the resolved primary model id; on a
+    model-related failure (unsupported throughput, model not found, access
+    denied) the same callable is invoked once with the tier's fallback id.
+    Non-model failures propagate immediately.
+    """
+    cfg = load_config()
+    default_tier = _TASK_TIERS.get(task_id or "", ModelTier.HEAVY)
+    invoker = Invoker(cfg, sink=sink)
+    return invoker.invoke(call, signals, default_tier=default_tier)
+
+
 def register_task(task_id: str, tier: ModelTier) -> None:
     """Register/override a task -> tier mapping (used by extensions/tests)."""
     _TASK_TIERS[task_id] = tier
@@ -207,3 +265,29 @@ def register_task(task_id: str, tier: ModelTier) -> None:
 def task_tiers() -> dict[str, ModelTier]:
     """Return a copy of the current task -> tier map."""
     return dict(_TASK_TIERS)
+
+
+__all__ = [
+    "AWS_INFERENCE_PROFILES_URL",
+    "AWS_SUPPORTED_MODELS_URL",
+    "ComplexitySignals",
+    "DEFAULT_FALLBACK_HEAVY_MODEL",
+    "DEFAULT_FALLBACK_LIGHT_MODEL",
+    "DEFAULT_HEAVY_MODEL",
+    "DEFAULT_LIGHT_MODEL",
+    "InvocationResult",
+    "ModelTier",
+    "RoutingConfig",
+    "RoutingDecision",
+    "heavy_model",
+    "inference_profile_hint",
+    "invoke_with_fallback",
+    "light_model",
+    "load_config",
+    "model_for",
+    "model_for_task",
+    "register_task",
+    "requires_inference_profile",
+    "select_model_for_task",
+    "task_tiers",
+]
