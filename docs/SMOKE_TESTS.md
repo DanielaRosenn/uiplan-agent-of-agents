@@ -770,3 +770,64 @@ without a Studio debug pass, and that edits made outside
 - [ ] Status snapshot before/after Check 2.
 - [ ] Note in the report whether Studio was started or
       `require_studio_debug=false` was used to clear Check 1.
+
+
+## InvoiceQueueProcessor (unattended queue performer)
+
+Project: `examples/InvoiceQueueProcessor`. Validates the full
+write -> two-pass static validation -> headless run -> attached Studio
+debug pipeline introduced by the standardized verify gate.
+See [`docs/build-logs/README.md`](build-logs/README.md) for the audit
+schema captured at every step.
+
+### Prerequisites
+
+- Orchestrator queue named `Invoices` exists in the robot's mapped folder.
+- SQL Server reachable; table created via
+  `examples/InvoiceQueueProcessor/Database/CreateInvoicesTable.sql`.
+- Local UiPath CLI (`uip`) installed and authenticated.
+- A valid SQL connection string available; pass it as the
+  `sqlConnectionString` workflow argument (do **not** hard-code it).
+
+### Commands
+
+```powershell
+cd examples/InvoiceQueueProcessor
+
+# 1) Two clean validation passes (the gate requires both).
+uip rpa get-errors --min-severity error --output json
+uip rpa get-errors --min-severity error --output json
+
+# 2) Headless run.
+uip rpa run-file `
+  --file-path Main.xaml `
+  --command StartExecution `
+  --output json `
+  --input-arguments '{"sqlConnectionString":"<your-connection-string>"}'
+
+# 3) Optional but enforced when Studio is detected by the agent:
+#    attached Studio debug. Open the project in UiPath Studio first.
+uip rpa run-file `
+  --file-path Main.xaml `
+  --command StartDebugging `
+  --use-studio `
+  --output json `
+  --input-arguments '{"sqlConnectionString":"<your-connection-string>"}'
+```
+
+### Expected results
+
+- `BUILD_LOG.md` in the project root grows by one event per command
+  above (`get_errors` x2, `run_file`, optional `start_debugging`).
+- One row inserted into `dbo.Invoices` per valid queue item.
+- One Failed transaction with `ErrorType.Business` per invalid payload
+  (missing `Vendor`, non-numeric `Amount`, unparseable `DueDate`).
+- All four steps return `Result: Success` / exit 0; if any pass returns
+  diagnostics, do not declare the project verified.
+
+### Recording additions
+
+- [ ] BUILD_LOG.md diff covering all commands.
+- [ ] Snapshot of the inserted `dbo.Invoices` rows.
+- [ ] Orchestrator queue tab showing one Successful + one Failed item.
+
