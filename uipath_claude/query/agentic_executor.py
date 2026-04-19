@@ -840,29 +840,38 @@ class AgenticExecutor:
         Returns:
             True if validation errors found, False otherwise
         """
-        # Look at last 5 messages for validation errors
+        # Scope to ToolMessage only: the system prompt itself contains the
+        # words "validation failed/error" / "error(s)" / "validate" verbatim,
+        # so scanning every recent message produced false positives on short
+        # message logs (e.g. right after a Bedrock ValidationException
+        # recovery), causing an extra fake "fix validation" loop iteration.
         recent_messages = messages[-5:] if len(messages) >= 5 else messages
-        
+
         for msg in recent_messages:
-            if hasattr(msg, "content") and isinstance(msg.content, str):
-                content_lower = msg.content.lower()
-                # Check for validation failure indicators
-                if ("validation failed" in content_lower or 
-                    "validation error" in content_lower or
-                    "error(s)" in content_lower) and "validate" in content_lower:
-                    if "0 error" not in content_lower and "passed" not in content_lower:
-                        return True
-                # MCP gate signals - the build_and_verify / session / design
-                # gate emit these strings and the agent must not stop on them.
-                if msg.content.startswith("[BLOCKED]"):
-                    return True
-                if (
-                    "verdict='needs_human'" in content_lower
-                    or '"verdict": "needs_human"' in content_lower
-                    or "verdict='needs_llm_fix'" in content_lower
-                    or '"verdict": "needs_llm_fix"' in content_lower
-                ):
-                    return True
+            if not isinstance(msg, ToolMessage):
+                continue
+            content = msg.content if isinstance(msg.content, str) else str(msg.content or "")
+            content_lower = content.lower()
+            if (
+                ("validation failed" in content_lower
+                 or "validation error" in content_lower
+                 or "error(s)" in content_lower)
+                and "validate" in content_lower
+                and "0 error" not in content_lower
+                and "passed" not in content_lower
+            ):
+                return True
+            # MCP gate signals - the build_and_verify / session / design
+            # gate emit these strings and the agent must not stop on them.
+            if content.startswith("[BLOCKED]"):
+                return True
+            if (
+                "verdict='needs_human'" in content_lower
+                or '"verdict": "needs_human"' in content_lower
+                or "verdict='needs_llm_fix'" in content_lower
+                or '"verdict": "needs_llm_fix"' in content_lower
+            ):
+                return True
 
         return False
     

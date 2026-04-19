@@ -22,11 +22,15 @@ def _clear_model_env(monkeypatch):
         "UIPATH_CLAUDE_MODEL",
         "UIPATH_CLAUDE_MODEL_HEAVY",
         "UIPATH_CLAUDE_MODEL_LIGHT",
+        "UIPATH_CLAUDE_AUTO_INFERENCE_PROFILE",
+        "UIPATH_CLAUDE_INFERENCE_PROFILE_REGION",
     ):
         monkeypatch.delenv(var, raising=False)
     router._warned_models.clear()
+    router._rewritten_models.clear()
     yield
     router._warned_models.clear()
+    router._rewritten_models.clear()
 
 
 def test_heavy_model_defaults():
@@ -127,3 +131,62 @@ def test_register_task_is_picked_up(monkeypatch):
     finally:
         # Clean up to avoid leaking registration into other tests.
         router._TASK_TIERS.pop("ad_hoc_task", None)
+
+
+def test_heavy_model_autorewrites_raw_sonnet_4_to_us_profile(monkeypatch):
+    monkeypatch.setenv(
+        "UIPATH_CLAUDE_MODEL_HEAVY", "anthropic.claude-sonnet-4-5-20250929-v1:0"
+    )
+    assert heavy_model() == "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+
+
+def test_heavy_model_autorewrites_raw_opus_4(monkeypatch):
+    monkeypatch.setenv(
+        "UIPATH_CLAUDE_MODEL_HEAVY", "anthropic.claude-opus-4-5-20251101-v1:0"
+    )
+    assert heavy_model() == "us.anthropic.claude-opus-4-5-20251101-v1:0"
+
+
+def test_heavy_model_autorewrite_can_be_disabled(monkeypatch):
+    monkeypatch.setenv("UIPATH_CLAUDE_AUTO_INFERENCE_PROFILE", "0")
+    monkeypatch.setenv(
+        "UIPATH_CLAUDE_MODEL_HEAVY", "anthropic.claude-sonnet-4-5-20250929-v1:0"
+    )
+    assert heavy_model() == "anthropic.claude-sonnet-4-5-20250929-v1:0"
+
+
+def test_heavy_model_autorewrite_honors_region_override(monkeypatch):
+    monkeypatch.setenv("UIPATH_CLAUDE_INFERENCE_PROFILE_REGION", "eu")
+    monkeypatch.setenv(
+        "UIPATH_CLAUDE_MODEL_HEAVY", "anthropic.claude-sonnet-4-5-20250929-v1:0"
+    )
+    assert heavy_model() == "eu.anthropic.claude-sonnet-4-5-20250929-v1:0"
+
+
+def test_autorewrite_passes_through_arn(monkeypatch):
+    arn = "arn:aws:bedrock:us-east-1:123:inference-profile/foo"
+    monkeypatch.setenv("UIPATH_CLAUDE_MODEL_HEAVY", arn)
+    assert heavy_model() == arn
+
+
+def test_autorewrite_passes_through_existing_profile(monkeypatch):
+    profile = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    monkeypatch.setenv("UIPATH_CLAUDE_MODEL_HEAVY", profile)
+    assert heavy_model() == profile
+
+
+def test_inference_profile_hint_includes_aws_doc_links():
+    msg = router.inference_profile_hint("anthropic.claude-sonnet-4-5-20250929-v1:0")
+    assert router.AWS_SUPPORTED_MODELS_URL in msg
+    assert router.AWS_INFERENCE_PROFILES_URL in msg
+
+
+def test_autorewrite_logs_once_per_model(monkeypatch, caplog):
+    monkeypatch.setenv(
+        "UIPATH_CLAUDE_MODEL_HEAVY", "anthropic.claude-sonnet-4-5-20250929-v1:0"
+    )
+    with caplog.at_level("WARNING", logger=router.__name__):
+        heavy_model()
+        heavy_model()
+    rewrites = [r for r in caplog.records if "Auto-rewriting" in r.message]
+    assert len(rewrites) == 1
