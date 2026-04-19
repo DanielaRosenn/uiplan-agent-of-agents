@@ -12,7 +12,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
-from botocore.exceptions import ClientError
+from botocore.config import Config as BotoConfig
+from botocore.exceptions import ClientError, ConnectTimeoutError, ReadTimeoutError
 from langchain_aws import ChatBedrockConverse
 from langchain_core.messages import (
     AIMessage,
@@ -30,6 +31,25 @@ from uipath_claude.tools.approval import ApprovalPolicy
 # Bedrock Converse toolUse.name must match provider constraints (alnum, underscore, hyphen; max 64).
 _TOOL_NAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 _MAX_BEDROCK_VALIDATION_RECOVERIES = 2
+_MAX_BEDROCK_TIMEOUT_RECOVERIES = 2
+
+
+def _bedrock_read_timeout_seconds() -> int:
+    raw = (os.environ.get("UIPATH_BEDROCK_READ_TIMEOUT") or "").strip()
+    try:
+        value = int(raw) if raw else 300
+    except ValueError:
+        value = 300
+    return max(30, value)
+
+
+def _bedrock_connect_timeout_seconds() -> int:
+    raw = (os.environ.get("UIPATH_BEDROCK_CONNECT_TIMEOUT") or "").strip()
+    try:
+        value = int(raw) if raw else 10
+    except ValueError:
+        value = 10
+    return max(1, value)
 
 
 def _normalize_tool_name_for_bedrock(raw: str | None) -> tuple[str, bool]:
@@ -310,9 +330,15 @@ class AgenticExecutor:
     def _get_llm(self) -> ChatBedrockConverse:
         """Lazy-init Bedrock client."""
         if self._llm is None:
+            boto_cfg = BotoConfig(
+                read_timeout=_bedrock_read_timeout_seconds(),
+                connect_timeout=_bedrock_connect_timeout_seconds(),
+                retries={"max_attempts": 3, "mode": "adaptive"},
+            )
             self._llm = ChatBedrockConverse(
                 model=self.model_name,
                 region_name=self.region,
+                config=boto_cfg,
             )
         return self._llm
     
@@ -407,6 +433,7 @@ class AgenticExecutor:
         struct_log = StructuredLogger()
         session_log_id = os.environ.get("UIPATH_CHAT_SESSION_ID", "")
         validation_recovery_attempts = 0
+        timeout_recovery_attempts = 0
 
         while iterations < max_iter:
             iterations += 1
@@ -426,6 +453,48 @@ class AgenticExecutor:
 
             try:
                 response = await llm_with_tools.ainvoke(messages)
+            except (ReadTimeoutError, ConnectTimeoutError) as e:
+                if timeout_recovery_attempts < _MAX_BEDROCK_TIMEOUT_RECOVERIES:
+                    timeout_recovery_attempts += 1
+                    struct_log.emit(
+                        event="bedrock_timeout_recovery",
+                        session_id=session_log_id,
+                        skill=skill_name,
+                        iteration=iterations,
+                        tool=None,
+                        ok=False,
+                        extra={
+                            "attempt": timeout_recovery_attempts,
+                            "kind": type(e).__name__,
+                        },
+                    )
+                    if progress:
+                        progress.info(
+                            f"Bedrock {type(e).__name__}; retrying same iteration "
+                            f"({timeout_recovery_attempts}/{_MAX_BEDROCK_TIMEOUT_RECOVERIES})."
+                        )
+                    iterations -= 1
+                    continue
+                err_msg = (
+                    f"{type(e).__name__}: {e}. Increase UIPATH_BEDROCK_READ_TIMEOUT "
+                    f"(current {_bedrock_read_timeout_seconds()}s) or shorten the prompt."
+                )
+                if progress:
+                    progress.error(err_msg)
+                err_result = AgenticResult(
+                    success=False,
+                    final_response="",
+                    tool_calls_made=tool_calls_made,
+                    iterations=iterations,
+                    files_written=files_written,
+                    error=f"LLM call failed: {err_msg}",
+                    tool_success_count=tool_success_count,
+                    tool_failure_count=tool_failure_count,
+                    tokens_in=tokens_in_total,
+                    tokens_out=tokens_out_total,
+                )
+                self._record_learning(skill_name, user_request, err_result)
+                return err_result
             except ClientError as e:
                 err = (getattr(e, "response", None) or {}).get("Error", {}) or {}
                 if (
