@@ -1,0 +1,25 @@
+id: orchestration-patterns
+title: Orchestration patterns
+sections:
+- id: sequential
+  title: Sequential
+  file: sequential.md
+  keywords:
+  - sequential
+  - chain
+  - linear
+- id: fan-out-in
+  title: Fan-out / fan-in
+  file: fan-out-in.md
+  keywords:
+  - parallel
+  - fan-out
+  - fan-in
+  - join
+- id: retry
+  title: Retry
+  file: retry.md
+  keywords:
+  - retry
+  - backoff
+  - resilience

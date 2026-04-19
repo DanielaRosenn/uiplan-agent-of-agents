@@ -1,0 +1,13 @@
+id: permissions
+title: Permission errors
+sections:
+- id: common
+  title: Common permission errors
+  file: common.md
+  keywords:
+  - permission
+  - role
+  - folder
+  - asset
+  - publish
+  - '403'

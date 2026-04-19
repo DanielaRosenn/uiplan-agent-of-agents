@@ -1,0 +1,49 @@
+chapters:
+- id: auth
+  order: 1
+  path: chapters/01-auth
+  title: uip auth
+- id: rpa
+  order: 2
+  path: chapters/02-rpa
+  title: uip rpa
+- id: agent
+  order: 3
+  path: chapters/03-agent
+  title: uip agent
+- id: flow
+  order: 4
+  path: chapters/04-flow
+  title: uip flow
+- id: df
+  order: 5
+  path: chapters/05-df
+  title: uip df
+- id: case
+  order: 6
+  path: chapters/06-case
+  title: uip case
+- id: codedapp
+  order: 7
+  path: chapters/07-codedapp
+  title: uip codedapp
+- id: platform
+  order: 8
+  path: chapters/08-platform
+  title: uip platform
+- id: servo
+  order: 9
+  path: chapters/09-servo
+  title: uip servo
+- id: test
+  order: 10
+  path: chapters/10-test
+  title: uip test
+- id: feedback
+  order: 11
+  path: chapters/11-feedback
+  title: uip feedback
+id: uipath-cli
+source: skills + docs.uipath.com
+title: UiPath CLI Reference
+version: '2024.10'

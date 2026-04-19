@@ -1,0 +1,25 @@
+chapters:
+- id: flow-format
+  order: 1
+  path: chapters/01-flow-format
+  title: Flow file format
+- id: node-catalog
+  order: 2
+  path: chapters/02-node-catalog
+  title: Node catalog
+- id: orchestration-patterns
+  order: 3
+  path: chapters/03-orchestration-patterns
+  title: Orchestration patterns
+- id: hitl
+  order: 4
+  path: chapters/04-hitl
+  title: Human-in-the-loop
+- id: cli
+  order: 5
+  path: chapters/05-cli
+  title: Maestro CLI
+id: uipath-maestro
+source: skills + docs.uipath.com
+title: UiPath Maestro Flows
+version: '2024.10'

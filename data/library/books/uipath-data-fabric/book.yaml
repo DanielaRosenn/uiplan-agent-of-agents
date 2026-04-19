@@ -1,0 +1,25 @@
+chapters:
+- id: entities
+  order: 1
+  path: chapters/01-entities
+  title: Entities
+- id: records
+  order: 2
+  path: chapters/02-records
+  title: Records
+- id: bulk-csv
+  order: 3
+  path: chapters/03-bulk-csv
+  title: Bulk CSV import
+- id: attachments
+  order: 4
+  path: chapters/04-attachments
+  title: Attachments
+- id: querying
+  order: 5
+  path: chapters/05-querying
+  title: Querying
+id: uipath-data-fabric
+source: skills + docs.uipath.com
+title: UiPath Data Fabric
+version: '2024.10'

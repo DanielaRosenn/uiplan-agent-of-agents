@@ -1,0 +1,20 @@
+id: deploy-sync
+title: Deploy and sync
+sections:
+- id: package-and-publish
+  title: Package and publish
+  file: package-and-publish.md
+  keywords:
+  - deploy
+  - publish
+  - package
+  - version
+- id: studio-web-sync
+  title: Studio Web sync
+  file: studio-web-sync.md
+  keywords:
+  - sync
+  - studio web
+  - pull
+  - push
+  - conflict

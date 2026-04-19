@@ -1,0 +1,19 @@
+id: queue-faults
+title: Queue faults
+sections:
+- id: inspect
+  title: Inspecting faulted items
+  file: inspect.md
+  keywords:
+  - queue
+  - faulted
+  - failed
+  - item
+- id: retry-policy
+  title: Retry policy
+  file: retry-policy.md
+  keywords:
+  - retry
+  - requeue
+  - max retries
+  - business exception

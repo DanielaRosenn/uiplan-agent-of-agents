@@ -1,0 +1,11 @@
+id: feedback
+title: uip feedback
+sections:
+- id: send
+  title: uip feedback send
+  file: send.md
+  keywords:
+  - feedback
+  - bug
+  - report
+  - improvement

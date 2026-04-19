@@ -1,0 +1,28 @@
+id: entities
+title: Entities
+sections:
+- id: create
+  title: Creating an entity
+  file: create.md
+  keywords:
+  - entity
+  - create
+  - schema
+  - data fabric
+- id: field-types
+  title: Field types
+  file: field-types.md
+  keywords:
+  - field type
+  - reference
+  - enum
+  - attachment
+  - decimal
+- id: relationships
+  title: Relationships
+  file: relationships.md
+  keywords:
+  - relationship
+  - reference
+  - join
+  - many-to-many

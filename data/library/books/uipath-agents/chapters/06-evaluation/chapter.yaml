@@ -1,0 +1,20 @@
+id: evaluation
+title: Evaluation
+sections:
+- id: eval-set-format
+  title: Eval set format
+  file: eval-set-format.md
+  keywords:
+  - eval
+  - evaluation
+  - scorer
+  - regression
+- id: scorers
+  title: Built-in scorers
+  file: scorers.md
+  keywords:
+  - scorer
+  - exact
+  - llm-judge
+  - latency
+  - cost

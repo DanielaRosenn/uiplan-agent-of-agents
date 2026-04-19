@@ -1,0 +1,20 @@
+id: failed-jobs
+title: Failed jobs
+sections:
+- id: retrieve-logs
+  title: Retrieving job logs
+  file: retrieve-logs.md
+  keywords:
+  - job
+  - logs
+  - failed
+  - orchestrator
+- id: common-causes
+  title: Common failure causes
+  file: common-causes.md
+  keywords:
+  - failure
+  - exception
+  - timeout
+  - license
+  - asset

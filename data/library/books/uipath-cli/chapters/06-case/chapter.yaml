@@ -1,0 +1,17 @@
+id: case
+title: uip case
+sections:
+- id: new
+  title: uip case new
+  file: new.md
+  keywords:
+  - new
+  - case
+  - scaffold
+- id: build
+  title: uip case build
+  file: build.md
+  keywords:
+  - build
+  - caseplan
+  - sdd

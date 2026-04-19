@@ -1,0 +1,27 @@
+id: auth
+title: uip auth
+sections:
+- id: login
+  title: uip auth login
+  file: login.md
+  keywords:
+  - login
+  - auth
+  - oauth
+  - device-code
+  - browser
+- id: logout
+  title: uip auth logout
+  file: logout.md
+  keywords:
+  - logout
+  - clear
+  - tokens
+- id: status
+  title: uip auth status
+  file: status.md
+  keywords:
+  - status
+  - whoami
+  - profile
+  - expiry

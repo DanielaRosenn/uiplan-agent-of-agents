@@ -1,0 +1,39 @@
+id: platform
+title: uip platform
+sections:
+- id: folder
+  title: uip platform folder
+  file: folder.md
+  keywords:
+  - folder
+  - orchestrator
+  - platform
+- id: asset
+  title: uip platform asset
+  file: asset.md
+  keywords:
+  - asset
+  - credential
+  - orchestrator
+- id: queue
+  title: uip platform queue
+  file: queue.md
+  keywords:
+  - queue
+  - transaction
+  - orchestrator
+- id: process
+  title: uip platform process
+  file: process.md
+  keywords:
+  - process
+  - deploy
+  - start
+  - job
+- id: is
+  title: uip platform is (Integration Service)
+  file: is.md
+  keywords:
+  - integration service
+  - connector
+  - connection

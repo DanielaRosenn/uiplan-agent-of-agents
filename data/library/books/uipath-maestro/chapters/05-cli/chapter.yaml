@@ -1,0 +1,12 @@
+id: cli
+title: Maestro CLI
+sections:
+- id: common
+  title: Common commands
+  file: common.md
+  keywords:
+  - cli
+  - validate
+  - run
+  - flow
+  - new

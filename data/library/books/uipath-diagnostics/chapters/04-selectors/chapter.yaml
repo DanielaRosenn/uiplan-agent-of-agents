@@ -1,0 +1,21 @@
+id: selectors
+title: Selector failures
+sections:
+- id: diagnose
+  title: Diagnosing selector failures
+  file: diagnose.md
+  keywords:
+  - selector
+  - ui automation
+  - servo
+  - inspect
+  - failure
+- id: healing-agent
+  title: Healing agent
+  file: healing-agent.md
+  keywords:
+  - healing
+  - agent
+  - selector
+  - suggestion
+  - auto-fix

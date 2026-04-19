@@ -1,0 +1,21 @@
+id: servo
+title: uip servo
+sections:
+- id: click
+  title: uip servo click / type / read
+  file: click.md
+  keywords:
+  - servo
+  - click
+  - type
+  - read
+  - screenshot
+  - selector
+- id: inspect
+  title: uip servo inspect
+  file: inspect.md
+  keywords:
+  - inspect
+  - tree
+  - selector
+  - debug

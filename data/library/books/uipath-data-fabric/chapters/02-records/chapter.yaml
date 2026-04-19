@@ -1,0 +1,18 @@
+id: records
+title: Records
+sections:
+- id: insert
+  title: Insert
+  file: insert.md
+  keywords:
+  - insert
+  - create
+  - record
+- id: update-delete
+  title: Update and delete
+  file: update-delete.md
+  keywords:
+  - update
+  - delete
+  - partial
+  - replace

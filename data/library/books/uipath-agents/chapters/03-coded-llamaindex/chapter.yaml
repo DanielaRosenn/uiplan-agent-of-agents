@@ -1,0 +1,19 @@
+id: coded-llamaindex
+title: 'Coded: LlamaIndex'
+sections:
+- id: rag-agent
+  title: RAG agent skeleton
+  file: rag-agent.md
+  keywords:
+  - llamaindex
+  - rag
+  - reactagent
+  - vector store
+- id: persisting-index
+  title: Persisting the index
+  file: persisting-index.md
+  keywords:
+  - persist
+  - storage
+  - vector store
+  - data fabric
