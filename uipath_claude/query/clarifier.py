@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
-from langchain_aws import ChatBedrockConverse
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_aws import ChatBedrockConverse  # noqa: F401  (re-exported so tests can patch)
+from langchain_core.messages import HumanMessage, SystemMessage
+
+from uipath_claude.llm.invoke import build_chat_model
+from uipath_claude.llm.routing.complexity import ComplexitySignals
 
 
 _CLARIFIER_SYSTEM_PROMPT = """You are a helpful assistant for UiPath automation. The user's request is ambiguous or missing critical details.
@@ -49,26 +52,27 @@ Rules:
 Your response (one question OR "READY_TO_BUILD"):"""
 
 
+def _build_clarifier(region: str | None) -> object:
+    return build_chat_model(
+        task_id="clarifier",
+        region=region,
+        signals=ComplexitySignals(intent="ambiguous"),
+        chat_cls=ChatBedrockConverse,
+    )
+
+
 async def run_clarifier_agent(
     user_request: str,
     *,
-    model_name: str,
-    region: str,
+    model_name: str | None = None,
+    region: str | None = None,
 ) -> str:
     """Ask clarifying questions for an ambiguous request.
 
-    Args:
-        user_request: The ambiguous user request
-        model_name: Bedrock model ID
-        region: AWS region
-
-    Returns:
-        String containing clarifying questions
+    ``model_name`` is accepted for backward compatibility but ignored;
+    the routing helper resolves the model from the ``clarifier`` task tier.
     """
-    chat = ChatBedrockConverse(
-        model=model_name,
-        region_name=region,
-    )
+    chat = _build_clarifier(region)
 
     messages = [
         SystemMessage(content=_CLARIFIER_SYSTEM_PROMPT),
@@ -84,25 +88,14 @@ async def generate_next_clarifying_question(
     questions_asked: list[str],
     answers_received: list[str],
     *,
-    model_name: str,
-    region: str,
+    model_name: str | None = None,
+    region: str | None = None,
 ) -> str:
     """Generate the next clarifying question based on context.
 
-    Args:
-        original_request: The original ambiguous request
-        questions_asked: List of questions already asked
-        answers_received: List of answers received
-        model_name: Bedrock model ID
-        region: AWS region
-
-    Returns:
-        Next question to ask, or "READY_TO_BUILD" if enough info collected
+    ``model_name`` is accepted for backward compatibility but ignored.
     """
-    chat = ChatBedrockConverse(
-        model=model_name,
-        region_name=region,
-    )
+    chat = _build_clarifier(region)
 
     questions_str = "\n".join(f"{i+1}. {q}" for i, q in enumerate(questions_asked)) if questions_asked else "None"
     answers_str = "\n".join(f"{i+1}. {a}" for i, a in enumerate(answers_received)) if answers_received else "None"

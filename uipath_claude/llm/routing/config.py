@@ -14,10 +14,12 @@ Fallback resolution per tier:
   2. Built-in fallback default
 
 Feature flags:
-  - ``UIPATH_CLAUDE_ROUTING_DYNAMIC`` (default off) - enable complexity-driven
-    routing in :func:`uipath_claude.llm.routing.complexity.select_model`.
-  - ``UIPATH_CLAUDE_FALLBACK_ENABLED`` (default off) - enable single-shot
+  - ``UIPATH_CLAUDE_ROUTING_DYNAMIC`` (default **on**) - enable complexity-
+    driven routing in :func:`uipath_claude.llm.routing.complexity.select_model`.
+    Set to ``0`` to fall back to static tier-only routing.
+  - ``UIPATH_CLAUDE_FALLBACK_ENABLED`` (default **on**) - enable single-shot
     fallback retry in :class:`uipath_claude.llm.routing.invoker.Invoker`.
+    Set to ``0`` to disable.
 """
 from __future__ import annotations
 
@@ -99,6 +101,6 @@ def load_config() -> RoutingConfig:
         fallback_light=_resolve_fallback(
             "UIPATH_CLAUDE_MODEL_FALLBACK_LIGHT", DEFAULT_FALLBACK_LIGHT_MODEL
         ),
-        routing_dynamic=_flag("UIPATH_CLAUDE_ROUTING_DYNAMIC", default=False),
-        fallback_enabled=_flag("UIPATH_CLAUDE_FALLBACK_ENABLED", default=False),
+        routing_dynamic=_flag("UIPATH_CLAUDE_ROUTING_DYNAMIC", default=True),
+        fallback_enabled=_flag("UIPATH_CLAUDE_FALLBACK_ENABLED", default=True),
     )

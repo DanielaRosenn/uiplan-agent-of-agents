@@ -80,12 +80,15 @@ async def test_agent_classify_intent():
     assert out["intent"] == "question"
 
 
-def test_agent_model_region_uses_router_heavy_model(monkeypatch):
+def test_agent_model_region_defers_model_resolution(monkeypatch):
+    """``_model_region`` no longer pre-resolves the model id; the routing
+    helper inside each downstream call (AgenticExecutor, ConversationEngine)
+    resolves it lazily so dynamic routing + fallback can apply per call."""
     monkeypatch.setenv(
         "UIPATH_CLAUDE_MODEL_HEAVY",
         "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
     )
     monkeypatch.setenv("UIPATH_CLAUDE_MODEL", "anthropic.claude-sonnet-4-5-20250929-v1:0")
     model, region = agent_tools._model_region()
-    assert model == "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    assert model is None
     assert region == "us-east-1"

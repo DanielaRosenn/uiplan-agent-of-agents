@@ -149,6 +149,8 @@ _TASK_TIERS: dict[str, ModelTier] = {
     "qa": ModelTier.HEAVY,
     "planner": ModelTier.HEAVY,
     "agentic_executor": ModelTier.HEAVY,
+    "conversation": ModelTier.HEAVY,
+    "clarifier": ModelTier.LIGHT,
     "distiller": ModelTier.LIGHT,
     "intent_classifier": ModelTier.LIGHT,
     "doc_need_detector": ModelTier.LIGHT,

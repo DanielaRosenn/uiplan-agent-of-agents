@@ -34,8 +34,8 @@ def test_defaults_when_no_env():
     assert cfg.light == DEFAULT_LIGHT_MODEL
     assert cfg.fallback_heavy == DEFAULT_FALLBACK_HEAVY_MODEL
     assert cfg.fallback_light == DEFAULT_FALLBACK_LIGHT_MODEL
-    assert cfg.routing_dynamic is False
-    assert cfg.fallback_enabled is False
+    assert cfg.routing_dynamic is True
+    assert cfg.fallback_enabled is True
 
 
 def test_tier_specific_overrides_beat_global(monkeypatch):

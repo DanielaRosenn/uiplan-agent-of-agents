@@ -22,6 +22,8 @@ from langchain_core.messages import (
     ToolMessage,
 )
 
+from uipath_claude.llm.invoke import FallbackChatModel, build_chat_model
+from uipath_claude.llm.routing.complexity import ComplexitySignals
 from uipath_claude.observability.logger import StructuredLogger
 from uipath_claude.query.plan_block import PLAN_BLOCK_HEADING, contains_plan_block
 from uipath_claude.rendering.progress import AgenticProgressReporter
@@ -301,8 +303,8 @@ class AgenticExecutor:
 
     def __init__(
         self,
-        model_name: str,
-        region: str,
+        model_name: str | None = None,
+        region: str | None = None,
         *,
         on_tool_call: Callable[[str, dict], None] | None = None,
         on_tool_result: Callable[[str, str], None] | None = None,
@@ -310,10 +312,12 @@ class AgenticExecutor:
         lesson_prompter: Callable[[Any], bool] | None = None,
     ):
         """Initialize the executor.
-        
+
         Args:
-            model_name: Bedrock model ID
-            region: AWS region
+            model_name: Optional Bedrock model ID override (legacy; routing
+                helper normally resolves the model from the ``agentic_executor``
+                task tier).
+            region: AWS region (defaults to ``AWS_REGION`` env var).
             on_tool_call: Optional callback when a tool is called
             on_tool_result: Optional callback when a tool returns
             approval: Optional policy gate for destructive tools
@@ -325,20 +329,27 @@ class AgenticExecutor:
         self.on_tool_result = on_tool_result
         self.approval = approval
         self.lesson_prompter = lesson_prompter
-        self._llm: ChatBedrockConverse | None = None
-    
-    def _get_llm(self) -> ChatBedrockConverse:
-        """Lazy-init Bedrock client."""
+        self._llm: FallbackChatModel | None = None
+
+    def _get_llm(self) -> FallbackChatModel:
+        """Lazy-init fallback-aware Bedrock client.
+
+        Routes through :func:`uipath_claude.llm.invoke.build_chat_model` so
+        ``invoke``/``ainvoke`` calls inside the LangChain agent loop fall
+        back to the tier's fallback model on model-related failures.
+        """
         if self._llm is None:
             boto_cfg = BotoConfig(
                 read_timeout=_bedrock_read_timeout_seconds(),
                 connect_timeout=_bedrock_connect_timeout_seconds(),
                 retries={"max_attempts": 3, "mode": "adaptive"},
             )
-            self._llm = ChatBedrockConverse(
-                model=self.model_name,
-                region_name=self.region,
-                config=boto_cfg,
+            self._llm = build_chat_model(
+                task_id="agentic_executor",
+                region=self.region,
+                signals=ComplexitySignals(intent="build", planner_triggered=True),
+                extra_kwargs={"config": boto_cfg},
+                chat_cls=ChatBedrockConverse,
             )
         return self._llm
     
@@ -531,12 +542,15 @@ class AgenticExecutor:
                 err_msg = str(e)
                 if "on-demand throughput isn" in err_msg:
                     from uipath_claude.llm.router import (
-                        heavy_model,
                         inference_profile_hint,
                         requires_inference_profile,
+                        select_model_for_task,
                     )
 
-                    current = heavy_model()
+                    current = select_model_for_task(
+                        "agentic_executor",
+                        ComplexitySignals(intent="build", planner_triggered=True),
+                    )
                     if requires_inference_profile(current):
                         err_msg = f"{err_msg}\n\nHint: {inference_profile_hint(current)}"
                 if progress:

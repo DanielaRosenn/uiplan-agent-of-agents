@@ -188,6 +188,34 @@ Overrides:
   before the MCP started will still be detected as `dirty` on the first
   gated call.
 
+## Model routing and fallback
+
+Chat-facing LLM calls go through `uipath_claude.llm.invoke.build_chat_model`,
+which resolves the model id via `uipath_claude.llm.router.select_model_for_task`
+and wraps `invoke`/`ainvoke`/`stream`/`astream` so a single-shot fallback to the
+tier's fallback model fires on model-related provider errors (model not found,
+unsupported throughput, access denied).
+
+Both routing flags default to **on** as of this change:
+
+- `UIPATH_CLAUDE_ROUTING_DYNAMIC=1` (default) — pick HEAVY/LIGHT from
+  caller-supplied `ComplexitySignals`. Set to `0` for the legacy static
+  tier-only behavior.
+- `UIPATH_CLAUDE_FALLBACK_ENABLED=1` (default) — retry once with the tier's
+  fallback model id when a provider error is classified as model-related.
+  Set to `0` to disable and surface the original error.
+
+Model id overrides (unchanged):
+`UIPATH_CLAUDE_MODEL_HEAVY`, `UIPATH_CLAUDE_MODEL_LIGHT`,
+`UIPATH_CLAUDE_MODEL_FALLBACK_HEAVY`, `UIPATH_CLAUDE_MODEL_FALLBACK_LIGHT`,
+`UIPATH_CLAUDE_MODEL` (global override). See
+[uipath_claude/llm/routing/config.py](uipath_claude/llm/routing/config.py) for
+precedence.
+
+Routing telemetry (model selection, fallback triggers, fallback results) is
+emitted as NDJSON via `StructuredLogger` to `~/.uipath-claude/logs/events.log`
+under `event=llm_routing.*`. Disable with `UIPATH_CLAUDE_ROUTING_TELEMETRY=0`.
+
 ## Commit hygiene
 
 - Keep diffs minimal; do not refactor unrelated code in the same PR.

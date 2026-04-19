@@ -25,7 +25,6 @@ _BEDROCK_NOTE = (
     "UIPATH_CLAUDE_MODEL + AWS credentials in the configured region)."
 )
 
-from uipath_claude.llm.router import heavy_model
 from uipath_claude.query.agentic_executor import AgenticExecutor
 from uipath_claude.query.bootstrap import run_bootstrap_flow
 from uipath_claude.query.intent_classifier import classify_intent
@@ -181,10 +180,10 @@ def get_agent_tools() -> list[Tool]:
     ]
 
 
-def _model_region() -> tuple[str, str]:
-    model = heavy_model()
+def _model_region() -> tuple[str | None, str]:
+    """Region for downstream callers; model id is resolved lazily by the routing helper."""
     region = os.environ.get("AWS_REGION", "us-east-1")
-    return model, region
+    return None, region
 
 
 async def call_agent_tool(name: str, arguments: dict[str, Any]) -> Any:

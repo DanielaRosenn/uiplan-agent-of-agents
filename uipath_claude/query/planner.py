@@ -13,18 +13,22 @@ async def run_planner_agent(
     user_request: str,
     project_context: dict[str, Any] | None = None,
     *,
-    model_name: str,
-    region: str,
+    model_name: str | None = None,
+    region: str | None = None,
     history: list[dict[str, str]] | None = None,
 ) -> AgenticResult:
     """Run the read-only planning agent.
-    
+
+    ``model_name`` is accepted for backward compatibility but ignored — the
+    executor's routing helper resolves the model from the ``agentic_executor``
+    task tier.
+
     Args:
         user_request: The user's request
         project_context: Optional context
-        model_name: Bedrock model ID
-        region: AWS region
-        
+        model_name: Optional Bedrock model ID override (legacy).
+        region: AWS region (defaults to ``AWS_REGION`` env var).
+
     Returns:
         AgenticResult containing the plan
     """

@@ -6,8 +6,11 @@ import json
 from pathlib import Path
 from typing import Callable
 
-from langchain_aws import ChatBedrockConverse
+from langchain_aws import ChatBedrockConverse  # noqa: F401  (re-exported so tests can patch)
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+
+from uipath_claude.llm.invoke import build_chat_model
+from uipath_claude.llm.routing.complexity import ComplexitySignals
 
 
 _SIMPLE_ANSWER_SYSTEM_PROMPT = """You are UiPath Claude Code, an AI assistant that helps users understand UiPath automation concepts.
@@ -29,8 +32,8 @@ async def simple_llm_answer(
     user_input: str,
     history: list[dict[str, str]],
     *,
-    model_name: str,
-    region: str,
+    model_name: str | None = None,
+    region: str | None = None,
     stream: bool = False,
     on_delta: Callable[[str], None] | None = None,
 ) -> str:
@@ -39,8 +42,9 @@ async def simple_llm_answer(
     Args:
         user_input: The user's question
         history: Conversation history as list of {"role": ..., "content": ...}
-        model_name: Bedrock model ID
-        region: AWS region
+        model_name: Optional Bedrock model ID override (legacy; routing helper
+            normally resolves the model from the ``planner`` task tier).
+        region: AWS region (defaults to ``AWS_REGION`` env var).
         stream: Whether to stream the response
         on_delta: Callback for streaming deltas
 
@@ -68,9 +72,11 @@ async def simple_llm_answer(
         pass
     # #endregion
 
-    chat = ChatBedrockConverse(
-        model=model_name,
-        region_name=region,
+    chat = build_chat_model(
+        task_id="planner",
+        region=region,
+        signals=ComplexitySignals(intent="question"),
+        chat_cls=ChatBedrockConverse,
     )
 
     messages: list[SystemMessage | HumanMessage | AIMessage] = [
@@ -88,16 +94,13 @@ async def simple_llm_answer(
     messages.append(HumanMessage(content=user_input))
 
     if stream and on_delta:
-        # Stream response
         full_response = ""
         async for chunk in chat.astream(messages):
             if hasattr(chunk, "content"):
-                # Extract text from content
                 content = chunk.content
                 if isinstance(content, str):
                     delta = content
                 elif isinstance(content, list):
-                    # Handle list of content blocks
                     delta = ""
                     for block in content:
                         if isinstance(block, dict) and block.get("type") == "text":
@@ -106,13 +109,12 @@ async def simple_llm_answer(
                             delta += block
                 else:
                     delta = str(content)
-                
+
                 if delta:
                     full_response += delta
                     on_delta(delta)
         return full_response
     else:
-        # Non-streaming response
         response = await chat.ainvoke(messages)
         return str(response.content)
 
@@ -127,35 +129,29 @@ def generate_followup_suggestions(answer: str, original_question: str) -> list[s
     Returns:
         List of 2-4 follow-up question suggestions
     """
-    # Simple heuristic-based suggestions
     suggestions = []
-    
+
     answer_lower = answer.lower()
     question_lower = original_question.lower()
-    
-    # If answer mentions project.json, suggest related questions
+
     if "project.json" in answer_lower or "project.json" in question_lower:
         suggestions.append("How do I add dependencies to project.json?")
         suggestions.append("What are the required fields in project.json?")
-    
-    # If answer mentions Main.xaml or workflow
+
     if "main.xaml" in answer_lower or "workflow" in answer_lower or "main.xaml" in question_lower:
         suggestions.append("How do I create a new workflow file?")
         suggestions.append("What activities can I use in a workflow?")
-    
-    # If answer mentions Excel or Office
+
     if "excel" in answer_lower or "office" in answer_lower:
         suggestions.append("How do I read data from an Excel file?")
         suggestions.append("What packages do I need for Excel automation?")
-    
-    # If answer mentions Orchestrator
+
     if "orchestrator" in answer_lower:
         suggestions.append("How do I connect to Orchestrator?")
         suggestions.append("How do I publish to Orchestrator?")
-    
-    # Generic fallbacks
+
     if not suggestions:
         suggestions.append("Can you show me an example?")
         suggestions.append("What are the best practices?")
-    
-    return suggestions[:4]  # Return max 4 suggestions
+
+    return suggestions[:4]
