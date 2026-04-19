@@ -12,11 +12,18 @@ Optional environment overrides (everything has sensible defaults):
 | `UIPATH_CLAUDE_TOOL_PROFILE` | `all` (default), `safe`, or `uipath-dev`. Controls which slash commands the chat exposes. |
 | `UIPATH_DISTILLER_MODEL` | Explicit override for the skill distiller only (beats the tier router). |
 
-To use Sonnet 4.x when Bedrock has it enabled in your region:
+To use Sonnet 4.x when Bedrock has it enabled in your region, you must use a
+**cross-region inference profile id** (the `us.` prefix); the raw model id is
+not available with on-demand throughput and Bedrock will reject it with
+`ValidationException`:
 
 ```powershell
-$env:UIPATH_CLAUDE_MODEL_HEAVY = "anthropic.claude-sonnet-4-5-20250929-v1:0"
+$env:UIPATH_CLAUDE_MODEL_HEAVY = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 ```
+
+A customer-created inference-profile ARN (`arn:aws:bedrock:...:inference-profile/...`)
+also works. Setting the raw `anthropic.claude-sonnet-4-...` id triggers a
+one-time startup warning and a friendly hint on the resulting Bedrock error.
 
 
 

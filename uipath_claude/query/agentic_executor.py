@@ -384,15 +384,26 @@ class AgenticExecutor:
                         )
                     )
                     continue
+                err_msg = str(e)
+                if "on-demand throughput isn" in err_msg:
+                    from uipath_claude.llm.router import (
+                        heavy_model,
+                        inference_profile_hint,
+                        requires_inference_profile,
+                    )
+
+                    current = heavy_model()
+                    if requires_inference_profile(current):
+                        err_msg = f"{err_msg}\n\nHint: {inference_profile_hint(current)}"
                 if progress:
-                    progress.error(str(e))
+                    progress.error(err_msg)
                 err_result = AgenticResult(
                     success=False,
                     final_response="",
                     tool_calls_made=tool_calls_made,
                     iterations=iterations,
                     files_written=files_written,
-                    error=f"LLM call failed: {e}",
+                    error=f"LLM call failed: {err_msg}",
                     tool_success_count=tool_success_count,
                     tool_failure_count=tool_failure_count,
                     tokens_in=tokens_in_total,

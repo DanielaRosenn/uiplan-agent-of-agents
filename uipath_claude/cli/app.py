@@ -31,8 +31,12 @@ from uipath_claude.commands.scan_upstream_skills import (
 )
 from uipath_claude.commands.update_skills import register_update_skills_command
 from uipath_claude.commands.validate import register_validate_command
-from uipath_claude.commands.library_proposals import register_library_proposals_command
+from uipath_claude.commands.library_proposals import (
+    register_library_proposals_chat_command,
+    register_library_proposals_command,
+)
 from uipath_claude.cli.capability_hint import maybe_print_capability_build_hint
+from uipath_claude.cli.input import read_user_message
 from uipath_claude.context.project import detect_uipath_project
 from uipath_claude.memory.loader import load_memory
 from uipath_claude.artifacts.materialize import (
@@ -663,6 +667,7 @@ def _build_command_registry(
     register_update_skills_command(registry)
     register_scan_upstream_skills_command(registry)
     register_library_harvest_command(registry)
+    register_library_proposals_chat_command(registry)
     register_books_command(registry)
     register_recall_command(registry, get_history=get_history)
     if run_planner:
@@ -1044,7 +1049,10 @@ def chat(
     try:
         while True:
             try:
-                user_input = Prompt.ask("[cyan]You[/cyan]").strip()
+                first_line = Prompt.ask("[cyan]You[/cyan]")
+                user_input = read_user_message(
+                    console, first_line=first_line
+                ).strip()
             except (EOFError, KeyboardInterrupt):
                 console.print("\nGoodbye!")
                 break
@@ -1187,12 +1195,26 @@ def chat(
                 ):
                     default = "y" if doc_need.level == DocNeedLevel.REQUIRED else "n"
                     doc_label = ", ".join(d.upper() for d in doc_need.recommended_docs)
-                    choice = Prompt.ask(
+                    prompt_text = (
                         f"Documentation [{doc_need.level.value}]. "
-                        f"Generate {doc_label} before coding?",
-                        choices=["y", "n"],
-                        default=default,
+                        f"Generate {doc_label} before coding?"
                     )
+                    choice = default
+                    for _attempt in range(3):
+                        try:
+                            choice = Prompt.ask(
+                                prompt_text,
+                                choices=["y", "n"],
+                                default=default,
+                            )
+                            break
+                        except Exception:
+                            continue
+                    else:
+                        console.print(
+                            f"[yellow]Repeated invalid responses; defaulting to '{default}'.[/yellow]"
+                        )
+                        choice = default
                     if choice.strip().lower() in ("y", "yes"):
                         project_path = (
                             project_context["project_path"]

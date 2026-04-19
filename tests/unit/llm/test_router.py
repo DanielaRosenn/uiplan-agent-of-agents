@@ -24,7 +24,9 @@ def _clear_model_env(monkeypatch):
         "UIPATH_CLAUDE_MODEL_LIGHT",
     ):
         monkeypatch.delenv(var, raising=False)
+    router._warned_models.clear()
     yield
+    router._warned_models.clear()
 
 
 def test_heavy_model_defaults():
@@ -72,6 +74,50 @@ def test_model_for_task_unknown_falls_back_to_heavy():
 def test_model_for_accepts_str_and_enum():
     assert model_for("heavy") == DEFAULT_HEAVY_MODEL
     assert model_for(ModelTier.LIGHT) == DEFAULT_LIGHT_MODEL
+
+
+def test_requires_inference_profile_for_sonnet_4():
+    assert router.requires_inference_profile(
+        "anthropic.claude-sonnet-4-5-20250929-v1:0"
+    )
+
+
+def test_requires_inference_profile_passes_through_us_prefix():
+    assert not router.requires_inference_profile(
+        "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    )
+
+
+def test_requires_inference_profile_passes_through_arn():
+    assert not router.requires_inference_profile(
+        "arn:aws:bedrock:us-east-1:123:inference-profile/foo"
+    )
+
+
+def test_requires_inference_profile_false_for_sonnet_3_5():
+    assert not router.requires_inference_profile(DEFAULT_HEAVY_MODEL)
+    assert not router.requires_inference_profile(DEFAULT_LIGHT_MODEL)
+
+
+def test_heavy_model_warns_for_raw_sonnet_4(monkeypatch, caplog):
+    monkeypatch.setenv(
+        "UIPATH_CLAUDE_MODEL_HEAVY", "anthropic.claude-sonnet-4-5-20250929-v1:0"
+    )
+    with caplog.at_level("WARNING", logger=router.__name__):
+        heavy_model()
+        heavy_model()  # second call should not re-warn
+    matches = [r for r in caplog.records if "inference profile" in r.message]
+    assert len(matches) == 1
+    assert "us.anthropic.claude-sonnet-4-5" in matches[0].message
+
+
+def test_heavy_model_no_warning_for_inference_profile(monkeypatch, caplog):
+    monkeypatch.setenv(
+        "UIPATH_CLAUDE_MODEL_HEAVY", "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    )
+    with caplog.at_level("WARNING", logger=router.__name__):
+        heavy_model()
+    assert not [r for r in caplog.records if "inference profile" in r.message]
 
 
 def test_register_task_is_picked_up(monkeypatch):
