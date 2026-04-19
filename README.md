@@ -29,13 +29,88 @@ flowchart LR
 
 ## Quickstart
 
+### 1. Clone the repo (fresh setup)
+
 ```bash
-pip install -e ".[dev]"
+git clone <your-repo-url>
+cd uipath-builder-agent
+git submodule update --init --recursive
+```
+
+The submodule step is required: the official UiPath skills ship under `skills/skills/` as a git submodule.
+
+### 2. Create a virtual environment
+
+```powershell
+# Windows PowerShell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+```bash
+# macOS / Linux
+python -m venv .venv
+source .venv/bin/activate
+```
+
+### 3. Install Python dependencies
+
+Pick the extra that matches how you plan to use the project:
+
+| Usage mode             | Install command            |
+| ---------------------- | -------------------------- |
+| CLI / development      | `pip install -e ".[dev]"`  |
+| Cursor + MCP server    | `pip install -e ".[mcp]"`  |
+| Both (contributors)    | `pip install -e ".[dev,mcp]"` |
+
+### 4. Verify Bedrock access and run
+
+```bash
 aws sts get-caller-identity   # confirm Bedrock creds
 uipath-claude chat
 ```
 
-Longer setup (UiPath CLI, Studio 26.2+, submodules, Orchestrator auth) lives in [docs/INSTALL.md](docs/INSTALL.md).
+Full setup (UiPath CLI, Studio 26.2+, Orchestrator auth, AWS region overrides) lives in [docs/INSTALL.md](docs/INSTALL.md).
+
+---
+
+## Choose your setup path
+
+Three supported ways to use the project. Pick one (or combine).
+
+### A. CLI (`uipath-claude chat`) — Claude Code-style agent
+
+The full agentic CLI with auto-fix loop, planner, and BA -> SA -> Dev -> QA pipeline.
+
+- Requires `pip install -e ".[dev]"` and AWS Bedrock access.
+- Run: `uipath-claude chat`
+- Day-to-day usage: [docs/USER_GUIDE.md](docs/USER_GUIDE.md)
+
+### B. Cursor (skills-only)
+
+Use the UiPath skills directly inside Cursor without the CLI runtime. Good for quick scaffolding and design questions.
+
+```powershell
+# Windows
+.\scripts\setup-cursor.ps1
+```
+
+```bash
+# macOS / Linux
+./scripts/setup-cursor.sh
+```
+
+Open the repo in Cursor; skills auto-load. Guide: [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md).
+
+### C. Cursor + MCP (skills + UiPath tool calls)
+
+Adds validation, package install, and run-workflow tools to Cursor via the bundled MCP server.
+
+- Install MCP extras: `pip install -e ".[mcp]"`.
+- Run `scripts/setup-cursor.ps1` / `.sh` (writes `.cursor/mcp.json`).
+- Open the repo in Cursor — the `uipath-builder-agent` MCP server auto-connects.
+- Verify in Cursor: Settings -> MCP -> `uipath-builder-agent` shows connected.
+- MCP tool reference and patterns: [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md#mcp-tools-advanced).
 
 ---
 
@@ -110,6 +185,40 @@ Deeper technical detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - [docs/EVALUATION_RESULTS.md](docs/EVALUATION_RESULTS.md) — evaluation framework results
 - [CONTRIBUTING.md](CONTRIBUTING.md) — how to add skills, tools, and slash commands
 - [CHANGELOG.md](CHANGELOG.md) — release history
+
+---
+
+## Contributing
+
+Issues and PRs are welcome. The project is extensible along three axes: **skills**, **tools**, and **slash commands**.
+
+### Quick contributor path
+
+```bash
+# 1. Fork and clone, then install dev + MCP extras
+pip install -e ".[dev,mcp]"
+git submodule update --init --recursive
+
+# 2. Make your change on a feature branch
+git checkout -b my-change
+
+# 3. Run the core checks
+ruff check .
+black --check .
+mypy uipath_claude
+pytest -m "not integration"
+
+# 4. Open a PR against main
+```
+
+### Where to contribute
+
+- **Skills** — markdown playbooks under `extensions/skills/` (team-shared) or `.uipath-claude/skills/` (local). Do not edit the `skills/skills/` submodule in place.
+- **Tools** — Python functions under [uipath_claude/tools/](uipath_claude/tools/), registered via tool profiles.
+- **Slash commands** — small modules under `uipath_claude/commands/` registered on the command registry.
+- **Docs** — keep [docs/](docs/) and [CHANGELOG.md](CHANGELOG.md) in sync with user-visible changes.
+
+Full contribution workflow, layering rules, MCP session gate, and review expectations live in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
