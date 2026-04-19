@@ -25,7 +25,48 @@ A customer-created inference-profile ARN (`arn:aws:bedrock:...:inference-profile
 also works. Setting the raw `anthropic.claude-sonnet-4-...` id triggers a
 one-time startup warning and a friendly hint on the resulting Bedrock error.
 
+## MCP approval cards (Cursor)
 
+Every tool exposed by the MCP server now ships `ToolAnnotations`
+(`readOnlyHint` / `destructiveHint` / `idempotentHint`). Cursor uses
+`destructiveHint=true` to surface its native Allow/Deny card before invoking
+writers like `uipath_library_approve_proposal`, `uipath_workflow_write_file`,
+`uipath_workflow_run`, or `uipath_workflow_deploy`. Read-only tools
+(`uipath_library_search`, `uipath_doc_*`, etc.) and staging tools
+(`uipath_library_propose_*`, `uipath_skill_insights_add`) run without prompting
+once the server is trusted. To smoke-test, trigger
+`uipath_library_approve_proposal` from Cursor and confirm the approval card
+appears; trigger `uipath_library_search` and confirm it does not.
+
+## Build / verify loop and scaffold guard (Cursor MCP)
+
+Verifies the analyze-debug-fix loop wired into the MCP so Cursor can't mark a
+UiPath build "done" without it.
+
+1. From Cursor, ask the agent to build a one-activity project (e.g. a Log
+   Message workflow) in a fresh directory. Expect the agent to call:
+   - `uipath_workflow_environment_probe` BEFORE picking activity packages.
+   - `uipath_workflow_create_project` to scaffold (NOT `write_file` on
+     `project.json`).
+   - `uipath_workflow_write_file` for `Main.xaml` only.
+   - `uipath_workflow_build_and_verify` after the write, until it returns
+     `success=true` and `next_action: "none"`.
+2. Try to make Cursor hand-write `project.json` directly. Expect
+   `uipath_workflow_write_file` to refuse with a message pointing at
+   `uipath_workflow_create_project` / `uipath_workflow_install_package`
+   unless `allow_scaffold_overwrite=true` is supplied explicitly.
+3. Introduce a typo in `Main.xaml` (e.g. break a closing tag). Expect the
+   next `uipath_workflow_build_and_verify` call to return `success=false`
+   with `phase: "validate"` and the error in `errors[0]`. Confirm Cursor
+   applies a single `write_file` fix and re-calls until `success=true`.
+4. Pin a mismatched dependency (e.g. add `UiPath.Core.Activities: "[22.10.3]"`
+   alongside `UiPath.System.Activities: "[26.2.4]"`) using
+   `allow_scaffold_overwrite=true`. Expect
+   `uipath_workflow_build_and_verify` to short-circuit with
+   `phase: "probe"`, `next_action: "install_packages"`, and the mismatch
+   listed in `errors`. Confirm Cursor calls
+   `uipath_workflow_install_package` (or `create_project`) instead of
+   re-editing `project.json`.
 
 Two focused smoke tests that exercise the full surface: knowledge pipeline,
 unified Ask AI, library proposals + chapters, book manifests, skills
@@ -190,13 +231,16 @@ without the CLI.
 
 5. **Full knowledge lookup**
    > "Look up 'how to create an attended robot' using the full knowledge pipeline. Cite sources."
-   Calls `uipath_library_lookup` (library → Ask AI → web if enabled).
-   The answer **must** include citations.
+   Calls `uipath_library_lookup` (library → Ask AI → web if enabled). The
+   answer always ends in a `SOURCE:` line (`library:`, `askai`, web, or
+   `none` on full miss); citations **must** be present whenever any backend
+   succeeds.
 
 6. **Propose a chapter**
    > "Propose a new chapter 'Patterns' in uipath-docs with an initial section called 'Retry loops'."
-   Calls `uipath_library_propose_*` then `uipath_library_list_proposals`.
-   Verify the proposal shows `kind = new_chapter`.
+   Calls `uipath_library_propose_chapter` (and optionally
+   `uipath_library_propose_section` for individual sections), then
+   `uipath_library_list_proposals`. Verify the proposal shows `kind = new_chapter`.
 
 7. **Approve**
    > "Approve proposal <id from step 6>."
@@ -209,7 +253,8 @@ without the CLI.
 
 9. **Unified Ask AI**
    > "Ask UiPath AI: what's the difference between attended and unattended?"
-   Invokes `query_uipath_docs` (SDK-first, HTTP fallback).
+   Invokes `query_uipath_docs` (SDK-first, HTTP fallback). The legacy alias
+   `uipath_doc_query` still resolves to the same handler for one release.
 
 ### What to verify in Cursor
 
@@ -222,3 +267,506 @@ without the CLI.
 If any step fails, grab the tool-call payload from Cursor's trace and the
 corresponding log line — that's enough to pinpoint whether the failure is in
 the library layer, Ask AI, or the updater.
+
+## Cursor real-project scenarios (gap-finding suite)
+
+These are full-flow exercises designed to be **recorded** so we can grade BA /
+SA / Developer / QA persona quality, PDD/SDD/TDD/ADD output, library citation
+discipline, and Studio-level fidelity. Run each in a clean folder so artifacts
+don't collide.
+
+For each scenario, capture: (1) the chat transcript, (2) the contents of
+`docs/` and the generated project, (3) which Cursor tool calls fired
+(`uipath_library_*`, `query_uipath_docs`, `lookup_uipath_knowledge`,
+`generate_pdd`, `generate_sdd`, etc.), (4) the model id reported by
+`/status` for each persona turn (heavy vs light).
+
+### Setup (once per scenario)
+
+```powershell
+$dir = "smoke-" + (Get-Date -Format "yyyyMMddHHmm")
+New-Item -ItemType Directory $dir | Out-Null
+Set-Location $dir
+$env:UIPATH_CHAT_SESSION_ID = $dir
+python -m uipath_claude.cli.app
+```
+
+In the chat, before each scenario: `/status` (record active profile + model
+ids) and `/books` (confirm library is reachable).
+
+### Scenario 1 - Simple attended bot (low complexity, no docs expected)
+
+> "Create a small attended automation 'HelloFolder' that pops a dialog with
+> the count of files in C:\\Temp. No integrations, no approvals."
+
+Expected:
+- Doc-need detector returns `NONE` or `OPTIONAL` (low complexity score).
+- BA short PDD section only; no SDD/TDD/ADD.
+- Developer emits a `Main.xaml` with `Assign` + `MessageBox` activities,
+  `project.json` targets Windows attended.
+- QA proposes 1-2 tests max.
+
+Gaps to watch: persona over-producing docs for a trivial brief; Developer
+defaulting to cross-platform target; QA inventing infra it doesn't need.
+
+### Scenario 2 - Orchestrator queue processor (REFramework-shaped)
+
+> "Build a UiPath unattended robot 'InvoiceQueueProcessor' that dequeues from
+> Orchestrator queue 'Invoices', validates fields (Vendor, Amount, DueDate),
+> writes valid items to SQL Server table dbo.Invoices, and posts business
+> exceptions back to Orchestrator. Use the UiPath library for design
+> guidance and cite sources."
+
+Expected:
+- BA produces a PDD with inputs/outputs, business exceptions, SLAs.
+- SA produces an SDD that names REFramework, Get Transaction Item, retries,
+  business vs system exception split. Citations like `[uipath-docs/...]` for
+  each design choice.
+- Developer scaffolds a REFramework-style project (states / TransactionItem
+  argument / `Process.xaml`).
+- QA covers: invalid row, queue retry, SQL outage.
+- `lookup_uipath_knowledge` should fire at least once during SA stage.
+
+Gaps to watch: missing REFramework reference, no business-exception
+handling, no idempotency/duplicate-key consideration, no citations.
+
+### Scenario 3 - Document Understanding + SharePoint + Teams
+
+> "Build attended automation 'InvoiceTriage' that watches a SharePoint folder
+> for new PDFs, extracts vendor/invoiceNumber/total/dueDate via UiPath
+> Document Understanding, writes results to SQL Server dbo.Invoices, and
+> posts a Teams message on failure. Cite sources from our library."
+
+Expected:
+- Doc-need = `RECOMMENDED` or `REQUIRED` (multi-system + integrations).
+- PDD + SDD + TDD generated; ADD only if AI/agentic phrasing used.
+- SDD lists: SharePoint trigger, DU taxonomy/extractor, validation station
+  (HITL) decision, SQL connector, Teams webhook.
+- Developer scaffolds workflow files and `project.json`; references DU and
+  SharePoint activity packages.
+- QA includes: missing field, low-confidence extraction, SQL down, Teams
+  webhook 4xx.
+
+Gaps to watch: HITL/validation station not mentioned, missing taxonomy
+file, no retry/backoff, generic answer with no library citations.
+
+### Scenario 4 - Build from an existing PDD (no BA stage)
+
+Pre-create `docs/pdd.md` with a 1-page brief in the current folder, then:
+
+> "I already wrote a PDD at `docs/pdd.md`. Read it, skip the BA stage, and
+> have SA + Developer + QA produce the rest. Reference my PDD verbatim
+> where relevant."
+
+Expected:
+- BA stage is skipped or merely echoes the existing PDD.
+- SDD references PDD section ids/headings.
+- No re-derivation of process steps from scratch.
+
+Gaps to watch: BA persona ignores the file and rewrites a PDD; SDD doesn't
+cite the PDD; conflicting facts vs the PDD.
+
+### Scenario 5 - Build from an existing SDD (Developer + QA only)
+
+Pre-create `docs/sdd.md` with target architecture and component list, then:
+
+> "Use my `docs/sdd.md` as the source of truth. Generate the implementation
+> and the test plan only."
+
+Expected: Developer + QA fire; BA/SA produce nothing new (or only deltas).
+
+Gaps to watch: persona scope creep (BA/SA re-running), Developer ignoring
+the SDD's component names.
+
+### Scenario 6 - Persona swap mid-conversation
+
+After Scenario 2 finishes, in the same chat:
+
+> "As the QA persona only, add 5 more negative-path tests covering
+> Orchestrator outage and queue poisoning."
+
+Expected: only QA-style output (test cases, given/when/then, no PDD/SDD
+re-generation). Model router should still route this to the heavy tier
+(`qa`).
+
+Gaps to watch: agent silently switches to BA voice; output drifts into
+prose; model routing log shows light tier.
+
+### Scenario 7 - Library-driven design choice
+
+> "I need a retry strategy for a flaky HTTP API call inside an attended bot.
+> Search our library, then propose the pattern with code skeleton. Cite the
+> exact section ids."
+
+Expected: `uipath_library_search` -> `uipath_library_read_section` ->
+answer cites `book/chapter/section`. If nothing matches in the library, the
+agent should call `lookup_uipath_knowledge` and offer to enqueue a new
+library section via `propose_library_update`.
+
+Gaps to watch: agent answers from training data with no tool call; no
+citation; no proposal when the library lacked the topic.
+
+### Scenario 8 - Bedrock model swap mid-session
+
+```
+You: /status
+You: (pick the model id printed for HEAVY)
+```
+
+Then exit, set `$env:UIPATH_CLAUDE_MODEL_HEAVY="us.anthropic.claude-sonnet-4-5-20250929-v1:0"`,
+re-enter chat, run Scenario 2 again. Compare PDD/SDD verbatim.
+
+Gaps to watch: regression on Sonnet 4.5 (e.g. less library tool usage,
+worse XAML), or the opposite (no quality lift, paying more for nothing).
+
+### Scenario 9 - Cursor MCP-only flow (no CLI)
+
+In Cursor (not the CLI), prompt:
+
+> "Use only `uipath_library_*` and `query_uipath_docs` tools. Build a PDD
+> and SDD for an unattended bot that reconciles two CSVs and emails the
+> diff. Quote the library section ids you used."
+
+Expected: every claim is backed by a tool call visible in Cursor's trace.
+
+Gaps to watch: hallucinated section ids, prose answer with no tool calls,
+or Cursor loses the MCP server connection.
+
+### Scenario 10 - Failure modes / negative paths
+
+Run each in isolation; the agent should degrade gracefully:
+
+| Trigger | Expected behavior |
+|---|---|
+| Disconnect network, ask Scenario 7 | `lookup_uipath_knowledge` falls back to library only; no crash; `web_search` reports disabled. |
+| `UIPATH_TOOL_PROFILE=safe`, then `/library-harvest` | Blocked with the profile message. |
+| Pre-create a corrupt `data/library/books/uipath-docs/MANIFEST.yaml` | `/books --info` recovers, shows empty manifest fields, no traceback. |
+| Set `UIPATH_CLAUDE_MODEL_HEAVY=does-not-exist` and run Scenario 1 | Bedrock error surfaces in chat, not a Python crash. |
+| Kill UiPath Studio mid-Developer-stage | Developer stage reports the failure and continues writing files; QA still runs. |
+
+### Recording checklist (per scenario)
+
+- [ ] Scenario id + commit sha (`git rev-parse HEAD`).
+- [ ] `/status` output before run.
+- [ ] Full chat transcript.
+- [ ] Final `tree` (or `Get-ChildItem -Recurse`) of the project folder.
+- [ ] `docs/pdd.md`, `docs/sdd.md`, `docs/tdd.md`, `docs/add.md` (whichever exist).
+- [ ] Cursor tool-call list (which tools fired, and the input args of each).
+- [ ] Subjective quality grade per persona (1-5) with one-line note.
+- [ ] One concrete gap or improvement idea.
+
+Drop the recordings in `docs/recordings/<date>-<scenario-id>/` and we'll
+post-process them into persona/prompt/library improvements.
+
+## End-to-end deploy scenarios (build -> test -> publish to UiPath Cloud)
+
+These two scenarios go all the way: chat builds the project, the agent runs
+the project's tests, then **publishes a package to Orchestrator** in UiPath
+Cloud and triggers one run. They're the highest-signal smoke tests because
+they fail loudly on auth, packaging, or activity-version drift.
+
+### Prerequisites (once)
+
+1. UiPath Automation Cloud account with an Orchestrator tenant + folder you
+   can publish to.
+2. The `uipath` CLI installed and on PATH (`uipath --version` works).
+3. `.env` filled in (see `.env.example`):
+
+   ```env
+   UIPATH_ORCHESTRATOR_URL=https://cloud.uipath.com/<account>/<tenant>/orchestrator_
+   UIPATH_TENANT_NAME=<tenant>
+   UIPATH_FOLDER_PATH=Shared
+   # pick ONE auth mode:
+   UIPATH_PAT=<personal-access-token>
+   # or
+   # UIPATH_CLIENT_ID=...
+   # UIPATH_CLIENT_SECRET=...
+   ```
+4. Authenticate the CLI once outside the chat so the chat's deploy step has
+   a token cache to reuse:
+
+   ```powershell
+   uipath auth login
+   uipath auth tenant set "$env:UIPATH_TENANT_NAME"
+   ```
+5. **Use a non-production folder.** Both scenarios will publish a real
+   package and start a real job.
+
+### Scenario 11 - RPA project: build, test, publish, run on Orchestrator
+
+Goal: classic attended/unattended UiPath project, packaged and shipped to
+Cloud Orchestrator end-to-end from chat.
+
+```powershell
+$dir = "deploy-rpa-" + (Get-Date -Format "yyyyMMddHHmm")
+New-Item -ItemType Directory $dir | Out-Null
+Set-Location $dir
+$env:UIPATH_CHAT_SESSION_ID = $dir
+python -m uipath_claude.cli.app
+```
+
+Prompt (single message, in chat):
+
+> "Build an unattended UiPath RPA project named `SmokeReconBot` that reads
+> `input.csv` from the project root, filters rows where column `Status` =
+> `Open`, and writes the result to `output.csv`. Cite library sections you
+> use. Then:
+> 1. Generate `input.csv` with 5 sample rows (3 Open, 2 Closed).
+> 2. Run the project's tests locally with `uipath run` (or the test runner
+>    the skill recommends) and show me the output.
+> 3. Pack the project with `uipath pack`.
+> 4. Publish the .nupkg to Orchestrator using my `.env` credentials
+>    (`uipath publish`) into folder `Shared`.
+> 5. Create/refresh a process for it and start one job (`uipath run` against
+>    Orchestrator, or `Jobs.StartJobs`).
+> 6. Print: package id + version, process key, job id, and final job state.
+> Stop and ask before any destructive action (deleting prior versions,
+> changing folder permissions)."
+
+Expected:
+- Files produced: `project.json`, `Main.xaml` (or coded equivalent), at
+  least one test workflow under `Tests/`, generated `input.csv`, and a
+  populated `output.csv` after the local test run.
+- The chat shows three distinct CLI invocations: `uipath pack`,
+  `uipath publish`, `uipath run` (or REST equivalent).
+- Final summary contains a real package version (e.g. `1.0.0`), a non-empty
+  job id, and a terminal state (`Successful` ideally; `Faulted` is also a
+  valid signal as long as it's reported, not hidden).
+
+Gaps to watch:
+- Agent fakes the publish step (returns plausible-looking ids without
+  calling `uipath publish`). Cross-check by running `uipath orchestrator
+  packages list` after the run and confirming the version is there.
+- Activity package versions in `project.json` don't match the tenant's
+  available versions - publish succeeds, job faults at start.
+- Auth flow not picked up from `.env` (agent re-prompts for credentials in
+  chat - never paste them; abort and check env loading).
+- No QA stage / no tests generated; only happy path executed.
+- Missing `output.csv` assertion in tests, so a silent no-op would pass.
+
+Cleanup:
+
+```powershell
+uipath orchestrator packages delete --name SmokeReconBot --version <ver>
+```
+
+### Scenario 12 - Maestro flow: build, validate, publish, run
+
+Goal: same loop, but for a Maestro `.flow` project. Use the
+`uipath-maestro-flow` skill's canary as the shape reference.
+
+```powershell
+$dir = "deploy-maestro-" + (Get-Date -Format "yyyyMMddHHmm")
+New-Item -ItemType Directory $dir | Out-Null
+Set-Location $dir
+$env:UIPATH_CHAT_SESSION_ID = $dir
+python -m uipath_claude.cli.app
+```
+
+Prompt (single message):
+
+> "Build a UiPath Maestro flow project named `SmokeWeatherFlow` that takes
+> a `city` input, calls a public weather API (e.g. open-meteo, no key
+> required), and outputs `temperature_c` and `condition`. Use the
+> `uipath-maestro-flow` skill from our library; cite the section ids you
+> rely on. Then:
+> 1. Validate the `.flow` file with the skill's `flow_check` (or the
+>    Maestro CLI validator).
+> 2. Run the canary / unit check locally and show the output.
+> 3. Pack and publish to my UiPath Cloud tenant
+>    (`UIPATH_ORCHESTRATOR_URL`, folder `Shared`).
+> 4. Trigger one execution with input `city=London` and report the run id +
+>    final outputs.
+> Ask before overwriting any existing flow with the same name."
+
+Expected:
+- A real `.flow` file gets generated (not just a YAML stub) with at least
+  one HTTP node and one output node.
+- Library citations point at `skills/skills/uipath-maestro-flow/...` (e.g.
+  `references/flow-commands.md`).
+- Validation output is shown verbatim, not summarized away.
+- Publish + run use the Maestro endpoints (the agent should pick the
+  Maestro-flavored publish, not the RPA `uipath pack`).
+- Final summary shows run id + the parsed outputs (`temperature_c`,
+  `condition`).
+
+Gaps to watch:
+- Agent treats this as an RPA project and tries `uipath pack` on a `.flow`
+  - that's a clear persona/skill-routing miss.
+- No mention of the `uipath-maestro-flow` skill in the answer (means
+  library lookup didn't fire).
+- Validation skipped; agent jumps straight to publish.
+- HTTP node hardcodes a key-required API instead of the keyless one
+  requested.
+- Run completes but outputs aren't extracted into the chat summary.
+
+Cleanup: delete the published flow from the Maestro UI in your tenant.
+
+### Recording additions for Scenarios 11 & 12
+
+In addition to the standard recording checklist, capture:
+
+- [ ] Output of `uipath --version` and `uipath auth whoami`.
+- [ ] `Get-Content .env | Select-String '^UIPATH_'` (redact tokens) to prove
+      what env the agent saw.
+- [ ] Each CLI command the agent ran, with full stdout/stderr (Cursor /
+      terminal scrollback).
+- [ ] Orchestrator screenshot or `uipath orchestrator packages list`
+      output showing the new version.
+- [ ] Job/run id + final state from Orchestrator UI.
+- [ ] Time from "send prompt" to "job state reported" (end-to-end latency).
+
+## MCP debug-loop enforcement
+
+Verifies that the Cursor MCP cannot mark a UiPath project "done" without a
+real analyze/debug/fix cycle. Three scripted checks against the
+`uipath-builder-agent` MCP server.
+
+### Setup
+
+```powershell
+$env:UIPATH_MCP_GATE_ENABLED = "1"
+$dir = "$env:TEMP\uipath-gate-smoke-$(Get-Date -Format yyyyMMddHHmmss)"
+New-Item -ItemType Directory $dir | Out-Null
+Set-Location $dir
+```
+
+From Cursor, ask the agent to scaffold a one-activity project (Log Message)
+into `$dir` via `uipath_workflow_create_project`. Confirm it auto-verifies
+and `uipath_workflow_session_status` reports `status=verified`.
+
+### Check 1 - Dirty state blocks run/deploy
+
+1. Edit `Main.xaml` via `uipath_workflow_write_file` (introduce a typo such
+   as a missing `</Sequence>` close).
+2. Without calling `uipath_workflow_build_and_verify`, ask the agent to
+   call `uipath_workflow_run`.
+3. Expected: the run tool returns `[BLOCKED] Project '<dir>' has unverified
+   changes (Main.xaml). Call uipath_workflow_build_and_verify ...`.
+4. `uipath_workflow_session_status { project_dir: $dir }` shows
+   `status=dirty` and lists `Main.xaml` in `last_dirty_files`.
+5. Same expectation for `uipath_workflow_deploy`,
+   `uipath_workflow_install_package`, `uipath_workflow_debug`, and
+   `uipath_workflow_run_command`.
+
+### Check 2 - build_and_verify captures headless and Studio results
+
+1. Fix the typo via `uipath_workflow_write_file`.
+2. Call `uipath_workflow_build_and_verify` with `run_after_validate=true`
+   and default `studio_debug_after_run=true`.
+3. Expected payload contains:
+   - `verdict: "pass"` and `success: true`.
+   - `headless_log` non-empty.
+   - When UiPath Studio is running on the host: `studio_debug_log`
+     non-empty and the `phase` reaches `studio_debug`.
+   - When Studio is not running: `studio_debug_skipped_reason` explains the
+     skip and `headless_log` alone justifies the pass.
+4. `uipath_workflow_session_status` flips back to `status=verified`.
+
+### Check 3 - Status transitions dirty -> verified -> dirty
+
+1. After Check 2, write a no-op edit (add a comment) via
+   `uipath_workflow_write_file`.
+2. Expected: `uipath_workflow_session_status` reports `status=dirty` again
+   with the new file in `last_dirty_files`.
+3. Override path: ask the agent to call `uipath_workflow_run` with
+   `allow_unverified=true`. Expected: the run executes (gate bypass
+   honored) but `status` stays `dirty`. This proves the override is an
+   explicit one-shot human escape, not a permanent gate disable.
+4. Disable path: set `UIPATH_MCP_GATE_ENABLED=0`, restart the MCP, and
+   confirm gated tools no longer return `[BLOCKED]` even while
+   `status=dirty`. Re-enable for normal operation.
+
+### Recording additions
+
+- [ ] Full payload of `uipath_workflow_build_and_verify` from Check 2,
+      including `headless_log` and `studio_debug_log`.
+- [ ] `uipath_workflow_session_status` output before and after each check.
+- [ ] Screenshot of the `[BLOCKED]` error from Check 1.
+
+## MCP design-approval enforcement
+
+Verifies that the Cursor MCP requires a human-approved design before any
+file is written into a UiPath project.
+
+### Setup
+
+```powershell
+$env:UIPATH_DESIGN_APPROVAL_ENABLED = "1"
+$env:UIPATH_DESIGN_STORE_PATH = Join-Path $env:TEMP "design_proposals_smoke.json"
+Remove-Item $env:UIPATH_DESIGN_STORE_PATH -ErrorAction SilentlyContinue
+$dir = "$env:TEMP\uipath-design-smoke-$(Get-Date -Format yyyyMMddHHmmss)"
+New-Item -ItemType Directory $dir | Out-Null
+```
+
+Scaffold a fresh project into `$dir` via `uipath_workflow_create_project`.
+
+### Check 1 - Write blocked without an approved design
+
+1. Without proposing or approving, ask the agent to call
+   `uipath_workflow_write_file` on a new file under `$dir`.
+2. Expected: `[BLOCKED] Project '<dir>' has no approved design. Use
+   uipath_design_propose ...`.
+3. Same expectation for `uipath_workflow_install_package`.
+
+### Check 2 - Propose then approve unblocks writes
+
+1. Agent calls `uipath_design_propose` with a short summary describing the
+   architecture choices (e.g. REFramework + queue + SQL writer for the
+   InvoiceQueueProcessor scenario). Capture the returned `design_id`.
+2. `uipath_design_status { project_dir: $dir }` reports
+   `has_approved_design=false` and surfaces the pending proposal.
+3. Human runs `uipath_design_approve { design_id: <id>, note: 'looks good' }`.
+4. Re-run `uipath_workflow_write_file`. Expected: the write succeeds.
+5. `uipath_design_status` now reports `has_approved_design=true`.
+
+### Check 3 - Reject keeps the project locked
+
+1. Propose a second design via `uipath_design_propose` (same project).
+2. Reject it via `uipath_design_reject` with a note.
+3. Expected: `uipath_design_status` shows the project still has a prior
+   approved design, but `uipath_design_list` records the rejected entry.
+4. Reset and try the override: with `UIPATH_DESIGN_APPROVAL_ENABLED=0`
+   confirm `uipath_workflow_write_file` no longer returns `[BLOCKED]` even
+   without an approved design. Re-enable for normal operation.
+
+### Recording additions
+
+- [ ] Output of `uipath_design_propose` (with `design_id`).
+- [ ] `uipath_design_status` before approval, after approval, after reject.
+- [ ] Screenshot of the `[BLOCKED]` error from Check 1.
+
+## MCP mandatory Studio debug + out-of-band sweep
+
+Verifies that the verify gate cannot silently mark a project verified
+without a Studio debug pass, and that edits made outside
+`uipath_workflow_write_file` still flip the project dirty.
+
+### Check 1 - Verify refuses pass when Studio is unavailable
+
+1. Stop UiPath Studio if it is running.
+2. On a project with at least one valid `.xaml`, call
+   `uipath_workflow_build_and_verify { project_dir: <dir> }` (defaults).
+3. Expected: `success=false`, `verdict='needs_human'`,
+   `next_action='start_studio_or_waive'`, and `studio_debug_skipped_reason`
+   names "No running UiPath Studio instance detected; headless run only."
+4. Re-call with `require_studio_debug=false`. Expected: behaves as before,
+   `verdict='pass'` allowed when headless run succeeds.
+
+### Check 2 - Out-of-band edits are caught on the next gated call
+
+1. Run `uipath_workflow_build_and_verify` to completion (`verdict='pass'`)
+   with Studio attached. Confirm `uipath_workflow_session_status` reports
+   `verified` for that project.
+2. Edit any `.xaml` under `project_dir` directly (e.g. `notepad Main.xaml`,
+   or any IDE save - do NOT call `uipath_workflow_write_file`).
+3. Call any gated tool (`uipath_workflow_run` is the cheapest).
+4. Expected: `[BLOCKED] ... has unverified changes (...Main.xaml)`. The
+   session status now reports `dirty` with that file in `last_dirty_files`.
+
+### Recording additions
+
+- [ ] Full payload from Check 1 (showing `verdict='needs_human'`).
+- [ ] Status snapshot before/after Check 2.
+- [ ] Note in the report whether Studio was started or
+      `require_studio_debug=false` was used to clear Check 1.

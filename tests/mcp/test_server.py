@@ -4,6 +4,7 @@ from __future__ import annotations
 import pytest
 
 from mcp_server.server import server
+from mcp_server.tools import agent_tools
 from mcp_server.tools.agent_tools import get_agent_tools
 from mcp_server.tools.doc_tools import get_doc_tools
 from mcp_server.tools.memory_tools import get_memory_tools
@@ -40,7 +41,7 @@ def test_doc_tool_names_prefixed():
     tools = get_doc_tools()
     assert tools
     for t in tools:
-        assert t.name.startswith("uipath_doc_")
+        assert t.name.startswith("uipath_doc_") or t.name == "query_uipath_docs"
 
 
 def test_memory_tool_names_prefixed():
@@ -77,3 +78,14 @@ async def test_agent_classify_intent():
         {"user_input": "how does GetQueueItem work"},
     )
     assert out["intent"] == "question"
+
+
+def test_agent_model_region_uses_router_heavy_model(monkeypatch):
+    monkeypatch.setenv(
+        "UIPATH_CLAUDE_MODEL_HEAVY",
+        "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+    )
+    monkeypatch.setenv("UIPATH_CLAUDE_MODEL", "anthropic.claude-sonnet-4-5-20250929-v1:0")
+    model, region = agent_tools._model_region()
+    assert model == "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+    assert region == "us-east-1"

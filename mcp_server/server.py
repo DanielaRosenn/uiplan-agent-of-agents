@@ -30,6 +30,7 @@ from mcp_server.resources.knowledge import fetch_knowledge_resource, get_knowled
 from mcp_server.resources.project import fetch_project_resource, get_project_resources
 from mcp_server.resources.skills import fetch_skill_resource, get_skill_resources
 from mcp_server.tools.agent_tools import call_agent_tool, get_agent_tools
+from mcp_server.tools.design_tools import call_design_tool, get_design_tools
 from mcp_server.tools.doc_tools import call_doc_tool, get_doc_tools
 from mcp_server.tools.library_tools import (
     call_library_tool,
@@ -57,6 +58,7 @@ async def list_tools() -> list[Tool]:
     tools.extend(get_doc_tools())
     tools.extend(get_memory_tools())
     tools.extend(_get_library_tools())
+    tools.extend(get_design_tools())
     return tools
 
 
@@ -69,12 +71,14 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             result = await call_skill_tool(name, arguments)
         elif name.startswith("uipath_agent_"):
             result = await call_agent_tool(name, arguments)
-        elif name.startswith("uipath_doc_"):
+        elif name.startswith("uipath_doc_") or name == "query_uipath_docs":
             result = await call_doc_tool(name, arguments)
         elif name.startswith("uipath_memory_"):
             result = await call_memory_tool(name, arguments)
         elif name.startswith("uipath_library_"):
             result = await call_library_tool(name, arguments)
+        elif name.startswith("uipath_design_"):
+            result = await call_design_tool(name, arguments)
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
         return _text_result(result)

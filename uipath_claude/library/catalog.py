@@ -171,16 +171,48 @@ class LibraryCatalog:
         return None
 
     def search_sections(self, query: str) -> list[tuple[Book, Chapter, Section]]:
-        """Search sections by keyword."""
-        query_lower = query.lower()
-        results = []
+        """Search sections by keyword.
 
+        Backwards-compatible wrapper around :meth:`search_sections_scored` that
+        drops the score so existing callers keep working.
+        """
+        return [(b, c, s) for b, c, s, _ in self.search_sections_scored(query)]
+
+    def search_sections_scored(
+        self, query: str
+    ) -> list[tuple[Book, Chapter, Section, int]]:
+        """Tokenized, ranked section search.
+
+        The query is split on whitespace; each token contributes to a score when
+        it appears (case-insensitively) as a substring of the section title,
+        any keyword, the chapter title, or the book title. Keyword and section
+        title hits are weighted slightly higher so the most relevant sections
+        sort first. Sections with score 0 are dropped.
+        """
+        tokens = [t for t in query.lower().split() if t]
+        if not tokens:
+            return []
+
+        scored: list[tuple[Book, Chapter, Section, int]] = []
         for book in self.books:
+            book_title = book.title.lower()
             for chapter in book.chapters:
+                chapter_title = chapter.title.lower()
                 for section in chapter.sections:
-                    if query_lower in section.title.lower() or any(
-                        query_lower in kw.lower() for kw in section.keywords
-                    ):
-                        results.append((book, chapter, section))
+                    section_title = section.title.lower()
+                    keyword_blob = " ".join(k.lower() for k in section.keywords)
+                    score = 0
+                    for tok in tokens:
+                        if tok in section_title:
+                            score += 3
+                        if tok in keyword_blob:
+                            score += 3
+                        if tok in chapter_title:
+                            score += 1
+                        if tok in book_title:
+                            score += 1
+                    if score > 0:
+                        scored.append((book, chapter, section, score))
 
-        return results
+        scored.sort(key=lambda r: r[3], reverse=True)
+        return scored

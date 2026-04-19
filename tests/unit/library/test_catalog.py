@@ -59,3 +59,75 @@ def test_load_uses_env_override(monkeypatch, tmp_path):
     monkeypatch.setenv(LIBRARY_PATH_ENV_VAR, str(tmp_path))
     catalog = LibraryCatalog.load()
     assert catalog.books == []
+
+
+def _build_catalog():
+    sec_jobs = Section(
+        id="jobs",
+        title="Job Management",
+        file="jobs.md",
+        keywords=["job", "schedule", "trigger"],
+    )
+    sec_queues = Section(
+        id="queues",
+        title="Queue Operations",
+        file="queues.md",
+        keywords=["queue", "transaction"],
+    )
+    sec_unrelated = Section(
+        id="excel",
+        title="Excel Activities",
+        file="excel.md",
+        keywords=["readrange"],
+    )
+    ch_orch = Chapter(
+        id="orchestrator",
+        title="Orchestrator Guide",
+        path="chapters/02-orchestrator",
+        order=2,
+        sections=[sec_jobs, sec_queues],
+    )
+    ch_act = Chapter(
+        id="activities",
+        title="Activities Reference",
+        path="chapters/01-activities",
+        order=1,
+        sections=[sec_unrelated],
+    )
+    book = Book(
+        id="uipath-docs",
+        title="UiPath Documentation",
+        path="books/uipath-docs",
+        chapters=[ch_orch, ch_act],
+    )
+    return LibraryCatalog(books=[book])
+
+
+def test_search_sections_multiword_phrase_matches_when_tokens_split_across_title_and_keywords():
+    """The exact phrase 'orchestrator schedule' didn't match before tokenisation."""
+    cat = _build_catalog()
+    results = cat.search_sections("orchestrator schedule")
+    ids = [s.id for _, _, s in results]
+    assert "jobs" in ids
+
+
+def test_search_sections_returns_score_ranked_results():
+    cat = _build_catalog()
+    scored = cat.search_sections_scored("orchestrator schedule")
+    assert len(scored) >= 1
+    section_ids = [s.id for _, _, s, _ in scored]
+    assert section_ids[0] == "jobs"
+    scores = [score for _, _, _, score in scored]
+    assert scores == sorted(scores, reverse=True)
+
+
+def test_search_sections_single_token_still_works():
+    cat = _build_catalog()
+    results = cat.search_sections("schedule")
+    assert any(s.id == "jobs" for _, _, s in results)
+
+
+def test_search_sections_empty_query_returns_no_results():
+    cat = _build_catalog()
+    assert cat.search_sections("   ") == []
+    assert cat.search_sections_scored("") == []

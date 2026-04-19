@@ -123,6 +123,49 @@ def test_list_library_books_with_books(mock_catalog_class):
     assert "2 chapters" in result
 
 
+@patch("uipath_claude.tools.library_tools.LibraryCatalog")
+def test_search_library_respects_top_n(mock_catalog_class):
+    from uipath_claude.library.catalog import Book, Chapter, Section
+
+    book = Book(id="b", title="B", path="b")
+    ch = Chapter(id="c", title="C", path="c", order=1)
+    sections = [
+        Section(id=f"s{i}", title=f"Match {i}", file=f"s{i}.md", keywords=["needle"])
+        for i in range(7)
+    ]
+    ch.sections = sections
+    book.chapters = [ch]
+    catalog = MagicMock()
+    catalog.search_sections_scored.return_value = [
+        (book, ch, s, 3) for s in sections
+    ]
+    mock_catalog_class.load.return_value = catalog
+
+    out = search_library.invoke({"query": "needle", "top_n": 3})
+    listed = [line for line in out.splitlines() if line.startswith("- **")]
+    assert len(listed) == 3
+    assert "...and 4 more results" in out
+
+
+@patch("uipath_claude.tools.library_tools.LibraryCatalog")
+def test_search_library_output_includes_machine_parseable_ids(mock_catalog_class):
+    from uipath_claude.library.catalog import Book, Chapter, Section
+
+    book = Book(id="uipath-docs", title="UiPath Documentation", path="b")
+    ch = Chapter(id="orchestrator", title="Orchestrator Guide", path="c", order=1)
+    section = Section(
+        id="jobs", title="Job Management", file="jobs.md", keywords=["schedule"]
+    )
+    ch.sections = [section]
+    book.chapters = [ch]
+    catalog = MagicMock()
+    catalog.search_sections_scored.return_value = [(book, ch, section, 4)]
+    mock_catalog_class.load.return_value = catalog
+
+    out = search_library.invoke({"query": "orchestrator schedule"})
+    assert "id: uipath-docs/orchestrator/jobs" in out
+
+
 def test_propose_library_update_enqueues_pending_proposal(tmp_path, monkeypatch):
     monkeypatch.setenv(PROPOSALS_ENV_VAR, str(tmp_path))
     result = propose_library_update.invoke(

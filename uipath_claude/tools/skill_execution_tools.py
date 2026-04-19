@@ -184,8 +184,21 @@ def _fix_xaml_content(content: str) -> str:
     return content.strip()
 
 
+_SCAFFOLD_FILE_NAMES = frozenset({"project.json", "project.uiproj"})
+
+
+def _is_scaffold_file(file_path: str) -> bool:
+    """True if ``file_path`` targets a generated UiPath scaffold file."""
+    name = Path(file_path).name.lower()
+    return name in _SCAFFOLD_FILE_NAMES
+
+
 @tool
-def write_file(file_path: str, content: str) -> str:
+def write_file(
+    file_path: str,
+    content: str,
+    allow_scaffold_overwrite: bool = False,
+) -> str:
     """Write content to a file.
     
     Use this to create or update XAML workflows, .cs files, etc.
@@ -193,14 +206,41 @@ def write_file(file_path: str, content: str) -> str:
     
     IMPORTANT: For XAML files, the content must be valid XML.
     Do NOT escape < and > characters - use them directly.
+
+    SCAFFOLD GUARD: This tool refuses to overwrite ``project.json`` /
+    ``project.uiproj`` unless ``allow_scaffold_overwrite=True`` is passed
+    explicitly. To create a new project use ``create_project`` (wraps
+    ``uip rpa create-project``); to add or change packages use
+    ``install_package`` (wraps ``uip rpa install-or-update-packages``).
+    Hand-pinning legacy package versions causes Studio dependency mismatches
+    (e.g. ``UiPath.Core.Activities`` 22.x next to ``UiPath.System.Activities``
+    26.x). Always run ``environment_probe`` first to learn the local Studio's
+    actual installed package versions before touching scaffold files.
     
     Args:
         file_path: Relative path for the file (relative to session output dir)
         content: File content to write
+        allow_scaffold_overwrite: Set True only when the user explicitly asks
+            to overwrite ``project.json`` / ``project.uiproj``. Default False.
     
     Returns:
         Success message with absolute path, or error message
     """
+    if _is_scaffold_file(file_path) and not allow_scaffold_overwrite:
+        return _tool(
+            False,
+            (
+                f"Refusing to write '{Path(file_path).name}' directly. "
+                "Use create_project (wraps `uip rpa create-project`) for new "
+                "projects so dependencies match the local Studio install. "
+                "Use install_package (wraps `uip rpa install-or-update-packages`) "
+                "to add or change packages. Run environment_probe first to see "
+                "the actual installed package versions. "
+                "If you truly need to overwrite this scaffold file, re-call "
+                "write_file with allow_scaffold_overwrite=True."
+            ),
+        )
+
     # Use CWD if it's a project directory (has project.json)
     if (Path.cwd() / "project.json").exists():
         base = Path.cwd()
@@ -583,60 +623,786 @@ def find_activity_info(query: str, project_dir: str | None = None) -> str:
     return _tool(True, "\n".join(result))
 
 
+def _format_build_verify_text(payload: dict) -> str:
+    """Render the structured ``build_and_verify_workflow`` payload as text."""
+    lines: list[str] = []
+    phase = payload.get("phase", "validate")
+    attempts = payload.get("attempts", 1)
+    verdict = payload.get("verdict", "needs_llm_fix")
+    lines.append(
+        f"BUILD+VERIFY phase={phase} attempt={attempts} "
+        f"verdict={verdict} success={payload.get('success', False)}"
+    )
+
+    next_action = payload.get("next_action") or "none"
+    if next_action != "none":
+        lines.append(f"next_action: {next_action}")
+
+    auto_installed = payload.get("auto_installed_packages") or []
+    if auto_installed:
+        lines.append(f"auto_installed: {', '.join(auto_installed)}")
+
+    errors = payload.get("errors") or []
+    if errors:
+        lines.append("")
+        lines.append(
+            f"ERRORS ({len(errors)}, fix the FIRST one then re-call build_and_verify_workflow):"
+        )
+        for i, err in enumerate(errors[:5], 1):
+            lines.append(f"  {i}. {err}")
+
+    warnings = payload.get("warnings") or []
+    if warnings:
+        lines.append("")
+        lines.append(f"WARNINGS ({len(warnings)}):")
+        for w in warnings[:5]:
+            lines.append(f"  - {w}")
+
+    headless = payload.get("headless_log") or ""
+    if headless:
+        lines.append("")
+        lines.append("HEADLESS RUN LOG:")
+        lines.append(headless[:1500])
+
+    studio = payload.get("studio_debug_log") or ""
+    if studio:
+        lines.append("")
+        lines.append("STUDIO DEBUG LOG:")
+        lines.append(studio[:1500])
+
+    skipped = payload.get("studio_debug_skipped_reason") or ""
+    if skipped and not studio:
+        lines.append("")
+        lines.append(f"STUDIO DEBUG: skipped ({skipped})")
+
+    log = payload.get("log_excerpt") or ""
+    if log and log not in (headless, studio):
+        lines.append("")
+        lines.append("LOG EXCERPT:")
+        lines.append(log[:1500])
+
+    if not payload.get("success"):
+        lines.append("")
+        lines.append(
+            "INSTRUCTIONS: Apply ONE fix (typically write_file or install_package), "
+            "then call build_and_verify_workflow again. Do NOT report the task complete "
+            "until this tool returns success=true."
+        )
+
+    return "\n".join(lines)
+
+
+def _probe_environment(project_dir: str | None) -> dict:
+    """Best-effort probe of the local UiPath Studio environment.
+
+    Returns a dict with ``studio_instances`` (list) and ``installed_packages``
+    (dict mapping package id -> version) when discoverable, plus an ``errors``
+    list capturing any CLI failures so callers can decide what to do.
+    """
+    info: dict = {
+        "studio_instances": [],
+        "installed_packages": {},
+        "target_framework": None,
+        "errors": [],
+    }
+
+    try:
+        uip_cli = _find_uip_cli()
+    except Exception as exc:  # pragma: no cover - defensive
+        info["errors"].append(f"uip CLI not found: {exc}")
+        return info
+
+    try:
+        proc = subprocess.run(
+            [uip_cli, "rpa", "list-instances", "--output", "json"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        out = proc.stdout or proc.stderr or ""
+        parsed = _parse_first_json_payload(out) or {}
+        data = parsed.get("Data") if isinstance(parsed, dict) else None
+        if isinstance(data, list):
+            for entry in data:
+                if isinstance(entry, dict):
+                    info["studio_instances"].append(
+                        {
+                            "ProjectDirectory": entry.get("ProjectDirectory"),
+                            "StudioVersion": entry.get("StudioVersion")
+                            or entry.get("Version"),
+                            "ProcessId": entry.get("ProcessId"),
+                        }
+                    )
+    except FileNotFoundError:
+        info["errors"].append("uip CLI not found on PATH")
+        return info
+    except subprocess.TimeoutExpired:
+        info["errors"].append("list-instances timed out")
+    except Exception as exc:  # pragma: no cover - defensive
+        info["errors"].append(f"list-instances error: {exc}")
+
+    if project_dir:
+        try:
+            path = _resolve_project_path(project_dir)
+        except Exception:
+            path = None
+        if path is not None and (path / "project.json").exists():
+            try:
+                data = json.loads((path / "project.json").read_text(encoding="utf-8"))
+                deps = data.get("dependencies") or {}
+                if isinstance(deps, dict):
+                    info["installed_packages"] = {
+                        str(k): str(v) for k, v in deps.items()
+                    }
+                tf = data.get("targetFramework")
+                if tf:
+                    info["target_framework"] = tf
+            except Exception as exc:
+                info["errors"].append(f"project.json read error: {exc}")
+
+            try:
+                proc = subprocess.run(
+                    [
+                        uip_cli,
+                        "rpa",
+                        "list-packages",
+                        "--project-dir",
+                        str(path.resolve()),
+                        "--output",
+                        "json",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                    check=False,
+                )
+                out = proc.stdout or proc.stderr or ""
+                parsed = _parse_first_json_payload(out) or {}
+                data = parsed.get("Data") if isinstance(parsed, dict) else None
+                if isinstance(data, list):
+                    for entry in data:
+                        if not isinstance(entry, dict):
+                            continue
+                        pkg_id = entry.get("Id") or entry.get("PackageId") or entry.get("Name")
+                        ver = entry.get("Version") or entry.get("ResolvedVersion")
+                        if pkg_id and ver:
+                            info["installed_packages"][str(pkg_id)] = str(ver)
+            except subprocess.TimeoutExpired:
+                info["errors"].append("list-packages timed out")
+            except Exception as exc:  # pragma: no cover - defensive
+                info["errors"].append(f"list-packages error: {exc}")
+
+    return info
+
+
+def _detect_dependency_mismatches(probe: dict) -> list[str]:
+    """Heuristic check for common Studio/dependency mismatches.
+
+    Today this catches the major case from the InvoiceQueueProcessor
+    incident: pinning legacy ``UiPath.Core.Activities`` (22.x line) alongside
+    modern ``UiPath.System.Activities`` (>= 25.x).
+    """
+    mismatches: list[str] = []
+    pkgs = probe.get("installed_packages") or {}
+    if not isinstance(pkgs, dict):
+        return mismatches
+
+    def _major(v: str) -> int | None:
+        m = re.match(r"\[?\s*(\d+)", v or "")
+        return int(m.group(1)) if m else None
+
+    sys_ver = pkgs.get("UiPath.System.Activities")
+    core_ver = pkgs.get("UiPath.Core.Activities")
+    sys_major = _major(sys_ver) if sys_ver else None
+    core_major = _major(core_ver) if core_ver else None
+    if sys_major and core_major and sys_major >= 25 and core_major < 25:
+        mismatches.append(
+            f"UiPath.Core.Activities pinned to {core_ver} (legacy {core_major}.x) "
+            f"but UiPath.System.Activities is {sys_ver} ({sys_major}.x). "
+            "Modern Studio installs do not ship the legacy 22.x Core.Activities line. "
+            "Remove UiPath.Core.Activities (or use install_package with a matching "
+            "version) and let create_project pick defaults that match local Studio."
+        )
+
+    return mismatches
+
+
+@tool
+def environment_probe(project_dir: str | None = None) -> str:
+    """Probe local UiPath Studio environment and installed packages.
+
+    READ-ONLY. Run this BEFORE choosing activity packages or creating /
+    editing ``project.json`` so the agent picks versions that match the
+    local Studio install (avoids 4-major-version dependency mismatches that
+    Studio silently auto-resolves).
+
+    Reports:
+    - Open Studio instance(s) discovered via ``uip rpa list-instances``.
+    - For an existing project: installed package versions via
+      ``uip rpa list-packages`` and the targetFramework declared in
+      ``project.json``.
+    - Any detected dependency mismatches (e.g. legacy
+      ``UiPath.Core.Activities`` next to modern ``UiPath.System.Activities``).
+
+    Args:
+        project_dir: Optional project directory (defaults to no project,
+            so only Studio instances are reported).
+
+    Returns:
+        JSON-shaped text with ``studio_instances``, ``installed_packages``,
+        ``target_framework``, ``mismatches``, and ``errors`` from CLI calls.
+    """
+    info = _probe_environment(project_dir)
+    info["mismatches"] = _detect_dependency_mismatches(info)
+    info["success"] = not info["errors"]
+
+    summary_lines = [
+        f"Studio instances: {len(info['studio_instances'])}",
+        f"Installed packages: {len(info['installed_packages'])}",
+    ]
+    if info.get("target_framework"):
+        summary_lines.append(f"targetFramework: {info['target_framework']}")
+    if info["mismatches"]:
+        summary_lines.append("")
+        summary_lines.append("DEPENDENCY MISMATCHES (fix before continuing):")
+        for m in info["mismatches"]:
+            summary_lines.append(f"  - {m}")
+    if info["errors"]:
+        summary_lines.append("")
+        summary_lines.append("CLI errors (probe is best-effort):")
+        for e in info["errors"]:
+            summary_lines.append(f"  - {e}")
+
+    summary_lines.append("")
+    summary_lines.append("Raw:")
+    summary_lines.append(json.dumps(info, indent=2, default=str)[:3000])
+
+    ok = not info["mismatches"] and not info["errors"]
+    return _tool(ok, "\n".join(summary_lines))
+
+
+@tool
+def create_project(
+    project_dir: str,
+    project_name: str,
+    project_type: str = "process",
+    auto_verify: bool = True,
+) -> str:
+    """Create a UiPath project via ``uip rpa create-project`` and verify it.
+
+    Use this INSTEAD of writing ``project.json`` by hand. The CLI generates
+    a ``project.json`` whose dependencies match the local Studio install,
+    avoiding the legacy-vs-modern dependency mismatches that occur when an
+    LLM hand-pins package versions.
+
+    By default this tool also runs ``build_and_verify_workflow`` on the
+    freshly created project (static validation only, every ``.xaml``) so you
+    have proof the scaffold is sound before writing any business logic. Set
+    ``auto_verify=False`` only when you intentionally want to skip the
+    verification step (e.g. throwaway smoke tests).
+
+    Args:
+        project_dir: Parent directory in which to create the project folder.
+        project_name: Name of the new project (folder + project.name).
+        project_type: One of ``process`` (default), ``library``, ``coded``.
+            Mapped onto the CLI's ``--type`` argument when supported.
+        auto_verify: When True (default), call ``build_and_verify_workflow``
+            on the new project (``run_after_validate=False``) and append its
+            payload to the result.
+
+    Returns:
+        CLI output, the path to the generated project.json, and (when
+        ``auto_verify=True``) the verification payload.
+    """
+    base = _resolve_project_path(project_dir)
+    base.mkdir(parents=True, exist_ok=True)
+
+    uip_cli = _find_uip_cli()
+    cmd = [
+        uip_cli,
+        "rpa",
+        "create-project",
+        "--name",
+        project_name,
+        "--location",
+        str(base.resolve()),
+        "--output",
+        "json",
+    ]
+    if project_type and project_type != "process":
+        cmd.extend(["--type", project_type])
+
+    try:
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+    except FileNotFoundError:
+        return _tool(False, "Error: uip CLI not found. Install with: npm install -g @uipath/cli")
+    except subprocess.TimeoutExpired:
+        return _tool(False, "Error: create-project timed out after 120s")
+
+    output = "\n".join(part for part in (proc.stdout, proc.stderr) if part)
+    parsed = _parse_first_json_payload(output) or {}
+    target = (base / project_name).resolve()
+    project_json = target / "project.json"
+
+    if proc.returncode == 0 and project_json.exists():
+        head = (
+            f"Created project at {target}\n"
+            f"project.json: {project_json}\n\n{output[:1500]}"
+        )
+        if not auto_verify:
+            return _tool(True, head)
+        verify_text = build_and_verify_workflow.invoke(
+            {
+                "project_dir": str(target),
+                "max_attempts": 5,
+                "run_after_validate": False,
+            }
+        )
+        verify_ok = isinstance(verify_text, str) and verify_text.startswith("[OK]")
+        body = head + "\n\n--- auto-verify (build_and_verify_workflow) ---\n" + (
+            verify_text or ""
+        )
+        return _tool(verify_ok, body)
+
+    if isinstance(parsed, dict) and parsed.get("Message"):
+        return _tool(False, f"create-project failed: {parsed['Message']}\n\n{output[:1500]}")
+
+    return _tool(False, f"create-project failed (exit {proc.returncode})\n\n{output[:1500]}")
+
+
+def _project_main_entry(project_path: Path) -> str | None:
+    """Read ``project.json`` and return the ``main`` workflow filename, if any."""
+    pj = project_path / "project.json"
+    if not pj.exists():
+        return None
+    try:
+        data = json.loads(pj.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    main = data.get("main")
+    if isinstance(main, str) and main.lower().endswith(".xaml"):
+        return main
+    return None
+
+
+def _discover_workflow_files(project_dir: str) -> list[str]:
+    """Return relative paths of every ``.xaml`` workflow under ``project_dir``.
+
+    Skips Studio internal folders (``.local``, ``.objects``, ``.screenshots``,
+    ``.entities``, ``.tmh``) and any file under a ``Tests`` folder so we don't
+    accidentally validate test scaffolding twice.
+    """
+    try:
+        path = _resolve_project_path(project_dir)
+    except Exception:
+        return []
+    if not path.exists():
+        return []
+
+    skip_parts = {".local", ".objects", ".screenshots", ".entities", ".tmh"}
+    out: list[str] = []
+    for xaml in path.rglob("*.xaml"):
+        if any(part in skip_parts for part in xaml.relative_to(path).parts[:-1]):
+            continue
+        out.append(str(xaml.relative_to(path)).replace("\\", "/"))
+    out.sort(key=lambda p: (0 if Path(p).name.lower() == "main.xaml" else 1, p.lower()))
+    return out
+
+
+def _attempt_auto_install(probe: dict) -> tuple[list[str], list[str]]:
+    """Best-effort auto-install of missing packages flagged by the probe.
+
+    Returns ``(installed, errors)`` lists. Only packages whose target version
+    is unambiguously implied by the probe (e.g. via Studio's installed pin)
+    are auto-installed. Anything ambiguous is skipped and reported as an
+    error so the LLM / human can decide.
+    """
+    installed: list[str] = []
+    errors: list[str] = []
+    project_dir = probe.get("project_dir")
+    if not project_dir:
+        return installed, ["auto-install skipped: probe has no project_dir"]
+
+    desired = probe.get("desired_packages") or {}
+    if not isinstance(desired, dict) or not desired:
+        return installed, []
+
+    for pkg_id, version in desired.items():
+        if not pkg_id or not version:
+            continue
+        try:
+            result_text = install_package.invoke(
+                {
+                    "project_dir": project_dir,
+                    "package_id": pkg_id,
+                    "version": version,
+                }
+            )
+        except Exception as exc:
+            errors.append(f"auto-install {pkg_id}@{version} raised: {exc}")
+            continue
+        if isinstance(result_text, str) and result_text.startswith("[OK]"):
+            installed.append(f"{pkg_id}@{version}")
+        else:
+            errors.append(f"auto-install {pkg_id}@{version} failed: {result_text[:200]}")
+    return installed, errors
+
+
+def _studio_available(probe: dict) -> bool:
+    """True iff at least one running Studio instance was detected."""
+    instances = probe.get("studio_instances") or []
+    return bool(instances)
+
+
+def _run_one_verify_attempt(
+    project_dir: str,
+    file_path: str | None,
+    run_after_validate: bool,
+    input_arguments: str | None,
+    timeout_seconds: int,
+    auto_install_packages: bool,
+    studio_debug_after_run: bool,
+    attempt_index: int,
+    max_attempts: int,
+    require_studio_debug: bool = True,
+) -> dict:
+    """One attempt of the validate -> headless run -> studio debug pipeline.
+
+    Returns the structured payload (without the surrounding ToolOutcome
+    text). The caller decides whether to loop based on ``next_action``.
+    """
+    payload: dict = {
+        "success": False,
+        "phase": "probe",
+        "attempts": attempt_index,
+        "iterations_run": attempt_index,
+        "file_path": file_path,
+        "files_checked": [],
+        "errors": [],
+        "warnings": [],
+        "next_action": "fix_and_recall",
+        "verdict": "needs_llm_fix",
+        "log_excerpt": "",
+        "headless_log": "",
+        "studio_debug_log": "",
+        "studio_debug_skipped_reason": "",
+        "auto_installed_packages": [],
+        "max_attempts": max_attempts,
+    }
+
+    probe = _probe_environment(project_dir)
+    probe.setdefault("project_dir", project_dir)
+    mismatches = _detect_dependency_mismatches(probe)
+
+    if mismatches:
+        if auto_install_packages:
+            installed, install_errors = _attempt_auto_install(probe)
+            payload["auto_installed_packages"] = installed
+            if install_errors and not installed:
+                payload["phase"] = "probe"
+                payload["errors"] = mismatches + install_errors
+                payload["next_action"] = "install_packages"
+                payload["verdict"] = "needs_human"
+                payload["log_excerpt"] = json.dumps(
+                    {
+                        "studio_instances": probe.get("studio_instances"),
+                        "installed_packages": probe.get("installed_packages"),
+                    },
+                    default=str,
+                )[:1500]
+                return payload
+            probe = _probe_environment(project_dir)
+            probe.setdefault("project_dir", project_dir)
+            mismatches = _detect_dependency_mismatches(probe)
+        if mismatches:
+            payload["phase"] = "probe"
+            payload["errors"] = mismatches
+            payload["next_action"] = "install_packages"
+            payload["verdict"] = "needs_human"
+            payload["log_excerpt"] = json.dumps(
+                {
+                    "studio_instances": probe.get("studio_instances"),
+                    "installed_packages": probe.get("installed_packages"),
+                },
+                default=str,
+            )[:1500]
+            return payload
+
+    payload["phase"] = "validate"
+    path = _resolve_project_path(project_dir)
+
+    if file_path:
+        targets = [file_path]
+    else:
+        targets = _discover_workflow_files(project_dir)
+        if not targets:
+            payload["errors"] = [
+                "No .xaml workflows found under project_dir. Pass file_path "
+                "explicitly or scaffold the project first via create_project."
+            ]
+            payload["verdict"] = "needs_human"
+            return payload
+
+    payload["files_checked"] = targets
+    aggregated_warnings: list[str] = []
+    failing_file: str | None = None
+    val: dict | None = None
+
+    for target in targets:
+        result = run_uip_rpa_get_errors(
+            str(path.resolve()),
+            file_path=target,
+            use_studio=False,
+        )
+        aggregated_warnings.extend(result.get("warnings") or [])
+        if not result.get("success"):
+            failing_file = target
+            val = result
+            break
+        val = result
+
+    if failing_file is not None and val is not None:
+        payload["file_path"] = failing_file
+        payload["errors"] = list(val.get("errors") or [])
+        payload["warnings"] = aggregated_warnings
+        payload["next_action"] = "fix_and_recall"
+        payload["verdict"] = "needs_llm_fix"
+        if val.get("studio_required"):
+            payload["log_excerpt"] = "Note: Full validation requires UiPath Studio to be running."
+        return payload
+
+    payload["warnings"] = aggregated_warnings
+
+    if not run_after_validate:
+        payload["success"] = True
+        payload["phase"] = "done"
+        payload["next_action"] = "none"
+        payload["verdict"] = "pass"
+        return payload
+
+    entry_file = file_path or _project_main_entry(path) or "Main.xaml"
+    payload["file_path"] = entry_file
+    payload["phase"] = "run"
+    run_kwargs: dict[str, Any] = {
+        "project_dir": project_dir,
+        "file_path": entry_file,
+        "timeout_seconds": int(timeout_seconds),
+    }
+    if input_arguments is not None:
+        run_kwargs["input_arguments"] = input_arguments
+    run_text = run_workflow.invoke(run_kwargs)
+
+    run_ok = isinstance(run_text, str) and run_text.startswith("[OK]")
+    payload["headless_log"] = (run_text or "")[:1500]
+    payload["log_excerpt"] = payload["headless_log"]
+
+    if not run_ok:
+        payload["errors"] = ["Headless runtime execution failed; see headless_log."]
+        payload["next_action"] = "fix_and_recall"
+        payload["verdict"] = "needs_llm_fix"
+        return payload
+
+    studio_ran = False
+    if not studio_debug_after_run:
+        payload["studio_debug_skipped_reason"] = "studio_debug_after_run=False"
+    elif not _studio_available(probe):
+        payload["studio_debug_skipped_reason"] = (
+            "No running UiPath Studio instance detected; headless run only."
+        )
+    else:
+        payload["phase"] = "studio_debug"
+        try:
+            studio_text = debug_workflow.invoke(
+                {"project_dir": project_dir, "file_path": entry_file}
+            )
+        except Exception as exc:
+            studio_text = f"[ERR] debug_workflow raised: {exc}"
+        payload["studio_debug_log"] = (studio_text or "")[:1500]
+        studio_ok = isinstance(studio_text, str) and studio_text.startswith("[OK]")
+        if not studio_ok:
+            payload["errors"] = [
+                "Studio debug session failed; see studio_debug_log."
+            ]
+            payload["next_action"] = "fix_and_recall"
+            payload["verdict"] = "needs_llm_fix"
+            return payload
+        studio_ran = True
+
+    if require_studio_debug and not studio_ran:
+        payload["errors"] = [
+            "Studio debug step did not run (skipped or unavailable). Verify "
+            "gate refuses to mark a project verified without an attached "
+            "Studio debug pass. Start UiPath Studio against this project, or "
+            "rerun with require_studio_debug=False after the user explicitly "
+            "waives the Studio debug requirement."
+        ]
+        payload["next_action"] = "start_studio_or_waive"
+        payload["verdict"] = "needs_human"
+        payload["success"] = False
+        return payload
+
+    payload["success"] = True
+    payload["phase"] = "done"
+    payload["next_action"] = "none"
+    payload["verdict"] = "pass"
+    return payload
+
+
+@tool
+def build_and_verify_workflow(
+    project_dir: str,
+    file_path: str | None = None,
+    max_attempts: int = 5,
+    run_after_validate: bool = True,
+    input_arguments: str | None = None,
+    timeout_seconds: int = 60,
+    auto_install_packages: bool = True,
+    studio_debug_after_run: bool = True,
+    require_studio_debug: bool = True,
+) -> str:
+    """Build, validate, headless-run, and Studio-debug a workflow in a server-side loop.
+
+    This is the canonical "did it actually work" tool. The Cursor / Claude
+    agent MUST call this after every write_file / install_package cycle and
+    treat ``success=true`` as the only signal that the project is verified.
+    Do NOT mark the task complete while ``verdict`` is anything other than
+    ``"pass"``.
+
+    Server-side loop (up to ``max_attempts`` iterations):
+    1. Probe local Studio + installed packages (``environment_probe``). If
+       a dependency mismatch is detected and ``auto_install_packages=True``
+       (default), the loop calls ``install_package`` for any version
+       unambiguously implied by Studio's installed pin and re-probes. If
+       mismatches persist, the loop returns ``next_action="install_packages"``
+       with verdict ``"needs_human"``.
+    2. Run ``uip rpa get-errors`` over every ``.xaml`` (or just ``file_path``).
+       On the first failure, return diagnostics with verdict ``"needs_llm_fix"``.
+    3. When validation is clean and ``run_after_validate=True``: execute the
+       entry workflow headless via ``run_workflow``. On failure, return with
+       ``headless_log`` populated and verdict ``"needs_llm_fix"``.
+    4. When the headless run succeeds AND a Studio instance is detected AND
+       ``studio_debug_after_run=True`` (default): also start a Studio debug
+       session via ``debug_workflow`` and capture ``studio_debug_log``. The
+       overall attempt only passes when the Studio debug session also passes.
+       When no Studio is running, the step is skipped and the reason is
+       reported in ``studio_debug_skipped_reason``.
+
+    Loop semantics: between iterations the tool re-runs the full pipeline;
+    if the only failing step is ``probe`` and ``auto_install_packages=True``
+    succeeded, the loop transparently advances. For LLM-driven fixes the
+    loop returns early so the agent can patch XAML and call again.
+
+    Args:
+        project_dir: Path to the UiPath project directory.
+        file_path: Workflow file to verify, e.g. ``Main.xaml``. When omitted
+            (recommended), every ``.xaml`` in the project is validated;
+            runtime execution still targets the project ``main`` entry.
+        max_attempts: Maximum loop iterations before returning. Default 5.
+        run_after_validate: When True (default), run the workflow after
+            static validation passes.
+        input_arguments: Optional JSON string of input args for the run step.
+        timeout_seconds: Forwarded to ``run_workflow``. Default 60.
+        auto_install_packages: When True (default), the loop attempts to
+            resolve dependency mismatches via ``install_package`` itself
+            instead of bailing out for an LLM fix.
+        studio_debug_after_run: When True (default), also attach a Studio
+            debug session after a successful headless run, when a Studio
+            instance is detected.
+        require_studio_debug: When True (default), the verify gate refuses
+            to emit ``verdict="pass"`` unless an attached Studio debug pass
+            also ran. If Studio is unavailable or ``studio_debug_after_run``
+            is False, the call returns ``verdict="needs_human"`` with
+            ``next_action="start_studio_or_waive"``. Set this to False ONLY
+            when the user explicitly waives the Studio debug step.
+
+    Returns:
+        Text payload with a structured JSON block::
+
+            {"success": bool, "phase": str, "attempts": int,
+             "iterations_run": int, "file_path": str|None,
+             "files_checked": [str, ...],
+             "errors": [...], "warnings": [...],
+             "next_action": "fix_and_recall"|"install_packages"|"none",
+             "verdict": "pass"|"needs_llm_fix"|"needs_human",
+             "headless_log": str, "studio_debug_log": str,
+             "studio_debug_skipped_reason": str,
+             "auto_installed_packages": [str, ...],
+             "log_excerpt": str}
+    """
+    safe_max = max(1, int(max_attempts))
+    payload: dict | None = None
+    last_phase = "probe"
+
+    for attempt in range(1, safe_max + 1):
+        payload = _run_one_verify_attempt(
+            project_dir=project_dir,
+            file_path=file_path,
+            run_after_validate=run_after_validate,
+            input_arguments=input_arguments,
+            timeout_seconds=timeout_seconds,
+            auto_install_packages=auto_install_packages,
+            studio_debug_after_run=studio_debug_after_run,
+            attempt_index=attempt,
+            max_attempts=safe_max,
+            require_studio_debug=require_studio_debug,
+        )
+        last_phase = payload.get("phase", last_phase)
+
+        if payload.get("success"):
+            text = _format_build_verify_text(payload)
+            return _tool(True, text + "\n\n" + json.dumps(payload, default=str))
+
+        # Only advance the loop when the iteration made automatic progress
+        # (e.g. auto-installed packages). Anything that needs an LLM patch or
+        # human input is returned immediately so the caller can act.
+        installed = payload.get("auto_installed_packages") or []
+        if installed and last_phase == "probe":
+            continue
+        break
+
+    assert payload is not None
+    text = _format_build_verify_text(payload)
+    return _tool(bool(payload.get("success")), text + "\n\n" + json.dumps(payload, default=str))
+
+
 @tool
 def validate_and_fix_loop(
     project_dir: str,
     file_path: str,
     max_attempts: int = 5,
 ) -> str:
-    """Run validation loop per uipath-rpa skill rules.
-    
-    This tool:
-    1. Runs uip rpa get-errors on the file
-    2. Reports errors found
-    3. Does NOT automatically fix - returns errors for the LLM to fix
-    
-    The LLM should:
-    1. Call this to get errors
-    2. Fix one error at a time with write_file
-    3. Call this again to verify
-    4. Repeat until 0 errors or max_attempts
-    
+    """Single-shot static validation (delegates to build_and_verify_workflow).
+
+    DEPRECATED NAME: kept for backward compatibility with older callers in
+    ``agentic_executor``. Internally calls
+    ``build_and_verify_workflow(run_after_validate=False)``.
+
+    Prefer ``build_and_verify_workflow`` directly so you also get optional
+    runtime execution and dependency-mismatch detection.
+
     Args:
-        project_dir: Path to the UiPath project directory
-        file_path: Relative path to the file to validate
-        max_attempts: Maximum validation attempts (default 5)
-    
+        project_dir: Path to the UiPath project directory.
+        file_path: Relative path to the file to validate.
+        max_attempts: Forwarded to ``build_and_verify_workflow``.
+
     Returns:
-        Validation status and list of errors to fix
+        Same payload shape as ``build_and_verify_workflow``.
     """
-    path = _resolve_project_path(project_dir)
-    
-    result = run_uip_rpa_get_errors(
-        str(path.resolve()),
-        file_path=file_path,
-        use_studio=False,
+    return build_and_verify_workflow.invoke(
+        {
+            "project_dir": project_dir,
+            "file_path": file_path,
+            "max_attempts": int(max_attempts),
+            "run_after_validate": False,
+        }
     )
-    
-    if result["success"]:
-        return _tool(True, f"VALIDATION PASSED: {file_path} has 0 errors")
-    
-    errors = result["errors"]
-    warnings = result["warnings"]
-    
-    msg = f"VALIDATION FAILED: {len(errors)} error(s) in {file_path}\n\n"
-    msg += "ERRORS (fix one at a time):\n"
-    for i, err in enumerate(errors[:max_attempts], 1):
-        msg += f"  {i}. {err}\n"
-    
-    if warnings:
-        msg += f"\nWARNINGS ({len(warnings)}):\n"
-        for w in warnings[:5]:
-            msg += f"  - {w}\n"
-    
-    msg += "\nINSTRUCTIONS: Fix the FIRST error, then call validate_and_fix_loop again."
-    
-    return _tool(False, msg)
 
 
 @tool
@@ -1046,82 +1812,41 @@ def run_workflow(
 
 @tool
 def ensure_project_structure(project_dir: str = ".") -> str:
-    """Ensure the project has required structure (project.json, etc).
-    
-    Creates a minimal project.json if missing. Use this before writing
-    workflow files to ensure the project structure exists.
-    
+    """Confirm a project exists at ``project_dir``, OR delegate to create_project.
+
+    Behavior:
+    - If ``project_dir/project.json`` exists, return success (no changes).
+    - If it does NOT exist, this tool refuses to hand-write a minimal
+      ``project.json`` and instead instructs the caller to run
+      ``create_project`` so dependencies match the local Studio install.
+
+    Hand-written scaffolds are the root cause of multi-major dependency
+    mismatches (e.g. legacy ``UiPath.Core.Activities`` next to modern
+    ``UiPath.System.Activities``). Always go through ``create_project``.
+
     Args:
-        project_dir: Path to the project directory
-    
+        project_dir: Path to the project directory.
+
     Returns:
-        Status message about project structure
+        Status message about project structure.
     """
     path = _resolve_project_path(project_dir)
-    
     path.mkdir(parents=True, exist_ok=True)
-    
+
     project_json = path / "project.json"
     if project_json.exists():
         return _tool(True, f"Project structure OK: {project_json} exists")
-    
-    # Create minimal project.json
-    import uuid
-    template = {
-        "name": path.name or "GeneratedProject",
-        "projectId": str(uuid.uuid4()),
-        "description": "Generated UiPath automation",
-        "main": "Main.xaml",
-        "dependencies": {
-            "UiPath.System.Activities": "[26.2.4]",
-        },
-        "webServices": [],
-        "entryPoints": [
-            {
-                "filePath": "Main.xaml",
-                "uniqueId": str(uuid.uuid4()),
-                "input": [],
-                "output": [],
-            }
-        ],
-        "schemaVersion": "4.0",
-        "studioVersion": "26.0.190.0",
-        "projectVersion": "1.0.0",
-        "runtimeOptions": {
-            "autoDispose": False,
-            "netFrameworkLazyLoading": False,
-            "isPausable": True,
-            "isAttended": False,
-            "requiresUserInteraction": True,
-            "supportsPersistence": False,
-            "workflowSerialization": "NewtonsoftJson",
-            "excludedLoggedData": ["Private:*", "*password*"],
-            "executionType": "Workflow",
-            "readyForPiP": False,
-            "startsInPiP": False,
-            "mustRestoreAllDependencies": True,
-            "pipType": "ChildSession",
-        },
-        "designOptions": {
-            "projectProfile": "Developement",
-            "outputType": "Process",
-            "libraryOptions": {"privateWorkflows": []},
-            "processOptions": {"ignoredFiles": []},
-            "fileInfoCollection": [],
-            "saveToCloud": False,
-        },
-        "expressionLanguage": "VisualBasic",
-        "isTemplate": False,
-        "templateProjectData": {},
-        "publishData": {},
-        "targetFramework": "Windows",
-    }
-    
-    try:
-        project_json.write_text(json.dumps(template, indent=2), encoding="utf-8")
-        return _tool(True, f"Created project.json at {project_json}")
-    except Exception as e:
-        return _tool(False, f"Error creating project.json: {e}")
+
+    return _tool(
+        False,
+        (
+            f"No project.json at {project_json}. Refusing to hand-write a "
+            "minimal project.json (causes Studio dependency mismatches). "
+            "Call create_project(project_dir=<parent>, project_name=<name>) "
+            "instead - it wraps `uip rpa create-project` and auto-validates "
+            "the result."
+        ),
+    )
 
 
 @tool

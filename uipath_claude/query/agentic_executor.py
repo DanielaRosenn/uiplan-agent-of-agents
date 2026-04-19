@@ -79,6 +79,8 @@ WRITE_TOOL_NAMES = frozenset(
         "deploy_to_orchestrator",
         "validate_file",
         "validate_and_fix_loop",
+        "build_and_verify_workflow",
+        "create_project",
         "run_workflow",
         "debug_workflow",
     }
@@ -87,6 +89,69 @@ WRITE_TOOL_NAMES = frozenset(
 
 def _has_executed_plan(tool_calls_made: list[dict[str, Any]]) -> bool:
     return any(tc.get("name") in WRITE_TOOL_NAMES for tc in tool_calls_made)
+
+
+_BUILD_VERIFY_NAMES = frozenset(
+    {"build_and_verify_workflow", "uipath_workflow_build_and_verify"}
+)
+_DESIGN_PROPOSE_NAMES = frozenset({"uipath_design_propose"})
+_PROJECT_MUTATING_NAMES = frozenset(
+    {
+        "write_file",
+        "uipath_workflow_write_file",
+        "install_package",
+        "uipath_workflow_install_package",
+        "deploy_to_orchestrator",
+        "uipath_workflow_deploy",
+        "ensure_project_structure",
+        "create_project",
+        "uipath_workflow_create_project",
+    }
+)
+
+
+def _last_build_verify_was_pass(messages: list[Any]) -> tuple[bool, str | None]:
+    """Inspect the most recent build_and_verify result.
+
+    Returns ``(passed, reason)`` where ``passed`` is True iff the most recent
+    build_and_verify ToolMessage carried ``verdict='pass'`` (or
+    ``success=true`` for legacy formats). When no build_and_verify call has
+    been made, ``passed=False`` and ``reason`` explains.
+    """
+    for msg in reversed(messages):
+        if not isinstance(msg, ToolMessage):
+            continue
+        name = getattr(msg, "name", "") or ""
+        if name not in _BUILD_VERIFY_NAMES:
+            continue
+        content = msg.content if isinstance(msg.content, str) else str(msg.content or "")
+        cl = content.lower()
+        if "verdict='pass'" in cl or '"verdict": "pass"' in cl or "verdict=pass" in cl:
+            return True, None
+        if "verdict='needs_human'" in cl or '"verdict": "needs_human"' in cl:
+            return False, "build_and_verify returned verdict='needs_human'"
+        if "verdict='needs_llm_fix'" in cl or '"verdict": "needs_llm_fix"' in cl:
+            return False, "build_and_verify returned verdict='needs_llm_fix'"
+        if content.startswith("[OK]") and ("verdict" not in cl):
+            return True, None
+        return False, "build_and_verify did not report verdict='pass'"
+    return False, "build_and_verify_workflow has not been called yet"
+
+
+def _has_mutated_project(tool_calls_made: list[dict[str, Any]]) -> bool:
+    return any(tc.get("name") in _PROJECT_MUTATING_NAMES for tc in tool_calls_made)
+
+
+def _has_blocked_observation(messages: list[Any], lookback: int = 8) -> bool:
+    """True when a recent ToolMessage contains a session/design gate block."""
+    recent = messages[-lookback:] if len(messages) >= lookback else messages
+    for msg in recent:
+        if not isinstance(msg, ToolMessage):
+            continue
+        content = msg.content if isinstance(msg.content, str) else str(msg.content or "")
+        if content.startswith("[BLOCKED]"):
+            return True
+    return False
 
 
 def _tool_return_indicates_success(result: str) -> bool:
@@ -327,6 +392,7 @@ class AgenticExecutor:
         tool_success_count = 0
         tool_failure_count = 0
         plan_tool_nudges = 0
+        verify_nudges = 0
         tokens_in_total = 0
         tokens_out_total = 0
         struct_log = StructuredLogger()
@@ -480,6 +546,62 @@ class AgenticExecutor:
                         progress.info(
                             "Approved plan present but no write/validation/deploy-class tool yet; "
                             f"requesting tool calls ({plan_tool_nudges}/5)."
+                        )
+                    continue
+
+                if (
+                    _has_mutated_project(tool_calls_made)
+                    and verify_nudges < 5
+                    and iterations < max_iter
+                ):
+                    passed, reason = _last_build_verify_was_pass(messages)
+                    if not passed:
+                        verify_nudges += 1
+                        messages.append(response)
+                        verify_instruction = (
+                            "SYSTEM: You mutated the project but the verify gate "
+                            "is not satisfied: "
+                            f"{reason}. Call uipath_workflow_build_and_verify "
+                            "for this project_dir and KEEP CALLING IT until the "
+                            "result reports verdict='pass'. Required pipeline: "
+                            "(1) static get-errors clean, (2) headless run exit 0, "
+                            "(3) attached UiPath Studio debug exit 0. If Studio "
+                            "is unavailable the call returns "
+                            "verdict='needs_human' with "
+                            "next_action='start_studio_or_waive' — surface that "
+                            "to the user and ASK whether to start Studio or "
+                            "explicitly waive with require_studio_debug=false. "
+                            "If the design gate or session gate returns "
+                            "[BLOCKED], propose / approve the design or fix "
+                            "the dirty files and re-verify before claiming "
+                            "the task is complete. Do NOT finish with prose only."
+                        )
+                        messages.append(HumanMessage(content=verify_instruction))
+                        if progress:
+                            progress.info(
+                                "Project mutated but build_and_verify has not "
+                                f"reached verdict='pass' ({verify_nudges}/5)."
+                            )
+                        continue
+
+                if _has_blocked_observation(messages) and verify_nudges < 5 and iterations < max_iter:
+                    verify_nudges += 1
+                    messages.append(response)
+                    blocked_instruction = (
+                        "SYSTEM: A recent tool call returned [BLOCKED] from "
+                        "the MCP gate (session or design). You cannot finish "
+                        "until the gate is cleared. Inspect the [BLOCKED] "
+                        "message, then either: (a) propose+approve a design "
+                        "via uipath_design_propose / uipath_design_approve, "
+                        "or (b) call uipath_workflow_build_and_verify until "
+                        "verdict='pass'. Do NOT report success while a "
+                        "[BLOCKED] is the most recent tool result."
+                    )
+                    messages.append(HumanMessage(content=blocked_instruction))
+                    if progress:
+                        progress.info(
+                            "Recent [BLOCKED] from MCP gate; requesting "
+                            f"resolution ({verify_nudges}/5)."
                         )
                     continue
 
@@ -644,10 +766,20 @@ class AgenticExecutor:
                 if ("validation failed" in content_lower or 
                     "validation error" in content_lower or
                     "error(s)" in content_lower) and "validate" in content_lower:
-                    # Make sure it's not "0 errors"
                     if "0 error" not in content_lower and "passed" not in content_lower:
                         return True
-        
+                # MCP gate signals - the build_and_verify / session / design
+                # gate emit these strings and the agent must not stop on them.
+                if msg.content.startswith("[BLOCKED]"):
+                    return True
+                if (
+                    "verdict='needs_human'" in content_lower
+                    or '"verdict": "needs_human"' in content_lower
+                    or "verdict='needs_llm_fix'" in content_lower
+                    or '"verdict": "needs_llm_fix"' in content_lower
+                ):
+                    return True
+
         return False
     
     def _build_system_prompt(
@@ -667,16 +799,40 @@ class AgenticExecutor:
             "2. ALWAYS use tools to perform actions - do not just describe what you would do.",
             f'2b. If SKILL INSTRUCTIONS contain "{PLAN_BLOCK_HEADING}", that block is your '
             "ordered checklist: implement it with tools (scaffold, read/write files, validate) before you stop.",
-            "3. After writing any XAML or .cs file, ALWAYS validate it with validate_file.",
-            "4. If validation fails, fix the errors one at a time and re-validate.",
-            "5. CRITICAL: Do NOT stop or finish until validation passes (0 errors). Keep fixing and re-validating.",
+            "3. BEFORE writing any file into a UiPath project, propose a design "
+            "via uipath_design_propose with a short user-facing summary, then "
+            "ASK THE USER to approve via uipath_design_approve. Do not call "
+            "write_file / install_package on a project until the design gate "
+            "is open (no [BLOCKED] from uipath_workflow_*).",
+            "4. After ANY mutation to a UiPath project (write_file, "
+            "install_package, scaffolding) you MUST call "
+            "uipath_workflow_build_and_verify and KEEP CALLING IT until the "
+            "result reports verdict='pass'. The pipeline must include: "
+            "(a) uip rpa get-errors clean, (b) headless run exit 0, "
+            "(c) attached UiPath Studio debug exit 0.",
+            "5. CRITICAL: Do NOT stop, summarize, or claim the task is "
+            "complete while ANY of the following are true: the most recent "
+            "tool result starts with [BLOCKED]; build_and_verify_workflow "
+            "returned verdict='needs_llm_fix' (fix the reported errors and "
+            "re-call); build_and_verify_workflow returned verdict='needs_human' "
+            "(typically Studio not running - surface the "
+            "next_action='start_studio_or_waive' message to the user and ask "
+            "whether to start Studio or explicitly waive with "
+            "require_studio_debug=false); you have not called "
+            "uipath_workflow_build_and_verify at least once after the last "
+            "mutation. A static get-errors pass alone is NOT sufficient.",
             "6. Check project.json dependencies before using activities - install missing packages.",
-            "7. If user requests deployment/publishing, use deploy_to_orchestrator after validation passes.",
-            "8. When done AND validation passes, provide a summary of what was created/modified.",
+            "7. If user requests deployment/publishing, use deploy_to_orchestrator AFTER build_and_verify reports verdict='pass'.",
+            "8. When done AND verdict='pass', provide a summary of what was created/modified plus the headless and Studio debug log excerpts from the final build_and_verify payload.",
             "9. For write_file and other session-scoped paths, use paths relative to the chat "
             "artifact root only — do not pass Windows absolute paths to write_file.",
             "10. Do not pass --use-studio to the uip CLI via run_uip_command; it is not "
             "supported on all CLI versions.",
+            "11. NEVER edit project files via shell, ApplyPatch, or any path "
+            "that bypasses uipath_workflow_write_file. The MCP detects "
+            "out-of-band edits on the next gated call and will return "
+            "[BLOCKED] until you re-run uipath_workflow_build_and_verify to "
+            "verdict='pass'.",
             "",
             "## DEPLOYMENT",
             "You can deploy workflows to Orchestrator or Studio Web using deploy_to_orchestrator.",

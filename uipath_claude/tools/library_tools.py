@@ -99,31 +99,37 @@ def read_section(book_id: str, chapter_id: str, section_id: str) -> str:
 
 
 @tool
-def search_library(query: str) -> str:
+def search_library(query: str, top_n: int = 5) -> str:
     """Search across all documentation books by keyword.
 
     Args:
-        query: Search term to find in section titles and keywords
+        query: Search term to find in section titles and keywords. Multi-word
+            queries are tokenized; matches in titles or keywords rank highest.
+        top_n: Maximum number of ranked results to return (1-20, default 5).
 
-    Returns matching sections with their locations.
+    Returns matching sections with their machine-parseable ``book/chapter/section``
+    id triple suitable for ``read_section``.
     """
     catalog = LibraryCatalog.load()
-    results = catalog.search_sections(query)
+    results = catalog.search_sections_scored(query)
 
     if not results:
         return f"No matches found for: {query}"
 
-    lines = [f"Found {len(results)} matches for '{query}':\n"]
-    for book, chapter, section in results[:10]:
-        lines.append(
-            f"- **{section.title}** in {book.title} > {chapter.title}"
-        )
-        lines.append(
-            f"  Read with: read_section('{book.id}', '{chapter.id}', '{section.id}')"
-        )
+    limit = max(1, min(int(top_n), 20))
+    shown = results[:limit]
 
-    if len(results) > 10:
-        lines.append(f"\n...and {len(results) - 10} more results")
+    lines = [
+        f"Found {len(results)} matches for '{query}' (showing top {len(shown)}):\n"
+    ]
+    for book, chapter, section, score in shown:
+        lines.append(
+            f"- **{section.title}** in {book.title} > {chapter.title} (score={score})"
+        )
+        lines.append(f"  id: {book.id}/{chapter.id}/{section.id}")
+
+    if len(results) > limit:
+        lines.append(f"\n...and {len(results) - limit} more results")
 
     return "\n".join(lines)
 

@@ -5,7 +5,19 @@ import os
 from pathlib import Path
 from typing import Any
 
-from mcp.types import Tool
+from mcp.types import Tool, ToolAnnotations
+
+def _ro(title: str) -> ToolAnnotations:
+    return ToolAnnotations(title=title, readOnlyHint=True)
+
+
+def _staging(title: str) -> ToolAnnotations:
+    return ToolAnnotations(
+        title=title,
+        readOnlyHint=False,
+        destructiveHint=False,
+        idempotentHint=False,
+    )
 
 from uipath_claude.skills.insights import InsightLayer, InsightType, SkillInsight, SkillInsightsStore
 from uipath_claude.skills.loader import load_skill_content
@@ -34,107 +46,226 @@ def get_skill_tools() -> list[Tool]:
     return [
         Tool(
             name="uipath_skill_list",
-            description="List UiPath skills (optional filter by agent role: ba, sa, developer, qa, conversational)",
+            description=(
+                "Enumerate every loaded UiPath skill, optionally filtered by "
+                "agent role (ba, sa, developer, qa, conversational). Read-only. "
+                "Use for discovery; uipath_skill_match ranks by relevance to a "
+                "user request, and uipath_skill_get loads the full markdown body."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
                     "agent_role": {
                         "type": "string",
                         "enum": ["ba", "sa", "developer", "qa", "conversational"],
+                        "description": "Optional agent role filter.",
                     },
                 },
             },
+            annotations=_ro("List skills"),
         ),
         Tool(
             name="uipath_skill_get",
-            description="Load full markdown body for one skill by name",
+            description=(
+                "Load the full markdown body of a single skill by name. "
+                "Read-only. Use after uipath_skill_list or uipath_skill_match "
+                "identifies the skill you want to apply."
+            ),
             inputSchema={
                 "type": "object",
-                "properties": {"skill_name": {"type": "string"}},
+                "properties": {
+                    "skill_name": {
+                        "type": "string",
+                        "description": "Skill name as returned by uipath_skill_list.",
+                    },
+                },
                 "required": ["skill_name"],
             },
+            annotations=_ro("Read skill body"),
         ),
         Tool(
             name="uipath_skill_match",
-            description="Score and return best-matching skills for free-form user input (same heuristic as CLI chat)",
+            description=(
+                "Rank skills by relevance to a free-form user input using the "
+                "same heuristic as the CLI chat. Read-only. Use to pick which "
+                "skill(s) to load with uipath_skill_get; for the full inventory "
+                "use uipath_skill_list."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "user_input": {"type": "string"},
-                    "top_k": {"type": "integer", "default": 3},
+                    "user_input": {
+                        "type": "string",
+                        "description": "Free-text request to match skills against.",
+                    },
+                    "top_k": {
+                        "type": "integer",
+                        "description": "How many ranked matches to return.",
+                        "default": 3,
+                    },
                 },
                 "required": ["user_input"],
             },
+            annotations=_ro("Match skills to input"),
         ),
         Tool(
             name="uipath_skill_insights_query",
-            description="Query skill insights (summary + raw list) via SkillInsightsTool",
-            inputSchema={
-                "type": "object",
-                "properties": {"skill_name": {"type": "string"}},
-                "required": ["skill_name"],
-            },
-        ),
-        Tool(
-            name="uipath_skill_insights_add",
-            description="Add a skill insight (gotcha, failure_pattern, etc.)",
+            description=(
+                "Read operator-curated insights (gotchas, tips, decisions) for "
+                "one skill, plus a short summary. Read-only. Insights are "
+                "human-authored notes; for auto-promoted high-confidence "
+                "failure patterns use uipath_skill_lessons_list."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "skill_name": {"type": "string"},
-                    "insight_type": {"type": "string"},
-                    "content": {"type": "string"},
-                    "context": {"type": "string"},
+                    "skill_name": {
+                        "type": "string",
+                        "description": "Skill name to read insights for.",
+                    },
+                },
+                "required": ["skill_name"],
+            },
+            annotations=_ro("Read skill insights"),
+        ),
+        Tool(
+            name="uipath_skill_insights_add",
+            description=(
+                "Append a new insight (gotcha, failure_pattern, etc.) for a "
+                "skill into the chosen layer (user, project, or shared). "
+                "Stages locally; not committed to the shared submodule. Use for "
+                "operator-curated notes; lessons promoted from observed failures "
+                "go through uipath_skill_lessons_approve."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "skill_name": {
+                        "type": "string",
+                        "description": "Skill the insight is about.",
+                    },
+                    "insight_type": {
+                        "type": "string",
+                        "description": "Kind of insight (e.g. gotcha, tip, failure_pattern).",
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Insight body in markdown.",
+                    },
+                    "context": {
+                        "type": "string",
+                        "description": "Optional context (where you hit it).",
+                    },
                     "layer": {
                         "type": "string",
                         "enum": ["user", "project", "shared"],
+                        "description": "Storage layer; project is the default.",
                         "default": "project",
                     },
                 },
                 "required": ["skill_name", "insight_type", "content"],
             },
+            annotations=_staging("Add skill insight"),
         ),
         Tool(
             name="uipath_skill_manifest",
-            description="JSON manifest of all loaded skills (names, origins, paths)",
+            description=(
+                "Return a JSON manifest of all loaded skills (names, origins, "
+                "absolute paths). Read-only. Use to debug skill resolution and "
+                "see which submodule version each skill came from."
+            ),
             inputSchema={"type": "object", "properties": {}},
+            annotations=_ro("Read skill manifest"),
         ),
         Tool(
             name="uipath_skill_check_updates",
-            description="Check whether the skills submodule (learning cache) has updates",
+            description=(
+                "Report whether the skills git submodule (learning cache) has "
+                "remote updates pending, with current and remote commit hashes. "
+                "Read-only; does NOT mutate the cache. Run uipath_skill_update "
+                "to actually pull."
+            ),
             inputSchema={"type": "object", "properties": {}},
+            annotations=_ro("Check skill updates"),
         ),
         Tool(
             name="uipath_skill_update",
-            description="Refresh skills submodule cache (force=true bypasses 6h throttle)",
+            description=(
+                "Refresh the skills submodule cache by fetching and resetting "
+                "to the remote head, throttled to once every 6 hours unless "
+                "force=true. Destructive: rewrites .git submodule state and "
+                "the on-disk skills tree. Pair with uipath_skill_check_updates "
+                "for a read-only preview."
+            ),
             inputSchema={
                 "type": "object",
-                "properties": {"force": {"type": "boolean", "default": False}},
+                "properties": {
+                    "force": {
+                        "type": "boolean",
+                        "description": "If true, bypass the 6h throttle.",
+                        "default": False,
+                    },
+                },
             },
+            annotations=ToolAnnotations(
+                title="Refresh skills submodule cache",
+                readOnlyHint=False,
+                destructiveHint=True,
+                idempotentHint=False,
+            ),
         ),
         Tool(
             name="uipath_skill_lessons_list",
-            description="List high-confidence lessons for a skill",
+            description=(
+                "List high-confidence lessons (auto-promoted failure patterns) "
+                "for a skill. Read-only. Lessons are derived from observed "
+                "failures; for human-authored notes use uipath_skill_insights_query."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "skill_name": {"type": "string"},
-                    "limit": {"type": "integer", "default": 5},
+                    "skill_name": {
+                        "type": "string",
+                        "description": "Skill to read lessons for.",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max lessons to return, ranked by confidence.",
+                        "default": 5,
+                    },
                 },
                 "required": ["skill_name"],
             },
+            annotations=_ro("List skill lessons"),
         ),
         Tool(
             name="uipath_skill_lessons_approve",
-            description="Persist an approved lesson (failure pattern) for a skill",
+            description=(
+                "Persist an approved lesson (failure pattern) for a skill into "
+                "the project insights store. Destructive: appends to the "
+                "skill insights database; use uipath_skill_lessons_list first "
+                "to avoid duplicates."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "skill_name": {"type": "string"},
-                    "content": {"type": "string"},
+                    "skill_name": {
+                        "type": "string",
+                        "description": "Skill the lesson applies to.",
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "Lesson body (failure pattern + remediation).",
+                    },
                 },
                 "required": ["skill_name", "content"],
             },
+            annotations=ToolAnnotations(
+                title="Approve skill lesson (persists failure pattern)",
+                readOnlyHint=False,
+                destructiveHint=True,
+                idempotentHint=False,
+            ),
         ),
     ]
 

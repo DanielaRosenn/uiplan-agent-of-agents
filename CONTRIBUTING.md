@@ -75,6 +75,85 @@ python run_evals.py
 - `pytest tests/unit/<path>` to iterate on a single area.
 - Run evaluations before merging anything that touches the executor, planner, or skill registry.
 
+## MCP design-approval gate
+
+Before the first write to a project the agent must propose a design and the
+user must approve it. This stops the agent from racing into XAML before the
+human has signed off on the architectural choices (REFramework vs simple
+sequence, which packages, queue-driven vs synchronous, etc.).
+
+Flow:
+
+1. Agent gathers user intent. When trade-offs exist it asks the user (e.g.
+   via Cursor's `AskQuestion`) to confirm the choices.
+2. Agent calls `uipath_design_propose` with `project_dir`, `title`,
+   `summary`, `body`, optional `rationale`, and `citations`. The MCP returns
+   a `design_id` and the project remains write-locked.
+3. Human reviews the summary and runs `uipath_design_approve` (or
+   `uipath_design_reject`) with that `design_id`.
+4. Once approved, `uipath_workflow_write_file` and
+   `uipath_workflow_install_package` accept calls for that project.
+
+Inspect status via `uipath_design_status` or list every proposal with
+`uipath_design_list`.
+
+Overrides:
+
+- `UIPATH_DESIGN_APPROVAL_ENABLED=0` disables the design gate entirely
+  (default `1`).
+- `UIPATH_DESIGN_STORE_PATH=...` overrides the storage location (default
+  `~/.uipath-builder-agent/design_proposals.json`).
+- Per-call `allow_unapproved=true` on `uipath_workflow_write_file` /
+  `uipath_workflow_install_package` bypasses for one call. Use only when
+  the user explicitly waives the design step.
+
+## MCP session gate
+
+The `uipath-builder-agent` MCP server enforces an analyze/debug/fix loop on
+every UiPath project it touches via a per-project session gate (see
+[uipath_claude/tools/session_gate.py](uipath_claude/tools/session_gate.py)).
+Behavior:
+
+- Any successful `uipath_workflow_write_file` to a `.xaml`, `.cs`,
+  `.json`, or `.uiproj` file marks the owning project (nearest ancestor
+  with a `project.json`) as `dirty`.
+- A successful `uipath_workflow_install_package` also marks `dirty`.
+- While `dirty`, the gated tools `uipath_workflow_run`,
+  `uipath_workflow_debug`, `uipath_workflow_install_package`,
+  `uipath_workflow_run_command`, and `uipath_workflow_deploy` return
+  `[BLOCKED] ...` instead of executing.
+- The only way to clear `dirty` -> `verified` is
+  `uipath_workflow_build_and_verify` returning `success=true` with
+  `verdict=pass`. That tool runs the full loop server-side: probe -> auto
+  install (when possible) -> `uip rpa get-errors` -> headless run -> Studio
+  debug. With the default `require_studio_debug=true`, the Studio debug
+  step is mandatory: when no Studio instance is detected, the call returns
+  `verdict='needs_human'` with `next_action='start_studio_or_waive'` and
+  the project stays `dirty`. The gate refuses to silently downgrade to a
+  static-only "pass".
+- Inspect state any time with `uipath_workflow_session_status`.
+- The gate also detects out-of-band writes: every time a gated tool runs,
+  the gate sweeps the project's tracked files (`.xaml`, `.cs`, `.json`,
+  `.uiproj`) and flips to `dirty` when any mtime is newer than
+  `last_verify_at`. This catches manual saves, IDE edits, and any
+  `ApplyPatch`-style writes that bypass `uipath_workflow_write_file`.
+
+Overrides:
+
+- `UIPATH_MCP_GATE_ENABLED=0` disables the gate process-wide. Set to `1`
+  (default) for normal operation.
+- Per-call `allow_unverified=true` bypasses the gate for one tool call.
+  Use only when the user explicitly asks; the gate state itself is not
+  cleared by an override.
+- Per-call `require_studio_debug=false` on `uipath_workflow_build_and_verify`
+  waives the mandatory Studio debug step. Use only when the user explicitly
+  asks (e.g. CI host with no Studio installed).
+- `unknown` (no writes observed in this MCP process yet) is a soft pass so
+  server restarts don't deadlock honest users; only `dirty` blocks. The
+  out-of-band sweep does run from `unknown`, so a project that was edited
+  before the MCP started will still be detected as `dirty` on the first
+  gated call.
+
 ## Commit hygiene
 
 - Keep diffs minimal; do not refactor unrelated code in the same PR.

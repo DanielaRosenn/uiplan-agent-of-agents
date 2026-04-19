@@ -84,3 +84,14 @@ docs/evaluations/results/
 # Sample UiPath test project: keep only tracked project.json; never commit full projects
 tests/fixtures/sample_project/*
 !tests/fixtures/sample_project/project.json
+
+# UiPath Studio build artifacts (per-project caches, settings, packages)
+**/.local/
+**/.project/
+**/.settings/
+**/.tmh/
+**/.entities/
+*.nupkg
+
+# Locally scaffolded example projects (build artifacts, not source)
+examples/InvoiceQueueProcessor/

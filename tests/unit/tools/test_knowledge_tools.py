@@ -77,3 +77,24 @@ def test_web_search_disabled_without_env(monkeypatch):
     monkeypatch.delenv("UIPATH_WEB_SEARCH_ENABLED", raising=False)
     out = web_search.invoke({"query": "test", "max_results": 3})
     assert "[ERROR]" in out or "disabled" in out.lower()
+
+
+def test_lookup_failure_envelope_contains_source_marker(monkeypatch):
+    """Even on full miss the response must end with a SOURCE: line."""
+    mock_cat = MagicMock()
+    mock_cat.search_sections.return_value = []
+    monkeypatch.setattr(
+        "uipath_claude.tools.knowledge_tools.LibraryCatalog.load",
+        classmethod(lambda cls: mock_cat),
+    )
+    monkeypatch.setattr(
+        "uipath_claude.tools.knowledge_tools.query_uipath_documentation",
+        lambda q: ToolOutcome(False, "ask failed"),
+    )
+    monkeypatch.delenv("UIPATH_WEB_SEARCH_ENABLED", raising=False)
+
+    out = lookup_uipath_knowledge.invoke(
+        {"question": "anything", "allow_network": False}
+    )
+    assert "SOURCE:" in out
+    assert "SOURCE: none" in out

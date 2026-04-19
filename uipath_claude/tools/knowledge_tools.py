@@ -195,12 +195,12 @@ def lookup_uipath_knowledge(question: str, allow_network: bool = True) -> str:
             )
         return line
 
-    # Library miss + Ask AI fail + web off or disabled
     fail_part = ask.to_text()
     return (
         f"{fail_part}\n"
         "[ERROR] No library hit; Ask AI unavailable or failed. "
-        "Enable UIPATH_ASKAI_ENDPOINT or UIPATH_WEB_SEARCH_ENABLED + API keys as needed."
+        "Enable UIPATH_ASKAI_ENDPOINT or UIPATH_WEB_SEARCH_ENABLED + API keys as needed.\n"
+        "---\nSOURCE: none"
     )
 
 

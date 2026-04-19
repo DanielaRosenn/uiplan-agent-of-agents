@@ -15,6 +15,10 @@ chapters:
   order: 4
   path: chapters/04-best-practices
   title: Best Practices
+- id: patterns
+  order: 5
+  path: chapters/05-patterns
+  title: Patterns
 id: uipath-docs
 source: docs.uipath.com
 title: UiPath Documentation
