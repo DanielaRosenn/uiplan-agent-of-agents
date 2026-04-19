@@ -117,3 +117,37 @@ class TestRunPlannerAgent:
         tools = call_kwargs.get("tools", [])
         expected_tools = get_planning_tools()
         assert len(tools) == len(expected_tools)
+
+    @pytest.mark.asyncio
+    @patch("uipath_claude.query.planner.AgenticExecutor")
+    async def test_forwards_history_as_prior_messages(self, mock_executor_cls):
+        from uipath_claude.query.planner import run_planner_agent
+        from uipath_claude.query.agentic_executor import AgenticResult
+
+        mock_executor = MagicMock()
+        mock_executor.execute = AsyncMock(
+            return_value=AgenticResult(
+                success=True,
+                final_response="Plan",
+                iterations=1,
+                tool_calls_made=[],
+                files_written=[],
+                error=None,
+            )
+        )
+        mock_executor_cls.return_value = mock_executor
+
+        history = [
+            {"role": "user", "content": "/library-proposals list"},
+            {"role": "assistant", "content": "[command output: /library-proposals]\nb7b2f171280b ..."},
+        ]
+
+        await run_planner_agent(
+            "add all from the proposal list",
+            model_name="test-model",
+            region="us-east-1",
+            history=history,
+        )
+
+        call_kwargs = mock_executor.execute.call_args.kwargs
+        assert call_kwargs.get("prior_messages") == history

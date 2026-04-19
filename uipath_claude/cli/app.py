@@ -1080,7 +1080,20 @@ def chat(
                         "Use /status to inspect active profile."
                     )
                     continue
-                console.print(registry.execute(command, *args))
+                output = registry.execute(command, *args)
+                console.print(output)
+                output_text = str(output) if output is not None else ""
+                if output_text.strip():
+                    max_chars = 4000
+                    if len(output_text) > max_chars:
+                        output_text = output_text[:max_chars] + "\n...(truncated)"
+                    history.append({"role": "user", "content": user_input})
+                    history.append(
+                        {
+                            "role": "assistant",
+                            "content": f"[command output: /{command}]\n{output_text}",
+                        }
+                    )
                 continue
             if route == "skill_usage":
                 console.print("Usage: /skill <skill-name> <query>")
@@ -1252,6 +1265,7 @@ def chat(
                                     project_context=project_context,
                                     model_name=model_name,
                                     region=region,
+                                    history=list(history),
                                 )
                             )
                     
@@ -1286,6 +1300,10 @@ def chat(
                                 output_root=_get_output_root(),
                             )
                             console.print(f"[dim]Plan saved to: {plan_path}[/dim]")
+                            history.append({"role": "user", "content": user_input})
+                            history.append(
+                                {"role": "assistant", "content": f"[approved plan]\n{approved_plan}"}
+                            )
                             break
                         elif confirm in ("n", "no"):
                             progress.info("Plan cancelled.")

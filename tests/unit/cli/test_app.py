@@ -370,6 +370,43 @@ def test_cli_chat_question_streaming_callback():
     assert callable(captured.get("on_delta"))
 
 
+def test_cli_chat_slash_command_output_added_to_history():
+    """Slash command output should be appended to history so the next QA turn sees it."""
+    with patch("uipath_claude.cli.app._create_engine") as create_engine:
+        create_engine.return_value = object()
+        mock_graph = MagicMock()
+        mock_graph.ainvoke = AsyncMock()
+
+        captured: dict[str, Any] = {}
+
+        async def _simple_answer(**kwargs):
+            captured["history"] = list(kwargs.get("history") or [])
+            captured["user_input"] = kwargs.get("user_input")
+            return "ok"
+
+        with patch("uipath_claude.cli.app.compile_chat_graph", return_value=mock_graph):
+            with patch(
+                "uipath_claude.cli.app.simple_llm_answer",
+                new=AsyncMock(side_effect=_simple_answer),
+            ):
+                result = runner.invoke(
+                    app,
+                    ["chat", "--no-banner", "--no-stream"],
+                    input="/status\nwhat did /status just say?\nexit\n",
+                )
+
+    assert result.exit_code == 0
+    history = captured.get("history") or []
+    assert any(m.get("role") == "user" and m.get("content") == "/status" for m in history), (
+        f"Expected /status user turn in history, got: {history}"
+    )
+    assistant_logs = [
+        m for m in history
+        if m.get("role") == "assistant" and "[command output: /status]" in (m.get("content") or "")
+    ]
+    assert assistant_logs, f"Expected slash output in history, got: {history}"
+
+
 def test_select_relevant_skills_prefers_rpa_workflow():
     """Workflow prompts should prioritize the RPA workflow skill."""
     skills = [

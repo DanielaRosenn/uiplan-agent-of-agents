@@ -40,6 +40,14 @@ from uipath_claude.query.intent_classifier import IntentType, classify_intent
         ("could you explain how queues work?", IntentType.QUESTION, "capability"),
         ("are you able to read an SDD?", IntentType.QUESTION, "capability"),
         ("can you build a dispatcher", IntentType.BUILD, "build"),
+        ("do we have this in books?", IntentType.QUESTION, "question"),
+        ("is there a sample for invoices?", IntentType.QUESTION, "question"),
+        ("where is the planner skill?", IntentType.QUESTION, "question"),
+        ("which book contains retry patterns?", IntentType.QUESTION, "question"),
+        ("does the library have a chapter on triggers?", IntentType.QUESTION, "question"),
+        ("build a workflow that sends email", IntentType.BUILD, "build"),
+        ("create a pdd", IntentType.DOCUMENTATION, "doc"),
+        ("random unparseable noun phrase here", IntentType.AMBIGUOUS, "default"),
     ],
 )
 def test_classify_intent(text: str, expected: IntentType, reason_substr: str) -> None:

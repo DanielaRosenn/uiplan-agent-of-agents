@@ -18,13 +18,30 @@ class IntentType(str, Enum):
 _QUESTION_PHRASES = (
     "what is ",
     "what are ",
+    "what ",
     "how does ",
     "how do ",
+    "how can ",
+    "how would ",
     "explain ",
     "why ",
     "when should ",
+    "when ",
+    "where ",
+    "which ",
+    "who ",
     "can you tell me",
     "do you know",
+    "do we ",
+    "does ",
+    "did ",
+    "is there ",
+    "are there ",
+    "is it ",
+    "have we ",
+    "has ",
+    "should i ",
+    "should we ",
 )
 
 _CAPABILITY_OPENERS = (
@@ -162,6 +179,9 @@ def classify_intent(user_input: str) -> tuple[IntentType, str]:
     if has_doc_keyword and not has_build:
         return IntentType.DOCUMENTATION, "doc_keyword"
 
+    if ends_interrogative and not has_build:
+        return IntentType.QUESTION, "interrogative_punctuation"
+
     if has_build:
         if _is_vague(lower, user_tokens):
             return IntentType.AMBIGUOUS, "vague_build"
@@ -170,4 +190,4 @@ def classify_intent(user_input: str) -> tuple[IntentType, str]:
     if _is_vague(lower, user_tokens):
         return IntentType.AMBIGUOUS, "vague_request"
 
-    return IntentType.BUILD, "default"
+    return IntentType.AMBIGUOUS, "default"

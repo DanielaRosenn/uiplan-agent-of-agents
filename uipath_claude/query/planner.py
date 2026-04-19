@@ -15,6 +15,7 @@ async def run_planner_agent(
     *,
     model_name: str,
     region: str,
+    history: list[dict[str, str]] | None = None,
 ) -> AgenticResult:
     """Run the read-only planning agent.
     
@@ -104,4 +105,5 @@ REMEMBER: You can ONLY explore and plan. You CANNOT and MUST NOT write, edit, or
         project_context=ctx,
         skill_name="uipath-planner",
         max_iterations=planner_max,
+        prior_messages=history,
     )

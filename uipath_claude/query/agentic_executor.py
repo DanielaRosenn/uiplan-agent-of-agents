@@ -325,6 +325,7 @@ class AgenticExecutor:
         *,
         skill_name: str = "unknown",
         max_iterations: int | None = None,
+        prior_messages: list[dict[str, str]] | None = None,
     ) -> AgenticResult:
         """Execute a skill with tool access.
         
@@ -376,10 +377,18 @@ class AgenticExecutor:
 
         system_prompt = self._build_system_prompt(skill_body, context)
 
-        messages: list[Any] = [
-            SystemMessage(content=system_prompt),
-            HumanMessage(content=user_request),
-        ]
+        messages: list[Any] = [SystemMessage(content=system_prompt)]
+        if prior_messages:
+            for msg in prior_messages:
+                role = (msg.get("role") or "").lower()
+                content = msg.get("content") or ""
+                if not content:
+                    continue
+                if role == "user":
+                    messages.append(HumanMessage(content=content))
+                elif role == "assistant":
+                    messages.append(AIMessage(content=content))
+        messages.append(HumanMessage(content=user_request))
 
         llm = self._get_llm()
         llm_with_tools = llm.bind_tools(tools)
@@ -563,10 +572,16 @@ class AgenticExecutor:
                             "is not satisfied: "
                             f"{reason}. Call uipath_workflow_build_and_verify "
                             "for this project_dir and KEEP CALLING IT until the "
-                            "result reports verdict='pass'. Required pipeline: "
-                            "(1) static get-errors clean, (2) headless run exit 0, "
-                            "(3) attached UiPath Studio debug exit 0. If Studio "
-                            "is unavailable the call returns "
+                            "result reports verdict='pass'. Required pipeline "
+                            "(in order, ALL must pass): "
+                            "(1) `uip rpa get-errors --min-severity error` clean — pass 1, "
+                            "(2) `uip rpa get-errors --min-severity error` clean — pass 2 "
+                            "(guards against the Studio IPC stale-cache failure mode), "
+                            "(3) `uip rpa run-file --command StartExecution` exit 0 "
+                            "(headless run), "
+                            "(4) when Studio is detected: `uip rpa run-file --command "
+                            "StartDebugging --use-studio` exit 0 (attached debug). "
+                            "If Studio is unavailable the call returns "
                             "verdict='needs_human' with "
                             "next_action='start_studio_or_waive' — surface that "
                             "to the user and ASK whether to start Studio or "
@@ -807,9 +822,17 @@ class AgenticExecutor:
             "4. After ANY mutation to a UiPath project (write_file, "
             "install_package, scaffolding) you MUST call "
             "uipath_workflow_build_and_verify and KEEP CALLING IT until the "
-            "result reports verdict='pass'. The pipeline must include: "
-            "(a) uip rpa get-errors clean, (b) headless run exit 0, "
-            "(c) attached UiPath Studio debug exit 0.",
+            "result reports verdict='pass'. The pipeline must include, in order: "
+            "(a) `uip rpa get-errors --min-severity error` clean — pass 1, "
+            "(b) `uip rpa get-errors --min-severity error` clean — pass 2 "
+            "(the Studio IPC behind get-errors is stateful and a single pass "
+            "can return a stale 'No diagnostics found' while real errors exist), "
+            "(c) headless run exit 0 (`StartExecution`), "
+            "(d) attached UiPath Studio debug exit 0 (`StartDebugging --use-studio`) "
+            "when Studio is detected; otherwise verdict='needs_human' with "
+            "next_action='start_studio_or_waive'. A single get-errors pass is "
+            "NOT sufficient; the BUILD_LOG.md for the project must capture each "
+            "step.",
             "5. CRITICAL: Do NOT stop, summarize, or claim the task is "
             "complete while ANY of the following are true: the most recent "
             "tool result starts with [BLOCKED]; build_and_verify_workflow "
