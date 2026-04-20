@@ -59,7 +59,14 @@ Thumbs.db
 .worktrees/
 
 # Cursor local IDE data
-.cursor/
+# Ignore everything under .cursor/ *except* the files we explicitly share with
+# the team (hooks). Git will only honor re-inclusion rules when the parent
+# directory is not itself ignored, so we ignore contents with /* instead of
+# ignoring the directory with a trailing slash.
+.cursor/*
+!.cursor/hooks.json
+!.cursor/hooks
+.cursor/hooks/state/
 
 # Local runtime / tooling data
 # Legacy cache dirs accidentally created inside committed library content

@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .cursor/hooks/check-skills-update.ps1",
+        "timeout": 20,
+        "failClosed": false
+      }
+    ]
+  }
+}

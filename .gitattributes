@@ -1,0 +1,3 @@
+# Hooks config must be diffable so team PRs show actual changes.
+.cursor/hooks.json text eol=lf
+.cursor/hooks/*.sh text eol=lf

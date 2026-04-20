@@ -7,7 +7,7 @@
 ![Built with](https://img.shields.io/badge/built%20with-LangGraph%20%2B%20Bedrock-6f42c1)
 ![Status](https://img.shields.io/badge/status-v0.2-green)
 
-RPA developers spend hours scaffolding projects, hand-writing XAML, and chasing validator errors that all look alike. UiPath Claude Code runs that loop for you: it scaffolds the project, writes the XAML, runs the UiPath validator, fixes what it breaks, and only stops to ask when a human decision actually matters. It works from the CLI, inside Cursor, and as a full BA → SA → Dev → QA pipeline that turns a one-paragraph brief into a validated UiPath project.
+RPA developers spend hours scaffolding projects, hand-writing XAML, and chasing validator errors that all look alike. UiPath Claude Code runs that loop for you: it scaffolds the project, writes the XAML, runs the UiPath validator, fixes what it breaks, and only stops to ask when a human decision actually matters. It works from the CLI, inside Cursor, and as a full BA → SA → ADD → TDD → Dev → QA pipeline that turns a one-paragraph brief into a validated, packaged, optionally deployed UiPath project.
 
 ![demo](docs/assets/demo.gif)
 
@@ -80,7 +80,7 @@ Three supported ways to use the project. Pick one (or combine).
 
 ### A. CLI (`uipath-claude chat`) — Claude Code-style agent
 
-The full agentic CLI with auto-fix loop, planner, and BA -> SA -> Dev -> QA pipeline.
+The full agentic CLI with auto-fix loop, planner, and BA -> SA -> ADD -> TDD -> Dev -> QA pipeline driven by `/pdd`.
 
 - Requires `pip install -e ".[dev]"` and AWS Bedrock access.
 - Run: `uipath-claude chat`
@@ -117,8 +117,8 @@ Adds validation, package install, and run-workflow tools to Cursor via the bundl
 ## What it does
 
 - **Generate validated UiPath projects from a description.** Describe the automation in plain English; the agent scaffolds the project, writes XAML, runs the UiPath Workflow Analyzer and `uip rpa` validator, and auto-fixes validator errors until the workflow passes both static and runtime checks.
-- **Bootstrap end-to-end with the BA → SA → Dev → QA pipeline.** `uipath-claude start-project "InvoiceBot"` turns a one-paragraph brief into a PDD, SDD, working code, and a QA report. Plan mode gives you a read-only proposal to approve before any files are written.
-- **Works where you work.** Use the CLI (`uipath-claude chat`), drive it from Cursor (the skills register automatically after running `scripts/setup-cursor.ps1`), or call slash commands like `/skills`, `/bootstrap`, `/analyze`, `/recall`.
+- **Bootstrap end-to-end with the BA → SA → ADD → TDD → Dev → QA pipeline.** `/pdd "InvoiceBot"` turns a one-paragraph brief into a PDD, SDD, ADD, TDD, scaffolded project, validated workflow, and (optionally) a published + deployed Orchestrator process. The legacy four-stage `/bootstrap` flow is still available for quick BA → SA → Dev → QA runs. Full reference: [docs/PDD_LIFECYCLE.md](docs/PDD_LIFECYCLE.md).
+- **Works where you work.** Use the CLI (`uipath-claude chat`), drive it from Cursor (the skills register automatically after running `scripts/setup-cursor.ps1`), or call slash commands like `/pdd`, `/bootstrap`, `/skills`, `/analyze`, `/recall`.
 - **Learns as you use it.** A layered skills system (user → project → team extensions → official UiPath submodule) plus a library learning loop capture gotchas and edge cases as you hit them, so the agent gets better at your codebase over time.
 - **Safe by default.** Tool profiles (`safe`, `uipath-dev`, `all`), per-operation approval gates, and session hooks keep destructive actions behind human review. Nothing touches Orchestrator unless you say so.
 
@@ -160,13 +160,18 @@ The chat runtime loads a **skill registry** from several filesystem layers (user
 
 ```mermaid
 flowchart LR
-    Brief[One-paragraph brief] --> BA[BA agent: PDD]
-    BA -->|approve| SA[SA agent: SDD]
-    SA -->|approve| Dev[Developer agent: code + validate]
+    Brief[One-paragraph brief] --> BA[BA: PDD]
+    BA --> SA[SA: SDD]
+    SA --> ADD[ADD: architecture]
+    ADD --> TDD[TDD: tech + test design]
+    TDD --> Dev[Developer: scaffold + code + validate]
     Dev -->|auto-fix loop| Dev
-    Dev -->|approve| QA[QA agent: test + report]
-    QA --> Done[Tagged release artifacts]
+    Dev --> QA[QA: review + tests]
+    QA --> Done[Generated project]
+    Dev -.->|"--deploy"| Publish[Publish + Orchestrator process]
 ```
+
+The new six-agent flow is driven by the `/pdd` slash command and is documented in [docs/PDD_LIFECYCLE.md](docs/PDD_LIFECYCLE.md). The legacy `/bootstrap` BA → SA → Dev → QA flow is still wired in for short runs (see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)).
 
 Deeper technical detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -178,13 +183,27 @@ Deeper technical detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - [docs/INSTALL.md](docs/INSTALL.md) — full installation (UiPath CLI, Studio, submodules, AWS)
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — runtime, executor, validator gate, pipeline
 - [docs/USER_GUIDE.md](docs/USER_GUIDE.md) — day-to-day CLI usage
+- [docs/PDD_LIFECYCLE.md](docs/PDD_LIFECYCLE.md) — full `/pdd` lifecycle: BA → SA → ADD → TDD → Dev → QA → publish → deploy
 - [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md) — using the skills inside Cursor
 - [docs/TOOLS.md](docs/TOOLS.md) — tool registry reference
 - [docs/SKILL_LAYOUT.md](docs/SKILL_LAYOUT.md) — skill layering and provenance
 - [docs/LIBRARY_LEARNING.md](docs/LIBRARY_LEARNING.md) — library learning loop
-- [docs/EVALUATION_RESULTS.md](docs/EVALUATION_RESULTS.md) — evaluation framework results
+- [docs/SMOKE_TESTS.md](docs/SMOKE_TESTS.md) — end-to-end smoke scenarios
 - [CONTRIBUTING.md](CONTRIBUTING.md) — how to add skills, tools, and slash commands
 - [CHANGELOG.md](CHANGELOG.md) — release history
+
+---
+
+## Keeping skills up to date
+
+The `skills/` git submodule tracks [UiPath/skills](https://github.com/UiPath/skills). The workspace's `.cursor/skills` is a junction into `skills/skills/`, so any submodule bump is picked up by Cursor immediately. Four paths to stay current:
+
+- **Automatic (server-side, daily):** [.github/workflows/update-skills-submodule.yml](.github/workflows/update-skills-submodule.yml) runs at 06:00 UTC and opens a PR `chore/update-skills-submodule` when upstream moves. Also triggerable from the Actions tab.
+- **Automatic (per Cursor session, every 2 days):** [.cursor/hooks.json](.cursor/hooks.json) registers a `sessionStart` hook that runs [.cursor/hooks/check-skills-update.ps1](.cursor/hooks/check-skills-update.ps1) on Windows (or `.sh` on mac/linux). It surfaces a banner in the new chat when updates are available; throttled via `.cursor/hooks/state/last-update-check` (gitignored, per-user). Change `$ThrottleDays` at the top of the script to tune the cadence.
+- **Manual in chat:** `/update-skills [--check|--info|--force]` and `/scan-upstream-skills` inside the CLI.
+- **Manual in a shell:** `scripts/update-skills.ps1 [-Check] [-Commit]` (or `scripts/update-skills.sh [--check|--commit]`) for one-off pulls outside Cursor.
+
+> Mac/linux teammates: if `pwsh` is not installed, replace the `command` in `.cursor/hooks.json` with `bash .cursor/hooks/check-skills-update.sh`, or place an override at `~/.cursor/hooks.json` (user-scope hooks take precedence over project-scope).
 
 ---
 
