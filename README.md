@@ -152,9 +152,27 @@ flowchart LR
     classDef build fill:#DCFCE7,stroke:#16A34A,color:#14532D
 ```
 
-### CLI entry points
+### Starting a new project
 
-All seven tools are exposed via `uipath-claude plan <subcommand>` (and the corresponding MCP tools):
+Same seven steps either way. Cursor drives them through chat + the MCP tools; the CLI gives you one command per step. Pick whichever your session is in.
+
+#### In Cursor (recommended for interactive work)
+
+Prereq: ran `scripts/setup-cursor.ps1` / `.sh` so `.cursor/mcp.json` is wired and the `uipath-builder-agent` MCP server shows **connected** under Cursor Settings -> MCP. The `brainstorming-plan` skill (`.cursor/skills/brainstorming-plan/SKILL.md`) auto-loads and orchestrates the loop.
+
+1. **Kick it off in chat.** Say *"Let's plan a new automation for &lt;X&gt;"* or *"Use the brainstorming-plan skill to plan &lt;X&gt;"*. The skill calls `uipath_plan_new` to scaffold a draft under `.cursor/plans/<date>-<slug>.md` (git-ignored, per-user).
+2. **Ground it.** The skill calls `uipath_plan_brainstorm`, which returns suggested library searches, candidate specialist skills (`uipath-rpa`, `uipath-agents`, ...), PDD/SDD/ADD candidates under `docs/`, and up to three clarifying questions. Answer them in chat.
+3. **Refine iteratively.** Ask for task breakdowns, mermaid diagrams, or section rewrites. The skill calls `uipath_plan_refine` with structured ops (`append_task`, `set_goal`, `add_mermaid`, `replace_body_section`). Each refine writes a snapshot under `.cursor/plans/.snapshots/` so you can diff.
+4. **Review the diff.** *"Show me what changed since the last snapshot"* -> `uipath_plan_diff --mode self`. Against a previously published version: `--mode vs-published`.
+5. **Accept (or reject).** *"Accept this plan"* -> `uipath_plan_accept` stamps `accepted_at` / `accepted_by` in the front matter. Cursor's native Allow/Deny card will also surface on any destructive tool. To reject: `uipath_plan_reject` with a non-empty reason.
+6. **Publish.** *"Publish the plan"* -> `uipath_plan_publish` promotes the draft from `.cursor/plans/` to `docs/plans/` and regenerates `docs/plans/README.md` on commit.
+7. **Hand off to build.** *"/pdd &lt;slug&gt;"* (full BA -> SA -> ADD -> TDD -> Dev -> QA pipeline) or just *"implement this plan"* to run the validator-gated build loop.
+
+The skill enforces read-only grounding before any writes, batches your clarifying questions, and stops at the accept gate before promoting anything.
+
+#### From the CLI
+
+All seven tools are exposed via `uipath-claude plan <subcommand>` (and map 1:1 to the MCP tools above):
 
 ```bash
 # 1. Scaffold a draft under .cursor/plans/
@@ -180,7 +198,7 @@ uipath-claude plan publish --slug invoice-routing
 uipath-claude plan list --scope both
 ```
 
-Inside Cursor, invoke the matching MCP tools directly (`uipath_plan_new`, `uipath_plan_brainstorm`, ...). The `.cursor/skills/brainstorming-plan/` skill orchestrates the full loop when you say "let's plan this out".
+Same files, same MCP tools - no drift between the two paths.
 
 ### Optional hard gate (`UIPATH_PLAN_GATE=1`)
 
@@ -203,9 +221,10 @@ Unset or set to `0` to restore the default (no gate).
 | Scenario | Entry point |
 |---|---|
 | One-off change with an obvious design | Skip - just edit and validate |
-| Multi-step task, multiple valid approaches, or touches several files | `plan new` -> `brainstorm` -> `refine` loop |
+| Planning interactively in Cursor | Chat: *"Use the brainstorming-plan skill to plan &lt;X&gt;"* |
+| Planning from a terminal / CI | `uipath-claude plan new ...` -> `brainstorm` -> `refine` -> `accept` -> `publish` |
 | Formal PDD/SDD/ADD lifecycle (BA -> SA -> ADD -> TDD -> Dev -> QA) | `/pdd` - see [docs/PDD_LIFECYCLE.md](docs/PDD_LIFECYCLE.md) |
-| Quick CLI-routing question ("which skill handles X?") | `uipath-planner` skill directly |
+| Quick routing question ("which skill handles X?") | `uipath-planner` skill directly |
 
 The planning framework and `/pdd` are complementary: the planning loop is for authoring the change; `/pdd` is the formal document lifecycle.
 
