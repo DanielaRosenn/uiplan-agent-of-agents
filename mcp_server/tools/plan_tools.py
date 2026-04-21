@@ -659,7 +659,8 @@ def _result_to_dict(result: Any) -> dict[str, Any]:
 
 
 def _resolve_repo_root(project_root: str | None) -> Path:
-    raw = project_root or sys.environ.get("WORKSPACE_ROOT") or "."
+    # os.environ: some Windows/embed builds omit sys.environ (AttributeError).
+    raw = project_root or os.environ.get("WORKSPACE_ROOT") or "."
     return Path(raw).expanduser().resolve()
 
 
