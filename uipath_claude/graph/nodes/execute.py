@@ -62,6 +62,8 @@ def make_execute_node(
             and os.environ.get("UIPATH_AGENTIC_MODE", "1").lower() in ("1", "true", "yes")
         )
         
+        tool_fail = 0
+        tool_ok = 0
         if use_agentic and agentic_tools:
             # Run with agentic tool-use loop
             from uipath_claude.query.agentic_executor import AgenticExecutor
@@ -99,6 +101,8 @@ def make_execute_node(
                 skill_name=primary_skill,
             )
             
+            tool_fail = getattr(result, "tool_failure_count", 0)
+            tool_ok = getattr(result, "tool_success_count", 0)
             if result.success:
                 text = result.final_response
                 if result.tool_failure_count > 0:
@@ -137,6 +141,8 @@ def make_execute_node(
             "assistant_response": text,
             "pending_question": question,
             "phase": "complete",
+            "tool_failure_count": tool_fail,
+            "tool_success_count": tool_ok,
         }
 
     return execute_node

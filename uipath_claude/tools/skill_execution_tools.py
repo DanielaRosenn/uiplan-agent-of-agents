@@ -20,6 +20,7 @@ from langchain_core.tools import tool
 from uipath_claude.tools._result import ToolOutcome
 from uipath_claude.tools.knowledge_tools import get_knowledge_tools
 from uipath_claude.tools.library_tools import get_library_tools
+from uipath_claude.tools.xaml_tools import get_xaml_tools
 from uipath_claude.tools.uipath.askai import query_uipath_documentation
 from uipath_claude.tools.uipath.cli_runner import (
     _find_uip_cli,
@@ -60,32 +61,33 @@ def _get_output_root() -> Path:
 
 
 def _resolve_project_path(project_dir: str) -> Path:
-    """Resolve project directory, preferring CWD if it has project.json.
-    
-    This allows tools to work both:
-    1. In test fixtures where CWD has project.json
-    2. In normal operation where files go to generated/chat/<session_id>/
-    
-    Args:
-        project_dir: Relative or absolute path to project directory
-        
-    Returns:
-        Resolved Path to the project directory
+    """Resolve project directory.
+
+    Order of precedence:
+    1. Absolute path passed in — use it as-is.
+    2. CWD has project.json at ``cwd/project_dir`` — use that (test fixtures).
+    3. ``project_dir`` is "." or "" and CWD has project.json — use CWD.
+    4. ``UIPATH_PROJECT_DIR`` env var is set — use it (the user's real project).
+    5. Session output dir ``generated/chat/<session_id>/`` — generated artifacts.
     """
     path = Path(project_dir)
     if path.is_absolute():
         return path
-    
-    # Check if CWD has project.json (test fixture or real project scenario)
+
     cwd_path = Path.cwd() / project_dir
     if (cwd_path / "project.json").exists():
         return cwd_path
-    
-    # Also check if CWD itself is a project (project_dir is ".")
+
     if project_dir in (".", "") and (Path.cwd() / "project.json").exists():
         return Path.cwd()
-    
-    # Fall back to generated output directory
+
+    env_project_dir = os.environ.get("UIPATH_PROJECT_DIR", "").strip()
+    if env_project_dir:
+        env_root = Path(env_project_dir).expanduser()
+        if project_dir in (".", ""):
+            return env_root
+        return env_root / project_dir
+
     output_root = _get_output_root()
     session_id = os.environ.get("UIPATH_CHAT_SESSION_ID", "")
     if session_id:
@@ -116,6 +118,12 @@ def _resolve_file_path(file_path: str) -> Path:
     resolved = resolve_write_destination(file_path)
     if resolved is not None and resolved.exists():
         return resolved
+
+    env_project_dir = os.environ.get("UIPATH_PROJECT_DIR", "").strip()
+    if env_project_dir:
+        env_candidate = Path(env_project_dir).expanduser() / file_path
+        if env_candidate.exists():
+            return env_candidate
 
     output_root = _get_output_root()
     session_id = os.environ.get("UIPATH_CHAT_SESSION_ID", "")
@@ -154,6 +162,11 @@ def _candidate_write_bases() -> list[Path]:
     cwd = Path.cwd()
     if (cwd / "project.json").exists():
         bases.append(cwd)
+    env_project_dir = os.environ.get("UIPATH_PROJECT_DIR", "").strip()
+    if env_project_dir:
+        env_root = Path(env_project_dir).expanduser()
+        if (env_root / "project.json").exists() or env_root.exists():
+            bases.append(env_root)
     output_root = _get_output_root()
     session_id = os.environ.get("UIPATH_CHAT_SESSION_ID", "")
     if session_id:
@@ -515,7 +528,21 @@ def list_directory(dir_path: str = ".", pattern: str = "*") -> str:
     path = _resolve_project_path(dir_path)
     
     if not path.exists():
-        return _tool(False, f"Error: Directory not found: {dir_path}")
+        hint = ""
+        if dir_path in (".", "") and not os.environ.get("UIPATH_PROJECT_DIR", "").strip():
+            hint = (
+                "\nIf you meant the user's UiPath project folder, this chat session "
+                "has no UIPATH_PROJECT_DIR — restart with "
+                "`uipath-claude chat --project-dir <abs path>` (or export the env var)."
+            )
+        return _tool(
+            True,
+            f"directory_missing=true path={dir_path} entries=[]\n"
+            f"(The directory does not exist yet. If you need it, the execution "
+            f"agent will create it via write_file or ensure_project_structure. "
+            f"Do NOT try to create it yourself — you are read-only.)"
+            f"{hint}",
+        )
     
     if not path.is_dir():
         return _tool(False, f"Error: Not a directory: {dir_path}")
@@ -707,6 +734,55 @@ def validate_file(project_dir: str, file_path: str | None = None) -> str:
     return _tool(False, msg)
 
 
+def _effective_uipath_project_root(project_dir: str | None) -> Path | None:
+    """Resolve a UiPath project folder for cwd / CLI injection.
+
+    Uses the explicit ``project_dir`` argument when provided; otherwise
+    ``UIPATH_PROJECT_DIR`` (e.g. from ``uipath-claude chat --project-dir``).
+    """
+    if project_dir and str(project_dir).strip():
+        p = _resolve_project_path(str(project_dir))
+    else:
+        env = os.environ.get("UIPATH_PROJECT_DIR", "").strip()
+        if not env:
+            return None
+        p = Path(env).expanduser().resolve()
+    if not p.exists():
+        return None
+    return p
+
+
+def _inject_uip_rpa_project_flags(command_args: list[str], root: Path) -> list[str]:
+    """Insert ``--project-path`` / ``--project-dir`` when the agent omitted them."""
+    if not command_args:
+        return command_args
+    verb = command_args[0]
+    rest = list(command_args[1:])
+    joined_lower = " ".join(a.lower() for a in command_args)
+
+    if verb == "analyze":
+        if "--project-path" in joined_lower:
+            return command_args
+        return ["analyze", "--project-path", str(root.resolve()), *rest]
+
+    if verb in (
+        "get-errors",
+        "restore",
+        "pack",
+        "publish",
+        "run",
+        "build",
+        "validate",
+        "get-project-info",
+        "list-workflows",
+    ):
+        if "--project-dir" in joined_lower or "--project-path" in joined_lower:
+            return command_args
+        return [verb, "--project-dir", str(root.resolve()), *rest]
+
+    return command_args
+
+
 @tool
 def run_uip_command(
     command: str,
@@ -724,11 +800,32 @@ def run_uip_command(
     Args:
         command: The uip subcommand (e.g., "rpa", "is")
         command_args: Arguments after the subcommand (e.g. ``["find-activities", "--query", "X"]``)
-        project_dir: Optional project directory for context
+        project_dir: Optional project directory for context (may be omitted when
+            ``UIPATH_PROJECT_DIR`` is set, e.g. from ``uipath-claude chat --project-dir``)
     
     Returns:
         Command output or error message
     """
+    # Internal MCP tools are sometimes hallucinated onto the uip CLI. Fail fast
+    # with a redirect so the agent doesn't shell out and misinterpret help output.
+    _MCP_ONLY_VERBS = frozenset({
+        "design-propose",
+        "design-approve",
+        "design-reject",
+        "design-status",
+    })
+    if command_args and command_args[0] in _MCP_ONLY_VERBS:
+        bad_verb = command_args[0]
+        mcp_name = "uipath_" + bad_verb.replace("-", "_")
+        return _tool(
+            False,
+            (
+                f"Error: '{bad_verb}' is not a uip CLI subcommand. "
+                f"Call the MCP tool '{mcp_name}' directly. "
+                "See docs/CURSOR_USER_GUIDE.md#mcp-tools-advanced."
+            ),
+        )
+
     uip_cli = _find_uip_cli()
 
     # Flags not supported on all uip CLI builds (model sometimes still emits them)
@@ -742,14 +839,15 @@ def run_uip_command(
             filtered_args.append(arg)
     command_args = filtered_args
 
+    root = _effective_uipath_project_root(project_dir)
+    if command == "rpa" and root is not None:
+        command_args = _inject_uip_rpa_project_flags(command_args, root)
+
     cmd = [uip_cli, command] + command_args
 
-    # Set working directory if project_dir provided
     cwd = None
-    if project_dir:
-        path = _resolve_project_path(project_dir)
-        if path.exists():
-            cwd = str(path.resolve())
+    if root is not None:
+        cwd = str(root.resolve())
     
     try:
         proc = subprocess.run(
@@ -788,7 +886,18 @@ def run_uip_command(
     # Return raw output (truncated)
     tail = output[:5000] if output else "(no output)"
     ok = proc.returncode == 0
-    return _tool(ok, note + tail if note else tail)
+    studio_hint = ""
+    if (
+        not ok
+        and "already opened in another Studio instance" in output
+    ):
+        studio_hint = (
+            "\n\nHint: Close every UiPath Studio window that has this project open, "
+            "then retry. While Studio holds the project database, `uip rpa analyze` "
+            "cannot run. Alternatively use `uipcli package analyze` from CI without "
+            "Studio.\n"
+        )
+    return _tool(ok, note + studio_hint + tail if (note or studio_hint) else tail)
 
 
 @tool
@@ -2741,4 +2850,4 @@ def get_skill_execution_tools() -> list:
         ensure_project_structure,
         query_uipath_docs,
         deploy_to_orchestrator,  # Deploy to Orchestrator/Studio Web
-    ] + get_library_tools() + get_knowledge_tools()
+    ] + get_xaml_tools() + get_library_tools() + get_knowledge_tools()

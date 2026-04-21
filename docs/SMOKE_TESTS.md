@@ -892,3 +892,100 @@ tests/unit/tools/test_create_project_postcheck.py
 tests/unit/tools/uipath/test_askai.py`; the same checks above are encoded
 as deterministic unit tests.
 
+## Scenario 13 - Ambiguity triage
+
+Grades whether the agent asks **batched, residue-only** questions when the
+user's brief is genuinely vague, and whether the question-asking contract
+(planner > BA > design-gate) holds end-to-end without re-asking resolved
+items. None of Scenarios 1-12 grade this: they all start from well-formed
+briefs, so the planner's batching and BA's hand-off behavior are never
+exercised.
+
+This scenario assumes the overlay at
+`extensions/skills/uipath-planner/SKILL.md` is active (it wins over the
+submodule per [docs/SKILL_LAYOUT.md](SKILL_LAYOUT.md) merge order) and the
+updated `BA_SYSTEM_PROMPT` in
+[uipath_claude/query/ba_agent.py](../uipath_claude/query/ba_agent.py) is in
+use.
+
+### Setup
+
+```powershell
+$dir = "ambig-" + (Get-Date -Format "yyyyMMddHHmm")
+New-Item -ItemType Directory $dir | Out-Null
+Set-Location $dir
+$env:UIPATH_CHAT_SESSION_ID = $dir
+$env:UIPATH_DESIGN_APPROVAL_ENABLED = "1"
+python -m uipath_claude.cli.app chat
+```
+
+### Prompt (deliberately vague)
+
+> "Build a bot that processes invoices and sends them somewhere."
+
+### Expected flow
+
+1. Planner fires and makes **one** consolidated `AskUserQuestion` call
+   covering only the residue it cannot default or infer. The batch contains
+   items from Step 1 (approach / autonomy / PDD / test coverage - only the
+   unresolved subset) plus Step 1.5 (attended vs unattended, source system,
+   destination system, Orchestrator folder, deploy-or-not). It does **not**
+   ask about expression language, project-name casing, XAML vs C#, or
+   cross-platform target on Windows (safe defaults).
+2. After the user answers, the planner writes a plan file under
+   `docs/plans/YYYY-MM-DD-<name>.md` with a populated `## Resolutions`
+   section echoing every answered and every defaulted item.
+3. `/pdd` runs BA. BA reads the plan file first (no `AskUserQuestion` call
+   for anything the plan already answered) and proceeds directly to PDD
+   drafting, citing the plan path in the PDD's `Inputs` section.
+4. Developer calls `uipath_design_propose` with a populated `resolutions`
+   object. `uipath_design_status { project_dir: <dir> }` surfaces
+   `latest_pending_resolutions` with the structured keys
+   (`attended_unattended`, `external_systems`, `orchestrator_folder`,
+   `deploy`, `open_questions_residue`, etc.).
+5. Human approves. `uipath_design_status` now shows
+   `latest_approved_resolutions` populated.
+
+### Pass criteria
+
+- **One planner question card.** `AskUserQuestion` is called exactly once
+  during the planner stage (or zero times if Step 1 + 1.5 were both fully
+  resolved from context, which is not expected for this prompt).
+- **No re-asks in BA.** BA stage makes zero `AskUserQuestion` calls for
+  items present in the plan's `## Resolutions` section.
+- **`resolutions` object populated.** `uipath_design_propose` returns no
+  `[WARN] resolutions field is empty` line (or the one-off deprecation
+  warning does appear, and the next proposal corrects it).
+- **`uipath_design_status` surfaces structured resolutions.** The JSON
+  payload includes `latest_pending_resolutions` (then
+  `latest_approved_resolutions` after approval) with at least
+  `attended_unattended`, `deploy`, and the relevant external systems.
+- **Total question budget respected.** Steps 1 + 1.5 + 4 together stay at
+  or under 5 questions (anti-pattern 3 in the overlay planner SKILL).
+- **Project-shape safe defaults applied silently.** The plan header shows
+  `Expression language: VB.NET`, a sensible `Project type`, and does not
+  ask the user about either.
+
+### Fail signals
+
+| Signal | Why it fails |
+|---|---|
+| Agent answers silently with no questions at all. | Invented answers to attended/unattended, source, destination - the defaulted choices will usually be wrong. |
+| Agent asks one question, waits, asks the next (3+ turns before the plan lands). | Violates Step 1 / Step 1.5 / anti-pattern 19 in the overlay. Batching is the whole point. |
+| Agent asks about items with safe defaults (expression language, project-name format, XAML vs C#, cross-platform vs Windows on Windows). | Violates anti-pattern 10 / 11 / 18 in the overlay. Burns the 5-question budget on noise. |
+| BA re-asks attended-vs-unattended (or any other item already in `## Resolutions`). | `BA_SYSTEM_PROMPT` context hand-off is not being applied or the plan file is not being read. |
+| `uipath_design_propose` call omits the `resolutions` argument. | Design card shows free-text summary only; approver cannot see the structured triage outcome. Tool returns a `[WARN]` line. |
+| `uipath_design_status` does not show `latest_pending_resolutions` or `latest_approved_resolutions`. | MCP extension missing or server not reloaded. |
+| `propose_library_update` never fires when a residue item ("what retry pattern for flaky HTTP?") is clearly library-answerable. | BA is asking the user instead of calling `lookup_uipath_knowledge` first - bucket 2 of the triage is being skipped. |
+
+### Recording checklist
+
+- [ ] Full transcript of the planner stage showing the single batched
+      `AskUserQuestion` call and its option list.
+- [ ] The generated plan file, especially the `## Resolutions` section.
+- [ ] BA stage transcript showing zero `AskUserQuestion` calls for plan-
+      resolved items.
+- [ ] `uipath_design_propose` request arguments (full `resolutions` object).
+- [ ] `uipath_design_status` output before and after approval.
+- [ ] Question count across the whole scenario (must be <= 5).
+

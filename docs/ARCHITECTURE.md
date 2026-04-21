@@ -20,19 +20,87 @@ flowchart LR
 
 The executor lives in [`uipath_claude/query/agentic_executor.py`](../uipath_claude/query/agentic_executor.py). The validator gate is implemented as `validate_file` + `validate_and_fix_loop` in [`uipath_claude/tools/skill_execution_tools.py`](../uipath_claude/tools/skill_execution_tools.py): every `write_file` is expected to be followed by a `validate_file`, and failures feed back into the executor until the workflow passes both static and runtime checks.
 
-## Bootstrap pipeline (BA -> SA -> Dev -> QA with HITL)
+## Pipelines
+
+There are two end-to-end pipelines, both driven by slash commands.
+
+### `/pdd` — full lifecycle (six agents + scaffold + publish + deploy)
+
+This is the canonical "one-paragraph brief to running process" flow. Implementation lives in [`uipath_claude/query/pdd_lifecycle.py`](../uipath_claude/query/pdd_lifecycle.py) (`run_pdd_lifecycle`). The ten ordered stages are defined as `STAGES = ("pdd","sdd","add","tdd","scaffold","implement","validate","run","publish","deploy")`.
 
 ```mermaid
 flowchart LR
-    Brief[One-paragraph brief] --> BA[BA agent: PDD]
-    BA -->|approve| SA[SA agent: SDD]
-    SA -->|approve| Dev[Developer agent: code + validate]
-    Dev -->|auto-fix loop| Dev
-    Dev -->|approve| QA[QA agent: test + report]
-    QA --> Done[Tagged release artifacts]
+    Brief[Brief] --> BA[BA: PDD]
+    BA --> SA[SA: SDD]
+    SA --> ADD[ADD: architecture]
+    ADD --> TDD[TDD: tech + test design]
+    TDD --> Scaffold[create_project]
+    Scaffold --> Impl[Developer: write XAML / flows]
+    Impl --> Validate[validate + auto-fix loop]
+    Validate --> Run[run_workflow / flow validate]
+    Run --> QA[QA: review + tests]
+    Run -.->|"--deploy"| Publish[publish_project]
+    Publish --> Deploy[deploy_to_orchestrator_v2]
 ```
 
-Each arrow labelled `approve` is a human-in-the-loop gate. Plan mode (`UIPATH_PLAN_MODE=1`, default) additionally wraps any build or ambiguous intent with a read-only planning step whose plan must be approved before any file is written. Approved plans are persisted as `.plan.md` files under `generated/chat/<session-id>/`.
+Key semantics:
+
+- **Short-circuit on failure.** Every stage returns `{"status": "ok"|"failed", "failed_at": <stage>, "error": <message>, ...}` (`_ok` / `_fail` in [`pdd_lifecycle.py`](../uipath_claude/query/pdd_lifecycle.py)). The first failed stage stops the pipeline.
+- **Sub-agent invocation** is a single Bedrock turn per stage via [`uipath_claude/query/agent_invoke.py`](../uipath_claude/query/agent_invoke.py) `invoke_agent_llm(engine, system_prompt, user_message)` with `tools=[]`. Each agent's `skills` attribute is currently informational metadata — sub-agents in this lifecycle do **not** auto-load tools beyond their system prompt. Tool-using execution happens in the dedicated `scaffold` / `implement` / `validate` stages, which call `create_project`, `write_file`, `build_and_verify_workflow`, `publish_project`, and `deploy_to_orchestrator_v2` directly.
+- **Deploy branch.** When `deploy=True`, the QA stage is skipped in favour of `publish` + `deploy` (which run on a real Orchestrator tenant). When `deploy=False`, QA runs on the implementation plan text.
+- **Process vs Maestro.** `project_type="process"` runs `uip rpa` scaffold + `uip solution pack/publish` + `uip or processes create`. `project_type="maestro"` runs `uip flow init/validate/pack` + `uip solution publish` + `uip flow process create`.
+- **Test seams.** `publish_fn` and `deploy_fn` parameters default to `deploy_tool.publish_project` / `deploy_tool.deploy_to_orchestrator_v2` and are overridden by the integration tests.
+- **Output layout.** Artefacts are written under `output_root/docs/<stage>/<stamp>.md` (PDD/SDD/ADD/TDD/QA via `BootstrapArtifactWriter`) and the scaffolded project under `output_root/generated/automation/<stamp>/`.
+
+User-facing reference: [PDD_LIFECYCLE.md](PDD_LIFECYCLE.md). Slash command: [`uipath_claude/commands/pdd.py`](../uipath_claude/commands/pdd.py).
+
+### `/bootstrap` — legacy four-stage flow (BA -> SA -> Dev -> QA with HITL)
+
+Original four-agent flow, useful for quick iteration without the publish/deploy steps.
+
+```mermaid
+flowchart LR
+    Brief2[Brief] --> BA2[BA: PDD]
+    BA2 -->|approve| SA2[SA: SDD]
+    SA2 -->|approve| Dev2[Developer: code + validate]
+    Dev2 -->|auto-fix loop| Dev2
+    Dev2 -->|approve| QA2[QA: test + report]
+    QA2 --> Done2[Tagged release artifacts]
+```
+
+Each arrow labelled `approve` is a human-in-the-loop gate. Plan mode (`UIPATH_PLAN_MODE=1`, default) additionally wraps any build or ambiguous intent with a read-only planning step whose plan must be approved before any file is written. Approved plans are persisted as `.plan.md` files under `generated/chat/<session-id>/`. Implementation: [`uipath_claude/query/bootstrap.py`](../uipath_claude/query/bootstrap.py); MCP entry: `uipath_agent_bootstrap`.
+
+## Question-asking contract
+
+Ambiguous build requests flow through three layers, each responsible for a
+different bucket of decisions. No layer should ask the user a question the
+previous layer already resolved.
+
+| Bucket | Resolution source | Owner |
+|---|---|---|
+| Safe default (expression language, project-name casing, cross-platform target on macOS, `Test coverage: standard` when unstated) | Apply default silently; record choice in plan `## Resolutions` | `uipath-planner` |
+| Library / tool answerable ("is REFramework right for a queue processor?", "what retry pattern for flaky HTTP?") | `uipath_library_search` / `lookup_uipath_knowledge`, cite source | `uipath-planner` (during explore-first) or BA (during drafting) |
+| Residue (attended/unattended, concrete source/destination systems, Orchestrator folder, deploy-or-not, destructive actions) | **One batched `AskUserQuestion` card per layer** | `uipath-planner` (Step 1 + 1.5), Step 4 for UI targeting; then `uipath_design_propose` surfaces the structured `resolutions` for final human sign-off |
+
+Hard rules:
+
+- Never ask questions one-at-a-time within a layer. Each of planner Step 1,
+  Step 1.5, and Step 4 makes at most one `AskUserQuestion` call.
+- Total question budget is five across the whole planner run (anti-pattern
+  3 in the overlay [`extensions/skills/uipath-planner/SKILL.md`](../extensions/skills/uipath-planner/SKILL.md)).
+- BA reads the planner's plan file first; it re-asks nothing the plan
+  resolved. Contract lives in [`uipath_claude/query/ba_agent.py`](../uipath_claude/query/ba_agent.py)
+  `BA_SYSTEM_PROMPT` under `=== CONTEXT HAND-OFF ===`.
+- `uipath_design_propose` carries a structured `resolutions` object that
+  the approver sees on the approval card. The schema lives in
+  [`uipath_claude/tools/design_store.py`](../uipath_claude/tools/design_store.py)
+  `RESOLUTION_KEYS`. Empty `resolutions` produces a deprecation warning but
+  is still accepted for backwards compatibility.
+- `open_questions_residue` in `resolutions` is the escape hatch: items the
+  planner consciously defaulted that the user can still override at design
+  approval time.
+
+End-to-end grading: Scenario 13 in [SMOKE_TESTS.md](SMOKE_TESTS.md).
 
 ## Directory Structure
 
@@ -62,10 +130,14 @@ All agents share the same conversation engine, specialized via:
 ### Available Agents
 
 - **Conversational** (default): All skills, general assistance
-- **BA**: PDD creation, business process design
-- **SA**: SDD creation, solution architecture
-- **Developer**: Workflow implementation, coding
-- **QA**: Code review, testing, validation
+- **BA** ([`agents/ba.py`](../uipath_claude/agents/ba.py)): PDD creation, business process design
+- **SA** ([`agents/sa.py`](../uipath_claude/agents/sa.py)): SDD creation, solution architecture
+- **ADD** ([`agents/add.py`](../uipath_claude/agents/add.py)): Architecture Design Document — components, integrations, runtime topology, NFRs
+- **TDD** ([`agents/tdd.py`](../uipath_claude/agents/tdd.py)): Technical Design + Test Design — internal contracts, schemas, and the test plan QA will execute
+- **Developer** ([`agents/developer.py`](../uipath_claude/agents/developer.py)): Workflow implementation, coding
+- **QA** ([`agents/qa.py`](../uipath_claude/agents/qa.py)): Code review, testing, validation
+
+ADD and TDD are only invoked by `/pdd` (`run_pdd_lifecycle`); `/bootstrap` skips them.
 
 ## Skill Loading
 
@@ -291,19 +363,7 @@ Verbose output (verbose=True):
 
 ## Bootstrap Flow
 
-```
-User Request
-    ↓
-BA Agent (PDD)
-    ↓
-SA Agent (SDD)
-    ↓
-Developer Agent (Code)
-    ↓
-QA Agent (Validation)
-    ↓
-Complete
-```
+See the two pipelines documented above (`/pdd` and `/bootstrap`). The legacy text-only diagram has been removed; see [PDD_LIFECYCLE.md](PDD_LIFECYCLE.md) for the canonical end-to-end flow.
 
 ## Evaluation Framework
 
@@ -345,7 +405,7 @@ runner = EvaluationRunner(
 run = await runner.run(dataset)
 ```
 
-See [EVALUATION_RESULTS.md](EVALUATION_RESULTS.md) for latest results.
+Run results are written under `eval_results/` when the runner is invoked.
 
 ## Comparison with Claude Code
 

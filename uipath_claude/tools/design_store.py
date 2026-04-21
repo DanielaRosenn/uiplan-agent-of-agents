@@ -22,9 +22,21 @@ import uuid
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from threading import RLock
-from typing import Literal
+from typing import Any, Literal
 
 DesignStatus = Literal["pending", "approved", "rejected"]
+
+RESOLUTION_KEYS: tuple[str, ...] = (
+    "project_type",
+    "target_framework",
+    "expression_language",
+    "attended_unattended",
+    "external_systems",
+    "orchestrator_folder",
+    "deploy",
+    "destructive_actions",
+    "open_questions_residue",
+)
 
 
 def _normalize_project_dir(project_dir: str | os.PathLike[str]) -> str:
@@ -50,6 +62,7 @@ class DesignProposal:
     body: str
     rationale: str = ""
     citations: list[str] = field(default_factory=list)
+    resolutions: dict[str, Any] = field(default_factory=dict)
     status: DesignStatus = "pending"
     created_at: float = field(default_factory=time.time)
     decided_at: float | None = None
@@ -61,7 +74,48 @@ class DesignProposal:
 
     @classmethod
     def from_dict(cls, data: dict) -> "DesignProposal":
-        return cls(**data)
+        # Drop unknown keys so older store files without `resolutions` and
+        # newer files with extra fields both load cleanly.
+        known = {f for f in cls.__dataclass_fields__}  # type: ignore[attr-defined]
+        cleaned = {k: v for k, v in data.items() if k in known}
+        cleaned.setdefault("resolutions", {})
+        return cls(**cleaned)
+
+
+def _normalize_resolutions(raw: Any) -> tuple[dict[str, Any], list[str]]:
+    """Return (resolutions, warnings).
+
+    Accepts a dict and filters to the known keys. Unknown keys are preserved
+    under a ``_extra`` bucket so nothing is silently dropped but the approver
+    still sees them. If ``raw`` is falsy, returns an empty dict with a
+    deprecation warning so callers can nudge the agent toward structured
+    resolutions without breaking backwards compatibility.
+    """
+    warnings: list[str] = []
+    if not raw:
+        warnings.append(
+            "resolutions field is empty; callers should pass a structured "
+            "object with keys "
+            + ", ".join(RESOLUTION_KEYS)
+            + " so the design-approval card shows the resolved triage "
+            "decisions (free-text summary alone is deprecated)."
+        )
+        return {}, warnings
+    if not isinstance(raw, dict):
+        warnings.append(
+            f"resolutions must be an object, got {type(raw).__name__}; ignored."
+        )
+        return {}, warnings
+    known: dict[str, Any] = {}
+    extra: dict[str, Any] = {}
+    for key, value in raw.items():
+        if key in RESOLUTION_KEYS:
+            known[key] = value
+        else:
+            extra[key] = value
+    if extra:
+        known["_extra"] = extra
+    return known, warnings
 
 
 _LOCK = RLock()
@@ -130,14 +184,20 @@ def propose(
     body: str,
     rationale: str = "",
     citations: list[str] | None = None,
-) -> DesignProposal:
+    resolutions: dict[str, Any] | None = None,
+) -> tuple[DesignProposal, list[str]]:
     """Stage a new pending design for ``project_dir``.
 
     Replaces any prior pending design for the same project (only one pending
     proposal per project at a time keeps the gate semantics simple).
+
+    Returns ``(proposal, warnings)``. Warnings currently flag missing or
+    malformed ``resolutions`` so the MCP layer can surface a deprecation hint
+    without breaking older callers.
     """
     key = _normalize_project_dir(project_dir)
     design_id = f"design_{uuid.uuid4().hex[:12]}"
+    normalized, warnings = _normalize_resolutions(resolutions)
     proposal = DesignProposal(
         design_id=design_id,
         project_dir=key,
@@ -146,6 +206,7 @@ def propose(
         body=body,
         rationale=rationale,
         citations=list(citations or []),
+        resolutions=normalized,
     )
     with _LOCK:
         proposals = _load_locked()
@@ -154,7 +215,7 @@ def propose(
                 proposals.pop(existing_id, None)
         proposals[design_id] = proposal
         _save_locked()
-    return proposal
+    return proposal, warnings
 
 
 def approve(design_id: str, note: str = "", actor: str = "human") -> DesignProposal:
@@ -201,7 +262,14 @@ def list_proposals(
 
 
 def has_approved(project_dir: str) -> bool:
-    """True iff at least one approved design exists for ``project_dir``."""
+    """True iff at least one approved design exists for ``project_dir``.
+
+    When ``UIPATH_DESIGN_APPROVAL_ENABLED`` is set to a falsy value
+    (``0``/``false``/``no``/``off``), the gate is considered open for all
+    projects so callers can short-circuit the propose/approve dance.
+    """
+    if not _approval_enabled():
+        return True
     key = _normalize_project_dir(project_dir)
     with _LOCK:
         for proposal in _load_locked().values():

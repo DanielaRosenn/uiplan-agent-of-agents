@@ -97,14 +97,23 @@ def _strip_last_ai_tool_calls(messages: list[Any]) -> None:
 WRITE_TOOL_NAMES = frozenset(
     {
         "write_file",
+        "uipath_workflow_write_file",
         "ensure_project_structure",
         "deploy_to_orchestrator",
+        "uipath_workflow_deploy",
         "validate_file",
         "validate_and_fix_loop",
         "build_and_verify_workflow",
+        "uipath_workflow_build_and_verify",
         "create_project",
+        "uipath_workflow_create_project",
         "run_workflow",
         "debug_workflow",
+        "create_xaml_workflow",
+        "uipath_workflow_create_xaml_workflow",
+        "validate_xaml",
+        "install_package",
+        "uipath_workflow_install_package",
     }
 )
 
@@ -128,6 +137,8 @@ _PROJECT_MUTATING_NAMES = frozenset(
         "ensure_project_structure",
         "create_project",
         "uipath_workflow_create_project",
+        "create_xaml_workflow",
+        "uipath_workflow_create_xaml_workflow",
     }
 )
 
@@ -162,6 +173,110 @@ def _last_build_verify_was_pass(messages: list[Any]) -> tuple[bool, str | None]:
 
 def _has_mutated_project(tool_calls_made: list[dict[str, Any]]) -> bool:
     return any(tc.get("name") in _PROJECT_MUTATING_NAMES for tc in tool_calls_made)
+
+
+# Tools that should be redirected to `uipath_design_propose` when the target
+# project has no approved design. Subset of `_PROJECT_MUTATING_NAMES` — deploy
+# and build_and_verify are excluded because the underlying MCP gates already
+# return [BLOCKED] with actionable messaging for those.
+_WRITE_INTENT_TOOL_NAMES = frozenset(
+    {
+        "write_file",
+        "uipath_workflow_write_file",
+        "install_package",
+        "uipath_workflow_install_package",
+        "ensure_project_structure",
+        "create_project",
+        "uipath_workflow_create_project",
+        "create_xaml_workflow",
+        "uipath_workflow_create_xaml_workflow",
+    }
+)
+
+
+# Common LLM hallucinations for the design-propose / design-approve MCP tools.
+# When the model invokes one of these, return a one-line redirect describing
+# the real tool name (or, when the gate is disabled, tell the model to skip
+# the propose/approve dance altogether) instead of the bare "Unknown tool".
+_DESIGN_TOOL_ALIASES = {
+    "uipath_workflow_design_propose": "uipath_design_propose",
+    "uipath_rpa_design_propose": "uipath_design_propose",
+    "uipath_project_design_propose": "uipath_design_propose",
+    "design_propose": "uipath_design_propose",
+    "propose_design": "uipath_design_propose",
+    "uipath_workflow_design_approve": "uipath_design_approve",
+    "uipath_rpa_design_approve": "uipath_design_approve",
+    "uipath_project_design_approve": "uipath_design_approve",
+    "design_approve": "uipath_design_approve",
+    "approve_design": "uipath_design_approve",
+}
+
+
+def _design_alias_message(called_name: str, real_name: str) -> str:
+    """Explain how to recover from a hallucinated design-tool name."""
+    from uipath_claude.tools import design_store
+
+    if not design_store._approval_enabled():
+        return (
+            f"[ERROR] Unknown tool '{called_name}'. The design gate is "
+            "DISABLED for this session (UIPATH_DESIGN_APPROVAL_ENABLED=0). "
+            "Do NOT call any design-propose/approve tool. Proceed directly "
+            "to write_file / install_package / ensure_project_structure / "
+            "build_and_verify with the correct project_dir."
+        )
+    return (
+        f"[ERROR] Unknown tool '{called_name}'. The correct tool name is "
+        f"'{real_name}'. Retry with the same arguments but call "
+        f"'{real_name}' instead."
+    )
+
+
+def _resolve_project_dir_from_context(context: dict[str, Any]) -> str | None:
+    """Resolve the target project_dir for the design-gate preflight.
+
+    Order: ``project_context['project_path']`` > ``UIPATH_PROJECT_DIR`` env.
+    Returns ``None`` when no candidate resolves to an existing directory.
+    """
+    candidates: list[str] = []
+    pp = context.get("project_path") if context else None
+    if isinstance(pp, str) and pp.strip():
+        candidates.append(pp.strip())
+    env_pd = os.environ.get("UIPATH_PROJECT_DIR", "").strip()
+    if env_pd:
+        candidates.append(env_pd)
+    for c in candidates:
+        try:
+            p = Path(c).expanduser()
+            if p.exists() and p.is_dir():
+                return str(p.resolve())
+        except Exception:
+            continue
+    return None
+
+
+def _extract_project_dir_from_tool_args(tool_args: dict[str, Any]) -> str | None:
+    """Pull a project_dir-ish path out of a tool call's arguments, if present."""
+    for key in ("project_dir", "project_path", "projectDir", "projectPath"):
+        val = tool_args.get(key) if isinstance(tool_args, dict) else None
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+    return None
+
+
+def _redirect_to_design_propose(project_dir: str, tool_name: str) -> str:
+    """Synthetic tool result shown when a write-intent tool hits a closed gate.
+
+    Instructs the model to call `uipath_design_propose` instead of attempting
+    the write. Keeps the loop going (the model can then propose + ask the user
+    to approve) without silently no-op'ing the turn.
+    """
+    return (
+        f"[REDIRECT] Project '{project_dir}' has no approved design. "
+        f"Do NOT call {tool_name} yet. Stage one now:\n"
+        "  uipath_design_propose { project_dir, title, summary, body, resolutions }\n"
+        "Then ask the user to approve via uipath_design_approve on the "
+        "returned design_id. Do NOT call write tools until approved."
+    )
 
 
 def _has_blocked_observation(messages: list[Any], lookback: int = 8) -> bool:
@@ -400,6 +515,25 @@ class AgenticExecutor:
                     skill_name,
                 )
 
+        preflight_project_dir = _resolve_project_dir_from_context(context)
+        preflight_approved = False
+        preflight_pending_id: str | None = None
+        if preflight_project_dir:
+            try:
+                from uipath_claude.tools import design_store
+
+                preflight_approved = design_store.has_approved(preflight_project_dir)
+                pending = design_store.latest_pending(preflight_project_dir)
+                preflight_pending_id = pending.design_id if pending else None
+            except Exception:
+                preflight_project_dir = None
+        if progress and preflight_project_dir:
+            progress.design_gate_banner(
+                preflight_project_dir,
+                preflight_approved,
+                preflight_pending_id,
+            )
+
         skill_body = skill_content
         try:
             from uipath_claude.skills.lessons import load_for_skill, render_lessons_block
@@ -427,6 +561,46 @@ class AgenticExecutor:
                     messages.append(AIMessage(content=content))
         messages.append(HumanMessage(content=user_request))
 
+        if preflight_project_dir:
+            try:
+                from uipath_claude.tools import design_store as _ds
+
+                _gate_enabled = _ds._approval_enabled()
+            except Exception:
+                _gate_enabled = True
+            if not _gate_enabled:
+                gate_hint = (
+                    f"[DESIGN_GATE] project={preflight_project_dir} disabled=true "
+                    "-> UIPATH_DESIGN_APPROVAL_ENABLED is OFF for this session. "
+                    "Do NOT call uipath_design_propose or uipath_design_approve. "
+                    "Proceed directly with write_file / install_package / "
+                    "ensure_project_structure / build_and_verify, passing "
+                    f"project_dir='{preflight_project_dir}' on every call."
+                )
+            elif preflight_approved:
+                gate_hint = (
+                    f"[DESIGN_GATE] project={preflight_project_dir} approved=true "
+                    "-> write_file / install_package / ensure_project_structure are "
+                    "allowed for this project without a new design proposal."
+                )
+            elif preflight_pending_id:
+                gate_hint = (
+                    f"[DESIGN_GATE] project={preflight_project_dir} approved=false "
+                    f"pending={preflight_pending_id} -> you MUST wait for "
+                    "uipath_design_approve on this design_id before calling any "
+                    "write/install/scaffold tools. Any such call will be "
+                    "redirected back to uipath_design_propose."
+                )
+            else:
+                gate_hint = (
+                    f"[DESIGN_GATE] project={preflight_project_dir} approved=false "
+                    "pending=none -> your FIRST tool call for any write/install/"
+                    "scaffold step MUST be uipath_design_propose (with a short "
+                    "user-facing summary, body, and resolutions). After the user "
+                    "approves via uipath_design_approve, writes become allowed."
+                )
+            messages.append(SystemMessage(content=gate_hint))
+
         llm = self._get_llm()
         llm_with_tools = llm.bind_tools(tools)
 
@@ -437,6 +611,7 @@ class AgenticExecutor:
         iterations = 0
         tool_success_count = 0
         tool_failure_count = 0
+        design_blocked = False
         plan_tool_nudges = 0
         verify_nudges = 0
         tokens_in_total = 0
@@ -445,6 +620,18 @@ class AgenticExecutor:
         session_log_id = os.environ.get("UIPATH_CHAT_SESSION_ID", "")
         validation_recovery_attempts = 0
         timeout_recovery_attempts = 0
+        consecutive_unknown_tool = 0
+
+        # Dynamic iteration budget: extend once by +10 steps if the agent is
+        # still making progress as the ceiling approaches. "Progress" =
+        # at least 2 successful tool calls in the trailing 5-call window.
+        # Controlled by ``UIPATH_MAX_ITER_EXTEND`` (default 10, set to 0 to
+        # disable).
+        try:
+            _iter_extend = int(os.environ.get("UIPATH_MAX_ITER_EXTEND", "10"))
+        except ValueError:
+            _iter_extend = 10
+        _budget_extended = False
 
         while iterations < max_iter:
             iterations += 1
@@ -622,24 +809,58 @@ class AgenticExecutor:
                 if (
                     contains_plan_block(skill_content)
                     and not _has_executed_plan(tool_calls_made)
-                    and plan_tool_nudges < 5
+                    and plan_tool_nudges < 8
                     and iterations < max_iter
                 ):
                     plan_tool_nudges += 1
                     messages.append(response)
                     nudge = (
                         f"SYSTEM: Your skill instructions include `{PLAN_BLOCK_HEADING}`. "
-                        "You must not finish with text only — call tools now and execute that plan "
-                        "(e.g. read_project_json, list_directory, ensure_project_structure, write_file). "
-                        "Start with discovery or scaffolding, then implement. Plain summaries alone are invalid."
+                        "Reading files is NOT executing the plan. You MUST now start "
+                        "writing code.\n\n"
+                        "For every XAML file in the plan, call `create_xaml_workflow` "
+                        "(NOT write_file) with a JSON spec — root, arguments, variables, "
+                        "body. Then call `validate_xaml` on each. Then "
+                        "`uipath_workflow_build_and_verify` until verdict='pass'.\n\n"
+                        "Do NOT finish with prose. Do NOT ask questions. Do NOT summarize. "
+                        "Call `create_xaml_workflow` for the first workflow in the plan NOW. "
+                        f"(Nudge {plan_tool_nudges}/8 — after this I will fail the run.)"
                     )
                     messages.append(HumanMessage(content=nudge))
                     if progress:
                         progress.info(
                             "Approved plan present but no write/validation/deploy-class tool yet; "
-                            f"requesting tool calls ({plan_tool_nudges}/5)."
+                            f"requesting tool calls ({plan_tool_nudges}/8)."
                         )
                     continue
+
+                if (
+                    contains_plan_block(skill_content)
+                    and not _has_executed_plan(tool_calls_made)
+                    and plan_tool_nudges >= 8
+                ):
+                    err_msg = (
+                        "Executor failed: an approved plan was present but the "
+                        "agent refused to call any write tool (create_xaml_workflow, "
+                        "write_file, etc.) after 8 nudges. The plan was never "
+                        "executed. No files were created."
+                    )
+                    if progress:
+                        progress.error(err_msg)
+                    err_result = AgenticResult(
+                        success=False,
+                        final_response=final_text,
+                        tool_calls_made=tool_calls_made,
+                        iterations=iterations,
+                        files_written=files_written,
+                        error=err_msg,
+                        tool_success_count=tool_success_count,
+                        tool_failure_count=tool_failure_count,
+                        tokens_in=tokens_in_total,
+                        tokens_out=tokens_out_total,
+                    )
+                    self._record_learning(skill_name, user_request, err_result)
+                    return err_result
 
                 if (
                     _has_mutated_project(tool_calls_made)
@@ -717,6 +938,7 @@ class AgenticExecutor:
                         artifact_root=artifact_root,
                         tokens_in=tokens_in_total,
                         tokens_out=tokens_out_total,
+                        design_blocked=design_blocked,
                     )
                 struct_log.emit(
                     event="complete",
@@ -759,11 +981,39 @@ class AgenticExecutor:
 
                 t0 = time.monotonic()
                 tool = tool_map.get(tool_name)
-                if self.approval is not None and not self.approval.check(tool_name, tool_args):
+                redirect_project_dir: str | None = None
+                if (
+                    preflight_project_dir
+                    and tool_name in _WRITE_INTENT_TOOL_NAMES
+                ):
+                    target_dir = (
+                        _extract_project_dir_from_tool_args(tool_args)
+                        or preflight_project_dir
+                    )
+                    try:
+                        from uipath_claude.tools import design_store
+
+                        gate_open = design_store.has_approved(target_dir)
+                    except Exception:
+                        gate_open = False
+                    if not gate_open:
+                        redirect_project_dir = target_dir
+
+                if redirect_project_dir is not None:
+                    result = _redirect_to_design_propose(
+                        redirect_project_dir, tool_name
+                    )
+                    success = False
+                    design_blocked = True
+                elif self.approval is not None and not self.approval.check(tool_name, tool_args):
                     result = "[ERROR] Tool call blocked by approval policy."
                     success = False
                 elif tool is None:
-                    result = f"[ERROR] Unknown tool '{tool_name}'"
+                    alias_target = _DESIGN_TOOL_ALIASES.get(tool_name)
+                    if alias_target is not None:
+                        result = _design_alias_message(tool_name, alias_target)
+                    else:
+                        result = f"[ERROR] Unknown tool '{tool_name}'"
                     success = False
                 else:
                     try:
@@ -800,6 +1050,19 @@ class AgenticExecutor:
                 else:
                     tool_failure_count += 1
 
+                if not success and isinstance(result, str) and result.startswith(
+                    "[ERROR] Unknown tool"
+                ):
+                    consecutive_unknown_tool += 1
+                else:
+                    consecutive_unknown_tool = 0
+
+                if (
+                    "[BLOCKED]" in result
+                    and "no approved design" in result.lower()
+                ):
+                    design_blocked = True
+
                 if tool_name == "write_file" and (
                     "Successfully wrote" in result
                     or ("[OK]" in result and "wrote" in result.lower())
@@ -826,7 +1089,71 @@ class AgenticExecutor:
                         name=tool_name,
                     )
                 )
-        
+
+            # Guard against infinite unknown-tool loops (common when LLM
+            # hallucinates executor tool names in the planner phase). After
+            # 3 consecutive unknown-tool errors, inject a strong nudge and
+            # after 5, bail out with whatever plan text we have so far.
+            if consecutive_unknown_tool >= 5:
+                if progress:
+                    progress.error(
+                        "Aborting: 5 consecutive unknown-tool calls. "
+                        "The agent is hallucinating tool names."
+                    )
+                final_text = (
+                    "Planning aborted: the planner repeatedly tried to call tools "
+                    "it does not have. Please retry the request."
+                )
+                # Try to salvage any assistant text already produced.
+                for m in reversed(messages):
+                    content = getattr(m, "content", None)
+                    if isinstance(content, str) and content.strip() and not content.startswith("[ERROR]"):
+                        final_text = content
+                        break
+                return AgenticResult(
+                    final_response=final_text,
+                    tool_calls_made=tool_calls_made,
+                    files_written=files_written,
+                    iterations=iterations,
+                    success=False,
+                    error="Aborted: repeated unknown-tool calls",
+                    tool_success_count=tool_success_count,
+                    tool_failure_count=tool_failure_count,
+                    tokens_in=tokens_in_total,
+                    tokens_out=tokens_out_total,
+                    design_blocked=design_blocked,
+                )
+            if consecutive_unknown_tool in (1, 3):
+                messages.append(
+                    HumanMessage(
+                        content=(
+                            "STOP calling unknown tools. The tool you just tried DOES "
+                            "NOT EXIST in this agent's tool set — re-read your system "
+                            "prompt and use ONLY the tools it lists. If you want the "
+                            "executor to call a tool, mention the tool name as TEXT "
+                            "in your final markdown answer and STOP calling tools."
+                        )
+                    )
+                )
+
+            # One-shot budget extension: if we're about to exit and the
+            # trailing window still shows progress, bump max_iter once.
+            if (
+                not _budget_extended
+                and _iter_extend > 0
+                and iterations >= max_iter
+            ):
+                tail = tool_calls_made[-5:]
+                rolling_successes = sum(1 for c in tail if c.get("ok"))
+                if rolling_successes >= 2:
+                    max_iter += _iter_extend
+                    _budget_extended = True
+                    if progress:
+                        progress.info(
+                            f"[BUDGET_EXTENDED] reason=active_progress "
+                            f"(+{_iter_extend} iterations, new cap={max_iter})"
+                        )
+
         # Max iterations reached
         if progress:
             progress.error(f"Max iterations ({max_iter}) reached without completion")
@@ -948,6 +1275,25 @@ class AgenticExecutor:
             "out-of-band edits on the next gated call and will return "
             "[BLOCKED] until you re-run uipath_workflow_build_and_verify to "
             "verdict='pass'.",
+            "",
+            "## XAML AUTHORING — USE THE SPEC-BASED TOOL, NOT write_file",
+            "",
+            "For ANY new .xaml workflow, you MUST use `create_xaml_workflow` "
+            "with a JSON spec (root, arguments, variables, body). It emits "
+            "correct namespaces, `TextExpression.Language`, ViewState IDs, "
+            "and C#/VB argument wrapping that hand-written XAML almost "
+            "always gets wrong. Do NOT hand-author XAML via write_file — "
+            "that path caused the recent `uipcli analyze` 11-error failures "
+            "(missing `xmlns:s`, `xmlns:scg`, wrong expression language).",
+            "After creating a XAML, call `validate_xaml` on it, then the "
+            "normal build_and_verify pipeline. Only fall back to write_file "
+            "for .json, .md, .cs, or surgical XAML patches on an already-"
+            "validated file. If you catch yourself composing a full "
+            "<Activity>...</Activity> string, STOP and use create_xaml_workflow.",
+            "",
+            "The `uipath-rpa` SKILL.md (in SKILL INSTRUCTIONS below) is "
+            "authoritative for RPA project conventions: read its 'Critical "
+            "Rules' section and the XAML references before emitting files.",
             "",
             "## DEPLOYMENT",
             "You can deploy workflows to Orchestrator or Studio Web using deploy_to_orchestrator.",

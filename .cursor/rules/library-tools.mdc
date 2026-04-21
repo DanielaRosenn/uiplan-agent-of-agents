@@ -1,0 +1,56 @@
+---
+description: Always use uipath_library_* MCP tools instead of reading data/library/ files directly
+alwaysApply: true
+---
+
+# UiPath library: use the MCP tools, not the files
+
+The folders below are the **storage backend** for the UiPath documentation
+library and the skills cache. They are not the API. When the user asks
+anything about books, chapters, sections, search, or skills, call the MCP
+tool. Do not answer from raw file reads.
+
+| Storage path | Tool to call instead |
+|---|---|
+| `data/library/catalog.yaml` | `uipath_library_list` |
+| `data/library/books/<id>/book.yaml` | `uipath_library_toc` |
+| `data/library/books/<id>/<chapter>/<section>.md` | `uipath_library_read_section` |
+| Anywhere under `data/library/` for a query | `uipath_library_search` or `uipath_library_lookup` |
+| `skills/skills/<name>/SKILL.md` | `uipath_skill_get` |
+| `skills/references/activity-docs/...` | `uipath_doc_get_activity` / `uipath_doc_list_packages` |
+
+## Rules
+
+- Do NOT use `Read`, `Glob`, `Grep`, or `SemanticSearch` against
+  `data/library/`, `skills/skills/`, or `skills/references/activity-docs/`
+  to answer user questions.
+- The MCP tools apply ranking, citation lines, and overlay/origin
+  precedence that raw reads silently skip.
+- The only legitimate reasons to read those paths directly:
+  1. You are debugging the library/skills files themselves (e.g. fixing a
+     malformed `book.yaml`).
+  2. You are editing the storage (proposing a new section, etc.) - and
+     even then, prefer `uipath_library_propose_*` over hand-writing files.
+
+## Examples
+
+User: "List books"
+
+```
+BAD: SemanticSearch -> Read data/library/catalog.yaml -> answer
+GOOD: call uipath_library_list -> answer from its output
+```
+
+User: "What does the orchestrator chapter cover?"
+
+```
+BAD: Glob data/library/books/uipath-docs/orchestrator/**
+GOOD: uipath_library_toc { book_id: "uipath-docs" } -> filter to orchestrator
+```
+
+User: "Find sections about retry scopes"
+
+```
+BAD: Grep "retry scope" in data/library/
+GOOD: uipath_library_search { query: "retry scope" }
+```

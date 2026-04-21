@@ -20,9 +20,22 @@ uipath-claude library-proposals reject <proposal_id>
 
 Approve and reject append JSON lines to the structured event log (default `~/.uipath-claude/logs/events.log`, override `UIPATH_EVENT_LOG`) with `event` equal to `library_proposal_approved` or `library_proposal_rejected`.
 
-## Agent tool
+## Agent tool (LangChain)
 
 - `propose_library_update(book_id, chapter_id, section_id, section_title, content, keywords, rationale)` — returns JSON with `proposal_id` and `status: pending`.
+
+## MCP tool mapping
+
+When driving the agent from Cursor or any other MCP client, use the `uipath_library_*` tools (see [CURSOR_USER_GUIDE.md](CURSOR_USER_GUIDE.md#library-tools-uipath_library_)):
+
+| Action | MCP tool |
+|--------|----------|
+| Browse books / TOC / sections | `uipath_library_list`, `uipath_library_toc`, `uipath_library_read_section` |
+| Search / question lookup | `uipath_library_search`, `uipath_library_lookup` |
+| Stage a section proposal | `uipath_library_propose_section` |
+| Stage a chapter proposal | `uipath_library_propose_chapter` |
+| Review queue | `uipath_library_list_proposals` |
+| Apply / drop proposal | `uipath_library_approve_proposal` / `uipath_library_reject_proposal` |
 
 ## Evaluations
 

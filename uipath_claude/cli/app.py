@@ -438,6 +438,40 @@ def _score_skill(skill: dict, user_input: str, user_tokens: set[str]) -> int:
         elif user_tokens & _RPA_HINT_TOKENS:
             score += 12
 
+    # Penalize specialist skills that only apply when the user explicitly
+    # names their domain. Without these gates, tokens like "process", "plan",
+    # "build", "tasks" in generic build prompts inflate their scores high
+    # enough to crowd out uipath-rpa.
+    name_lower = name.lower()
+    # Gate keywords are matched with word-boundary semantics against user_tokens
+    # (single tokens) OR as substrings against lower_input (multi-word phrases).
+    # This prevents false-positives like "agent" matching "uipath-builder-agent"
+    # in a file path, or "case" matching "Classic" / "because".
+    _specialist_gates: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
+        # (single-word tokens to match exactly, multi-word phrases to match as substring)
+        "uipath-case-management": (("case", "cases", "caseplan"), ("case management",)),
+        "uipath-coded-apps": (("codedapp",), ("coded app", "coded apps", "action app")),
+        "uipath-data-fabric": (("entity", "entities"), ("data fabric",)),
+        "uipath-maestro-flow": (("maestro", "bpmn", "flow", "flows"), (".flow",)),
+        "uipath-agents": (("langgraph", "llamaindex"), ("coded agent", "coded agents", "agentic process", "agent builder", "build an agent", "build agent")),
+        "uipath-servo": (("servo",), ("live desktop", "live browser")),
+        "uipath-test": (("tm",), ("test manager", "test execution", "test report")),
+        "uipath-rpa-legacy": (("legacy", "net461"), (".net framework",)),
+        "uipath-feedback": (("feedback",), ("report issue", "bug report")),
+        "uipath-diagnostics": (("diagnose", "diagnostic", "faulted"), ("failed job",)),
+        "uipath-human-in-the-loop": (("hitl",), ("human in the loop", "approval gate")),
+    }
+    for gate_name, (token_kws, phrase_kws) in _specialist_gates.items():
+        if gate_name in name_lower:
+            has_token = any(kw in user_tokens for kw in token_kws)
+            has_phrase = any(kw in lower_input for kw in phrase_kws)
+            if not (has_token or has_phrase):
+                # Strong penalty: must overwhelm any description-token overlap
+                # or spurious category boost (e.g. case-management description
+                # mentions "sdd.md" triggering the sdd category bonus).
+                score -= 60
+            break
+
     return score
 
 
@@ -452,11 +486,13 @@ def _is_workflow_intent(user_input: str, user_tokens: set[str]) -> bool:
     )
     if is_coded_intent:
         return False
-    if user_tokens & _DOC_INTENT_TOKENS:
-        return False
+    # Explicit workflow/xaml terms win even if the user also mentions PDD/SDD
+    # (common in BUILD prompts that reference the project's spec files).
     has_explicit_workflow_terms = bool({"workflow", "workflows", "xaml"} & user_tokens)
     if has_explicit_workflow_terms:
         return True
+    if user_tokens & _DOC_INTENT_TOKENS:
+        return False
     return bool(user_tokens & _RPA_HINT_TOKENS)
 
 
@@ -778,6 +814,25 @@ def chat(
         "--auto-approve-plan",
         help="Auto-approve plans without prompting (for CI/testing)",
     ),
+    project_dir: str | None = typer.Option(
+        None,
+        "--project-dir",
+        "-p",
+        help=(
+            "Path to the UiPath project directory (e.g. your InvoiceIntake_Demo "
+            "folder). When set, reads/writes resolve against this folder instead "
+            "of the per-session generated/chat/<id>/ output dir."
+        ),
+    ),
+    skip_docs: bool = typer.Option(
+        False,
+        "--skip-docs",
+        help=(
+            "Skip the PDD/SDD/TDD documentation sub-flow for BUILD intents. "
+            "Useful when you just want to build/fix the project and the "
+            "design docs already exist in docs/."
+        ),
+    ),
     stream: bool | None = typer.Option(
         None,
         "--stream/--no-stream",
@@ -786,9 +841,39 @@ def chat(
     track_processes: bool = typer.Option(True, "--track-processes/--no-track-processes", help="Track and cleanup only test-opened Studio processes"),
 ):
     """Start conversational chat mode."""
+    # When invoked via the `_default` callback (i.e. no subcommand), typer
+    # doesn't resolve Option defaults — parameters arrive as OptionInfo
+    # sentinels. Coerce to their real defaults here.
+    if not isinstance(no_banner, bool):
+        no_banner = False
+    if not isinstance(no_plan, bool):
+        no_plan = False
+    if not isinstance(auto_approve_plan, bool):
+        auto_approve_plan = False
+    if not isinstance(skip_docs, bool):
+        skip_docs = False
+    if not isinstance(project_dir, str) and project_dir is not None:
+        project_dir = None
+    if not isinstance(track_processes, bool):
+        track_processes = True
+    if not isinstance(stream, bool) and stream is not None:
+        stream = None
+
+    if project_dir:
+        resolved_project_dir = str(Path(project_dir).expanduser().resolve())
+        os.environ["UIPATH_PROJECT_DIR"] = resolved_project_dir
+    if skip_docs:
+        os.environ["UIPATH_SKIP_DOCS"] = "1"
+
     _load_dotenv_from_cwd()
     console = Console()
     progress = ProgressReporter(console)
+
+    # Print welcome banner FIRST, before any other output (skills update
+    # notices, auth prompts, etc.) so the robot is the first thing the user
+    # sees on every run.
+    if not no_banner:
+        print_welcome_banner()
 
     def _stdio_line_buffered() -> None:
         """When stdout is a pipe (e.g. eval subprocess), avoid block buffering."""
@@ -850,10 +935,7 @@ def chat(
             before_pids = start_tracking_test()
         except Exception:
             pass  # Process tracking is optional
-    
-    if not no_banner:
-        print_welcome_banner()
-    
+
     project_context = detect_uipath_project(str(Path.cwd()))
     if project_context:
         console.print(f"Detected UiPath project: {project_context['project_name']}\n")
@@ -1111,9 +1193,15 @@ def chat(
         session_logging=(session_store, chat_session_id),
     )
 
+    last_run_had_errors = False
     try:
         while True:
             try:
+                if last_run_had_errors:
+                    console.print(
+                        "[dim yellow][previous run had errors; see lines above][/dim yellow]"
+                    )
+                    last_run_had_errors = False
                 first_line = Prompt.ask("[cyan]You[/cyan]")
                 user_input = read_user_message(
                     console, first_line=first_line
@@ -1285,35 +1373,48 @@ def chat(
                     console.print(f"Error: {exc}")
                     continue
 
-            if intent in (IntentType.BUILD, IntentType.AMBIGUOUS):
+            _skip_docs_env = os.environ.get("UIPATH_SKIP_DOCS", "").strip().lower()
+            _skip_docs = _skip_docs_env in ("1", "true", "yes", "y", "on")
+            if intent in (IntentType.BUILD, IntentType.AMBIGUOUS) and not _skip_docs:
                 doc_need = detect_documentation_need(user_input)
                 if (
                     doc_need.recommended_docs
                     and doc_need.level
                     in (DocNeedLevel.RECOMMENDED, DocNeedLevel.REQUIRED)
                 ):
-                    default = "y" if doc_need.level == DocNeedLevel.REQUIRED else "n"
+                    _doc_is_interactive = sys.stdin.isatty() and not auto_approve_plan
+                    if not _doc_is_interactive:
+                        default = "n"
+                    else:
+                        default = "y" if doc_need.level == DocNeedLevel.REQUIRED else "n"
                     doc_label = ", ".join(d.upper() for d in doc_need.recommended_docs)
                     prompt_text = (
                         f"Documentation [{doc_need.level.value}]. "
                         f"Generate {doc_label} before coding?"
                     )
                     choice = default
-                    for _attempt in range(3):
-                        try:
-                            choice = Prompt.ask(
-                                prompt_text,
-                                choices=["y", "n"],
-                                default=default,
+                    if _doc_is_interactive:
+                        for _attempt in range(3):
+                            try:
+                                choice = Prompt.ask(
+                                    prompt_text,
+                                    choices=["y", "n"],
+                                    default=default,
+                                )
+                                break
+                            except Exception:
+                                continue
+                        else:
+                            console.print(
+                                f"[yellow]Repeated invalid responses; defaulting to '{default}'.[/yellow]"
                             )
-                            break
-                        except Exception:
-                            continue
+                            choice = default
                     else:
                         console.print(
-                            f"[yellow]Repeated invalid responses; defaulting to '{default}'.[/yellow]"
+                            f"[dim]Documentation [{doc_need.level.value}] — skipping "
+                            f"({doc_label}). Use --skip-docs=false in an interactive "
+                            f"session or pass --skip-docs explicitly to control this.[/dim]"
                         )
-                        choice = default
                     if choice.strip().lower() in ("y", "yes"):
                         project_path = (
                             project_context["project_path"]
@@ -1525,6 +1626,10 @@ def chat(
 
                 history[:] = list(result.get("messages") or [])
                 response = str(result.get("assistant_response", ""))
+                try:
+                    last_run_had_errors = int(result.get("tool_failure_count", 0) or 0) > 0
+                except (TypeError, ValueError):
+                    last_run_had_errors = False
                 try:
                     session_store.append(
                         chat_session_id, SessionEvent(kind="assistant", text=response)

@@ -63,8 +63,16 @@ uipath-claude library-proposals approve <id>
 uipath-claude library-proposals reject <id>
 ```
 
-Over MCP, the same surface is available as `uipath_library_list_proposals`,
-`uipath_library_approve_proposal`, `uipath_library_reject_proposal`.
+Over MCP, the full surface is:
+
+| Action | Agent (LangChain) tool | MCP tool |
+|--------|------------------------|----------|
+| Propose new section | `propose_library_update` | `uipath_library_propose_section` |
+| Propose new chapter | `propose_library_chapter` | `uipath_library_propose_chapter` |
+| List queue | (CLI: `library-proposals list`) | `uipath_library_list_proposals` |
+| Approve | (CLI: `library-proposals approve`) | `uipath_library_approve_proposal` |
+| Reject | (CLI: `library-proposals reject`) | `uipath_library_reject_proposal` |
+| Browse / search / read | `list_library_books`, `browse_book_toc`, `read_section`, `search_library` | `uipath_library_list`, `uipath_library_toc`, `uipath_library_read_section`, `uipath_library_search`, `uipath_library_lookup` |
 
 ## Harvesting from upstream skills
 

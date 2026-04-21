@@ -2,6 +2,12 @@
 
 This project is extensible along three axes: **skills**, **tools**, and **slash commands**. The official UiPath skills live in a git submodule (`skills/skills/`) and should not be edited in-place — always override from a higher-priority layer. See [docs/SKILL_LAYOUT.md](docs/SKILL_LAYOUT.md) for the full layering model.
 
+**Submodule vs `.cursor/skills`:** The submodule tree is the **source of truth** for full skill content (`SKILL.md`, references, assets). Files under `.cursor/skills/<name>/` are **gap-fill only** — add missing snippets that are not upstream yet; **do not** duplicate upstream filenames (e.g. a second `SKILL.md`) or you silently override the submodule and break Task Navigation. See template policy in companion repos: `docs/ops/skills-submodule-compliance.md` (UiPath Spec Project Template).
+
+### Every UiPath build ends with a developer report
+
+For non-trivial automation work in a real `project.json` repo, close the session with **validation evidence** (`uip rpa get-errors`) and a short report under `<project>/docs/reports/<YYYY-MM-DD>-<feature>-dev-report.md`. Rules, R/Y/G status, and the report skeleton are canonical in the **UiPath Spec Project Template** submodule at `agent/skills/skills/uipath-rpa/references/validation-and-reporting.md` (also summarized in `uipath-rpa` rules 28–32). This repo consumes that submodule — do not fork the reporting doc into `skills/skills/` here; update upstream in the template and pull the submodule.
+
 ## Add a skill
 
 Skills are markdown playbooks (`SKILL.md`) with YAML frontmatter. The loader merges multiple roots; first source wins when two folders define the same skill `name`.
@@ -48,12 +54,17 @@ Profiles (`safe`, `uipath-dev`, `all`) control which tools the agent sees. Defau
 
 Slash commands live under `uipath_claude/commands/`. Each command is a small module exposing a `run(session, args)` function and registered on the command registry:
 
-1. Create `uipath_claude/commands/my_command.py` with a `run` function.
-2. Register it in `uipath_claude/commands/registry.py` (or wherever the project currently centralizes registrations).
+1. Create `uipath_claude/commands/my_command.py` with a `run` function (or use the `@register_command` decorator from `uipath_claude/commands/registry.py`).
+2. Register it on the active `CommandRegistry` (most commands are registered when the chat session boots; see `uipath_claude/cli/app.py` for `/bootstrap` and `/pdd`).
 3. Document the command in `README.md` and [docs/USER_GUIDE.md](docs/USER_GUIDE.md).
 4. Add a unit test under `tests/unit/commands/`.
 
 Slash commands call into the same Python packages as the CLI, so keep business logic in `query/` or `tools/` and keep the command thin.
+
+Real-world examples:
+
+- [`uipath_claude/commands/pdd.py`](uipath_claude/commands/pdd.py) - `/pdd`, parses `--project-type` / `--deploy` / `--folder` and delegates to `run_pdd_lifecycle` (full BA -> SA -> ADD -> TDD -> Dev -> QA + publish + deploy). See [docs/PDD_LIFECYCLE.md](docs/PDD_LIFECYCLE.md).
+- [`uipath_claude/commands/bootstrap.py`](uipath_claude/commands/bootstrap.py) - `/bootstrap`, the legacy four-stage flow.
 
 ## Dev loop
 

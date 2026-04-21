@@ -339,6 +339,37 @@ class TestRunUipCommand:
         assert "activities" in result
 
     @patch("uipath_claude.tools.skill_execution_tools.subprocess.run")
+    def test_analyze_injects_project_path_from_env(
+        self, mock_run, tmp_path, monkeypatch
+    ):
+        proj = tmp_path / "p1"
+        proj.mkdir()
+        (proj / "project.json").write_text("{}")
+        monkeypatch.setenv("UIPATH_PROJECT_DIR", str(proj))
+        monkeypatch.setenv("UIPATH_CHAT_OUTPUT_DIR", str(tmp_path))
+        monkeypatch.setenv("UIPATH_CHAT_SESSION_ID", "")
+
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout='{"Result": "Success", "Data": {"Issues": []}}',
+            stderr="",
+        )
+
+        from uipath_claude.tools.skill_execution_tools import run_uip_command
+
+        run_uip_command.func(
+            command="rpa",
+            command_args=["analyze", "--output", "json"],
+            project_dir=None,
+        )
+
+        cmd = mock_run.call_args[0][0]
+        assert "rpa" in cmd and "analyze" in cmd
+        pi = cmd.index("analyze")
+        assert cmd[pi : pi + 3] == ["analyze", "--project-path", str(proj.resolve())]
+        assert mock_run.call_args[1]["cwd"] == str(proj.resolve())
+
+    @patch("uipath_claude.tools.skill_execution_tools.subprocess.run")
     def test_strips_use_studio_flag(self, mock_run, tmp_path, monkeypatch):
         monkeypatch.setenv("UIPATH_CHAT_OUTPUT_DIR", str(tmp_path))
         monkeypatch.setenv("UIPATH_CHAT_SESSION_ID", "")
@@ -368,6 +399,39 @@ class TestRunUipCommand:
         assert "find-activities" in cmd
         assert "removed unsupported uip flag" in result.lower()
         assert "--use-studio" in result
+
+    @patch("uipath_claude.tools.skill_execution_tools.subprocess.run")
+    def test_design_propose_short_circuits_without_subprocess(
+        self, mock_run, tmp_path, monkeypatch
+    ):
+        monkeypatch.setenv("UIPATH_CHAT_OUTPUT_DIR", str(tmp_path))
+        monkeypatch.setenv("UIPATH_CHAT_SESSION_ID", "")
+
+        from uipath_claude.tools.skill_execution_tools import run_uip_command
+
+        result = run_uip_command.func(
+            command="rpa",
+            command_args=["design-propose", "--project-dir", str(tmp_path)],
+        )
+
+        assert mock_run.call_count == 0
+        assert "uipath_design_propose" in result
+        assert "not a uip CLI subcommand" in result
+
+    @patch("uipath_claude.tools.skill_execution_tools.subprocess.run")
+    def test_design_approve_short_circuits(self, mock_run, tmp_path, monkeypatch):
+        monkeypatch.setenv("UIPATH_CHAT_OUTPUT_DIR", str(tmp_path))
+        monkeypatch.setenv("UIPATH_CHAT_SESSION_ID", "")
+
+        from uipath_claude.tools.skill_execution_tools import run_uip_command
+
+        result = run_uip_command.func(
+            command="rpa",
+            command_args=["design-approve", "--design-id", "abc"],
+        )
+
+        assert mock_run.call_count == 0
+        assert "uipath_design_approve" in result
 
 
 class TestFindActivityInfo:

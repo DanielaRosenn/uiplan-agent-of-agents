@@ -103,22 +103,61 @@ def create_welcome_panel() -> Panel:
 
 
 def print_welcome_banner() -> None:
-    """Print welcome banner with modern styled panel or fallback for non-rich terminals."""
-    console = Console()
-    
-    # Try rich panel first, fallback to plain text if terminal doesn't support it
+    """Print welcome banner.
+
+    Writes directly to ``sys.stdout`` so output survives pipes, Studio's
+    embedded terminal, and rich's legacy-Windows detection. The banner is
+    the robot; we don't let rich's terminal heuristics suppress it.
+    """
+    import sys
+
+    version_str = get_version()
+    banner_lines = [
+        "",
+        "+------------------------------------------------------------+",
+        "|                   UiPath Claude Code                       |",
+        "+------------------------------------------------------------+",
+        "",
+        "             .-------------.",
+        "             |  O       O  |      <-- sensors",
+        "             |     ___     |",
+        "             |    |___|    |      <-- head",
+        "             '------|------'",
+        "           .--------|--------.",
+        "           |  [ UiPath Bot ] |    <-- body",
+        "           |  .-----------.  |",
+        "           |  | [#][#][#] |  |    <-- control panel",
+        "           |  '-----------'  |",
+        "           '--------|--------'",
+        "              |||   |   |||       <-- legs",
+        "",
+        "    Conversational AI for UiPath Automation",
+        "    Version: " + version_str,
+        "",
+    ]
+    banner = "\n".join(banner_lines) + "\n"
+
     try:
-        # Check if terminal supports rich rendering
-        if console.is_terminal and not console.legacy_windows:
-            console.print(create_welcome_panel())
-        else:
-            # Fallback for terminals that don't support rich properly
-            _print_plain_banner(console)
+        sys.stdout.write(banner)
+        sys.stdout.flush()
     except Exception:
-        # If anything fails, use plain fallback
-        _print_plain_banner(console)
-    
-    console.print("Type [bold cyan]/help[/bold cyan] for available commands, or just start chatting!\n")
+        pass
+
+    # Follow-up hint uses rich if available (fine if it no-ops); fall back
+    # to plain stdout so it always prints.
+    try:
+        Console().print(
+            "Type [bold cyan]/help[/bold cyan] for available commands, "
+            "or just start chatting!\n"
+        )
+    except Exception:
+        try:
+            sys.stdout.write(
+                "Type /help for available commands, or just start chatting!\n\n"
+            )
+            sys.stdout.flush()
+        except Exception:
+            pass
 
 
 def _print_plain_banner(console: Console) -> None:

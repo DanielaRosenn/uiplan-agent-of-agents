@@ -159,6 +159,38 @@ class AgenticProgressReporter:
             return True
         return self.full_tool_output
 
+    def design_gate_banner(
+        self,
+        project_dir: str,
+        approved: bool,
+        pending_design_id: str | None,
+    ) -> None:
+        """Print a one-line pre-run status for the target project's design gate.
+
+        Shown before the first LLM round so the user (and the model, via a
+        parallel system message) knows whether writes are currently allowed.
+        """
+        short = project_dir
+        if len(short) > 70:
+            short = "..." + short[-67:]
+        if approved:
+            self.console.print(
+                f"[dim][DESIGN_GATE] project={short} approved=true"
+                " -> write tools will run.[/dim]"
+            )
+        elif pending_design_id:
+            self.console.print(
+                f"[dim][DESIGN_GATE] project={short} approved=false "
+                f"pending={pending_design_id}"
+                " -> call uipath_design_approve to unblock writes.[/dim]"
+            )
+        else:
+            self.console.print(
+                f"[dim][DESIGN_GATE] project={short} approved=false pending=none"
+                " -> first write requires uipath_design_propose +"
+                " uipath_design_approve.[/dim]"
+            )
+
     def session_banner(self, artifact_root: str | None) -> None:
         """Print resolved session artifact directory once per agentic run."""
         if artifact_root:
@@ -406,6 +438,7 @@ class AgenticProgressReporter:
         artifact_root: str | None = None,
         tokens_in: int = 0,
         tokens_out: int = 0,
+        design_blocked: bool = False,
     ) -> None:
         """Show completion summary (loop finished, not necessarily all tools ok)."""
         self.console.print()
@@ -430,6 +463,12 @@ class AgenticProgressReporter:
                 f"{tool_failure_count} tool call(s) reported errors (see lines above). "
                 "Failed tools always show full output above; set UIPATH_DEBUG_VERBOSE=0 "
                 "or UIPATH_AGENTIC_FULL_TOOL_OUTPUT=0 for quieter successful-tool logs."
+            )
+        if design_blocked:
+            self.console.print(
+                "[yellow]![/yellow] [bold]Build is blocked:[/bold] project has no "
+                "approved design. The agent must call [cyan]uipath_design_propose[/cyan] "
+                "and then [cyan]uipath_design_approve[/cyan] before any writes."
             )
         if artifact_root and not files_written:
             self.console.print(f"[dim]Artifact root:[/dim] [cyan]{artifact_root}[/cyan]")

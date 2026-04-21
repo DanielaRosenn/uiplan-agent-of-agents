@@ -48,6 +48,21 @@ from uipath_claude.query.intent_classifier import IntentType, classify_intent
         ("build a workflow that sends email", IntentType.BUILD, "build"),
         ("create a pdd", IntentType.DOCUMENTATION, "doc"),
         ("random unparseable noun phrase here", IntentType.AMBIGUOUS, "default"),
+        (
+            "what's coreipc?https://github.com/UiPath/coreipc",
+            IntentType.QUESTION,
+            "question",
+        ),
+        ("what's coreipc?", IntentType.QUESTION, "question"),
+        ("who's the owner?", IntentType.QUESTION, "question"),
+        ("tell me about orchestrator", IntentType.QUESTION, "question"),
+        ("create an invoice processor", IntentType.BUILD, "build"),
+        ("build X and write Y", IntentType.BUILD, "build"),
+        ("did you create the project?", IntentType.QUESTION, "status_question"),
+        ("did you build the workflow?", IntentType.QUESTION, "status_question"),
+        ("have you created the project?", IntentType.QUESTION, "status_question"),
+        ("have you built the workflow?", IntentType.QUESTION, "status_question"),
+        ("was the project created?", IntentType.QUESTION, "status_question"),
     ],
 )
 def test_classify_intent(text: str, expected: IntentType, reason_substr: str) -> None:

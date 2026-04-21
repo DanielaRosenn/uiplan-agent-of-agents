@@ -172,9 +172,36 @@ Use slash commands for quick actions:
 | `/help` | Show available commands |
 | `/status` | Show session status |
 | `/skills` | List loaded skills |
+| `/pdd <brief>` | Run the full BA -> SA -> ADD -> TDD -> Dev -> QA lifecycle (optionally publish + deploy) |
+| `/bootstrap <brief>` | Legacy four-stage BA -> SA -> Dev -> QA flow |
 | `/analyze` | Analyze current UiPath project |
 | `/validate` | Validate XAML files |
 | `/recall <term>` | Search session history |
+
+### `/pdd` flags
+
+`/pdd` runs the full lifecycle implemented in [`uipath_claude/query/pdd_lifecycle.py`](../uipath_claude/query/pdd_lifecycle.py).
+
+| Flag | Default | Effect |
+|------|---------|--------|
+| `--project-type process\|maestro` | `process` | `process` runs `uip rpa` + `uip solution pack/publish` + `uip or processes create`; `maestro` runs `uip flow init/validate/pack` + `uip solution publish` + `uip flow process create`. |
+| `--deploy` | off | After validate/run, also pack, publish, and create the Orchestrator process. Without this flag the lifecycle stops at QA. |
+| `--folder <name>` | `Shared` | Orchestrator folder used by the `deploy` stage. |
+
+Examples:
+
+```bash
+# RPA, no deploy
+/pdd "Read invoices from Outlook and queue them" 
+
+# RPA, full deploy to Shared folder
+/pdd --deploy --folder Shared "Read invoices from Outlook and queue them"
+
+# Maestro flow, full deploy
+/pdd --project-type maestro --deploy "Triage support tickets across email and Slack"
+```
+
+Full reference: [PDD_LIFECYCLE.md](PDD_LIFECYCLE.md).
 
 ## Troubleshooting
 

@@ -216,17 +216,22 @@ When the MCP server is enabled, Cursor can call the same Python entry points the
 
 | Tool | Description |
 |------|-------------|
+| `uipath_workflow_create_project` | Scaffold a new UiPath project via `uip rpa create-project` (`--template-id` + Studio dir resolution; CLI-only fallback) |
+| `uipath_workflow_ensure_project` | Confirm `project.json` exists under `project_dir`; optional nested `project_name` |
+| `uipath_workflow_read_project` | Read and JSON-parse `project.json` |
 | `uipath_workflow_read_file` / `uipath_workflow_write_file` | Read/write files under the agent path rules |
 | `uipath_workflow_list_directory` | List directory (`directory_path`, optional `pattern`) |
-| `uipath_workflow_read_project` | Summarize `project.json` |
 | `uipath_workflow_install_package` | `uip rpa install-or-update-packages` |
-| `uipath_workflow_validate` | Static validation (`validate_file`) |
-| `uipath_workflow_validate_loop` | Error listing loop (`validate_and_fix_loop`) |
-| `uipath_workflow_run` | Run workflow (`run_workflow`) |
-| `uipath_workflow_debug` | Start debugging run (`debug_workflow`) |
-| `uipath_workflow_ensure_project` | Ensure `project.json` (optional nested `project_name`) |
-| `uipath_workflow_run_command` | Raw `uip` (`command` + `args` + optional `project_dir`) |
-| `uipath_workflow_deploy` | Pack/deploy via `deploy_to_orchestrator` (URL + tenant required) |
+| `uipath_workflow_validate` | Static validation of one XAML via `uip rpa get-errors` |
+| `uipath_workflow_validate_loop` | Deprecated alias of `validate` (kept for backward compatibility) |
+| `uipath_workflow_build_and_verify` | Build, validate, headless-run, and Studio-debug in one shot |
+| `uipath_workflow_environment_probe` | Probe local Studio + installed activity packages |
+| `uipath_workflow_run` | Run workflow once (destructive) via `uip rpa run-file` |
+| `uipath_workflow_debug` | Start a workflow in debug mode (`uip rpa run-file StartDebugging`) |
+| `uipath_workflow_run_command` | Escape hatch: raw `uip` (`command` + `args` + optional `project_dir`) |
+| `uipath_workflow_publish` | Pack and publish a `.nupkg` to Orchestrator (no process creation) |
+| `uipath_workflow_deploy` | Pack + publish + create-process on Orchestrator. `project_type=process|maestro` selects RPA vs Flow toolchain. |
+| `uipath_workflow_session_status` | Read-only status of the per-project verification gate (`unknown`/`dirty`/`verified`) |
 
 ### Skill tools (`uipath_skill_*`)
 
@@ -248,7 +253,7 @@ The skills submodule auto-refreshes on CLI `chat` startup at most every six hour
 
 | Tool | Description |
 |------|-------------|
-| `uipath_agent_bootstrap` | BA → SA → Dev → QA (`run_bootstrap_flow`) |
+| `uipath_agent_bootstrap` | Legacy BA → SA → Dev → QA (`run_bootstrap_flow`). For the full BA → SA → ADD → TDD → Dev → QA + publish/deploy flow, run `/pdd` from the CLI; see [PDD_LIFECYCLE.md](PDD_LIFECYCLE.md). |
 | `uipath_agent_plan` | Read-only planner (`run_planner_agent`) |
 | `uipath_agent_execute` | ReAct loop with full skill execution tools |
 | `uipath_agent_classify_intent` | `classify_intent` (no cloud) |
@@ -256,13 +261,53 @@ The skills submodule auto-refreshes on CLI `chat` startup at most every six hour
 
 ### Documentation tools (`uipath_doc_*`)
 
+Activity docs lookup:
+
 | Tool | Description |
 |------|-------------|
 | `uipath_doc_list_packages` / `uipath_doc_list_activities` | Bundled activity-docs index |
 | `uipath_doc_get_activity` / `uipath_doc_get_package_overview` | Markdown from repo |
 | `uipath_doc_search` | Name search across packages |
 | `uipath_doc_find_activity` | Bundled + `.local/docs` + CLI discovery |
-| `uipath_doc_query` | Ask AI (`query_uipath_docs`; needs client setup) |
+| `uipath_doc_query` | DEPRECATED alias of `query_uipath_docs` |
+
+Project doc authoring (used by `/pdd` agents):
+
+| Tool | Description |
+|------|-------------|
+| `uipath_doc_read_template` | Read the bundled markdown placeholder template for `pdd`/`sdd`/`add`/`tdd` |
+| `uipath_doc_list_docs` | Report which of `pdd.md`/`sdd.md`/`add.md`/`tdd.md` exist under `<project_dir>/docs/` |
+| `uipath_doc_read_doc` | Read an existing project doc from `<project_dir>/docs/<doc_type>.md` |
+| `uipath_doc_write_doc` | Write/overwrite `<project_dir>/docs/<doc_type>.md` |
+
+### Library tools (`uipath_library_*`)
+
+The library is the curated UiPath knowledge base under `data/library/`. Always prefer these tools over raw `Read`/`Grep` — they apply ranking, citation lines, and overlay precedence. See [LIBRARY_LEARNING.md](LIBRARY_LEARNING.md) and [LIBRARY_AUTHORING.md](LIBRARY_AUTHORING.md).
+
+| Tool | Description |
+|------|-------------|
+| `uipath_library_list` | List books with chapter counts and manifest tags |
+| `uipath_library_toc` | Chapters and sections for one book |
+| `uipath_library_read_section` | Section content with inline citation |
+| `uipath_library_search` | Keyword search across sections |
+| `uipath_library_lookup` | Question-style lookup that returns ranked sections |
+| `uipath_library_propose_section` | Stage a NEW_SECTION proposal for review |
+| `uipath_library_propose_chapter` | Stage a NEW_CHAPTER proposal (creates the chapter folder) |
+| `uipath_library_list_proposals` | List pending proposals awaiting human review |
+| `uipath_library_approve_proposal` | Approve a pending proposal and write it into the library |
+| `uipath_library_reject_proposal` | Drop a pending proposal without writing |
+
+### Design tools (`uipath_design_*`)
+
+The design gate is an optional per-project write-lock. When `UIPATH_DESIGN_APPROVAL_ENABLED=1`, projects start with `status="pending"` and writes are blocked until a design proposal is approved.
+
+| Tool | Description |
+|------|-------------|
+| `uipath_design_propose` | Submit a design proposal for a project (releases write-lock once approved) |
+| `uipath_design_approve` | Approve a pending design by id; the project becomes writable |
+| `uipath_design_reject` | Reject a pending design; the project stays write-locked |
+| `uipath_design_list` | List proposals (optionally filter by `project_dir` or `status`) |
+| `uipath_design_status` | Read-only status of the design gate for a project |
 
 ### Memory tools (`uipath_memory_*`)
 
