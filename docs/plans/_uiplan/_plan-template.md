@@ -48,6 +48,14 @@ Gates re-checked after Phase 1 design:
 
 **Structure Decision**: {{STRUCTURE_DECISION}}
 
+## Activity references (optional)
+
+`uipath_plan_tasks_new` resolves activity documentation for explicit tags in **plan.md** or **spec.md** (up to 8 unique pairs). Use the package id and activity name as in Studio:
+
+`[activity:UiPath.System.Activities:LogMessage]`
+
+`[activity:UiPath.Mail.Activities:SendMail]`
+
 ## Complexity Tracking
 
 {{COMPLEXITY_TABLE}}

@@ -1,9 +1,12 @@
 """UiPlan MCP actions: ground, spec/plan/tasks generation, review, orchestrator."""
 from __future__ import annotations
 
+import re
 import shutil
 from pathlib import Path
 from typing import Any
+
+from uipath_claude.skills.activity_docs import get_activity_doc
 
 from mcp_server.tools.plan_constitution import load_constitution
 from mcp_server.tools.plan_folder import (
@@ -15,6 +18,76 @@ from mcp_server.tools.plan_folder import (
 )
 from mcp_server.tools.plan_grounding import build_grounding_pack
 from mcp_server.tools.plan_uiplan_review import run_uiplan_review
+
+_ACTIVITY_TAG_RE = re.compile(
+    r"\[activity:([A-Za-z0-9_.]+):([A-Za-z][A-Za-z0-9_]*)\]"
+)
+ACTIVITY_REFS_CAP = 8
+
+
+def collect_activity_refs(*texts: str, cap: int = ACTIVITY_REFS_CAP) -> list[tuple[str, str]]:
+    """Parse plan/spec text for ``[activity:PackageId:ActivityName]`` tags; dedupe, order preserved."""
+    seen: set[tuple[str, str]] = set()
+    out: list[tuple[str, str]] = []
+    for text in texts:
+        for m in _ACTIVITY_TAG_RE.finditer(text or ""):
+            key = (m.group(1), m.group(2))
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(key)
+            if len(out) >= cap:
+                return out
+    return out
+
+
+def _resolved_activity_docs_markdown(spec: str, plan: str) -> str:
+    """Markdown to append to tasks.md (includes heading)."""
+    refs = collect_activity_refs(spec, plan)
+    parts: list[str] = ["\n\n## Resolved activity docs\n\n"]
+    if not refs:
+        parts.append(
+            "_No `[activity:PackageId:ActivityName]` tags in plan.md or spec.md yet — "
+            "add tags in plan for auto-inlined docs._\n"
+        )
+    else:
+        for pkg, act in refs:
+            doc = get_activity_doc(pkg, act, None)
+            parts.append(f"### `{pkg}` / `{act}`\n\n")
+            if doc:
+                body = doc.strip()
+                if len(body) > 1500:
+                    body = body[:1500] + "\n\n_(truncated)_\n"
+                parts.append(body + "\n\n---\n\n")
+            else:
+                parts.append("_No documentation found._\n\n---\n\n")
+    return "".join(parts)
+
+
+def _tdd_excerpt_lines(lines: list[str]) -> str:
+    """First content through the line before the second top-level ``## `` heading, else first 40 lines."""
+    if not lines:
+        return ""
+    major = [
+        i
+        for i, ln in enumerate(lines)
+        if ln.startswith("## ") and not ln.startswith("###")
+    ]
+    if len(major) >= 2:
+        excerpt_lines = lines[: major[1]]
+    else:
+        excerpt_lines = lines[:40]
+    return "\n".join(excerpt_lines).rstrip() + "\n"
+
+
+def _tdd_reference_append(repo: Path) -> str:
+    tdd = repo / "uipath_claude" / "templates" / "tdd.md"
+    if not tdd.is_file():
+        return ""
+    excerpt = _tdd_excerpt_lines(tdd.read_text(encoding="utf-8").splitlines())
+    if not excerpt.strip():
+        return ""
+    return "\n\n## TDD reference (excerpt)\n\n" + excerpt + "\n"
 
 
 def _template_dir(repo: Path) -> Path:
@@ -255,6 +328,8 @@ def call_uiplan_tasks_new(arguments: dict[str, Any]) -> dict[str, Any]:
         "DEPENDENCIES_TEXT": "Phase 1 -> Phase 2 -> US1 -> Polish. Tests before implementation within each story.",
     }
     tasks_body = _fill(tpl, mapping)
+    tasks_body += _resolved_activity_docs_markdown(spec, plan)
+    tasks_body += _tdd_reference_append(repo)
     (folder / "tasks.md").write_text(tasks_body, encoding="utf-8")
     return {"status": "ok", "path": str(folder / "tasks.md"), "slug": slug}
 

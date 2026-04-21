@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from mcp_server.tools import plan_tools
+from mcp_server.tools import plan_tools, plan_uiplan
 
 
 @pytest.fixture
@@ -67,3 +67,70 @@ async def test_uiplan_ground_smoke(repo):
     )
     assert out.get("status") == "ok"
     assert "matched_skills" in out
+
+
+@pytest.mark.asyncio
+async def test_tasks_new_resolved_activity_docs(repo, monkeypatch):
+    tpl = repo / "docs" / "plans" / "_uiplan"
+    (tpl / "_spec-template.md").write_text(
+        "# {{TITLE}}\n{{INTENT}}\n## User Scenarios\n### User Story 1 - A (Priority: P1)\n"
+        "**Given** g **When** w **Then** t\n## Requirements\n### Functional Requirements\n"
+        "**FR-001**: System MUST x\n## Success Criteria\n### Measurable Outcomes\n**SC-001**: m\n",
+        encoding="utf-8",
+    )
+    (tpl / "_plan-template.md").write_text(
+        "# {{TITLE}}\n## Technical Context\nx\n## Constitution Check\n"
+        "- [ ] **modern_experience_only**: ok\n## Project Structure\n```\nx\n```\n"
+        "**Structure Decision**: {{STRUCTURE_DECISION}}\n## Complexity Tracking\nx\n",
+        encoding="utf-8",
+    )
+    (tpl / "_tasks-template.md").write_text(
+        "# {{TITLE}}\n## Phase 3: User Story 1 - MVP (Priority: P1)\n"
+        "### Tests for User Story 1\n- [ ] T010 [P] [US1] test `src/x.py`\n",
+        encoding="utf-8",
+    )
+    spec_out = await plan_tools.call_plan_tool(
+        "uipath_plan_spec_new",
+        {
+            "project_root": str(repo),
+            "title": "Activity Doc Task Test",
+            "intent": "verify activity inline",
+            "slug": "act-doc-task-test",
+        },
+    )
+    assert spec_out.get("status") == "ok"
+    slug = spec_out["slug"]
+    plan_out = await plan_tools.call_plan_tool(
+        "uipath_plan_plan_new",
+        {
+            "project_root": str(repo),
+            "slug": slug,
+            "title": "Activity Doc Task Test",
+        },
+    )
+    assert plan_out.get("status") == "ok"
+    folder = repo / ".cursor" / "plans" / spec_out["folder_name"]
+    plan_path = folder / "plan.md"
+    plan_path.write_text(
+        plan_path.read_text(encoding="utf-8")
+        + "\n\nUses `[activity:UiPath.System.Activities:LogMessage]`.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        plan_uiplan,
+        "get_activity_doc",
+        lambda pkg, act, version=None: "SYNTHETIC_ACTIVITY_DOC\n",
+    )
+    tasks_out = await plan_tools.call_plan_tool(
+        "uipath_plan_tasks_new",
+        {
+            "project_root": str(repo),
+            "slug": slug,
+            "title": "Activity Doc Task Test",
+        },
+    )
+    assert tasks_out.get("status") == "ok"
+    tasks_text = (folder / "tasks.md").read_text(encoding="utf-8")
+    assert "## Resolved activity docs" in tasks_text
+    assert "SYNTHETIC_ACTIVITY_DOC" in tasks_text
+    assert "`UiPath.System.Activities` / `LogMessage`" in tasks_text

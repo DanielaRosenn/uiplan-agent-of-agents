@@ -65,7 +65,7 @@ Use UiPlan when you want **three linked artifacts** plus a **structured review**
 1. **`uipath_plan_ground`** — read-only pack: project-context excerpt, `CLAUDE.md` excerpt, `uipath_skill_match` results, `uipath_library_search` snippets, PDD/SDD candidates, suggested `templates/` starter, constitution gates from `docs/plans/constitution.md` (or built-in defaults).
 2. **`uipath_plan_spec_new`** — creates the draft folder + `spec.md` from `docs/plans/_uiplan/_spec-template.md`.
 3. **`uipath_plan_plan_new`** — writes `plan.md` (Technical Context, Constitution Check, Project Structure).
-4. **`uipath_plan_tasks_new`** — writes `tasks.md` (phases, `[USn]` traceability, test-before-impl sections).
+4. **`uipath_plan_tasks_new`** — writes `tasks.md` (phases, `[USn]` traceability, test-before-impl sections). It also appends **Resolved activity docs** for each **`[activity:PackageId:ActivityName]`** tag found in **plan.md** or **spec.md** (inline excerpts from the activity-docs cache), and a short **TDD reference (excerpt)** from `uipath_claude/templates/tdd.md` when that file exists in the repo.
 5. **`uipath_plan_review`** — returns `{ ok, findings[], next_action }` for `stage`: `spec` \| `plan` \| `tasks` \| `all`.
 6. **`uipath_plan_uiplan_new`** — runs ground through review in one call.
 
