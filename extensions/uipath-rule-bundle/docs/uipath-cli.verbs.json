@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Allow-list of UiPath CLI verbs consumed by uipath_claude.skills.submodule_guard. Sourced from live --help output; update alongside docs/uipath-cli.md.",
+  "version": "2026-04-21",
+  "clis": {
+    "uipcli": {
+      "version_verified": "25.10.13",
+      "verbs": [
+        "package restore",
+        "package analyze",
+        "package pack",
+        "package deploy",
+        "solution restore",
+        "solution analyze",
+        "solution pack",
+        "solution upload-package",
+        "solution delete-package",
+        "solution download-package",
+        "solution download-config",
+        "solution deploy",
+        "solution deploy-activate",
+        "solution deploy-uninstall",
+        "test run",
+        "job run",
+        "asset deploy",
+        "asset delete",
+        "run",
+        "config get",
+        "config set"
+      ]
+    },
+    "uipath": {
+      "version_verified": "2.8.40",
+      "verbs": [
+        "auth",
+        "new",
+        "init",
+        "run",
+        "pack",
+        "publish",
+        "invoke",
+        "deploy",
+        "eval",
+        "pull",
+        "push"
+      ]
+    },
+    "uip": {
+      "version_verified": "session-hook-managed",
+      "verbs": [
+        "rpa list-instances",
+        "rpa-legacy",
+        "codedapp",
+        "case",
+        "df",
+        "servo",
+        "feedback send",
+        "tools install"
+      ]
+    }
+  }
+}

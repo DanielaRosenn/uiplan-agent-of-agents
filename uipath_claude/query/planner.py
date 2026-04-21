@@ -3,10 +3,17 @@
 from __future__ import annotations
 
 import os
+import time
+from pathlib import Path
 from typing import Any
 
 from uipath_claude.query.agentic_executor import AgenticExecutor, AgenticResult
 from uipath_claude.tools.skill_execution_tools import get_planning_tools
+
+
+DISCOVERY_AGENT_RELATIVE = Path("skills") / "agents" / "uipath-project-discovery-agent.md"
+PROJECT_CONTEXT_RELATIVE = Path(".claude") / "rules" / "project-context.md"
+DISCOVERY_MAX_AGE_SECONDS = 24 * 3600
 
 
 async def run_planner_agent(
@@ -110,4 +117,110 @@ REMEMBER: You can ONLY explore and plan. You CANNOT and MUST NOT write, edit, or
         skill_name="uipath-planner",
         max_iterations=planner_max,
         prior_messages=history,
+    )
+
+
+def _find_repo_root(start: Path | None = None) -> Path:
+    current = (start or Path.cwd()).resolve()
+    for candidate in (current, *current.parents):
+        if (candidate / ".git").exists() or (candidate / "CLAUDE.md").exists():
+            return candidate
+    return current
+
+
+def _existing_context_is_fresh(path: Path, max_age_seconds: int) -> bool:
+    if not path.exists():
+        return False
+    try:
+        mtime = path.stat().st_mtime
+    except OSError:
+        return False
+    return (time.time() - mtime) <= max_age_seconds
+
+
+async def _run_discovery_agent(
+    user_request: str,
+    repo_root: Path,
+    *,
+    executor: AgenticExecutor | None = None,
+) -> str:
+    """Invoke the uipath-project-discovery-agent and return its output.
+
+    Tests monkeypatch this helper directly; the default implementation reads
+    the agent's SKILL markdown from the pinned submodule and runs it via
+    ``AgenticExecutor`` with the same read-only tool surface as the planner.
+    """
+    agent_path = repo_root / DISCOVERY_AGENT_RELATIVE
+    if not agent_path.exists():
+        raise FileNotFoundError(
+            f"Discovery agent missing: {agent_path}. "
+            "Ensure the UiPath/skills submodule is initialized."
+        )
+    agent_body = agent_path.read_text(encoding="utf-8")
+
+    exe = executor or AgenticExecutor()
+    result = await exe.execute(
+        skill_content=agent_body,
+        user_request=user_request,
+        tools=get_planning_tools(),
+        project_context={
+            "selected_skill_names": ["uipath-project-discovery-agent"],
+            "repo_root": str(repo_root),
+        },
+        skill_name="uipath-project-discovery-agent",
+    )
+    # AgenticResult exposes the final assistant text as .response_text.
+    return getattr(result, "final_response", None) or str(result)
+
+
+async def run_planner_agent_with_discovery(
+    user_request: str,
+    *,
+    repo_root: str | Path | None = None,
+    force_rediscover: bool = False,
+    max_age_seconds: int = DISCOVERY_MAX_AGE_SECONDS,
+    model_name: str | None = None,
+    region: str | None = None,
+    history: list[dict[str, str]] | None = None,
+) -> AgenticResult:
+    """Run discovery first (if needed), then invoke the planner.
+
+    1. If ``.claude/rules/project-context.md`` is younger than
+       ``max_age_seconds`` and the caller did not pass ``force_rediscover``,
+       skip discovery and use the cached file as context.
+    2. Otherwise, invoke the ``uipath-project-discovery-agent`` from the
+       pinned ``skills/`` submodule via ``AgenticExecutor`` and persist the
+       returned document to ``.claude/rules/project-context.md``.
+    3. Hand the context document to ``run_planner_agent`` as the
+       ``project_context['discovery_document']`` entry.
+    """
+    root = Path(repo_root).resolve() if repo_root else _find_repo_root()
+    context_path = root / PROJECT_CONTEXT_RELATIVE
+
+    should_discover = (
+        force_rediscover
+        or not _existing_context_is_fresh(context_path, max_age_seconds)
+    )
+
+    discovery_doc: str
+    if should_discover:
+        discovery_doc = await _run_discovery_agent(user_request, root)
+        context_path.parent.mkdir(parents=True, exist_ok=True)
+        context_path.write_text(discovery_doc, encoding="utf-8")
+    else:
+        discovery_doc = context_path.read_text(encoding="utf-8")
+
+    planner_context: dict[str, Any] = {
+        "selected_skill_names": ["uipath-planner"],
+        "discovery_document": discovery_doc,
+        "discovery_source": str(context_path),
+        "repo_root": str(root),
+    }
+
+    return await run_planner_agent(
+        user_request,
+        project_context=planner_context,
+        model_name=model_name,
+        region=region,
+        history=history,
     )

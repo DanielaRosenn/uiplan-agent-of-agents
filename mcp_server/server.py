@@ -32,11 +32,14 @@ from mcp_server.resources.skills import fetch_skill_resource, get_skill_resource
 from mcp_server.tools.agent_tools import call_agent_tool, get_agent_tools
 from mcp_server.tools.design_tools import call_design_tool, get_design_tools
 from mcp_server.tools.doc_tools import call_doc_tool, get_doc_tools
+from mcp_server.tools.intent_tools import call_intent_tool, get_intent_tools
 from mcp_server.tools.library_tools import (
     call_library_tool,
     get_library_tools as _get_library_tools,
 )
+from mcp_server.tools.answer_tools import call_answer_tool, get_answer_tools
 from mcp_server.tools.memory_tools import call_memory_tool, get_memory_tools
+from mcp_server.tools.plan_tools import call_plan_tool, get_plan_tools
 from mcp_server.tools.skill_tools import call_skill_tool, get_skill_tools
 from mcp_server.tools.workflow_tools import call_workflow_tool, get_workflow_tools
 
@@ -59,6 +62,9 @@ async def list_tools() -> list[Tool]:
     tools.extend(get_memory_tools())
     tools.extend(_get_library_tools())
     tools.extend(get_design_tools())
+    tools.extend(get_intent_tools())
+    tools.extend(get_plan_tools())
+    tools.extend(get_answer_tools())
     return tools
 
 
@@ -79,6 +85,12 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             result = await call_library_tool(name, arguments)
         elif name.startswith("uipath_design_"):
             result = await call_design_tool(name, arguments)
+        elif name.startswith("uipath_intent_"):
+            result = await call_intent_tool(name, arguments)
+        elif name.startswith("uipath_plan_"):
+            result = await call_plan_tool(name, arguments)
+        elif name == "uipath_answer":
+            result = await call_answer_tool(name, arguments)
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
         return _text_result(result)

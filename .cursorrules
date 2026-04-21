@@ -1,0 +1,35 @@
+# UiPath Project Rule
+
+The full rule lives in CLAUDE.md at the repo root. Read it before acting.
+
+Before any action in a UiPath repo:
+1. Read CLAUDE.md (principles, hard gates, decision logic).
+2. Check that the `skills/` submodule guard passed for this session
+   (run `python -m uipath_claude.skills.submodule_guard` if unsure).
+3. Identify the project type (CLAUDE.md §1).
+4. For CLI syntax, read docs/uipath-cli.md.
+5. For end-to-end flows, read docs/uipath-workflows.md.
+
+Hard gates:
+- The `skills/` submodule is the source of truth for UiPath skills.
+  Do not hand-roll a skill that already lives there; extend via `extensions/skills/`.
+- Modern experience only: C#, Windows, .NET 8. No Classic, no VB.Net.
+- Never publish if `analyze` returns errors.
+- Never commit .env or secrets.
+- CLI version must match Studio version.
+- Solutions are Automation Cloud only.
+- Never deploy to Production from an AI-assistant session.
+
+Three CLIs:
+- `uipcli` (.NET) for RPA / Coded Automations / Solutions / CI.
+- `uipath` (Python) for coded agents (LangGraph, LlamaIndex, generic).
+- `uip` (Node.js) for skill-level ops (discovery, Case, Data Fabric, Coded Apps, Servo, feedback).
+
+Build loop: restore -> analyze (gate) -> test (gate) -> pack -> deploy (personal workspace) -> smoke test.
+
+Start every build task by running the uipath-project-discovery-agent
+(`skills/agents/uipath-project-discovery-agent.md`) to populate
+`.claude/rules/project-context.md`. Project-specific conventions live there,
+not in CLAUDE.md.
+
+See CLAUDE.md for the complete rule.

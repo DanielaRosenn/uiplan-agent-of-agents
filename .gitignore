@@ -66,13 +66,16 @@ Thumbs.db
 .cursor/*
 !.cursor/hooks.json
 !.cursor/hooks
+!.cursor/rules
+!.cursor/rules/**
 .cursor/hooks/state/
 
 # Local runtime / tooling data
 # Legacy cache dirs accidentally created inside committed library content
 data/library/**/_cache/
 .uipath-claude/
-.uipath/
+.uipath/*
+!.uipath/skills-approved.sha
 .skills_refresh_at
 .skills_session_refresh
 

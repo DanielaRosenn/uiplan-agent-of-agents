@@ -1,0 +1,5 @@
+# Approved commits for the UiPath/skills submodule.
+# Append a new SHA only after reviewing the upstream changes. Lines starting
+# with '#' and blank lines are ignored by the submodule guard.
+3bf9b46442b294794a411f04b8f35c5d8eb5b01f
+c9458040aca239f145ed238f2d72b33aa82d8ccd

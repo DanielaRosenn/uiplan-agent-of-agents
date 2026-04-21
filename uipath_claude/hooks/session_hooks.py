@@ -100,6 +100,43 @@ def run_session_start_hooks(verbose: bool = False) -> list[dict]:
     return results
 
 
+def run_submodule_guard(verbose: bool = False) -> dict:
+    """Run the UiPath/skills submodule guard and surface its report.
+
+    Returns a dict with ``status`` (``"success"`` / ``"failed"``), ``ok``
+    (bool), and ``report`` (stringified report). ``UIPATH_GUARD_MODE=warn``
+    demotes failures to warnings (the guard process exits 0 in that mode).
+    """
+    try:
+        from uipath_claude.skills.submodule_guard import verify
+    except Exception as exc:
+        return {
+            "status": "error",
+            "ok": False,
+            "report": f"submodule-guard: import failed: {exc}",
+        }
+
+    try:
+        result = verify(strict=True)
+    except Exception as exc:
+        return {
+            "status": "error",
+            "ok": False,
+            "report": f"submodule-guard: execution failed: {exc}",
+        }
+
+    report = result.to_report()
+    if verbose:
+        print(report)
+
+    mode = os.environ.get("UIPATH_GUARD_MODE", "block").lower()
+    if result.ok:
+        return {"status": "success", "ok": True, "report": report}
+    if mode == "warn":
+        return {"status": "warning", "ok": False, "report": report}
+    return {"status": "failed", "ok": False, "report": report}
+
+
 def check_uip_installed() -> tuple[bool, str]:
     """Check if uip CLI is installed and accessible."""
     try:

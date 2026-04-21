@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# UiPath submodule guard - pre-push hook
+# Runs the same checks as pre-commit. Cheap; prevents an unpinned skills
+# submodule from ever being pushed.
+set -e
+
+PY=""
+for candidate in python python3 py; do
+  if command -v "$candidate" >/dev/null 2>&1; then
+    PY="$candidate"
+    break
+  fi
+done
+
+if [ -z "$PY" ]; then
+  echo "submodule-guard: no python on PATH; skipping pre-push check." >&2
+  exit 0
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+if [ -x ".venv/Scripts/python.exe" ]; then
+  PY=".venv/Scripts/python.exe"
+elif [ -x ".venv/bin/python" ]; then
+  PY=".venv/bin/python"
+fi
+
+"$PY" -m uipath_claude.skills.submodule_guard
