@@ -2,9 +2,13 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import Any, Literal
 
 Stage = Literal["spec", "plan", "tasks", "all"]
+
+_SKILL_CITE = re.compile(r"\[skill:([a-z0-9-]+)\]", re.IGNORECASE)
+_TEMPLATE_CITE = re.compile(r"\[template:([^\]]+)\]")
 
 
 def _finding(
@@ -182,6 +186,92 @@ def review_tasks_text(tasks: str, spec: str) -> list[dict[str, Any]]:
     return findings
 
 
+def review_citations(combined: str, repo: Path) -> list[dict[str, Any]]:
+    """Resolve ``[skill:name]`` and ``[template:path]`` citations when possible."""
+    from uipath_claude.skills.registry import SkillRegistry
+
+    findings: list[dict[str, Any]] = []
+    reg = SkillRegistry(project_root=repo)
+    reg.load_skills()
+    known = {str(s.get("name")) for s in reg.skills if s.get("name")}
+    for m in _SKILL_CITE.finditer(combined):
+        name = m.group(1)
+        if name not in known:
+            findings.append(
+                _finding(
+                    "warn",
+                    "cross",
+                    "citation_skill",
+                    f"[skill:{name}] not found in SkillRegistry.",
+                    "citations",
+                )
+            )
+    root = repo.resolve()
+    for m in _TEMPLATE_CITE.finditer(combined):
+        rel = m.group(1).strip().rstrip("/")
+        p = (repo / rel).resolve()
+        try:
+            p.relative_to(root)
+        except ValueError:
+            findings.append(
+                _finding(
+                    "warn",
+                    "cross",
+                    "citation_template",
+                    f"[template:{rel}] resolves outside repo root.",
+                    "citations",
+                )
+            )
+            continue
+        if not p.exists():
+            findings.append(
+                _finding(
+                    "info",
+                    "cross",
+                    "citation_template",
+                    f"[template:{rel}] path not found on disk (may be conceptual).",
+                    "citations",
+                )
+            )
+    return findings
+
+
+def review_duplicate_uiplan_slug(repo: Path, slug: str) -> list[dict[str, Any]]:
+    """Warn when more than one draft UiPlan folder shares the same slug."""
+    import yaml as _yaml
+
+    drafts: list[str] = []
+    base = repo / ".cursor" / "plans"
+    if not base.is_dir():
+        return []
+    for sub in base.iterdir():
+        if not sub.is_dir():
+            continue
+        mp = sub / ".meta.yaml"
+        if not mp.is_file():
+            continue
+        try:
+            meta = _yaml.safe_load(mp.read_text(encoding="utf-8")) or {}
+        except Exception:
+            continue
+        if str(meta.get("plan_kind", "")) != "uiplan":
+            continue
+        if str(meta.get("slug", "")) != slug:
+            continue
+        drafts.append(sub.name)
+    if len(drafts) > 1:
+        return [
+            _finding(
+                "warn",
+                "cross",
+                "duplicate_uiplan",
+                f"Multiple draft UiPlan folders for slug {slug!r}: {', '.join(sorted(drafts))}",
+                "cross",
+            )
+        ]
+    return []
+
+
 def review_cross(spec: str, plan: str, tasks: str) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
     fr_labels = re.findall(r"\*\*(FR-\d+)\*\*", spec)
@@ -219,6 +309,8 @@ def run_uiplan_review(
     tasks: str,
     stage: Stage,
     gate_ids: list[str] | None = None,
+    repo: Path | None = None,
+    slug: str | None = None,
 ) -> dict[str, Any]:
     gate_ids = gate_ids or []
     findings: list[dict[str, Any]] = []
@@ -230,6 +322,10 @@ def run_uiplan_review(
         findings.extend(review_tasks_text(tasks, spec))
     if stage in ("all",):
         findings.extend(review_cross(spec, plan, tasks))
+        if repo is not None:
+            findings.extend(review_citations("\n".join((spec, plan, tasks)), repo))
+            if slug:
+                findings.extend(review_duplicate_uiplan_slug(repo, slug))
     errors = [f for f in findings if f.get("severity") == "error"]
     ok = len(errors) == 0
     next_action = (

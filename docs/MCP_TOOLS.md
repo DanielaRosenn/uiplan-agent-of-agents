@@ -5333,8 +5333,14 @@ flowchart LR
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
 flowchart LR
-  ARGS[MCP arguments]:::process --> T["uipath_plan_ground"]:::service
-  T --> RES[Tool-specific result]:::data
+  T[topic]:::process --> PC[read project-context excerpt]:::service
+  T --> SK[uipath_skill_match ranked skills]:::service
+  T --> LB[uipath_library_search snippets]:::service
+  T --> PD[scan docs for PDD SDD ADD]:::service
+  PC --> PACK[grounding pack JSON]:::data
+  SK --> PACK
+  LB --> PACK
+  PD --> PACK
 
   classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
   classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
@@ -5421,9 +5427,12 @@ flowchart LR
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
-flowchart LR
-  ARGS[MCP arguments]:::process --> T["uipath_plan_spec_new"]:::service
-  T --> RES[Tool-specific result]:::data
+flowchart TD
+  IN[title intent optional grounding_pack]:::process --> G[build_grounding_pack if needed]:::service
+  G --> MK[mkdir date-slug folder]:::mutate
+  MK --> META[write .meta.yaml plan_kind uiplan]:::mutate
+  META --> SP[write spec.md from template]:::mutate
+  SP --> OUT[ok path slug]:::data
 
   classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
   classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
@@ -5486,8 +5495,10 @@ flowchart LR
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
 flowchart LR
-  ARGS[MCP arguments]:::process --> T["uipath_plan_plan_new"]:::service
-  T --> RES[Tool-specific result]:::data
+  SL[slug]:::process --> RES[resolve UiPlan folder]:::service
+  RES --> PL[fill plan.md template]:::mutate
+  PL --> CON[constitution checklist from gates]:::process
+  CON --> OUT[ok path]:::data
 
   classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
   classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
@@ -5550,8 +5561,9 @@ flowchart LR
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
 flowchart LR
-  ARGS[MCP arguments]:::process --> T["uipath_plan_tasks_new"]:::service
-  T --> RES[Tool-specific result]:::data
+  SL[slug]:::process --> RD[read spec.md plan.md]:::service
+  RD --> TK[write tasks.md phases USn]:::mutate
+  TK --> OUT[ok path]:::data
 
   classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
   classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
@@ -5620,9 +5632,16 @@ flowchart LR
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
-flowchart LR
-  ARGS[MCP arguments]:::process --> T["uipath_plan_review"]:::service
-  T --> RES[Tool-specific result]:::data
+flowchart TD
+  SL[slug stage]:::process --> LD[load spec plan tasks]:::service
+  LD --> R1{spec rules}:::decision
+  LD --> R2{plan rules}:::decision
+  LD --> R3{tasks rules}:::decision
+  LD --> R4{cross doc citations}:::decision
+  R1 --> SUM[findings plus ok flag]:::data
+  R2 --> SUM
+  R3 --> SUM
+  R4 --> SUM
 
   classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
   classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
@@ -5705,8 +5724,12 @@ flowchart LR
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
 flowchart LR
-  ARGS[MCP arguments]:::process --> T["uipath_plan_uiplan_new"]:::service
-  T --> RES[Tool-specific result]:::data
+  TI[title intent]:::process --> GR[uipath_plan_ground]:::service
+  GR --> SP[uipath_plan_spec_new]:::mutate
+  SP --> PL[uipath_plan_plan_new]:::mutate
+  PL --> TS[uipath_plan_tasks_new]:::mutate
+  TS --> RV[uipath_plan_review all]:::service
+  RV --> OUT[bundle paths plus review]:::data
 
   classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
   classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px

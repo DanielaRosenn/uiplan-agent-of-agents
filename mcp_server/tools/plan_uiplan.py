@@ -282,6 +282,8 @@ def call_uiplan_review(arguments: dict[str, Any]) -> dict[str, Any]:
         tasks=files.get("tasks.md", ""),
         stage=stage,  # type: ignore[arg-type]
         gate_ids=gate_ids,
+        repo=repo,
+        slug=slug,
     )
 
 

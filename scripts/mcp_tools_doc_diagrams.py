@@ -282,6 +282,47 @@ _TOOL_DIAGRAMS: dict[str, str] = {
   F[filename or slug]:::process --> RD[Read plan body]:::service
   RD --> EX[Regex extract mermaid fences]:::process
   EX --> BL[blocks plus count JSON]:::data""",
+    "uipath_plan_ground": """flowchart LR
+  T[topic]:::process --> PC[read project-context excerpt]:::service
+  T --> SK[uipath_skill_match ranked skills]:::service
+  T --> LB[uipath_library_search snippets]:::service
+  T --> PD[scan docs for PDD SDD ADD]:::service
+  PC --> PACK[grounding pack JSON]:::data
+  SK --> PACK
+  LB --> PACK
+  PD --> PACK""",
+    "uipath_plan_spec_new": """flowchart TD
+  IN[title intent optional grounding_pack]:::process --> G[build_grounding_pack if needed]:::service
+  G --> MK[mkdir date-slug folder]:::mutate
+  MK --> META[write .meta.yaml plan_kind uiplan]:::mutate
+  META --> SP[write spec.md from template]:::mutate
+  SP --> OUT[ok path slug]:::data""",
+    "uipath_plan_plan_new": """flowchart LR
+  SL[slug]:::process --> RES[resolve UiPlan folder]:::service
+  RES --> PL[fill plan.md template]:::mutate
+  PL --> CON[constitution checklist from gates]:::process
+  CON --> OUT[ok path]:::data""",
+    "uipath_plan_tasks_new": """flowchart LR
+  SL[slug]:::process --> RD[read spec.md plan.md]:::service
+  RD --> TK[write tasks.md phases USn]:::mutate
+  TK --> OUT[ok path]:::data""",
+    "uipath_plan_review": """flowchart TD
+  SL[slug stage]:::process --> LD[load spec plan tasks]:::service
+  LD --> R1{spec rules}:::decision
+  LD --> R2{plan rules}:::decision
+  LD --> R3{tasks rules}:::decision
+  LD --> R4{cross doc citations}:::decision
+  R1 --> SUM[findings plus ok flag]:::data
+  R2 --> SUM
+  R3 --> SUM
+  R4 --> SUM""",
+    "uipath_plan_uiplan_new": """flowchart LR
+  TI[title intent]:::process --> GR[uipath_plan_ground]:::service
+  GR --> SP[uipath_plan_spec_new]:::mutate
+  SP --> PL[uipath_plan_plan_new]:::mutate
+  PL --> TS[uipath_plan_tasks_new]:::mutate
+  TS --> RV[uipath_plan_review all]:::service
+  RV --> OUT[bundle paths plus review]:::data""",
     "uipath_answer": """flowchart LR
   Q[question + optional persona]:::process --> RT[persona_router answer_question]:::service
   RT --> ANS[Markdown answer read-only tool belt]:::data""",

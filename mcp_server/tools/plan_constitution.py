@@ -33,7 +33,7 @@ def load_constitution(repo: Path) -> dict[str, Any]:
     override = repo / "docs" / "plans" / "constitution.md"
     if override.is_file():
         return {
-            "source": str(override.relative_to(repo)),
+            "source": override.relative_to(repo).as_posix(),
             "gates": _parse_gates_markdown(override.read_text(encoding="utf-8")),
         }
     return {"source": "built-in", "gates": list(_DEFAULT_GATES)}
