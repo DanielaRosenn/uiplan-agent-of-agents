@@ -407,6 +407,14 @@ Save as `YYYY-MM-DD-<feature-name>.md`:
 - **Project directory exists** (`project.json`, `flow_files/`, `.uipath/`, or `pyproject.toml`) → save to `docs/plans/` within the project. Create the directory if needed.
 - **No project directory** → save to `~/Documents/UiPath/Plans/`. Create the directory if needed.
 
+### 5d1. uipath-builder-agent repo (this fork)
+
+When the workspace is this **uipath-builder-agent** git checkout, persist plans as first-class repo artifacts:
+
+1. Load `.cursor/skills/writing-uipath-plans` and follow `docs/plans/_TEMPLATE.md` (YAML front matter + **at least one** Mermaid fenced code block using Pro Standard from `.cursor/skills/mermaid-diagram-builder`).
+2. Prefer MCP **`uipath_plan_save`** with full markdown `content` (or write the file under `docs/plans/` by hand to the same shape). That refreshes `docs/plans/README.md` via `scripts/generate_plan_index.py`.
+3. Link formal PDD/SDD/ADD paths in front matter `linked_pdd` when they exist (`docs/PDD_LIFECYCLE.md`).
+
 ### 5e. Present the plan
 
 - **Explore first, then plan:** call EnterPlanMode. User approves → ExitPlanMode.

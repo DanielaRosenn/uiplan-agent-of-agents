@@ -1,0 +1,13 @@
+---
+description: Multi-step work — persist plans under docs/plans/ with Mermaid (Pro Standard) and uipath_plan_* MCP tools
+globs: docs/plans/**/*.md
+alwaysApply: false
+---
+
+# Planning artifacts (this repo)
+
+- For non-trivial work, follow `.cursor/skills/writing-uipath-plans/SKILL.md` and save under `docs/plans/YYYY-MM-DD-<slug>.md` using `docs/plans/_TEMPLATE.md`.
+- Diagrams: `.cursor/skills/mermaid-diagram-builder/SKILL.md` (tinted fills, `classDef`, `linkStyle`; no inline `style` fills).
+- Prefer MCP `uipath_plan_save` / `uipath_plan_list` / `uipath_plan_read` / `uipath_plan_render_mermaid`; `uipath_plan_status_set` to `done` may require an approved design when `UIPATH_DESIGN_APPROVAL_ENABLED` is on.
+- Formal PDD/SDD/ADD: `docs/PDD_LIFECYCLE.md`. Link paths in plan front matter `linked_pdd` when applicable.
+- After adding or editing plans, run `python scripts/generate_plan_index.py` (or rely on MCP save/status which triggers the same script).

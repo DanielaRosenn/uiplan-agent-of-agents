@@ -75,6 +75,11 @@ Each tool has an **audience guide** (synthesized from the registered `Tool` meta
 | `uipath_design_status` | design | read-only |
 | `uipath_intent_classify` | intent | read-only |
 | `uipath_plan_build` | plan | read-only |
+| `uipath_plan_save` | plan | destructive (idempotent where noted) |
+| `uipath_plan_list` | plan | read-only |
+| `uipath_plan_read` | plan | read-only |
+| `uipath_plan_status_set` | plan | staging / non-read-only (not marked destructive) |
+| `uipath_plan_render_mermaid` | plan | read-only |
 | `uipath_answer` | answer | read-only |
 
 ## How to add a new MCP tool
@@ -4382,6 +4387,341 @@ flowchart TD
   GD -->|OK| DC[Discovery agent project context md]:::human
   DC --> PL[run_planner_agent_with_discovery]:::service
   PL --> OUT[Planner result dict]:::data
+
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef mutate fill:#FFF7ED,stroke:#EA580C,color:#9A3412,stroke-width:1.25px
+  classDef stage fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.25px
+  classDef data fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef error fill:#FEF2F2,stroke:#EF4444,color:#991B1B,stroke-width:1.5px
+  classDef endOk fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:1.25px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.25px
+
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+### `uipath_plan_save`
+
+#### Audience guide
+
+**Save implementation plan under docs/plans/.** Create or overwrite a markdown plan under docs/plans/. ``content`` must include YAML front matter (slug, title, date, status, owner, project_type) and at least one ```mermaid block in the body. Filename defaults to {date}-{slug}.md. Regenerates docs/plans/README.md index when the save succeeds.
+
+**Required MCP arguments:**
+
+- **`content`** — Full markdown file including --- front matter ---.
+
+**Typical return:** **Dict** (or similar) from the planner-with-discovery pipeline, including trace metadata.
+
+**Side effect (MCP `ToolAnnotations`):** destructive (idempotent where noted)
+
+**Dispatch:** [`mcp_server/tools/plan_tools.py`](../mcp_server/tools/plan_tools.py) `call_plan_tool`
+
+#### Author registration (`Tool.description` verbatim)
+
+> Create or overwrite a markdown plan under docs/plans/. ``content`` must include YAML front matter (slug, title, date, status, owner, project_type) and at least one ```mermaid block in the body. Filename defaults to {date}-{slug}.md. Regenerates docs/plans/README.md index when the save succeeds.
+
+#### Input schema (JSON Schema)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "content": {
+      "type": "string",
+      "description": "Full markdown file including --- front matter ---."
+    },
+    "project_root": {
+      "type": "string",
+      "description": "Repository root (defaults to cwd)."
+    },
+    "filename": {
+      "type": "string",
+      "description": "Optional basename YYYY-MM-DD-slug.md; must match front matter date/slug when omitted."
+    }
+  },
+  "required": [
+    "content"
+  ]
+}
+```
+
+#### Behavior flow
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
+flowchart TD
+  C[content plus optional filename]:::process --> V[Validate front matter and mermaid]:::decision
+  V -->|Fail| E[ValueError]:::error
+  V -->|OK| W[Write docs/plans file]:::mutate
+  W --> I[Regenerate plan index script]:::service
+  I --> R[ok path relative index_regen]:::data
+
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef mutate fill:#FFF7ED,stroke:#EA580C,color:#9A3412,stroke-width:1.25px
+  classDef stage fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.25px
+  classDef data fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef error fill:#FEF2F2,stroke:#EF4444,color:#991B1B,stroke-width:1.5px
+  classDef endOk fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:1.25px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.25px
+
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+### `uipath_plan_list`
+
+#### Audience guide
+
+**List docs/plans implementation plans.** List markdown plans in docs/plans/ (excludes _TEMPLATE.md and README.md), returning file names and parsed front-matter fields.
+
+**Required MCP arguments:**
+
+_No required parameters (all optional)._
+
+**Typical return:** **Dict** (or similar) from the planner-with-discovery pipeline, including trace metadata.
+
+**Side effect (MCP `ToolAnnotations`):** read-only
+
+**Dispatch:** [`mcp_server/tools/plan_tools.py`](../mcp_server/tools/plan_tools.py) `call_plan_tool`
+
+#### Author registration (`Tool.description` verbatim)
+
+> List markdown plans in docs/plans/ (excludes _TEMPLATE.md and README.md), returning file names and parsed front-matter fields.
+
+#### Input schema (JSON Schema)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "project_root": {
+      "type": "string",
+      "description": "Repository root (defaults to cwd)."
+    }
+  }
+}
+```
+
+#### Behavior flow
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
+flowchart LR
+  R[project_root optional]:::process --> D[Scan docs/plans md]:::service
+  D --> P[Parse front matter per file]:::process
+  P --> J[JSON plans array]:::data
+
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef mutate fill:#FFF7ED,stroke:#EA580C,color:#9A3412,stroke-width:1.25px
+  classDef stage fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.25px
+  classDef data fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef error fill:#FEF2F2,stroke:#EF4444,color:#991B1B,stroke-width:1.5px
+  classDef endOk fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:1.25px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.25px
+
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+### `uipath_plan_read`
+
+#### Audience guide
+
+**Read one implementation plan.** Read one plan file from docs/plans/ by basename (e.g. 2026-04-21-my-slug.md) or by slug (must be unique among plan files).
+
+**Required MCP arguments:**
+
+_No required parameters (all optional)._
+
+**Typical return:** **Dict** (or similar) from the planner-with-discovery pipeline, including trace metadata.
+
+**Side effect (MCP `ToolAnnotations`):** read-only
+
+**Dispatch:** [`mcp_server/tools/plan_tools.py`](../mcp_server/tools/plan_tools.py) `call_plan_tool`
+
+#### Author registration (`Tool.description` verbatim)
+
+> Read one plan file from docs/plans/ by basename (e.g. 2026-04-21-my-slug.md) or by slug (must be unique among plan files).
+
+#### Input schema (JSON Schema)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "project_root": {
+      "type": "string",
+      "description": "Repository root (defaults to cwd)."
+    },
+    "filename": {
+      "type": "string",
+      "description": "Basename under docs/plans/, e.g. 2026-04-21-feature.md"
+    },
+    "slug": {
+      "type": "string",
+      "description": "Front-matter slug when filename is unknown."
+    }
+  }
+}
+```
+
+#### Behavior flow
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
+flowchart LR
+  F[filename or slug]:::process --> L[Resolve path under docs/plans]:::service
+  L --> T[Read full markdown]:::data
+
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef mutate fill:#FFF7ED,stroke:#EA580C,color:#9A3412,stroke-width:1.25px
+  classDef stage fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.25px
+  classDef data fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef error fill:#FEF2F2,stroke:#EF4444,color:#991B1B,stroke-width:1.5px
+  classDef endOk fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:1.25px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.25px
+
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+### `uipath_plan_status_set`
+
+#### Audience guide
+
+**Set plan status in front matter.** Update the status field in a plan's YAML front matter. Values: draft, in-progress, done, superseded. Transition to done requires an approved design for project_dir when UIPATH_DESIGN_APPROVAL_ENABLED is on (same gate as workflow writes).
+
+**Required MCP arguments:**
+
+- **`new_status`** — New status value. Allowed values: `['done', 'draft', 'in-progress', 'superseded']`.
+
+**Typical return:** **Dict** (or similar) from the planner-with-discovery pipeline, including trace metadata.
+
+**Side effect (MCP `ToolAnnotations`):** staging / non-read-only (not marked destructive)
+
+**Dispatch:** [`mcp_server/tools/plan_tools.py`](../mcp_server/tools/plan_tools.py) `call_plan_tool`
+
+#### Author registration (`Tool.description` verbatim)
+
+> Update the status field in a plan's YAML front matter. Values: draft, in-progress, done, superseded. Transition to done requires an approved design for project_dir when UIPATH_DESIGN_APPROVAL_ENABLED is on (same gate as workflow writes).
+
+#### Input schema (JSON Schema)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "project_root": {
+      "type": "string",
+      "description": "Repository root (defaults to cwd)."
+    },
+    "filename": {
+      "type": "string",
+      "description": "Plan basename under docs/plans/."
+    },
+    "slug": {
+      "type": "string",
+      "description": "Alternative to filename when basename is unknown."
+    },
+    "new_status": {
+      "type": "string",
+      "enum": [
+        "done",
+        "draft",
+        "in-progress",
+        "superseded"
+      ],
+      "description": "New status value."
+    },
+    "project_dir": {
+      "type": "string",
+      "description": "Project directory for design approval check when new_status is done; defaults to project_root."
+    }
+  },
+  "required": [
+    "new_status"
+  ]
+}
+```
+
+#### Behavior flow
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
+flowchart TD
+  NS[new_status]:::process --> P[Load plan by filename or slug]:::service
+  P --> D{new_status is done?}:::decision
+  D -->|Yes| G{design_store.has_approved}:::decision
+  G -->|No| B[blocked design_not_approved]:::error
+  G -->|Yes| U[Rewrite front matter status]:::mutate
+  D -->|No| U
+  U --> IDX[Regenerate index]:::service
+
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef mutate fill:#FFF7ED,stroke:#EA580C,color:#9A3412,stroke-width:1.25px
+  classDef stage fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.25px
+  classDef data fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef error fill:#FEF2F2,stroke:#EF4444,color:#991B1B,stroke-width:1.5px
+  classDef endOk fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:1.25px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.25px
+
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+### `uipath_plan_render_mermaid`
+
+#### Audience guide
+
+**Extract Mermaid blocks from a plan.** Extract fenced ```mermaid blocks from a plan file for quick syntax review or reuse in docs.
+
+**Required MCP arguments:**
+
+_No required parameters (all optional)._
+
+**Typical return:** **Dict** (or similar) from the planner-with-discovery pipeline, including trace metadata.
+
+**Side effect (MCP `ToolAnnotations`):** read-only
+
+**Dispatch:** [`mcp_server/tools/plan_tools.py`](../mcp_server/tools/plan_tools.py) `call_plan_tool`
+
+#### Author registration (`Tool.description` verbatim)
+
+> Extract fenced ```mermaid blocks from a plan file for quick syntax review or reuse in docs.
+
+#### Input schema (JSON Schema)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "project_root": {
+      "type": "string",
+      "description": "Repository root (defaults to cwd)."
+    },
+    "filename": {
+      "type": "string"
+    },
+    "slug": {
+      "type": "string"
+    }
+  }
+}
+```
+
+#### Behavior flow
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
+flowchart LR
+  F[filename or slug]:::process --> RD[Read plan body]:::service
+  RD --> EX[Regex extract mermaid fences]:::process
+  EX --> BL[blocks plus count JSON]:::data
 
   classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
   classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px

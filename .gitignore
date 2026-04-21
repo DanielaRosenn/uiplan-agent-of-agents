@@ -68,6 +68,8 @@ Thumbs.db
 !.cursor/hooks
 !.cursor/rules
 !.cursor/rules/**
+!.cursor/skills
+!.cursor/skills/**
 .cursor/hooks/state/
 
 # Local runtime / tooling data

@@ -257,6 +257,31 @@ _TOOL_DIAGRAMS: dict[str, str] = {
   GD -->|OK| DC[Discovery agent project context md]:::human
   DC --> PL[run_planner_agent_with_discovery]:::service
   PL --> OUT[Planner result dict]:::data""",
+    "uipath_plan_save": """flowchart TD
+  C[content plus optional filename]:::process --> V[Validate front matter and mermaid]:::decision
+  V -->|Fail| E[ValueError]:::error
+  V -->|OK| W[Write docs/plans file]:::mutate
+  W --> I[Regenerate plan index script]:::service
+  I --> R[ok path relative index_regen]:::data""",
+    "uipath_plan_list": """flowchart LR
+  R[project_root optional]:::process --> D[Scan docs/plans md]:::service
+  D --> P[Parse front matter per file]:::process
+  P --> J[JSON plans array]:::data""",
+    "uipath_plan_read": """flowchart LR
+  F[filename or slug]:::process --> L[Resolve path under docs/plans]:::service
+  L --> T[Read full markdown]:::data""",
+    "uipath_plan_status_set": """flowchart TD
+  NS[new_status]:::process --> P[Load plan by filename or slug]:::service
+  P --> D{new_status is done?}:::decision
+  D -->|Yes| G{design_store.has_approved}:::decision
+  G -->|No| B[blocked design_not_approved]:::error
+  G -->|Yes| U[Rewrite front matter status]:::mutate
+  D -->|No| U
+  U --> IDX[Regenerate index]:::service""",
+    "uipath_plan_render_mermaid": """flowchart LR
+  F[filename or slug]:::process --> RD[Read plan body]:::service
+  RD --> EX[Regex extract mermaid fences]:::process
+  EX --> BL[blocks plus count JSON]:::data""",
     "uipath_answer": """flowchart LR
   Q[question + optional persona]:::process --> RT[persona_router answer_question]:::service
   RT --> ANS[Markdown answer read-only tool belt]:::data""",

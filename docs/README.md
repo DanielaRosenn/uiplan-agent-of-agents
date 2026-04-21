@@ -11,11 +11,20 @@ Landing page for everything under `docs/`. Start with [ARCHITECTURE.md](ARCHITEC
 - [INSTALL.md](INSTALL.md) — full installation: UiPath CLI, Studio 26.2+, submodules, AWS Bedrock.
 - [TOOLS.md](TOOLS.md) — reference for every tool the agent can call.
 - [MCP_TOOLS.md](MCP_TOOLS.md) — generated catalog of MCP-exposed tools (run `python scripts/generate_mcp_tools_doc.py` after changes).
-- [MCP_TOOLS_FINDINGS.md](MCP_TOOLS_FINDINGS.md) — known gaps and recommended fixes (does not modify `mcp_server/`).
+- [MCP_TOOLS_FINDINGS.md](MCP_TOOLS_FINDINGS.md) — known gaps and recommended fixes for MCP tools.
+
+## Planning (Cursor + agent)
+
+- [plans/README.md](plans/README.md) — index of git-tracked implementation plans under `docs/plans/`.
+- [plans/_TEMPLATE.md](plans/_TEMPLATE.md) — required front matter, Mermaid, tasks, verification.
+- Cursor skills: `.cursor/skills/writing-uipath-plans/SKILL.md`, `.cursor/skills/mermaid-diagram-builder/SKILL.md`.
+- MCP: `uipath_plan_save`, `uipath_plan_list`, `uipath_plan_read`, `uipath_plan_status_set`, `uipath_plan_render_mermaid`, plus `uipath_plan_build` (discovery-fronted) — see [MCP_TOOLS.md](MCP_TOOLS.md).
+- Regenerate the plans table: `python scripts/generate_plan_index.py`.
+- Formal lifecycle: [PDD_LIFECYCLE.md](PDD_LIFECYCLE.md).
 
 ## Skills and library
 
-- [SKILL_LAYOUT.md](SKILL_LAYOUT.md) — how skills are layered (user, project, extensions, submodule, template).
+- [SKILL_LAYOUT.md](SKILL_LAYOUT.md) — how skills are layered (user, project, extensions, submodule, template), and how to keep Cursor in sync with the submodule.
 - [LIBRARY_AUTHORING.md](LIBRARY_AUTHORING.md) — authoring content for the knowledge library.
 - [LIBRARY_LEARNING.md](LIBRARY_LEARNING.md) — the harvest -> propose -> apply learning loop.
 - [CAPABILITY_PARITY.md](CAPABILITY_PARITY.md) — feature parity tracker vs. Claude Code.
