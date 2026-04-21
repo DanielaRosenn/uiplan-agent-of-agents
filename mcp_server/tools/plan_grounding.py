@@ -60,7 +60,8 @@ def _library_hits(topic: str, max_queries: int = 3) -> list[dict[str, str]]:
     out: list[dict[str, str]] = []
     for q in queries[:max_queries]:
         try:
-            body = _search_library(q, top_n=3)
+            raw = _search_library.invoke({"query": q, "top_n": 3})
+            body = raw if isinstance(raw, str) else str(raw)
         except Exception as exc:  # noqa: BLE001
             out.append({"query": q, "error": str(exc)})
             continue

@@ -50,11 +50,11 @@ Gates re-checked after Phase 1 design:
 
 ## Activity references (optional)
 
-`uipath_plan_tasks_new` resolves activity documentation for explicit tags in **plan.md** or **spec.md** (up to 8 unique pairs). Use the package id and activity name as in Studio:
+`uipath_plan_tasks_new` scans **plan.md** and **spec.md** for machine-readable activity tags (up to 8 unique pairs) and appends matching documentation to **tasks.md**.
 
-`[activity:UiPath.System.Activities:LogMessage]`
+Tag shape on **one line** (no line breaks inside the tag): an opening square bracket `[`, the literal prefix `activity:`, your NuGet-style **PackageId**, a colon, the **ActivityName** as in Studio, then `]`. Only add tags for activities you will actually use; omit demo or placeholder tags so **Resolved activity docs** stays short.
 
-`[activity:UiPath.Mail.Activities:SendMail]`
+Human-readable shape (not a tag — note the space after `[` so tooling ignores it): `[ activity:YourPackage.YourActivities:YourActivityName ]`.
 
 ## Complexity Tracking
 

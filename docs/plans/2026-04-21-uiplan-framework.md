@@ -116,7 +116,7 @@ uipath_claude/commands/uiplan.md                    # /uiplan slash command
 tests/unit/docs/test_uiplan_templates.py
 tests/mcp/test_uiplan_tools.py
 tests/mcp/test_uiplan_review.py
-tests/mcp/test_uiplan_ground.py
+tests/mcp/test_plan_grounding.py
 ```
 
 ### Modified files
@@ -181,7 +181,8 @@ Steps as above (test-first, minimal impl, commit).
 - New helper: `mcp_server/tools/plan_grounding.py` orchestrating
   `project-context` read, `uipath-planner` skill match, `library_search`
   fan-out, `doc_get_activity` fetches, template picker.
-- Test: `tests/mcp/test_uiplan_ground.py`
+- Test: `tests/mcp/test_plan_grounding.py` (library hits via `search_library.invoke`);
+  `tests/mcp/test_uiplan_tools.py` (`test_uiplan_ground_smoke`).
 
 Tests cover: missing project-context path, skills matched by intent keywords,
 library hits returned with citations, similar-PDD detection, constitution
@@ -258,7 +259,7 @@ Regenerate `docs/MCP_TOOLS.md` and `docs/plans/README.md`.
 
 ### Task 13: full-loop test + annotations
 
-- `tests/mcp/test_uiplan_orchestrator.py`: full ground -> ... -> review green
+- `tests/mcp/test_uiplan_tools.py` (`test_uiplan_full_scaffold`): full ground -> ... -> review green
   roundtrip against a fixture repo.
 - Update `test_tool_annotations.py` to classify the six new tools.
 - Update `test_tool_descriptions.py` for new params.
