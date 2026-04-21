@@ -9,10 +9,16 @@ from __future__ import annotations
 
 import pytest
 
+from pathlib import Path
+
 from mcp_server.tools.agent_tools import get_agent_tools
+from mcp_server.tools.answer_tools import get_answer_tools
+from mcp_server.tools.design_tools import get_design_tools
 from mcp_server.tools.doc_tools import get_doc_tools
+from mcp_server.tools.intent_tools import get_intent_tools
 from mcp_server.tools.library_tools import get_library_tools
 from mcp_server.tools.memory_tools import get_memory_tools
+from mcp_server.tools.plan_tools import get_plan_tools
 from mcp_server.tools.skill_tools import get_skill_tools
 from mcp_server.tools.workflow_tools import get_workflow_tools
 
@@ -25,7 +31,20 @@ def _all_tools():
         *get_skill_tools(),
         *get_agent_tools(),
         *get_memory_tools(),
+        *get_design_tools(),
+        *get_intent_tools(),
+        *get_plan_tools(),
+        *get_answer_tools(),
     ]
+
+
+def test_mcp_tools_doc_lists_every_registered_tool():
+    """``docs/MCP_TOOLS.md`` must mention each tool name (backtick-wrapped)."""
+    root = Path(__file__).resolve().parents[2]
+    doc_path = root / "docs" / "MCP_TOOLS.md"
+    text = doc_path.read_text(encoding="utf-8")
+    missing = [t.name for t in _all_tools() if f"`{t.name}`" not in text]
+    assert not missing, f"MCP_TOOLS.md missing tools: {missing}"
 
 
 @pytest.mark.parametrize("tool", _all_tools(), ids=lambda t: t.name)

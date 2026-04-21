@@ -97,6 +97,27 @@ def get_design_tools() -> list[Tool]:
                         ),
                         "default": [],
                     },
+                    "resolutions": {
+                        "type": "object",
+                        "description": (
+                            "Structured echo of every project-shape decision "
+                            "the planner / BA resolved before proposing this "
+                            "design. The approver sees these verbatim on the "
+                            "approval card so they can catch wrong defaults "
+                            "BEFORE any file is written. Recommended keys: "
+                            "project_type, target_framework, expression_language, "
+                            "attended_unattended, external_systems (list), "
+                            "orchestrator_folder, deploy (bool), "
+                            "destructive_actions (list), "
+                            "open_questions_residue (list of items the agent "
+                            "consciously defaulted and the user may override "
+                            "at approval time). Unknown keys are preserved "
+                            "under _extra. Omitting this field is deprecated "
+                            "but still accepted for backwards compatibility; "
+                            "a warning is returned in that case."
+                        ),
+                        "default": {},
+                    },
                 },
                 "required": ["project_dir", "title", "summary", "body"],
             },
@@ -212,17 +233,24 @@ def _proposal_to_dict(p: design_store.DesignProposal) -> dict[str, Any]:
 
 async def call_design_tool(name: str, arguments: dict[str, Any]) -> Any:
     if name == "uipath_design_propose":
-        proposal = design_store.propose(
+        proposal, warnings = design_store.propose(
             project_dir=arguments["project_dir"],
             title=arguments["title"],
             summary=arguments["summary"],
             body=arguments["body"],
             rationale=arguments.get("rationale", ""),
             citations=list(arguments.get("citations") or []),
+            resolutions=arguments.get("resolutions") or {},
+        )
+        header = (
+            f"[STAGED] design_id={proposal.design_id} "
+            f"project={proposal.project_dir}"
+        )
+        warning_block = (
+            ("\n\n[WARN] " + "\n[WARN] ".join(warnings)) if warnings else ""
         )
         return (
-            f"[STAGED] design_id={proposal.design_id} "
-            f"project={proposal.project_dir}\n\n"
+            f"{header}{warning_block}\n\n"
             f"{json.dumps(_proposal_to_dict(proposal), indent=2)}\n\n"
             f"Project stays write-locked. Run uipath_design_approve "
             f"{{ design_id: '{proposal.design_id}' }} after the user confirms."
@@ -272,11 +300,26 @@ async def call_design_tool(name: str, arguments: dict[str, Any]) -> Any:
         project_dir = arguments["project_dir"]
         approved = design_store.has_approved(project_dir)
         pending = design_store.latest_pending(project_dir)
+        latest_approved = next(
+            (
+                p
+                for p in design_store.list_proposals(
+                    project_dir=project_dir, status_filter="approved"
+                )
+            ),
+            None,
+        )
         snapshot = {
             "project_dir": design_store._normalize_project_dir(project_dir),
             "approval_enabled": design_store._approval_enabled(),
             "has_approved_design": approved,
             "latest_pending": _proposal_to_dict(pending) if pending else None,
+            "latest_approved_resolutions": (
+                latest_approved.resolutions if latest_approved else None
+            ),
+            "latest_pending_resolutions": (
+                pending.resolutions if pending else None
+            ),
         }
         return json.dumps(snapshot, indent=2)
 

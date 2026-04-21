@@ -1,7 +1,7 @@
 """Tests for the uipath_library_* MCP tools."""
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -163,3 +163,88 @@ async def test_approve_proposal_happy_path(tmp_path, monkeypatch):
     assert "Applied" in out
     assert ProposalStore().get(pid) is None
     assert (chapter / "hello.md").exists()
+
+
+@pytest.mark.asyncio
+async def test_toc_delegates(monkeypatch):
+    from mcp_server.tools import library_tools as lt
+
+    fake_tool = MagicMock()
+    fake_tool.invoke = MagicMock(return_value={"book": "uipath-docs"})
+    monkeypatch.setattr(lt, "_browse_book_toc", fake_tool)
+    out = await call_library_tool("uipath_library_toc", {"book_id": "uipath-docs"})
+    assert out == {"book": "uipath-docs"}
+    fake_tool.invoke.assert_called_once_with({"book_id": "uipath-docs"})
+
+
+@pytest.mark.asyncio
+async def test_read_section_delegates(monkeypatch):
+    from mcp_server.tools import library_tools as lt
+
+    fake_tool = MagicMock()
+    fake_tool.invoke = MagicMock(return_value="# Section\n")
+    monkeypatch.setattr(lt, "_read_section", fake_tool)
+    out = await call_library_tool(
+        "uipath_library_read_section",
+        {
+            "book_id": "uipath-docs",
+            "chapter_id": "orch",
+            "section_id": "intro",
+        },
+    )
+    assert out == "# Section\n"
+    fake_tool.invoke.assert_called_once_with(
+        {
+            "book_id": "uipath-docs",
+            "chapter_id": "orch",
+            "section_id": "intro",
+        }
+    )
+
+
+@pytest.mark.asyncio
+async def test_lookup_delegates(monkeypatch):
+    from mcp_server.tools import library_tools as lt
+
+    fake_tool = MagicMock()
+    fake_tool.invoke = MagicMock(return_value="answer from lookup")
+    monkeypatch.setattr(lt, "_lookup_knowledge", fake_tool)
+    out = await call_library_tool(
+        "uipath_library_lookup",
+        {"question": "retry scope?", "allow_network": False},
+    )
+    assert out == "answer from lookup"
+    fake_tool.invoke.assert_called_once_with(
+        {"question": "retry scope?", "allow_network": False}
+    )
+
+
+@pytest.mark.asyncio
+async def test_propose_chapter_delegates(monkeypatch):
+    from mcp_server.tools import library_tools as lt
+
+    fake_tool = MagicMock()
+    fake_tool.invoke = MagicMock(return_value="queued chapter")
+    monkeypatch.setattr(lt, "_propose_library_chapter", fake_tool)
+    out = await call_library_tool(
+        "uipath_library_propose_chapter",
+        {
+            "book_id": "demo",
+            "chapter_id": "ch-new",
+            "chapter_title": "New chapter",
+            "order": 10,
+            "rationale": "test",
+            "initial_sections_json": "[]",
+        },
+    )
+    assert out == "queued chapter"
+    assert fake_tool.invoke.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_list_proposals_empty_message(tmp_path, monkeypatch):
+    from uipath_claude.library.proposals import PROPOSALS_ENV_VAR
+
+    monkeypatch.setenv(PROPOSALS_ENV_VAR, str(tmp_path / "empty_props"))
+    out = await call_library_tool("uipath_library_list_proposals", {})
+    assert "no pending" in str(out).lower()

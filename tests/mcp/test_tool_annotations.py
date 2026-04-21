@@ -9,9 +9,13 @@ from __future__ import annotations
 import pytest
 
 from mcp_server.tools.agent_tools import get_agent_tools
+from mcp_server.tools.answer_tools import get_answer_tools
+from mcp_server.tools.design_tools import get_design_tools
 from mcp_server.tools.doc_tools import get_doc_tools
+from mcp_server.tools.intent_tools import get_intent_tools
 from mcp_server.tools.library_tools import get_library_tools
 from mcp_server.tools.memory_tools import get_memory_tools
+from mcp_server.tools.plan_tools import get_plan_tools
 from mcp_server.tools.skill_tools import get_skill_tools
 from mcp_server.tools.workflow_tools import get_workflow_tools
 
@@ -22,6 +26,10 @@ ALL_GETTERS = [
     get_agent_tools,
     get_memory_tools,
     get_workflow_tools,
+    get_design_tools,
+    get_intent_tools,
+    get_plan_tools,
+    get_answer_tools,
 ]
 
 READ_ONLY = {
@@ -62,6 +70,13 @@ READ_ONLY = {
     "uipath_workflow_read_project",
     "uipath_workflow_validate",
     "uipath_workflow_environment_probe",
+    # design
+    "uipath_design_list",
+    "uipath_design_status",
+    # intent / plan / answer
+    "uipath_intent_classify",
+    "uipath_plan_build",
+    "uipath_answer",
     # ensure_project_structure no longer hand-writes scaffolds; it returns
     # success or refuses + routes to create_project. Read-only in practice.
     "uipath_workflow_ensure_project",
@@ -87,6 +102,9 @@ DESTRUCTIVE = {
     # memory
     "uipath_memory_save",
     "uipath_memory_append",
+    # design
+    "uipath_design_approve",
+    "uipath_design_reject",
     # workflow
     "uipath_workflow_write_file",
     "uipath_workflow_install_package",
@@ -97,6 +115,7 @@ DESTRUCTIVE = {
     "uipath_workflow_debug",
     "uipath_workflow_run_command",
     "uipath_workflow_deploy",
+    "uipath_workflow_publish",
 }
 
 STAGING = {
@@ -105,6 +124,7 @@ STAGING = {
     "uipath_library_propose_section",
     "uipath_library_propose_chapter",
     "uipath_skill_insights_add",
+    "uipath_design_propose",
 }
 
 
