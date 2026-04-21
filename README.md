@@ -124,6 +124,93 @@ Adds validation, package install, and run-workflow tools to Cursor via the bundl
 
 ---
 
+## SDLC planning (brainstorm -> plan -> build)
+
+The repo ships a superpowers-style planning loop for any non-trivial change: you draft a plan, ground it in project context, iterate, accept it, then let destructive tools run against an approved artifact. The full spec is in [docs/PLANNING_FRAMEWORK.md](docs/PLANNING_FRAMEWORK.md); the short version is below.
+
+### Storage model
+
+- Drafts live in `.cursor/plans/` (per-user, **git-ignored**) so you can iterate without polluting history.
+- Published plans live in `docs/plans/` (git-tracked). `docs/plans/README.md` is a regenerated index.
+- Snapshots of each refine step go under `.cursor/plans/.snapshots/` for `uipath_plan_diff --mode self`.
+
+### The loop
+
+```mermaid
+flowchart LR
+    New[uipath_plan_new]:::write --> Brainstorm[uipath_plan_brainstorm]:::ro
+    Brainstorm --> Refine[uipath_plan_refine]:::write
+    Refine --> Diff[uipath_plan_diff]:::ro
+    Diff --> Refine
+    Refine --> Accept{uipath_plan_accept<br/>or reject}:::gate
+    Accept -->|accepted| Publish[uipath_plan_publish]:::write
+    Accept -->|rejected| Refine
+    Publish --> Build[destructive<br/>workflow tools]:::build
+    classDef ro fill:#E0F2FE,stroke:#0284C7,color:#0C4A6E
+    classDef write fill:#FEF3C7,stroke:#D97706,color:#78350F
+    classDef gate fill:#FCE7F3,stroke:#BE185D,color:#500724
+    classDef build fill:#DCFCE7,stroke:#16A34A,color:#14532D
+```
+
+### CLI entry points
+
+All seven tools are exposed via `uipath-claude plan <subcommand>` (and the corresponding MCP tools):
+
+```bash
+# 1. Scaffold a draft under .cursor/plans/
+uipath-claude plan new --title "Invoice routing" --intent "Route invoices to approvers"
+
+# 2. Get grounding hints (library searches, candidate skills, PDD/SDD candidates)
+uipath-claude plan brainstorm --slug invoice-routing
+
+# 3. Apply structured patches (tasks, goal, mermaid, section bodies)
+uipath-claude plan refine --slug invoice-routing \
+  --op append_task --value "Add retry scope to SAP post"
+
+# 4. Diff against published twin or against last snapshot
+uipath-claude plan diff --slug invoice-routing --mode vs-published
+
+# 5. Accept (stamps accepted_at/accepted_by) or reject (requires --reason)
+uipath-claude plan accept --slug invoice-routing --actor you
+
+# 6. Promote draft -> docs/plans/ and regenerate the index
+uipath-claude plan publish --slug invoice-routing
+
+# At any point: list drafts, published, or both
+uipath-claude plan list --scope both
+```
+
+Inside Cursor, invoke the matching MCP tools directly (`uipath_plan_new`, `uipath_plan_brainstorm`, ...). The `.cursor/skills/brainstorming-plan/` skill orchestrates the full loop when you say "let's plan this out".
+
+### Optional hard gate (`UIPATH_PLAN_GATE=1`)
+
+Set the environment variable and the destructive workflow tools - `uipath_workflow_write_file`, `uipath_workflow_install_package`, `uipath_workflow_deploy`, `uipath_workflow_publish` - refuse to run unless an **accepted** plan exists for the target `project_dir`. Useful for CI or when you want to enforce the loop:
+
+```powershell
+# Windows PowerShell
+$env:UIPATH_PLAN_GATE = "1"
+```
+
+```bash
+# macOS / Linux
+export UIPATH_PLAN_GATE=1
+```
+
+Unset or set to `0` to restore the default (no gate).
+
+### When to use which
+
+| Scenario | Entry point |
+|---|---|
+| One-off change with an obvious design | Skip - just edit and validate |
+| Multi-step task, multiple valid approaches, or touches several files | `plan new` -> `brainstorm` -> `refine` loop |
+| Formal PDD/SDD/ADD lifecycle (BA -> SA -> ADD -> TDD -> Dev -> QA) | `/pdd` - see [docs/PDD_LIFECYCLE.md](docs/PDD_LIFECYCLE.md) |
+| Quick CLI-routing question ("which skill handles X?") | `uipath-planner` skill directly |
+
+The planning framework and `/pdd` are complementary: the planning loop is for authoring the change; `/pdd` is the formal document lifecycle.
+
+---
+
 ## A real example
 
 A session driving the auto-fix loop against a real validator error. The full transcript lives in [examples/03-auto-fix-validator/](examples/03-auto-fix-validator/).
@@ -184,6 +271,7 @@ Deeper technical detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — runtime, executor, validator gate, pipeline
 - [docs/USER_GUIDE.md](docs/USER_GUIDE.md) — day-to-day CLI usage
 - [docs/PDD_LIFECYCLE.md](docs/PDD_LIFECYCLE.md) — full `/pdd` lifecycle: BA → SA → ADD → TDD → Dev → QA → publish → deploy
+- [docs/PLANNING_FRAMEWORK.md](docs/PLANNING_FRAMEWORK.md) — brainstorm-to-plan loop (`uipath_plan_*`, `UIPATH_PLAN_GATE`, draft vs published)
 - [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md) — using the skills inside Cursor
 - [docs/TOOLS.md](docs/TOOLS.md) — tool registry reference
 - [docs/SKILL_LAYOUT.md](docs/SKILL_LAYOUT.md) — skill layering and provenance
