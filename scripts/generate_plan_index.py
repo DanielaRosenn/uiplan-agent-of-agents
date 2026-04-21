@@ -22,6 +22,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 PLANS_DIR = REPO_ROOT / "docs" / "plans"
 README_PATH = PLANS_DIR / "README.md"
 SKIP = {"_TEMPLATE.md", "README.md"}
+UIPLAN_META = ".meta.yaml"
 
 
 def _split_front_matter(text: str) -> tuple[dict, str] | None:
@@ -68,6 +69,30 @@ def collect_rows() -> list[dict[str, str]]:
                 "file": path.name,
                 "slug": str(meta.get("slug", "")),
                 "title": str(meta.get("title", path.stem)),
+                "date": str(meta.get("date", "")),
+                "status": str(meta.get("status", "")),
+                "owner": str(meta.get("owner", "")),
+                "linked_pdd": str(meta.get("linked_pdd", "") or ""),
+            }
+        )
+    for sub in sorted(PLANS_DIR.iterdir(), reverse=True):
+        if not sub.is_dir() or sub.name.startswith("."):
+            continue
+        meta_path = sub / UIPLAN_META
+        if not meta_path.is_file():
+            continue
+        try:
+            meta = yaml.safe_load(meta_path.read_text(encoding="utf-8")) or {}
+        except yaml.YAMLError:
+            continue
+        if str(meta.get("plan_kind", "")) != "uiplan":
+            continue
+        link = f"{sub.name}/spec.md"
+        rows.append(
+            {
+                "file": link,
+                "slug": str(meta.get("slug", "")),
+                "title": str(meta.get("title", sub.name)),
                 "date": str(meta.get("date", "")),
                 "status": str(meta.get("status", "")),
                 "owner": str(meta.get("owner", "")),

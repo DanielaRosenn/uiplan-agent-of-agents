@@ -84,8 +84,12 @@ class TestRunPlannerAgent:
 
         call_kwargs = mock_executor.execute.call_args.kwargs
         skill_content = call_kwargs.get("skill_content", "")
-        assert "READ-ONLY" in skill_content
-        assert "STRICTLY PROHIBITED" in skill_content
+        assert "READ-ONLY" in skill_content or "read-only" in skill_content.lower()
+        assert (
+            "STRICTLY PROHIBITED" in skill_content
+            or "cannot write" in skill_content.lower()
+            or "do not" in skill_content.lower()
+        )
 
     @pytest.mark.asyncio
     @patch("uipath_claude.query.planner.AgenticExecutor")

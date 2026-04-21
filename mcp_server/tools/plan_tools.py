@@ -28,6 +28,23 @@ from typing import Any
 import yaml
 from mcp.types import Tool, ToolAnnotations
 
+from mcp_server.tools.plan_folder import (
+    collect_folder_plan_entries,
+    is_folder_plan,
+    load_folder_meta,
+    read_uiplan_files,
+    resolve_plan_path,
+    save_folder_meta,
+)
+from mcp_server.tools.plan_uiplan import (
+    call_uiplan_ground,
+    call_uiplan_new,
+    call_uiplan_plan_new,
+    call_uiplan_review,
+    call_uiplan_spec_new,
+    call_uiplan_tasks_new,
+    uiplan_publish_folder,
+)
 from uipath_claude.query.planner import run_planner_agent_with_discovery
 from uipath_claude.skills.submodule_guard import verify as verify_guard
 from uipath_claude.tools import design_store
@@ -490,6 +507,148 @@ def get_plan_tools() -> list[Tool]:
             },
             annotations=_write("Publish accepted plan to docs/plans/", destructive=True),
         ),
+        Tool(
+            name="uipath_plan_ground",
+            description=(
+                "Build a grounding pack for UiPlan: project-context excerpt, "
+                "CLAUDE.md excerpt, ranked skills, library search hits, PDD/SDD "
+                "candidates, suggested project template path, constitution gates, "
+                "and suggested citation strings. Read-only."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "topic": {
+                        "type": "string",
+                        "description": "Feature or build intent to ground (non-empty).",
+                    },
+                    "project_root": {"type": "string"},
+                },
+                "required": ["topic"],
+            },
+            annotations=_ro("Ground UiPlan from workspace"),
+        ),
+        Tool(
+            name="uipath_plan_spec_new",
+            description=(
+                "Create a UiPlan draft folder under .cursor/plans/ with spec.md "
+                "from docs/plans/_uiplan/_spec-template.md plus .meta.yaml "
+                "(plan_kind=uiplan). Optionally pass grounding_pack from "
+                "uipath_plan_ground; otherwise grounding is computed from intent."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "Human-readable feature title."},
+                    "intent": {
+                        "type": "string",
+                        "description": "Goal description (same as topic if single field).",
+                    },
+                    "topic": {
+                        "type": "string",
+                        "description": "Alias for intent when intent is omitted.",
+                    },
+                    "slug": {"type": "string"},
+                    "owner": {"type": "string"},
+                    "project_type": {"type": "string", "enum": sorted(_PROJECT_TYPES)},
+                    "project_root": {"type": "string"},
+                    "grounding_pack": {
+                        "type": "object",
+                        "description": "Optional output from uipath_plan_ground.",
+                    },
+                },
+                "required": ["title"],
+            },
+            annotations=_write("Create UiPlan spec.md draft folder", destructive=True),
+        ),
+        Tool(
+            name="uipath_plan_plan_new",
+            description=(
+                "Write plan.md into an existing UiPlan folder (run "
+                "uipath_plan_spec_new first). Fills Technical Context, "
+                "Constitution Check from repo constitution, and structure decision."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "slug": {"type": "string", "description": "UiPlan slug (meta.slug)."},
+                    "project_root": {"type": "string"},
+                    "grounding_pack": {"type": "object"},
+                },
+                "required": ["slug"],
+            },
+            annotations=_write("Write UiPlan plan.md", destructive=True),
+        ),
+        Tool(
+            name="uipath_plan_tasks_new",
+            description=(
+                "Write tasks.md into an existing UiPlan folder after plan.md "
+                "exists. Phase-grouped tasks with [USn] markers and test-first sections."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "slug": {
+                        "type": "string",
+                        "description": "UiPlan slug from .meta.yaml (same as folder meta slug).",
+                    },
+                    "project_root": {"type": "string"},
+                    "grounding_pack": {"type": "object"},
+                },
+                "required": ["slug"],
+            },
+            annotations=_write("Write UiPlan tasks.md", destructive=True),
+        ),
+        Tool(
+            name="uipath_plan_review",
+            description=(
+                "Run structured UiPlan review on spec.md/plan.md/tasks.md in a "
+                "folder-shaped draft. Returns ok, findings[], next_action. "
+                "stage: spec | plan | tasks | all (default all)."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "slug": {
+                        "type": "string",
+                        "description": "UiPlan slug identifying the draft folder under .cursor/plans/.",
+                    },
+                    "stage": {
+                        "type": "string",
+                        "enum": ["spec", "plan", "tasks", "all"],
+                        "description": "Which checks to run (default all).",
+                    },
+                    "project_root": {"type": "string"},
+                },
+                "required": ["slug"],
+            },
+            annotations=_ro("Review UiPlan bundle"),
+        ),
+        Tool(
+            name="uipath_plan_uiplan_new",
+            description=(
+                "Orchestrator: uipath_plan_ground -> spec_new -> plan_new -> "
+                "tasks_new -> uipath_plan_review(all). Returns paths and review "
+                "payload; refine spec/plan/tasks before accept if review has errors."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "description": "Human-readable feature title for the UiPlan bundle.",
+                    },
+                    "intent": {"type": "string"},
+                    "topic": {"type": "string", "description": "Alias for intent."},
+                    "slug": {"type": "string"},
+                    "owner": {"type": "string"},
+                    "project_type": {"type": "string", "enum": sorted(_PROJECT_TYPES)},
+                    "project_root": {"type": "string"},
+                },
+                "required": ["title"],
+            },
+            annotations=_write("Scaffold full UiPlan bundle", destructive=True),
+        ),
     ]
 
 
@@ -637,41 +796,8 @@ def _find_plan_path(
     *,
     extra_dirs: list[Path] | None = None,
 ) -> Path:
-    search_dirs: list[Path] = [plans_dir]
-    if extra_dirs:
-        for d in extra_dirs:
-            if d not in search_dirs:
-                search_dirs.append(d)
-    if filename:
-        for d in search_dirs:
-            candidate = _safe_plan_path(d, filename)
-            if candidate.is_file():
-                return candidate
-        return _safe_plan_path(search_dirs[0], filename)
-    if not slug:
-        raise ValueError("provide filename or slug")
-    if not _SLUG_RE.match(slug):
-        raise ValueError("invalid slug")
-    matches: list[Path] = []
-    for d in search_dirs:
-        if not d.is_dir():
-            continue
-        for p in d.glob("*.md"):
-            if p.name in _SKIP_LIST:
-                continue
-            try:
-                raw = p.read_text(encoding="utf-8")
-                meta, _ = _split_front_matter(raw)
-            except Exception:
-                continue
-            if str(meta.get("slug", "")) == slug:
-                matches.append(p)
-    if not matches:
-        raise FileNotFoundError(f"no plan with slug {slug!r}")
-    if len(matches) > 1:
-        names = ", ".join(sorted(str(x) for x in matches))
-        raise ValueError(f"slug {slug!r} is ambiguous: {names}")
-    return matches[0]
+    resolved = resolve_plan_path(plans_dir, filename, slug, extra_dirs=extra_dirs or [])
+    return resolved.path
 
 
 async def _call_plan_build(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -776,6 +902,8 @@ def _collect_plans(directory: Path, scope_label: str) -> list[dict[str, Any]]:
             }
         )
         items.append(entry)
+    items.extend(collect_folder_plan_entries(directory, scope_label))
+    items.sort(key=lambda e: (str(e.get("date") or ""), str(e.get("file") or "")), reverse=True)
     return items
 
 
@@ -809,6 +937,25 @@ def _call_plan_read(arguments: dict[str, Any]) -> dict[str, Any]:
     fn = filename if isinstance(filename, str) and filename.strip() else None
     sl = slug if isinstance(slug, str) and slug.strip() else None
     path = _find_plan_path(plans_dir, fn, sl, extra_dirs=[drafts_dir])
+    if is_folder_plan(path):
+        resolved = resolve_plan_path(plans_dir, fn, sl, extra_dirs=[drafts_dir])
+        files = read_uiplan_files(resolved)
+        combined = (
+            "--- spec.md ---\n"
+            + files.get("spec.md", "")
+            + "\n\n--- plan.md ---\n"
+            + files.get("plan.md", "")
+            + "\n\n--- tasks.md ---\n"
+            + files.get("tasks.md", "")
+        )
+        return {
+            "status": "ok",
+            "path": str(path),
+            "relative": str(_rel_to(path, repo)),
+            "kind": "uiplan",
+            "content": combined,
+            "uiplan_files": files,
+        }
     return {
         "status": "ok",
         "path": str(path),
@@ -850,6 +997,20 @@ def _call_plan_status_set(arguments: dict[str, Any]) -> dict[str, Any]:
                     f"project_dir={project_dir!r} (or set UIPATH_DESIGN_APPROVAL_ENABLED=0 for dev)."
                 ),
             }
+
+    if is_folder_plan(path):
+        meta = load_folder_meta(path)
+        meta["status"] = new_status
+        save_folder_meta(path, meta)
+        idx: dict[str, Any] | None = None
+        if _is_in(path, plans_dir):
+            idx = _regen_plan_index(repo)
+        return {
+            "status": "ok",
+            "path": str(path),
+            "new_status": new_status,
+            "index_regen": idx,
+        }
 
     raw = path.read_text(encoding="utf-8")
     meta, body = _split_front_matter(raw)
@@ -894,6 +1055,18 @@ def _call_plan_render_mermaid(arguments: dict[str, Any]) -> dict[str, Any]:
         primary = drafts_dir
         extra = [plans_dir]
     path = _find_plan_path(primary, fn, sl, extra_dirs=extra)
+    if is_folder_plan(path):
+        resolved = resolve_plan_path(primary, fn, sl, extra_dirs=extra)
+        files = read_uiplan_files(resolved)
+        blocks: list[str] = []
+        for part in files.values():
+            blocks.extend(m.group(1).strip() for m in _MERMAID_BLOCK.finditer(part))
+        return {
+            "status": "ok",
+            "path": str(path),
+            "blocks": blocks,
+            "count": len(blocks),
+        }
     raw = path.read_text(encoding="utf-8")
     _, body = _split_front_matter(raw)
     blocks = [m.group(1).strip() for m in _MERMAID_BLOCK.finditer(body)]
@@ -1206,6 +1379,11 @@ def _call_plan_refine(arguments: dict[str, Any]) -> dict[str, Any]:
     fn = filename if isinstance(filename, str) and filename.strip() else None
     sl = slug if isinstance(slug, str) and slug.strip() else None
     path = _find_plan_path(drafts_dir, fn, sl, extra_dirs=[plans_dir])
+    if is_folder_plan(path):
+        raise ValueError(
+            "uipath_plan_refine applies to legacy single-file drafts only; "
+            "edit UiPlan spec.md/plan.md/tasks.md directly or re-run uipath_plan_spec_new."
+        )
     raw = path.read_text(encoding="utf-8")
     meta, body = _split_front_matter(raw)
     _snapshot_draft(path)
@@ -1236,6 +1414,17 @@ def _call_plan_diff(arguments: dict[str, Any]) -> dict[str, Any]:
     if mode not in ("vs-published", "self"):
         raise ValueError("mode must be 'vs-published' or 'self'")
     draft_path = _find_plan_path(drafts_dir, fn, sl)
+    if is_folder_plan(draft_path):
+        return {
+            "status": "blocked",
+            "reason": "uiplan_folder",
+            "message": (
+                "uipath_plan_diff does not support UiPlan folders; compare "
+                "spec.md/plan.md/tasks.md under .cursor/plans/ manually or with git."
+            ),
+            "draft": _rel_to(draft_path, repo),
+            "diff": "",
+        }
     draft_text = draft_path.read_text(encoding="utf-8")
 
     if mode == "vs-published":
@@ -1281,6 +1470,21 @@ def _call_plan_accept(arguments: dict[str, Any]) -> dict[str, Any]:
     actor = arguments.get("actor") or _default_actor()
     note = arguments.get("note")
     path = _find_plan_path(drafts_dir, fn, sl, extra_dirs=[plans_dir])
+    if is_folder_plan(path):
+        meta = load_folder_meta(path)
+        meta["status"] = "accepted"
+        meta["accepted_at"] = _utc_iso()
+        meta["accepted_by"] = str(actor)
+        if isinstance(note, str) and note.strip():
+            meta["acceptance_note"] = note.strip()
+        meta["rejection_reason"] = None
+        save_folder_meta(path, meta)
+        return {
+            "status": "ok",
+            "path": str(path),
+            "accepted_at": meta["accepted_at"],
+            "accepted_by": meta["accepted_by"],
+        }
     raw = path.read_text(encoding="utf-8")
     meta, body = _split_front_matter(raw)
     meta["status"] = "accepted"
@@ -1311,6 +1515,19 @@ def _call_plan_reject(arguments: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("'rejection_reason' must be a non-empty string")
     actor = arguments.get("actor") or _default_actor()
     path = _find_plan_path(drafts_dir, fn, sl, extra_dirs=[plans_dir])
+    if is_folder_plan(path):
+        meta = load_folder_meta(path)
+        meta["status"] = "rejected"
+        meta["rejection_reason"] = reason.strip()
+        meta["rejected_at"] = _utc_iso()
+        meta["rejected_by"] = str(actor)
+        save_folder_meta(path, meta)
+        return {
+            "status": "ok",
+            "path": str(path),
+            "rejection_reason": reason.strip(),
+            "rejected_by": str(actor),
+        }
     raw = path.read_text(encoding="utf-8")
     meta, body = _split_front_matter(raw)
     meta["status"] = "rejected"
@@ -1336,6 +1553,14 @@ def _call_plan_publish(arguments: dict[str, Any]) -> dict[str, Any]:
     fn = filename if isinstance(filename, str) and filename.strip() else None
     sl = slug if isinstance(slug, str) and slug.strip() else None
     draft_path = _find_plan_path(drafts_dir, fn, sl)
+    if is_folder_plan(draft_path):
+        return uiplan_publish_folder(
+            repo,
+            draft_path,
+            force=force,
+            utc_iso_fn=_utc_iso,
+            regen_plan_index=_regen_plan_index,
+        )
     raw = draft_path.read_text(encoding="utf-8")
     meta, body = _split_front_matter(raw)
     if meta.get("status") != "accepted":
@@ -1397,6 +1622,22 @@ def require_accepted_plan(project_dir: str | os.PathLike[str] | None = None) -> 
                     "plan": str(p),
                     "slug": meta.get("slug"),
                 }
+        for sub in directory.iterdir():
+            if not sub.is_dir() or sub.name.startswith("."):
+                continue
+            if not is_folder_plan(sub):
+                continue
+            try:
+                meta = load_folder_meta(sub)
+            except Exception:
+                continue
+            if str(meta.get("status")) == "accepted":
+                return {
+                    "allowed": True,
+                    "enforced": True,
+                    "plan": str(sub),
+                    "slug": meta.get("slug"),
+                }
     return {
         "allowed": False,
         "enforced": True,
@@ -1435,4 +1676,16 @@ async def call_plan_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         return _call_plan_reject(arguments)
     if name == "uipath_plan_publish":
         return _call_plan_publish(arguments)
+    if name == "uipath_plan_ground":
+        return call_uiplan_ground(arguments)
+    if name == "uipath_plan_spec_new":
+        return call_uiplan_spec_new(arguments)
+    if name == "uipath_plan_plan_new":
+        return call_uiplan_plan_new(arguments)
+    if name == "uipath_plan_tasks_new":
+        return call_uiplan_tasks_new(arguments)
+    if name == "uipath_plan_review":
+        return call_uiplan_review(arguments)
+    if name == "uipath_plan_uiplan_new":
+        return call_uiplan_new(arguments)
     raise ValueError(f"Unknown plan tool: {name}")

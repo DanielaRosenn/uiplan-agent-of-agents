@@ -16,6 +16,7 @@ from uipath_claude.commands.bootstrap import register_bootstrap_command
 from uipath_claude.commands.pdd import register_pdd_command
 from uipath_claude.commands.help import register_help_command
 from uipath_claude.commands.plan import register_plan_command
+from uipath_claude.commands.uiplan import register_uiplan_command
 from uipath_claude.commands.recall import register_recall_command
 from uipath_claude.commands.repair_restore import register_repair_restore_command
 from uipath_claude.commands.registry import CommandRegistry
@@ -336,6 +337,111 @@ def plan_list_cmd(
     if project_root:
         args["project_root"] = project_root
     _print_plan_result(_run_plan_tool("uipath_plan_list", args))
+
+
+uiplan_app = typer.Typer(
+    help="UiPlan: spec.md + plan.md + tasks.md folder under .cursor/plans/.",
+    no_args_is_help=True,
+)
+plan_app.add_typer(uiplan_app, name="uiplan")
+
+
+@uiplan_app.command("ground")
+def plan_uiplan_ground_cmd(
+    topic: str = typer.Argument(..., help="Intent text to ground against the workspace."),
+    project_root: str | None = typer.Option(None, "--project-root"),
+) -> None:
+    """Print grounding pack (skills, library hits, constitution, etc.)."""
+    args: dict[str, Any] = {"topic": topic}
+    if project_root:
+        args["project_root"] = project_root
+    _print_plan_result(_run_plan_tool("uipath_plan_ground", args))
+
+
+@uiplan_app.command("spec")
+def plan_uiplan_spec_cmd(
+    title: str = typer.Argument(..., help="Feature title."),
+    intent: str | None = typer.Option(None, "--intent", "-i", help="Goal; defaults to title."),
+    slug: str | None = typer.Option(None, "--slug"),
+    owner: str | None = typer.Option(None, "--owner"),
+    project_type: str = typer.Option("mixed", "--project-type"),
+    project_root: str | None = typer.Option(None, "--project-root"),
+) -> None:
+    """Create UiPlan draft folder with spec.md."""
+    args: dict[str, Any] = {
+        "title": title,
+        "intent": intent or title,
+        "project_type": project_type,
+    }
+    if slug:
+        args["slug"] = slug
+    if owner:
+        args["owner"] = owner
+    if project_root:
+        args["project_root"] = project_root
+    _print_plan_result(_run_plan_tool("uipath_plan_spec_new", args))
+
+
+@uiplan_app.command("plan")
+def plan_uiplan_plan_cmd(
+    slug: str = typer.Argument(..., help="UiPlan slug from .meta.yaml."),
+    project_root: str | None = typer.Option(None, "--project-root"),
+) -> None:
+    """Write plan.md for an existing UiPlan folder."""
+    args: dict[str, Any] = {"slug": slug}
+    if project_root:
+        args["project_root"] = project_root
+    _print_plan_result(_run_plan_tool("uipath_plan_plan_new", args))
+
+
+@uiplan_app.command("tasks")
+def plan_uiplan_tasks_cmd(
+    slug: str = typer.Argument(...),
+    project_root: str | None = typer.Option(None, "--project-root"),
+) -> None:
+    """Write tasks.md after plan.md exists."""
+    args: dict[str, Any] = {"slug": slug}
+    if project_root:
+        args["project_root"] = project_root
+    _print_plan_result(_run_plan_tool("uipath_plan_tasks_new", args))
+
+
+@uiplan_app.command("review")
+def plan_uiplan_review_cmd(
+    slug: str = typer.Argument(...),
+    stage: str = typer.Option("all", "--stage", help="spec | plan | tasks | all"),
+    project_root: str | None = typer.Option(None, "--project-root"),
+) -> None:
+    """Run structured review on spec/plan/tasks."""
+    args: dict[str, Any] = {"slug": slug, "stage": stage}
+    if project_root:
+        args["project_root"] = project_root
+    _print_plan_result(_run_plan_tool("uipath_plan_review", args))
+
+
+@uiplan_app.command("full")
+def plan_uiplan_full_cmd(
+    title: str = typer.Argument(..., help="Feature title."),
+    intent: str | None = typer.Option(None, "--intent", "-i"),
+    slug: str | None = typer.Option(None, "--slug"),
+    owner: str | None = typer.Option(None, "--owner"),
+    project_type: str = typer.Option("mixed", "--project-type"),
+    project_root: str | None = typer.Option(None, "--project-root"),
+) -> None:
+    """Ground + spec + plan + tasks + review in one shot."""
+    args: dict[str, Any] = {
+        "title": title,
+        "intent": intent or title,
+        "project_type": project_type,
+    }
+    if slug:
+        args["slug"] = slug
+    if owner:
+        args["owner"] = owner
+    if project_root:
+        args["project_root"] = project_root
+    _print_plan_result(_run_plan_tool("uipath_plan_uiplan_new", args))
+
 
 _UIPATH_CHAT_SYSTEM = f"""You are UiPath Claude Code, an agentic AI assistant with direct access to the user's local file system, UiPath CLI, and UiPath skills. You build UiPath Studio automations (workflow XAML), not WPF desktop apps, unless the user explicitly asks for WPF.
 
@@ -921,6 +1027,7 @@ def _build_command_registry(
     register_recall_command(registry, get_history=get_history)
     if run_planner:
         register_plan_command(registry, run_planner=run_planner)
+    register_uiplan_command(registry)
     return registry
 
 

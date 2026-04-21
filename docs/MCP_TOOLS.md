@@ -87,6 +87,12 @@ Each tool has an **audience guide** (synthesized from the registered `Tool` meta
 | `uipath_plan_accept` | plan | destructive (idempotent where noted) |
 | `uipath_plan_reject` | plan | destructive (idempotent where noted) |
 | `uipath_plan_publish` | plan | destructive (idempotent where noted) |
+| `uipath_plan_ground` | plan | read-only |
+| `uipath_plan_spec_new` | plan | destructive (idempotent where noted) |
+| `uipath_plan_plan_new` | plan | destructive (idempotent where noted) |
+| `uipath_plan_tasks_new` | plan | destructive (idempotent where noted) |
+| `uipath_plan_review` | plan | read-only |
+| `uipath_plan_uiplan_new` | plan | destructive (idempotent where noted) |
 | `uipath_answer` | answer | read-only |
 
 ## How to add a new MCP tool
@@ -5267,6 +5273,439 @@ _No required parameters (all optional)._
 %%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
 flowchart LR
   ARGS[MCP arguments]:::process --> T["uipath_plan_publish"]:::service
+  T --> RES[Tool-specific result]:::data
+
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef mutate fill:#FFF7ED,stroke:#EA580C,color:#9A3412,stroke-width:1.25px
+  classDef stage fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.25px
+  classDef data fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef error fill:#FEF2F2,stroke:#EF4444,color:#991B1B,stroke-width:1.5px
+  classDef endOk fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:1.25px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.25px
+
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+### `uipath_plan_ground`
+
+#### Audience guide
+
+**Ground UiPlan from workspace.** Build a grounding pack for UiPlan: project-context excerpt, CLAUDE.md excerpt, ranked skills, library search hits, PDD/SDD candidates, suggested project template path, constitution gates, and suggested citation strings. Read-only.
+
+**Required MCP arguments:**
+
+- **`topic`** — Feature or build intent to ground (non-empty).
+
+**Typical return:** **Dict** (or similar) from the planner-with-discovery pipeline, including trace metadata.
+
+**Side effect (MCP `ToolAnnotations`):** read-only
+
+**Dispatch:** [`mcp_server/tools/plan_tools.py`](../mcp_server/tools/plan_tools.py) `call_plan_tool`
+
+#### Author registration (`Tool.description` verbatim)
+
+> Build a grounding pack for UiPlan: project-context excerpt, CLAUDE.md excerpt, ranked skills, library search hits, PDD/SDD candidates, suggested project template path, constitution gates, and suggested citation strings. Read-only.
+
+#### Input schema (JSON Schema)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "topic": {
+      "type": "string",
+      "description": "Feature or build intent to ground (non-empty)."
+    },
+    "project_root": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "topic"
+  ]
+}
+```
+
+#### Behavior flow
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
+flowchart LR
+  ARGS[MCP arguments]:::process --> T["uipath_plan_ground"]:::service
+  T --> RES[Tool-specific result]:::data
+
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef mutate fill:#FFF7ED,stroke:#EA580C,color:#9A3412,stroke-width:1.25px
+  classDef stage fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.25px
+  classDef data fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef error fill:#FEF2F2,stroke:#EF4444,color:#991B1B,stroke-width:1.5px
+  classDef endOk fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:1.25px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.25px
+
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+### `uipath_plan_spec_new`
+
+#### Audience guide
+
+**Create UiPlan spec.md draft folder.** Create a UiPlan draft folder under .cursor/plans/ with spec.md from docs/plans/_uiplan/_spec-template.md plus .meta.yaml (plan_kind=uiplan). Optionally pass grounding_pack from uipath_plan_ground; otherwise grounding is computed from intent.
+
+**Required MCP arguments:**
+
+- **`title`** — Human-readable feature title.
+
+**Typical return:** **Dict** (or similar) from the planner-with-discovery pipeline, including trace metadata.
+
+**Side effect (MCP `ToolAnnotations`):** destructive (idempotent where noted)
+
+**Dispatch:** [`mcp_server/tools/plan_tools.py`](../mcp_server/tools/plan_tools.py) `call_plan_tool`
+
+#### Author registration (`Tool.description` verbatim)
+
+> Create a UiPlan draft folder under .cursor/plans/ with spec.md from docs/plans/_uiplan/_spec-template.md plus .meta.yaml (plan_kind=uiplan). Optionally pass grounding_pack from uipath_plan_ground; otherwise grounding is computed from intent.
+
+#### Input schema (JSON Schema)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Human-readable feature title."
+    },
+    "intent": {
+      "type": "string",
+      "description": "Goal description (same as topic if single field)."
+    },
+    "topic": {
+      "type": "string",
+      "description": "Alias for intent when intent is omitted."
+    },
+    "slug": {
+      "type": "string"
+    },
+    "owner": {
+      "type": "string"
+    },
+    "project_type": {
+      "type": "string",
+      "enum": [
+        "coded-agent",
+        "coded-app",
+        "mixed",
+        "rpa",
+        "solution"
+      ]
+    },
+    "project_root": {
+      "type": "string"
+    },
+    "grounding_pack": {
+      "type": "object",
+      "description": "Optional output from uipath_plan_ground."
+    }
+  },
+  "required": [
+    "title"
+  ]
+}
+```
+
+#### Behavior flow
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
+flowchart LR
+  ARGS[MCP arguments]:::process --> T["uipath_plan_spec_new"]:::service
+  T --> RES[Tool-specific result]:::data
+
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef mutate fill:#FFF7ED,stroke:#EA580C,color:#9A3412,stroke-width:1.25px
+  classDef stage fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.25px
+  classDef data fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef error fill:#FEF2F2,stroke:#EF4444,color:#991B1B,stroke-width:1.5px
+  classDef endOk fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:1.25px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.25px
+
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+### `uipath_plan_plan_new`
+
+#### Audience guide
+
+**Write UiPlan plan.md.** Write plan.md into an existing UiPlan folder (run uipath_plan_spec_new first). Fills Technical Context, Constitution Check from repo constitution, and structure decision.
+
+**Required MCP arguments:**
+
+- **`slug`** — UiPlan slug (meta.slug).
+
+**Typical return:** **Dict** (or similar) from the planner-with-discovery pipeline, including trace metadata.
+
+**Side effect (MCP `ToolAnnotations`):** destructive (idempotent where noted)
+
+**Dispatch:** [`mcp_server/tools/plan_tools.py`](../mcp_server/tools/plan_tools.py) `call_plan_tool`
+
+#### Author registration (`Tool.description` verbatim)
+
+> Write plan.md into an existing UiPlan folder (run uipath_plan_spec_new first). Fills Technical Context, Constitution Check from repo constitution, and structure decision.
+
+#### Input schema (JSON Schema)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "slug": {
+      "type": "string",
+      "description": "UiPlan slug (meta.slug)."
+    },
+    "project_root": {
+      "type": "string"
+    },
+    "grounding_pack": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "slug"
+  ]
+}
+```
+
+#### Behavior flow
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
+flowchart LR
+  ARGS[MCP arguments]:::process --> T["uipath_plan_plan_new"]:::service
+  T --> RES[Tool-specific result]:::data
+
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef mutate fill:#FFF7ED,stroke:#EA580C,color:#9A3412,stroke-width:1.25px
+  classDef stage fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.25px
+  classDef data fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef error fill:#FEF2F2,stroke:#EF4444,color:#991B1B,stroke-width:1.5px
+  classDef endOk fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:1.25px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.25px
+
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+### `uipath_plan_tasks_new`
+
+#### Audience guide
+
+**Write UiPlan tasks.md.** Write tasks.md into an existing UiPlan folder after plan.md exists. Phase-grouped tasks with [USn] markers and test-first sections.
+
+**Required MCP arguments:**
+
+- **`slug`** — UiPlan slug from .meta.yaml (same as folder meta slug).
+
+**Typical return:** **Dict** (or similar) from the planner-with-discovery pipeline, including trace metadata.
+
+**Side effect (MCP `ToolAnnotations`):** destructive (idempotent where noted)
+
+**Dispatch:** [`mcp_server/tools/plan_tools.py`](../mcp_server/tools/plan_tools.py) `call_plan_tool`
+
+#### Author registration (`Tool.description` verbatim)
+
+> Write tasks.md into an existing UiPlan folder after plan.md exists. Phase-grouped tasks with [USn] markers and test-first sections.
+
+#### Input schema (JSON Schema)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "slug": {
+      "type": "string",
+      "description": "UiPlan slug from .meta.yaml (same as folder meta slug)."
+    },
+    "project_root": {
+      "type": "string"
+    },
+    "grounding_pack": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "slug"
+  ]
+}
+```
+
+#### Behavior flow
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
+flowchart LR
+  ARGS[MCP arguments]:::process --> T["uipath_plan_tasks_new"]:::service
+  T --> RES[Tool-specific result]:::data
+
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef mutate fill:#FFF7ED,stroke:#EA580C,color:#9A3412,stroke-width:1.25px
+  classDef stage fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.25px
+  classDef data fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef error fill:#FEF2F2,stroke:#EF4444,color:#991B1B,stroke-width:1.5px
+  classDef endOk fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:1.25px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.25px
+
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+### `uipath_plan_review`
+
+#### Audience guide
+
+**Review UiPlan bundle.** Run structured UiPlan review on spec.md/plan.md/tasks.md in a folder-shaped draft. Returns ok, findings[], next_action. stage: spec | plan | tasks | all (default all).
+
+**Required MCP arguments:**
+
+- **`slug`** — UiPlan slug identifying the draft folder under .cursor/plans/.
+
+**Typical return:** **Dict** (or similar) from the planner-with-discovery pipeline, including trace metadata.
+
+**Side effect (MCP `ToolAnnotations`):** read-only
+
+**Dispatch:** [`mcp_server/tools/plan_tools.py`](../mcp_server/tools/plan_tools.py) `call_plan_tool`
+
+#### Author registration (`Tool.description` verbatim)
+
+> Run structured UiPlan review on spec.md/plan.md/tasks.md in a folder-shaped draft. Returns ok, findings[], next_action. stage: spec | plan | tasks | all (default all).
+
+#### Input schema (JSON Schema)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "slug": {
+      "type": "string",
+      "description": "UiPlan slug identifying the draft folder under .cursor/plans/."
+    },
+    "stage": {
+      "type": "string",
+      "enum": [
+        "spec",
+        "plan",
+        "tasks",
+        "all"
+      ],
+      "description": "Which checks to run (default all)."
+    },
+    "project_root": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "slug"
+  ]
+}
+```
+
+#### Behavior flow
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
+flowchart LR
+  ARGS[MCP arguments]:::process --> T["uipath_plan_review"]:::service
+  T --> RES[Tool-specific result]:::data
+
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef mutate fill:#FFF7ED,stroke:#EA580C,color:#9A3412,stroke-width:1.25px
+  classDef stage fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.25px
+  classDef data fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef error fill:#FEF2F2,stroke:#EF4444,color:#991B1B,stroke-width:1.5px
+  classDef endOk fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:1.25px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.25px
+
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+### `uipath_plan_uiplan_new`
+
+#### Audience guide
+
+**Scaffold full UiPlan bundle.** Orchestrator: uipath_plan_ground -> spec_new -> plan_new -> tasks_new -> uipath_plan_review(all). Returns paths and review payload; refine spec/plan/tasks before accept if review has errors.
+
+**Required MCP arguments:**
+
+- **`title`** — Human-readable feature title for the UiPlan bundle.
+
+**Typical return:** **Dict** (or similar) from the planner-with-discovery pipeline, including trace metadata.
+
+**Side effect (MCP `ToolAnnotations`):** destructive (idempotent where noted)
+
+**Dispatch:** [`mcp_server/tools/plan_tools.py`](../mcp_server/tools/plan_tools.py) `call_plan_tool`
+
+#### Author registration (`Tool.description` verbatim)
+
+> Orchestrator: uipath_plan_ground -> spec_new -> plan_new -> tasks_new -> uipath_plan_review(all). Returns paths and review payload; refine spec/plan/tasks before accept if review has errors.
+
+#### Input schema (JSON Schema)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Human-readable feature title for the UiPlan bundle."
+    },
+    "intent": {
+      "type": "string"
+    },
+    "topic": {
+      "type": "string",
+      "description": "Alias for intent."
+    },
+    "slug": {
+      "type": "string"
+    },
+    "owner": {
+      "type": "string"
+    },
+    "project_type": {
+      "type": "string",
+      "enum": [
+        "coded-agent",
+        "coded-app",
+        "mixed",
+        "rpa",
+        "solution"
+      ]
+    },
+    "project_root": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "title"
+  ]
+}
+```
+
+#### Behavior flow
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
+flowchart LR
+  ARGS[MCP arguments]:::process --> T["uipath_plan_uiplan_new"]:::service
   T --> RES[Tool-specific result]:::data
 
   classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px

@@ -10,4 +10,5 @@ python scripts/generate_plan_index.py
 
 | File | Date | Status | Slug | Title | Owner | Linked PDD |
 |------|------|--------|------|-------|-------|------------|
-| *(no plans yet)* | | | | | | |
+| [2026-04-21-uiplan-framework.md](2026-04-21-uiplan-framework.md) | 2026-04-21 | accepted | `uiplan-framework` | /uiplan framework (spec-kit-style, grounded in workspace) | daniela |  |
+| [constitution.md](constitution.md) |  |  | `` | constitution |  |  |

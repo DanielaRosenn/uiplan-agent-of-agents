@@ -134,6 +134,32 @@ The repo ships a superpowers-style planning loop for any non-trivial change: you
 - Published plans live in `docs/plans/` (git-tracked). `docs/plans/README.md` is a regenerated index.
 - Snapshots of each refine step go under `.cursor/plans/.snapshots/` for `uipath_plan_diff --mode self`.
 
+### UiPlan (spec-kit-style: `spec.md` + `plan.md` + `tasks.md`)
+
+For a **structured** build contract (separate *what / how / atomic work*), use **UiPlan**: a folder
+`.cursor/plans/<YYYY-MM-DD>-<slug>/` with `spec.md`, `plan.md`, `tasks.md`, and `.meta.yaml`
+(`plan_kind: uiplan`). Grounding pulls **project-context**, **skills**, **library** hits, **PDD/SDD**
+candidates, and **`docs/plans/constitution.md`** gates into the plan. **`uipath_plan_review`**
+returns machine-readable findings (spec/plan/tasks/all) before you accept.
+
+```mermaid
+flowchart LR
+  G[uipath_plan_ground]:::ro --> S[uipath_plan_spec_new]:::w
+  S --> P[uipath_plan_plan_new]:::w
+  P --> T[uipath_plan_tasks_new]:::w
+  T --> R[uipath_plan_review]:::ro
+  R --> A[uipath_plan_accept]:::w
+  A --> Pub[uipath_plan_publish]:::w
+  classDef ro fill:#E0F2FE,stroke:#0284C7,color:#0C4A6E
+  classDef w fill:#FEF3C7,stroke:#D97706,color:#78350F
+```
+
+- **Cursor:** `/uiplan full <title>` or staged `/uiplan ground|spec|plan|tasks|review ...` (slash command).
+- **CLI:** `uipath-claude plan uiplan full "..."` or `plan uiplan ground|spec|plan|tasks|review ...`.
+- **Skill:** [.cursor/skills/uiplan/SKILL.md](.cursor/skills/uiplan/SKILL.md).
+
+Single-file drafts (`uipath_plan_new`) stay supported; `uipath_plan_refine` / `uipath_plan_diff` apply to those only, not UiPlan folders.
+
 ### The loop
 
 ```mermaid
@@ -224,6 +250,7 @@ Unset or set to `0` to restore the default (no gate).
 | Planning interactively in Cursor | Chat: *"Use the brainstorming-plan skill to plan &lt;X&gt;"* |
 | Planning from a terminal / CI | `uipath-claude plan new ...` -> `brainstorm` -> `refine` -> `accept` -> `publish` |
 | Formal PDD/SDD/ADD lifecycle (BA -> SA -> ADD -> TDD -> Dev -> QA) | `/pdd` - see [docs/PDD_LIFECYCLE.md](docs/PDD_LIFECYCLE.md) |
+| Spec-kit-style bundle (spec + plan + tasks + review) | `/uiplan` or `uipath-claude plan uiplan` — see [docs/PLANNING_FRAMEWORK.md](docs/PLANNING_FRAMEWORK.md#uiplan-spec-kit-style) |
 | Quick routing question ("which skill handles X?") | `uipath-planner` skill directly |
 
 The planning framework and `/pdd` are complementary: the planning loop is for authoring the change; `/pdd` is the formal document lifecycle.

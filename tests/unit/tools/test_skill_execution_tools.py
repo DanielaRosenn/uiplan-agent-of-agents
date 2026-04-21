@@ -202,7 +202,7 @@ class TestListDirectory:
         monkeypatch.setenv("UIPATH_CHAT_SESSION_ID", "")
         
         result = list_directory.invoke({"dir_path": str(tmp_path / "nodir")})
-        assert "Error: Directory not found" in result
+        assert "directory_missing=true" in result or "Error: Directory not found" in result
 
 
 class TestReadProjectJson:

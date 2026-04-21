@@ -81,6 +81,8 @@ READ_ONLY = {
     "uipath_plan_render_mermaid",
     "uipath_plan_brainstorm",
     "uipath_plan_diff",
+    "uipath_plan_ground",
+    "uipath_plan_review",
     "uipath_answer",
     # ensure_project_structure no longer hand-writes scaffolds; it returns
     # success or refuses + routes to create_project. Read-only in practice.
@@ -126,6 +128,10 @@ DESTRUCTIVE = {
     "uipath_plan_accept",
     "uipath_plan_reject",
     "uipath_plan_publish",
+    "uipath_plan_spec_new",
+    "uipath_plan_plan_new",
+    "uipath_plan_tasks_new",
+    "uipath_plan_uiplan_new",
 }
 
 STAGING = {

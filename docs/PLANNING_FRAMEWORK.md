@@ -52,9 +52,44 @@ flowchart LR
 | `.cursor/plans/<YYYY-MM-DD-slug>.md` | No (in `.gitignore`) | Per-user drafts |
 | `.cursor/plans/.snapshots/` | No | Auto snapshots written by `uipath_plan_refine` |
 | `docs/plans/<same-name>.md` | Yes | Published plans, indexed by `docs/plans/README.md` |
+| `.cursor/plans/<YYYY-MM-DD>-<slug>/` (folder) | No | **UiPlan** drafts: `spec.md`, `plan.md`, `tasks.md`, `.meta.yaml` (`plan_kind: uiplan`) |
+| `docs/plans/<YYYY-MM-DD>-<slug>/` (folder) | Yes | Published UiPlan (same layout), indexed as `.../spec.md` in `docs/plans/README.md` |
 
 Promotion from draft to published is explicit via `uipath_plan_publish`
 (MCP) or `uipath plan publish` (CLI).
+
+## UiPlan (spec-kit-style)
+
+Use UiPlan when you want **three linked artifacts** plus a **structured review** pass before build:
+
+1. **`uipath_plan_ground`** — read-only pack: project-context excerpt, `CLAUDE.md` excerpt, `uipath_skill_match` results, `uipath_library_search` snippets, PDD/SDD candidates, suggested `templates/` starter, constitution gates from `docs/plans/constitution.md` (or built-in defaults).
+2. **`uipath_plan_spec_new`** — creates the draft folder + `spec.md` from `docs/plans/_uiplan/_spec-template.md`.
+3. **`uipath_plan_plan_new`** — writes `plan.md` (Technical Context, Constitution Check, Project Structure).
+4. **`uipath_plan_tasks_new`** — writes `tasks.md` (phases, `[USn]` traceability, test-before-impl sections).
+5. **`uipath_plan_review`** — returns `{ ok, findings[], next_action }` for `stage`: `spec` \| `plan` \| `tasks` \| `all`.
+6. **`uipath_plan_uiplan_new`** — runs ground through review in one call.
+
+```mermaid
+flowchart LR
+  topic[Topic]:::in --> ground[uipath_plan_ground]:::ro
+  ground --> spec[uipath_plan_spec_new]:::write
+  spec --> plan[uipath_plan_plan_new]:::write
+  plan --> tasks[uipath_plan_tasks_new]:::write
+  tasks --> rev[uipath_plan_review]:::ro
+  rev --> ok{ok?}:::decision
+  ok -->|yes| acc[uipath_plan_accept]:::write
+  ok -->|no| spec
+  acc --> pub[uipath_plan_publish]:::write
+  classDef in fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:2px
+  classDef ro fill:#E0F2FE,stroke:#0284C7,color:#0C4A6E,stroke-width:1.25px
+  classDef write fill:#EEF2FF,stroke:#6366F1,color:#312E81,stroke-width:1.25px
+  classDef decision fill:#FEF3C7,stroke:#D97706,color:#78350F,stroke-width:1.25px
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+**Cursor:** load `.cursor/skills/uiplan/SKILL.md`. **CLI:** `uipath-claude plan uiplan <subcommand>`. **Chat:** `/uiplan ...`.
+
+Legacy **single-file** drafts (`uipath_plan_new`, refine, diff) are unchanged. UiPlan folders skip `uipath_plan_refine` / `uipath_plan_diff` (edit markdown directly or regenerate stages).
 
 ## Front matter (template-of-record)
 
