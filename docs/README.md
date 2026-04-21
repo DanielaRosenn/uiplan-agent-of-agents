@@ -15,10 +15,13 @@ Landing page for everything under `docs/`. Start with [ARCHITECTURE.md](ARCHITEC
 
 ## Planning (Cursor + agent)
 
+- [PLANNING_FRAMEWORK.md](PLANNING_FRAMEWORK.md) — superpowers-style brainstorm -> draft -> accept -> publish loop, including the optional `UIPATH_PLAN_GATE`.
 - [plans/README.md](plans/README.md) — index of git-tracked implementation plans under `docs/plans/`.
 - [plans/_TEMPLATE.md](plans/_TEMPLATE.md) — required front matter, Mermaid, tasks, verification.
-- Cursor skills: `.cursor/skills/writing-uipath-plans/SKILL.md`, `.cursor/skills/mermaid-diagram-builder/SKILL.md`.
-- MCP: `uipath_plan_save`, `uipath_plan_list`, `uipath_plan_read`, `uipath_plan_status_set`, `uipath_plan_render_mermaid`, plus `uipath_plan_build` (discovery-fronted) — see [MCP_TOOLS.md](MCP_TOOLS.md).
+- Cursor skills: `.cursor/skills/brainstorming-plan/SKILL.md`, `.cursor/skills/writing-uipath-plans/SKILL.md`, `.cursor/skills/mermaid-diagram-builder/SKILL.md`.
+- MCP (CRUD): `uipath_plan_save`, `uipath_plan_list` (scope), `uipath_plan_read`, `uipath_plan_status_set`, `uipath_plan_render_mermaid`, `uipath_plan_build`.
+- MCP (brainstorm loop): `uipath_plan_new`, `uipath_plan_brainstorm`, `uipath_plan_refine`, `uipath_plan_diff`, `uipath_plan_accept`, `uipath_plan_reject`, `uipath_plan_publish` — see [MCP_TOOLS.md](MCP_TOOLS.md).
+- CLI: `uipath plan new|brainstorm|refine|diff|accept|reject|publish|list`.
 - Regenerate the plans table: `python scripts/generate_plan_index.py`.
 - Formal lifecycle: [PDD_LIFECYCLE.md](PDD_LIFECYCLE.md).
 

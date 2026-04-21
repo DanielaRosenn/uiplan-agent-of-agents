@@ -2,11 +2,15 @@
 slug: template-example
 title: Example Implementation Plan
 date: YYYY-MM-DD
-status: draft
+status: draft            # draft | refining | accepted | rejected | in-progress | done | superseded
 owner: your-github-handle
 project_type: mixed
 linked_pdd: ""
 supersedes: null
+accepted_at: null        # ISO 8601 timestamp, stamped by uipath_plan_accept
+accepted_by: null        # actor label, stamped by uipath_plan_accept
+rejection_reason: null   # non-empty when status is rejected
+published_at: null       # set by uipath_plan_publish when promoting to docs/plans/
 ---
 
 # Example Implementation Plan

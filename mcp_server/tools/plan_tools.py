@@ -1,11 +1,24 @@
-"""MCP tools for UiPath build planning and git-tracked implementation plans.
+"""MCP tools for UiPath build planning and implementation plans.
 
-Includes ``uipath_plan_build`` (discovery-fronted planner) and CRUD-style
-helpers under ``docs/plans/`` (save, list, read, status, mermaid extract).
+Surfaces:
+
+- ``uipath_plan_build`` (discovery-fronted planner) and CRUD on the published
+  ``docs/plans/`` tree (``save/list/read/status_set/render_mermaid``).
+- A superpowers-style brainstorm loop: ``uipath_plan_new`` (scaffold draft under
+  ``.cursor/plans/``), ``uipath_plan_brainstorm`` (grounding hints),
+  ``uipath_plan_refine`` (structured patch), ``uipath_plan_diff``,
+  ``uipath_plan_accept`` / ``uipath_plan_reject``, ``uipath_plan_publish``
+  (draft -> ``docs/plans/``).
+- Optional ``UIPATH_PLAN_GATE`` hook consumed by destructive workflow tools so
+  an accepted plan can gate writes/publish/deploy.
 """
 from __future__ import annotations
 
+import datetime as _dt
+import difflib
+import os
 import re
+import shutil
 import subprocess
 import sys
 from dataclasses import asdict, is_dataclass
@@ -19,12 +32,23 @@ from uipath_claude.query.planner import run_planner_agent_with_discovery
 from uipath_claude.skills.submodule_guard import verify as verify_guard
 from uipath_claude.tools import design_store
 
-_PLAN_STATUSES = frozenset({"draft", "in-progress", "done", "superseded"})
+_PLAN_STATUSES = frozenset(
+    {
+        "draft",
+        "refining",
+        "accepted",
+        "rejected",
+        "in-progress",
+        "done",
+        "superseded",
+    }
+)
 _PROJECT_TYPES = frozenset({"rpa", "coded-agent", "solution", "coded-app", "mixed"})
 _SKIP_LIST = frozenset({"_TEMPLATE.md", "README.md"})
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,120}$")
 _FILENAME_RE = re.compile(r"^\d{4}-\d{2}-\d{2}-[a-z0-9_-]+\.md$")
 _MERMAID_BLOCK = re.compile(r"```mermaid\s*\n(.*?)```", re.DOTALL | re.IGNORECASE)
+_LIST_SCOPES = frozenset({"drafts", "published", "both"})
 
 
 def _ro(title: str) -> ToolAnnotations:
@@ -133,8 +157,10 @@ def get_plan_tools() -> list[Tool]:
         Tool(
             name="uipath_plan_list",
             description=(
-                "List markdown plans in docs/plans/ (excludes _TEMPLATE.md and "
-                "README.md), returning file names and parsed front-matter fields."
+                "List markdown plans, returning file names and parsed front-matter "
+                "fields. Default scope 'published' reads docs/plans/ (git-tracked); "
+                "'drafts' reads .cursor/plans/ (per-user, git-ignored); 'both' returns "
+                "a combined list with a scope marker per entry."
             ),
             inputSchema={
                 "type": "object",
@@ -143,9 +169,14 @@ def get_plan_tools() -> list[Tool]:
                         "type": "string",
                         "description": "Repository root (defaults to cwd).",
                     },
+                    "scope": {
+                        "type": "string",
+                        "enum": sorted(_LIST_SCOPES),
+                        "description": "drafts | published | both (default published).",
+                    },
                 },
             },
-            annotations=_ro("List docs/plans implementation plans"),
+            annotations=_ro("List plans (drafts and/or published)"),
         ),
         Tool(
             name="uipath_plan_read",
@@ -176,10 +207,13 @@ def get_plan_tools() -> list[Tool]:
         Tool(
             name="uipath_plan_status_set",
             description=(
-                "Update the status field in a plan's YAML front matter. "
-                "Values: draft, in-progress, done, superseded. Transition to "
-                "done requires an approved design for project_dir when "
-                "UIPATH_DESIGN_APPROVAL_ENABLED is on (same gate as workflow writes)."
+                "Update the status field in a plan's YAML front matter. Values: "
+                "draft, refining, accepted, rejected, in-progress, done, "
+                "superseded. Transition to 'done' requires an approved design for "
+                "project_dir when UIPATH_DESIGN_APPROVAL_ENABLED is on (same gate "
+                "as workflow writes). For acceptance/rejection prefer the "
+                "dedicated uipath_plan_accept / uipath_plan_reject tools which "
+                "also stamp actor/timestamp/reason."
             ),
             inputSchema={
                 "type": "object",
@@ -214,7 +248,8 @@ def get_plan_tools() -> list[Tool]:
             name="uipath_plan_render_mermaid",
             description=(
                 "Extract fenced ```mermaid blocks from a plan file for quick "
-                "syntax review or reuse in docs."
+                "syntax review or reuse in docs. Searches drafts under "
+                ".cursor/plans/ first, then published under docs/plans/."
             ),
             inputSchema={
                 "type": "object",
@@ -225,9 +260,235 @@ def get_plan_tools() -> list[Tool]:
                     },
                     "filename": {"type": "string"},
                     "slug": {"type": "string"},
+                    "scope": {
+                        "type": "string",
+                        "enum": sorted(_LIST_SCOPES),
+                        "description": "Where to look: drafts, published, or both (default both).",
+                    },
                 },
             },
             annotations=_ro("Extract Mermaid blocks from a plan"),
+        ),
+        Tool(
+            name="uipath_plan_new",
+            description=(
+                "Scaffold a new plan draft under .cursor/plans/ (per-user, "
+                "git-ignored). Seeds front matter (slug, title, date, status=draft, "
+                "owner, project_type) plus the docs/plans/_TEMPLATE.md skeleton "
+                "and a placeholder ``## Context`` section for grounding output. "
+                "Use uipath_plan_refine to add tasks and grounding, and "
+                "uipath_plan_publish to promote to docs/plans/ after acceptance."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "description": "Short human-readable plan title.",
+                    },
+                    "intent": {
+                        "type": "string",
+                        "description": "One to two sentences describing the goal.",
+                    },
+                    "slug": {
+                        "type": "string",
+                        "description": (
+                            "Lowercase-kebab slug; auto-derived from title when omitted."
+                        ),
+                    },
+                    "owner": {
+                        "type": "string",
+                        "description": "GitHub/Cursor handle (default: $USER or 'local').",
+                    },
+                    "project_type": {
+                        "type": "string",
+                        "enum": sorted(_PROJECT_TYPES),
+                        "description": "UiPath project type; defaults to 'mixed'.",
+                    },
+                    "project_root": {
+                        "type": "string",
+                        "description": "Repository root (defaults to cwd).",
+                    },
+                },
+                "required": ["title", "intent"],
+            },
+            annotations=_write("Create a new plan draft", destructive=False, idempotent=False),
+        ),
+        Tool(
+            name="uipath_plan_brainstorm",
+            description=(
+                "Read-only grounding helper for drafting plans. Given a draft's "
+                "intent (or an explicit prompt), returns a context pack of "
+                "hints the caller should use to flesh out tasks: suggested "
+                "library searches (call uipath_library_search with these), "
+                "candidate specialist skills to load (uipath_skill_get), PDD/SDD/ADD "
+                "candidates under docs/, and up to three clarifying questions "
+                "to batch back to the user. When UIPATH_PLAN_WEB=1 and no web "
+                "tool is registered, the response notes that web research was "
+                "requested but skipped. This tool does NOT write to the plan."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "prompt": {
+                        "type": "string",
+                        "description": (
+                            "Free-text intent; when omitted the tool reads the "
+                            "draft's title + Goal section."
+                        ),
+                    },
+                    "slug": {
+                        "type": "string",
+                        "description": "Draft slug under .cursor/plans/ (optional).",
+                    },
+                    "filename": {
+                        "type": "string",
+                        "description": "Draft basename under .cursor/plans/ (optional).",
+                    },
+                    "project_root": {
+                        "type": "string",
+                        "description": "Repository root (defaults to cwd).",
+                    },
+                },
+            },
+            annotations=_ro("Brainstorm grounding hints"),
+        ),
+        Tool(
+            name="uipath_plan_refine",
+            description=(
+                "Apply a structured patch to a draft under .cursor/plans/. "
+                "Operations: set_title / set_goal / append_task / replace_body_section "
+                "(section_heading + new_body) / add_mermaid (appends a fenced "
+                "mermaid block under ``## Architecture diagram``). Validates that "
+                "the resulting file still has front matter + at least one mermaid "
+                "block. Flips status to 'refining' unless explicitly set."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "slug": {"type": "string"},
+                    "filename": {"type": "string"},
+                    "operations": {
+                        "type": "array",
+                        "description": "List of patch operations to apply in order.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "op": {
+                                    "type": "string",
+                                    "enum": [
+                                        "set_title",
+                                        "set_goal",
+                                        "append_task",
+                                        "replace_body_section",
+                                        "add_mermaid",
+                                    ],
+                                },
+                                "value": {"type": "string"},
+                                "section_heading": {"type": "string"},
+                                "new_body": {"type": "string"},
+                            },
+                            "required": ["op"],
+                        },
+                    },
+                    "project_root": {"type": "string"},
+                },
+                "required": ["operations"],
+            },
+            annotations=_write("Apply structured patch to draft plan", destructive=True),
+        ),
+        Tool(
+            name="uipath_plan_diff",
+            description=(
+                "Return a unified diff for a plan. By default compares a draft in "
+                ".cursor/plans/ against its published twin in docs/plans/ (same "
+                "basename); pass mode='self' to diff the draft against its own "
+                "last-saved snapshot when one exists in .cursor/plans/.snapshots/."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "slug": {"type": "string"},
+                    "filename": {"type": "string"},
+                    "mode": {
+                        "type": "string",
+                        "enum": ["vs-published", "self"],
+                        "description": "vs-published (default) or self.",
+                    },
+                    "project_root": {"type": "string"},
+                },
+            },
+            annotations=_ro("Diff a plan draft"),
+        ),
+        Tool(
+            name="uipath_plan_accept",
+            description=(
+                "Mark a draft plan as accepted: status='accepted', stamps "
+                "accepted_at (UTC ISO) and accepted_by. The draft is the source "
+                "of truth until uipath_plan_publish promotes it to docs/plans/. "
+                "When UIPATH_PLAN_GATE=1, destructive workflow tools consult this "
+                "acceptance record for project_dir before writing."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "slug": {"type": "string"},
+                    "filename": {"type": "string"},
+                    "actor": {
+                        "type": "string",
+                        "description": "Who accepted (default: $USER or 'human').",
+                    },
+                    "note": {
+                        "type": "string",
+                        "description": "Optional short acceptance note.",
+                    },
+                    "project_root": {"type": "string"},
+                },
+            },
+            annotations=_write("Accept a plan draft", destructive=True),
+        ),
+        Tool(
+            name="uipath_plan_reject",
+            description=(
+                "Mark a draft as rejected and record the reason. Refuses when "
+                "rejection_reason is empty; the rationale lives in front matter "
+                "for auditability. Does NOT delete the draft - the caller may "
+                "archive or supersede it."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "slug": {"type": "string"},
+                    "filename": {"type": "string"},
+                    "rejection_reason": {
+                        "type": "string",
+                        "description": "Non-empty rationale recorded in front matter.",
+                    },
+                    "actor": {"type": "string"},
+                    "project_root": {"type": "string"},
+                },
+                "required": ["rejection_reason"],
+            },
+            annotations=_write("Reject a plan draft", destructive=True),
+        ),
+        Tool(
+            name="uipath_plan_publish",
+            description=(
+                "Promote an accepted draft from .cursor/plans/ to docs/plans/ "
+                "(git-tracked). Refuses when status != 'accepted'. Stamps "
+                "published_at (UTC ISO) and regenerates docs/plans/README.md. "
+                "Overwrites any existing same-named file only when force=true."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "slug": {"type": "string"},
+                    "filename": {"type": "string"},
+                    "force": {"type": "boolean", "default": False},
+                    "project_root": {"type": "string"},
+                },
+            },
+            annotations=_write("Publish accepted plan to docs/plans/", destructive=True),
         ),
     ]
 
@@ -245,6 +506,46 @@ def _resolve_repo_root(project_root: str | None) -> Path:
 
 def _plans_dir(repo: Path) -> Path:
     return repo / "docs" / "plans"
+
+
+def _drafts_dir(repo: Path) -> Path:
+    return repo / ".cursor" / "plans"
+
+
+def _snapshots_dir(repo: Path) -> Path:
+    return _drafts_dir(repo) / ".snapshots"
+
+
+def _utc_iso() -> str:
+    return _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _today_iso() -> str:
+    return _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%d")
+
+
+def _derive_slug(text: str) -> str:
+    lowered = text.strip().lower()
+    cleaned = re.sub(r"[^a-z0-9]+", "-", lowered).strip("-")
+    if not cleaned:
+        cleaned = "plan"
+    return cleaned[:80]
+
+
+def _default_actor() -> str:
+    return (
+        os.environ.get("USER")
+        or os.environ.get("USERNAME")
+        or "local"
+    )
+
+
+def _default_plans_search(repo: Path) -> list[Path]:
+    out: list[Path] = []
+    for d in (_drafts_dir(repo), _plans_dir(repo)):
+        if d.is_dir():
+            out.append(d)
+    return out
 
 
 def _regen_plan_index(repo: Path) -> dict[str, Any]:
@@ -325,20 +626,37 @@ def _safe_plan_path(plans_dir: Path, basename: str) -> Path:
     try:
         path.relative_to(plans_dir.resolve())
     except ValueError as exc:
-        raise ValueError("path escapes docs/plans") from exc
+        raise ValueError(f"path escapes {plans_dir}") from exc
     return path
 
 
-def _find_plan_path(plans_dir: Path, filename: str | None, slug: str | None) -> Path:
+def _find_plan_path(
+    plans_dir: Path,
+    filename: str | None,
+    slug: str | None,
+    *,
+    extra_dirs: list[Path] | None = None,
+) -> Path:
+    search_dirs: list[Path] = [plans_dir]
+    if extra_dirs:
+        for d in extra_dirs:
+            if d not in search_dirs:
+                search_dirs.append(d)
     if filename:
-        return _safe_plan_path(plans_dir, filename)
+        for d in search_dirs:
+            candidate = _safe_plan_path(d, filename)
+            if candidate.is_file():
+                return candidate
+        return _safe_plan_path(search_dirs[0], filename)
     if not slug:
         raise ValueError("provide filename or slug")
     if not _SLUG_RE.match(slug):
         raise ValueError("invalid slug")
     matches: list[Path] = []
-    if plans_dir.is_dir():
-        for p in plans_dir.glob("*.md"):
+    for d in search_dirs:
+        if not d.is_dir():
+            continue
+        for p in d.glob("*.md"):
             if p.name in _SKIP_LIST:
                 continue
             try:
@@ -351,7 +669,7 @@ def _find_plan_path(plans_dir: Path, filename: str | None, slug: str | None) -> 
     if not matches:
         raise FileNotFoundError(f"no plan with slug {slug!r}")
     if len(matches) > 1:
-        names = ", ".join(sorted(x.name for x in matches))
+        names = ", ".join(sorted(str(x) for x in matches))
         raise ValueError(f"slug {slug!r} is ambiguous: {names}")
     return matches[0]
 
@@ -430,54 +748,86 @@ def _filename_for_save(meta: dict[str, Any], filename: str | None) -> str:
     return f"{date}-{slug}.md"
 
 
-def _call_plan_list(arguments: dict[str, Any]) -> dict[str, Any]:
-    repo = _resolve_repo_root(arguments.get("project_root"))
-    plans_dir = _plans_dir(repo)
+def _collect_plans(directory: Path, scope_label: str) -> list[dict[str, Any]]:
     items: list[dict[str, Any]] = []
-    if not plans_dir.is_dir():
-        return {"status": "ok", "plans": [], "plans_dir": str(plans_dir)}
-    for path in sorted(plans_dir.glob("*.md"), reverse=True):
+    if not directory.is_dir():
+        return items
+    for path in sorted(directory.glob("*.md"), reverse=True):
         if path.name in _SKIP_LIST:
             continue
+        entry: dict[str, Any] = {"file": path.name, "scope": scope_label}
         try:
             raw = path.read_text(encoding="utf-8")
             meta, _ = _split_front_matter(raw)
         except Exception:
-            items.append({"file": path.name, "parse_error": True})
+            entry["parse_error"] = True
+            items.append(entry)
             continue
-        items.append(
+        entry.update(
             {
-                "file": path.name,
                 "slug": meta.get("slug"),
                 "title": meta.get("title"),
                 "date": meta.get("date"),
                 "status": meta.get("status"),
                 "owner": meta.get("owner"),
                 "project_type": meta.get("project_type"),
+                "accepted_at": meta.get("accepted_at"),
+                "published_at": meta.get("published_at"),
             }
         )
-    return {"status": "ok", "plans": items, "plans_dir": str(plans_dir)}
+        items.append(entry)
+    return items
+
+
+def _call_plan_list(arguments: dict[str, Any]) -> dict[str, Any]:
+    repo = _resolve_repo_root(arguments.get("project_root"))
+    scope = arguments.get("scope") or "published"
+    if scope not in _LIST_SCOPES:
+        raise ValueError(f"scope must be one of: {', '.join(sorted(_LIST_SCOPES))}")
+    plans_dir = _plans_dir(repo)
+    drafts_dir = _drafts_dir(repo)
+    items: list[dict[str, Any]] = []
+    if scope in ("drafts", "both"):
+        items.extend(_collect_plans(drafts_dir, "draft"))
+    if scope in ("published", "both"):
+        items.extend(_collect_plans(plans_dir, "published"))
+    return {
+        "status": "ok",
+        "scope": scope,
+        "plans": items,
+        "plans_dir": str(plans_dir),
+        "drafts_dir": str(drafts_dir),
+    }
 
 
 def _call_plan_read(arguments: dict[str, Any]) -> dict[str, Any]:
     repo = _resolve_repo_root(arguments.get("project_root"))
     plans_dir = _plans_dir(repo)
+    drafts_dir = _drafts_dir(repo)
     filename = arguments.get("filename")
     slug = arguments.get("slug")
     fn = filename if isinstance(filename, str) and filename.strip() else None
     sl = slug if isinstance(slug, str) and slug.strip() else None
-    path = _find_plan_path(plans_dir, fn, sl)
+    path = _find_plan_path(plans_dir, fn, sl, extra_dirs=[drafts_dir])
     return {
         "status": "ok",
         "path": str(path),
-        "relative": str(path.relative_to(repo)),
+        "relative": str(_rel_to(path, repo)),
         "content": path.read_text(encoding="utf-8"),
     }
+
+
+def _rel_to(path: Path, repo: Path) -> str:
+    try:
+        return str(path.relative_to(repo))
+    except ValueError:
+        return str(path)
 
 
 def _call_plan_status_set(arguments: dict[str, Any]) -> dict[str, Any]:
     repo = _resolve_repo_root(arguments.get("project_root"))
     plans_dir = _plans_dir(repo)
+    drafts_dir = _drafts_dir(repo)
     new_status = arguments.get("new_status")
     if not isinstance(new_status, str) or new_status not in _PLAN_STATUSES:
         raise ValueError(f"new_status must be one of: {', '.join(sorted(_PLAN_STATUSES))}")
@@ -486,7 +836,7 @@ def _call_plan_status_set(arguments: dict[str, Any]) -> dict[str, Any]:
     slug = arguments.get("slug")
     fn = filename if isinstance(filename, str) and filename.strip() else None
     sl = slug if isinstance(slug, str) and slug.strip() else None
-    path = _find_plan_path(plans_dir, fn, sl)
+    path = _find_plan_path(plans_dir, fn, sl, extra_dirs=[drafts_dir])
 
     if new_status == "done":
         pd = arguments.get("project_dir")
@@ -505,7 +855,9 @@ def _call_plan_status_set(arguments: dict[str, Any]) -> dict[str, Any]:
     meta, body = _split_front_matter(raw)
     meta["status"] = new_status
     path.write_text(_compose_plan(meta, body.lstrip("\n")), encoding="utf-8")
-    idx = _regen_plan_index(repo)
+    idx: dict[str, Any] | None = None
+    if _is_in(path, plans_dir):
+        idx = _regen_plan_index(repo)
     return {
         "status": "ok",
         "path": str(path),
@@ -514,14 +866,34 @@ def _call_plan_status_set(arguments: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _is_in(path: Path, parent: Path) -> bool:
+    try:
+        path.resolve().relative_to(parent.resolve())
+        return True
+    except Exception:
+        return False
+
+
 def _call_plan_render_mermaid(arguments: dict[str, Any]) -> dict[str, Any]:
     repo = _resolve_repo_root(arguments.get("project_root"))
     plans_dir = _plans_dir(repo)
+    drafts_dir = _drafts_dir(repo)
     filename = arguments.get("filename")
     slug = arguments.get("slug")
     fn = filename if isinstance(filename, str) and filename.strip() else None
     sl = slug if isinstance(slug, str) and slug.strip() else None
-    path = _find_plan_path(plans_dir, fn, sl)
+    scope = arguments.get("scope") or "both"
+    if scope not in _LIST_SCOPES:
+        raise ValueError(f"scope must be one of: {', '.join(sorted(_LIST_SCOPES))}")
+    extra: list[Path] = []
+    if scope == "drafts":
+        primary = drafts_dir
+    elif scope == "published":
+        primary = plans_dir
+    else:
+        primary = drafts_dir
+        extra = [plans_dir]
+    path = _find_plan_path(primary, fn, sl, extra_dirs=extra)
     raw = path.read_text(encoding="utf-8")
     _, body = _split_front_matter(raw)
     blocks = [m.group(1).strip() for m in _MERMAID_BLOCK.finditer(body)]
@@ -530,6 +902,509 @@ def _call_plan_render_mermaid(arguments: dict[str, Any]) -> dict[str, Any]:
         "path": str(path),
         "blocks": blocks,
         "count": len(blocks),
+    }
+
+
+_DRAFT_SKELETON = """# {title}
+
+**Goal:** {intent}
+
+**Architecture:** _Two or three sentences on approach and boundaries._
+
+## Architecture diagram
+
+```mermaid
+flowchart TD
+  Start([Start]):::start --> Step[Implement]:::process
+  Step --> EndOk(((Done))):::endOk
+
+  classDef start   fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:2px
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef endOk   fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:2px
+
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+## Context
+
+_Populated by `uipath_plan_brainstorm` (library / skills / PDD hints)._
+
+## File plan
+
+| Path | Responsibility |
+|------|------------------|
+| `path/to/file.py` | ... |
+
+## Bite-sized tasks
+
+- [ ] Write or adjust failing test
+- [ ] Minimal implementation
+- [ ] Run test suite
+- [ ] Update docs if behavior changed
+- [ ] Commit with clear message
+
+## Verification
+
+```bash
+pytest tests/ -q
+```
+
+## Rollback
+
+Revert the commit / delete the branch; note any data migrations separately.
+"""
+
+
+def _call_plan_new(arguments: dict[str, Any]) -> dict[str, Any]:
+    repo = _resolve_repo_root(arguments.get("project_root"))
+    title = arguments.get("title", "")
+    intent = arguments.get("intent", "")
+    if not isinstance(title, str) or not title.strip():
+        raise ValueError("'title' must be a non-empty string")
+    if not isinstance(intent, str) or not intent.strip():
+        raise ValueError("'intent' must be a non-empty string")
+    slug_in = arguments.get("slug")
+    slug = slug_in if isinstance(slug_in, str) and slug_in.strip() else _derive_slug(title)
+    if not _SLUG_RE.match(slug):
+        raise ValueError("slug must be lowercase [a-z0-9-], start alphanumeric, length 2-121")
+    owner = arguments.get("owner") or _default_actor()
+    project_type = arguments.get("project_type") or "mixed"
+    if project_type not in _PROJECT_TYPES:
+        raise ValueError(f"project_type must be one of: {', '.join(sorted(_PROJECT_TYPES))}")
+    date = _today_iso()
+    meta = {
+        "slug": slug,
+        "title": title.strip(),
+        "date": date,
+        "status": "draft",
+        "owner": str(owner),
+        "project_type": project_type,
+        "linked_pdd": "",
+        "supersedes": None,
+        "accepted_at": None,
+        "accepted_by": None,
+        "rejection_reason": None,
+        "published_at": None,
+    }
+    body = _DRAFT_SKELETON.format(title=title.strip(), intent=intent.strip())
+    drafts_dir = _drafts_dir(repo)
+    drafts_dir.mkdir(parents=True, exist_ok=True)
+    basename = f"{date}-{slug}.md"
+    path = _safe_plan_path(drafts_dir, basename)
+    if path.exists():
+        raise FileExistsError(f"draft already exists: {path}")
+    path.write_text(_compose_plan(meta, body), encoding="utf-8")
+    return {
+        "status": "ok",
+        "path": str(path),
+        "relative": _rel_to(path, repo),
+        "slug": slug,
+        "filename": basename,
+    }
+
+
+def _scan_pdd_candidates(repo: Path, limit: int = 10) -> list[dict[str, str]]:
+    docs = repo / "docs"
+    if not docs.is_dir():
+        return []
+    hits: list[dict[str, str]] = []
+    patterns = ("PDD", "SDD", "ADD")
+    for md in docs.rglob("*.md"):
+        name_upper = md.name.upper()
+        for tag in patterns:
+            if tag in name_upper:
+                hits.append(
+                    {
+                        "path": _rel_to(md, repo),
+                        "kind": tag,
+                        "name": md.name,
+                    }
+                )
+                break
+        if len(hits) >= limit:
+            break
+    return hits
+
+
+def _call_plan_brainstorm(arguments: dict[str, Any]) -> dict[str, Any]:
+    repo = _resolve_repo_root(arguments.get("project_root"))
+    drafts_dir = _drafts_dir(repo)
+    plans_dir = _plans_dir(repo)
+    prompt = arguments.get("prompt")
+    filename = arguments.get("filename")
+    slug = arguments.get("slug")
+
+    hint_prompt = ""
+    draft_path: Path | None = None
+    if (filename or slug) and not (isinstance(prompt, str) and prompt.strip()):
+        fn = filename if isinstance(filename, str) and filename.strip() else None
+        sl = slug if isinstance(slug, str) and slug.strip() else None
+        try:
+            draft_path = _find_plan_path(drafts_dir, fn, sl, extra_dirs=[plans_dir])
+            raw = draft_path.read_text(encoding="utf-8")
+            meta, body = _split_front_matter(raw)
+            hint_prompt = f"{meta.get('title', '')}. "
+            goal_match = re.search(r"\*\*Goal:\*\*\s*(.+)", body)
+            if goal_match:
+                hint_prompt += goal_match.group(1).strip()
+        except Exception:
+            pass
+    if isinstance(prompt, str) and prompt.strip():
+        hint_prompt = prompt.strip()
+    if not hint_prompt:
+        raise ValueError("provide 'prompt' or a valid draft slug/filename")
+
+    terms = [
+        w.lower()
+        for w in re.findall(r"[A-Za-z][A-Za-z0-9_-]{2,}", hint_prompt)
+    ]
+    seen: set[str] = set()
+    queries: list[str] = []
+    for t in terms:
+        if t in seen:
+            continue
+        seen.add(t)
+        queries.append(t)
+        if len(queries) >= 6:
+            break
+
+    pdd_candidates = _scan_pdd_candidates(repo)
+
+    web_requested = os.environ.get("UIPATH_PLAN_WEB", "0") == "1"
+    web_note = None
+    if web_requested:
+        web_note = (
+            "UIPATH_PLAN_WEB=1 set; no web tool is registered inside the MCP "
+            "server - use the host agent's web search skill separately."
+        )
+
+    clarifying = [
+        "What is the single-sentence success criterion for this plan?",
+        "Which UiPath paradigm applies (RPA / coded agent / solution / coded app / mixed)?",
+        "Are there existing PDD/SDD/ADD docs this plan should link to?",
+    ]
+
+    return {
+        "status": "ok",
+        "prompt": hint_prompt,
+        "draft_path": str(draft_path) if draft_path else None,
+        "library_queries": queries,
+        "suggested_tools": [
+            {"tool": "uipath_library_search", "args": {"query": q}} for q in queries[:3]
+        ]
+        + [
+            {"tool": "uipath_skill_match", "args": {"request": hint_prompt}},
+        ],
+        "pdd_candidates": pdd_candidates,
+        "clarifying_questions": clarifying,
+        "web_research": {"requested": web_requested, "note": web_note},
+    }
+
+
+def _snapshot_draft(path: Path) -> Path | None:
+    try:
+        repo_drafts = path.parent
+        snaps = repo_drafts / ".snapshots"
+        snaps.mkdir(parents=True, exist_ok=True)
+        ts = _dt.datetime.now(_dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        snap_path = snaps / f"{path.stem}.{ts}.md"
+        shutil.copy2(path, snap_path)
+        return snap_path
+    except Exception:
+        return None
+
+
+def _apply_operations(body: str, operations: list[dict[str, Any]]) -> tuple[str, dict[str, Any] | None]:
+    """Return (new_body, title_override_or_none)."""
+    title_override: dict[str, Any] | None = None
+    for raw_op in operations:
+        if not isinstance(raw_op, dict):
+            raise ValueError("each operation must be an object")
+        op = raw_op.get("op")
+        if op == "set_title":
+            val = raw_op.get("value", "")
+            if not isinstance(val, str) or not val.strip():
+                raise ValueError("set_title requires 'value'")
+            title_override = {"title": val.strip()}
+            body = re.sub(
+                r"^# .+\n",
+                f"# {val.strip()}\n",
+                body,
+                count=1,
+                flags=re.MULTILINE,
+            )
+        elif op == "set_goal":
+            val = raw_op.get("value", "")
+            if not isinstance(val, str) or not val.strip():
+                raise ValueError("set_goal requires 'value'")
+            if re.search(r"\*\*Goal:\*\*", body):
+                body = re.sub(
+                    r"\*\*Goal:\*\*.*",
+                    f"**Goal:** {val.strip()}",
+                    body,
+                    count=1,
+                )
+            else:
+                body = f"**Goal:** {val.strip()}\n\n" + body
+        elif op == "append_task":
+            val = raw_op.get("value", "")
+            if not isinstance(val, str) or not val.strip():
+                raise ValueError("append_task requires 'value'")
+            task_line = f"- [ ] {val.strip()}\n"
+            if "## Bite-sized tasks" in body:
+                body = re.sub(
+                    r"(## Bite-sized tasks\n(?:.*\n)*?)(\n## |\Z)",
+                    lambda m: m.group(1).rstrip() + "\n" + task_line + "\n" + (m.group(2) or ""),
+                    body,
+                    count=1,
+                )
+            else:
+                body += f"\n## Bite-sized tasks\n\n{task_line}"
+        elif op == "replace_body_section":
+            heading = raw_op.get("section_heading", "")
+            new_body = raw_op.get("new_body", "")
+            if not isinstance(heading, str) or not heading.strip():
+                raise ValueError("replace_body_section requires 'section_heading'")
+            if not isinstance(new_body, str):
+                raise ValueError("replace_body_section requires 'new_body' string")
+            pattern = re.compile(
+                rf"({re.escape(heading.strip())}\n)(.*?)(\n## |\Z)",
+                re.DOTALL,
+            )
+            if not pattern.search(body):
+                body += f"\n{heading.strip()}\n\n{new_body}\n"
+            else:
+                body = pattern.sub(lambda m: m.group(1) + "\n" + new_body.rstrip() + "\n" + (m.group(3) or ""), body, count=1)
+        elif op == "add_mermaid":
+            val = raw_op.get("value", "")
+            if not isinstance(val, str) or not val.strip():
+                raise ValueError("add_mermaid requires 'value'")
+            block = f"\n```mermaid\n{val.strip()}\n```\n"
+            if "## Architecture diagram" in body:
+                body = re.sub(
+                    r"(## Architecture diagram\n)",
+                    lambda m: m.group(1) + block,
+                    body,
+                    count=1,
+                )
+            else:
+                body += f"\n## Architecture diagram\n{block}"
+        else:
+            raise ValueError(f"unknown op: {op!r}")
+    return body, title_override
+
+
+def _call_plan_refine(arguments: dict[str, Any]) -> dict[str, Any]:
+    repo = _resolve_repo_root(arguments.get("project_root"))
+    drafts_dir = _drafts_dir(repo)
+    plans_dir = _plans_dir(repo)
+    operations = arguments.get("operations")
+    if not isinstance(operations, list) or not operations:
+        raise ValueError("'operations' must be a non-empty list")
+    filename = arguments.get("filename")
+    slug = arguments.get("slug")
+    fn = filename if isinstance(filename, str) and filename.strip() else None
+    sl = slug if isinstance(slug, str) and slug.strip() else None
+    path = _find_plan_path(drafts_dir, fn, sl, extra_dirs=[plans_dir])
+    raw = path.read_text(encoding="utf-8")
+    meta, body = _split_front_matter(raw)
+    _snapshot_draft(path)
+    new_body, title_override = _apply_operations(body, operations)
+    if title_override:
+        meta.update(title_override)
+    if meta.get("status") == "draft":
+        meta["status"] = "refining"
+    _ensure_mermaid(new_body)
+    path.write_text(_compose_plan(meta, new_body.lstrip("\n")), encoding="utf-8")
+    return {
+        "status": "ok",
+        "path": str(path),
+        "ops_applied": len(operations),
+        "new_status": meta.get("status"),
+    }
+
+
+def _call_plan_diff(arguments: dict[str, Any]) -> dict[str, Any]:
+    repo = _resolve_repo_root(arguments.get("project_root"))
+    drafts_dir = _drafts_dir(repo)
+    plans_dir = _plans_dir(repo)
+    filename = arguments.get("filename")
+    slug = arguments.get("slug")
+    fn = filename if isinstance(filename, str) and filename.strip() else None
+    sl = slug if isinstance(slug, str) and slug.strip() else None
+    mode = arguments.get("mode") or "vs-published"
+    if mode not in ("vs-published", "self"):
+        raise ValueError("mode must be 'vs-published' or 'self'")
+    draft_path = _find_plan_path(drafts_dir, fn, sl)
+    draft_text = draft_path.read_text(encoding="utf-8")
+
+    if mode == "vs-published":
+        published = plans_dir / draft_path.name
+        other_text = published.read_text(encoding="utf-8") if published.is_file() else ""
+        other_label = _rel_to(published, repo) if published.is_file() else "<no published twin>"
+    else:
+        snaps = _snapshots_dir(repo)
+        other_text = ""
+        other_label = "<no snapshot>"
+        if snaps.is_dir():
+            candidates = sorted(snaps.glob(f"{draft_path.stem}.*.md"), reverse=True)
+            if candidates:
+                other_text = candidates[0].read_text(encoding="utf-8")
+                other_label = _rel_to(candidates[0], repo)
+
+    diff_lines = list(
+        difflib.unified_diff(
+            other_text.splitlines(keepends=True),
+            draft_text.splitlines(keepends=True),
+            fromfile=other_label,
+            tofile=_rel_to(draft_path, repo),
+            n=3,
+        )
+    )
+    return {
+        "status": "ok",
+        "mode": mode,
+        "diff": "".join(diff_lines),
+        "draft": _rel_to(draft_path, repo),
+        "other": other_label,
+    }
+
+
+def _call_plan_accept(arguments: dict[str, Any]) -> dict[str, Any]:
+    repo = _resolve_repo_root(arguments.get("project_root"))
+    drafts_dir = _drafts_dir(repo)
+    plans_dir = _plans_dir(repo)
+    filename = arguments.get("filename")
+    slug = arguments.get("slug")
+    fn = filename if isinstance(filename, str) and filename.strip() else None
+    sl = slug if isinstance(slug, str) and slug.strip() else None
+    actor = arguments.get("actor") or _default_actor()
+    note = arguments.get("note")
+    path = _find_plan_path(drafts_dir, fn, sl, extra_dirs=[plans_dir])
+    raw = path.read_text(encoding="utf-8")
+    meta, body = _split_front_matter(raw)
+    meta["status"] = "accepted"
+    meta["accepted_at"] = _utc_iso()
+    meta["accepted_by"] = str(actor)
+    if isinstance(note, str) and note.strip():
+        meta["acceptance_note"] = note.strip()
+    meta["rejection_reason"] = None
+    path.write_text(_compose_plan(meta, body.lstrip("\n")), encoding="utf-8")
+    return {
+        "status": "ok",
+        "path": str(path),
+        "accepted_at": meta["accepted_at"],
+        "accepted_by": meta["accepted_by"],
+    }
+
+
+def _call_plan_reject(arguments: dict[str, Any]) -> dict[str, Any]:
+    repo = _resolve_repo_root(arguments.get("project_root"))
+    drafts_dir = _drafts_dir(repo)
+    plans_dir = _plans_dir(repo)
+    filename = arguments.get("filename")
+    slug = arguments.get("slug")
+    fn = filename if isinstance(filename, str) and filename.strip() else None
+    sl = slug if isinstance(slug, str) and slug.strip() else None
+    reason = arguments.get("rejection_reason")
+    if not isinstance(reason, str) or not reason.strip():
+        raise ValueError("'rejection_reason' must be a non-empty string")
+    actor = arguments.get("actor") or _default_actor()
+    path = _find_plan_path(drafts_dir, fn, sl, extra_dirs=[plans_dir])
+    raw = path.read_text(encoding="utf-8")
+    meta, body = _split_front_matter(raw)
+    meta["status"] = "rejected"
+    meta["rejection_reason"] = reason.strip()
+    meta["rejected_at"] = _utc_iso()
+    meta["rejected_by"] = str(actor)
+    path.write_text(_compose_plan(meta, body.lstrip("\n")), encoding="utf-8")
+    return {
+        "status": "ok",
+        "path": str(path),
+        "rejection_reason": reason.strip(),
+        "rejected_by": str(actor),
+    }
+
+
+def _call_plan_publish(arguments: dict[str, Any]) -> dict[str, Any]:
+    repo = _resolve_repo_root(arguments.get("project_root"))
+    drafts_dir = _drafts_dir(repo)
+    plans_dir = _plans_dir(repo)
+    filename = arguments.get("filename")
+    slug = arguments.get("slug")
+    force = bool(arguments.get("force", False))
+    fn = filename if isinstance(filename, str) and filename.strip() else None
+    sl = slug if isinstance(slug, str) and slug.strip() else None
+    draft_path = _find_plan_path(drafts_dir, fn, sl)
+    raw = draft_path.read_text(encoding="utf-8")
+    meta, body = _split_front_matter(raw)
+    if meta.get("status") != "accepted":
+        return {
+            "status": "blocked",
+            "reason": "not_accepted",
+            "message": (
+                f"Plan status is {meta.get('status')!r}; accept it via "
+                "uipath_plan_accept before publishing."
+            ),
+        }
+    plans_dir.mkdir(parents=True, exist_ok=True)
+    target = _safe_plan_path(plans_dir, draft_path.name)
+    if target.exists() and not force:
+        return {
+            "status": "blocked",
+            "reason": "target_exists",
+            "message": f"{target} exists; pass force=true to overwrite.",
+        }
+    meta["published_at"] = _utc_iso()
+    draft_path.write_text(_compose_plan(meta, body.lstrip("\n")), encoding="utf-8")
+    target.write_text(_compose_plan(meta, body.lstrip("\n")), encoding="utf-8")
+    idx = _regen_plan_index(repo)
+    return {
+        "status": "ok",
+        "published": str(target),
+        "draft": str(draft_path),
+        "published_at": meta["published_at"],
+        "index_regen": idx,
+    }
+
+
+def require_accepted_plan(project_dir: str | os.PathLike[str] | None = None) -> dict[str, Any]:
+    """Return ``{allowed, reason, plan}`` for the optional ``UIPATH_PLAN_GATE``.
+
+    - Gate is off unless ``UIPATH_PLAN_GATE=1``; when off, always returns allowed.
+    - When on, searches ``.cursor/plans/`` then ``docs/plans/`` under
+      ``project_dir`` (or cwd) for any plan whose status is ``accepted``.
+    """
+    enabled = os.environ.get("UIPATH_PLAN_GATE", "0") == "1"
+    if not enabled:
+        return {"allowed": True, "enforced": False, "reason": "gate_disabled"}
+    repo = _resolve_repo_root(str(project_dir) if project_dir else None)
+    for directory in (_drafts_dir(repo), _plans_dir(repo)):
+        if not directory.is_dir():
+            continue
+        for p in directory.glob("*.md"):
+            if p.name in _SKIP_LIST:
+                continue
+            try:
+                raw = p.read_text(encoding="utf-8")
+                meta, _ = _split_front_matter(raw)
+            except Exception:
+                continue
+            if str(meta.get("status")) == "accepted":
+                return {
+                    "allowed": True,
+                    "enforced": True,
+                    "plan": str(p),
+                    "slug": meta.get("slug"),
+                }
+    return {
+        "allowed": False,
+        "enforced": True,
+        "reason": "no_accepted_plan",
+        "message": (
+            "UIPATH_PLAN_GATE=1 and no accepted plan exists under .cursor/plans/ "
+            "or docs/plans/. Accept one via uipath_plan_accept."
+        ),
     }
 
 
@@ -546,4 +1421,18 @@ async def call_plan_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]
         return _call_plan_status_set(arguments)
     if name == "uipath_plan_render_mermaid":
         return _call_plan_render_mermaid(arguments)
+    if name == "uipath_plan_new":
+        return _call_plan_new(arguments)
+    if name == "uipath_plan_brainstorm":
+        return _call_plan_brainstorm(arguments)
+    if name == "uipath_plan_refine":
+        return _call_plan_refine(arguments)
+    if name == "uipath_plan_diff":
+        return _call_plan_diff(arguments)
+    if name == "uipath_plan_accept":
+        return _call_plan_accept(arguments)
+    if name == "uipath_plan_reject":
+        return _call_plan_reject(arguments)
+    if name == "uipath_plan_publish":
+        return _call_plan_publish(arguments)
     raise ValueError(f"Unknown plan tool: {name}")

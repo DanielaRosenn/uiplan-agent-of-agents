@@ -80,6 +80,13 @@ Each tool has an **audience guide** (synthesized from the registered `Tool` meta
 | `uipath_plan_read` | plan | read-only |
 | `uipath_plan_status_set` | plan | staging / non-read-only (not marked destructive) |
 | `uipath_plan_render_mermaid` | plan | read-only |
+| `uipath_plan_new` | plan | staging / non-read-only (not marked destructive) |
+| `uipath_plan_brainstorm` | plan | read-only |
+| `uipath_plan_refine` | plan | destructive (idempotent where noted) |
+| `uipath_plan_diff` | plan | read-only |
+| `uipath_plan_accept` | plan | destructive (idempotent where noted) |
+| `uipath_plan_reject` | plan | destructive (idempotent where noted) |
+| `uipath_plan_publish` | plan | destructive (idempotent where noted) |
 | `uipath_answer` | answer | read-only |
 
 ## How to add a new MCP tool
@@ -4474,7 +4481,7 @@ flowchart TD
 
 #### Audience guide
 
-**List docs/plans implementation plans.** List markdown plans in docs/plans/ (excludes _TEMPLATE.md and README.md), returning file names and parsed front-matter fields.
+**List plans (drafts and/or published).** List markdown plans, returning file names and parsed front-matter fields. Default scope 'published' reads docs/plans/ (git-tracked); 'drafts' reads .cursor/plans/ (per-user, git-ignored); 'both' returns a combined list with a scope marker per entry.
 
 **Required MCP arguments:**
 
@@ -4488,7 +4495,7 @@ _No required parameters (all optional)._
 
 #### Author registration (`Tool.description` verbatim)
 
-> List markdown plans in docs/plans/ (excludes _TEMPLATE.md and README.md), returning file names and parsed front-matter fields.
+> List markdown plans, returning file names and parsed front-matter fields. Default scope 'published' reads docs/plans/ (git-tracked); 'drafts' reads .cursor/plans/ (per-user, git-ignored); 'both' returns a combined list with a scope marker per entry.
 
 #### Input schema (JSON Schema)
 
@@ -4499,6 +4506,15 @@ _No required parameters (all optional)._
     "project_root": {
       "type": "string",
       "description": "Repository root (defaults to cwd)."
+    },
+    "scope": {
+      "type": "string",
+      "enum": [
+        "both",
+        "drafts",
+        "published"
+      ],
+      "description": "drafts | published | both (default published)."
     }
   }
 }
@@ -4593,11 +4609,11 @@ flowchart LR
 
 #### Audience guide
 
-**Set plan status in front matter.** Update the status field in a plan's YAML front matter. Values: draft, in-progress, done, superseded. Transition to done requires an approved design for project_dir when UIPATH_DESIGN_APPROVAL_ENABLED is on (same gate as workflow writes).
+**Set plan status in front matter.** Update the status field in a plan's YAML front matter. Values: draft, refining, accepted, rejected, in-progress, done, superseded. Transition to 'done' requires an approved design for project_dir when UIPATH_DESIGN_APPROVAL_ENABLED is on (same gate as workflow writes). For acceptance/rejection prefer the dedicated uipath_plan_accept / uipath_plan_reject tools which also stamp actor/timestamp/reason.
 
 **Required MCP arguments:**
 
-- **`new_status`** — New status value. Allowed values: `['done', 'draft', 'in-progress', 'superseded']`.
+- **`new_status`** — New status value. Allowed values: `['accepted', 'done', 'draft', 'in-progress', 'refining', 'rejected', 'superseded']`.
 
 **Typical return:** **Dict** (or similar) from the planner-with-discovery pipeline, including trace metadata.
 
@@ -4607,7 +4623,7 @@ flowchart LR
 
 #### Author registration (`Tool.description` verbatim)
 
-> Update the status field in a plan's YAML front matter. Values: draft, in-progress, done, superseded. Transition to done requires an approved design for project_dir when UIPATH_DESIGN_APPROVAL_ENABLED is on (same gate as workflow writes).
+> Update the status field in a plan's YAML front matter. Values: draft, refining, accepted, rejected, in-progress, done, superseded. Transition to 'done' requires an approved design for project_dir when UIPATH_DESIGN_APPROVAL_ENABLED is on (same gate as workflow writes). For acceptance/rejection prefer the dedicated uipath_plan_accept / uipath_plan_reject tools which also stamp actor/timestamp/reason.
 
 #### Input schema (JSON Schema)
 
@@ -4630,9 +4646,12 @@ flowchart LR
     "new_status": {
       "type": "string",
       "enum": [
+        "accepted",
         "done",
         "draft",
         "in-progress",
+        "refining",
+        "rejected",
         "superseded"
       ],
       "description": "New status value."
@@ -4678,7 +4697,7 @@ flowchart TD
 
 #### Audience guide
 
-**Extract Mermaid blocks from a plan.** Extract fenced ```mermaid blocks from a plan file for quick syntax review or reuse in docs.
+**Extract Mermaid blocks from a plan.** Extract fenced ```mermaid blocks from a plan file for quick syntax review or reuse in docs. Searches drafts under .cursor/plans/ first, then published under docs/plans/.
 
 **Required MCP arguments:**
 
@@ -4692,7 +4711,7 @@ _No required parameters (all optional)._
 
 #### Author registration (`Tool.description` verbatim)
 
-> Extract fenced ```mermaid blocks from a plan file for quick syntax review or reuse in docs.
+> Extract fenced ```mermaid blocks from a plan file for quick syntax review or reuse in docs. Searches drafts under .cursor/plans/ first, then published under docs/plans/.
 
 #### Input schema (JSON Schema)
 
@@ -4709,6 +4728,15 @@ _No required parameters (all optional)._
     },
     "slug": {
       "type": "string"
+    },
+    "scope": {
+      "type": "string",
+      "enum": [
+        "both",
+        "drafts",
+        "published"
+      ],
+      "description": "Where to look: drafts, published, or both (default both)."
     }
   }
 }
@@ -4722,6 +4750,524 @@ flowchart LR
   F[filename or slug]:::process --> RD[Read plan body]:::service
   RD --> EX[Regex extract mermaid fences]:::process
   EX --> BL[blocks plus count JSON]:::data
+
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef mutate fill:#FFF7ED,stroke:#EA580C,color:#9A3412,stroke-width:1.25px
+  classDef stage fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.25px
+  classDef data fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef error fill:#FEF2F2,stroke:#EF4444,color:#991B1B,stroke-width:1.5px
+  classDef endOk fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:1.25px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.25px
+
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+### `uipath_plan_new`
+
+#### Audience guide
+
+**Create a new plan draft.** Scaffold a new plan draft under .cursor/plans/ (per-user, git-ignored). Seeds front matter (slug, title, date, status=draft, owner, project_type) plus the docs/plans/_TEMPLATE.md skeleton and a placeholder ``## Context`` section for grounding output. Use uipath_plan_refine to add tasks and grounding, and uipath_plan_publish to promote to docs/plans/ after acceptance.
+
+**Required MCP arguments:**
+
+- **`title`** — Short human-readable plan title.
+- **`intent`** — One to two sentences describing the goal.
+
+**Typical return:** **Dict** (or similar) from the planner-with-discovery pipeline, including trace metadata.
+
+**Side effect (MCP `ToolAnnotations`):** staging / non-read-only (not marked destructive)
+
+**Dispatch:** [`mcp_server/tools/plan_tools.py`](../mcp_server/tools/plan_tools.py) `call_plan_tool`
+
+#### Author registration (`Tool.description` verbatim)
+
+> Scaffold a new plan draft under .cursor/plans/ (per-user, git-ignored). Seeds front matter (slug, title, date, status=draft, owner, project_type) plus the docs/plans/_TEMPLATE.md skeleton and a placeholder ``## Context`` section for grounding output. Use uipath_plan_refine to add tasks and grounding, and uipath_plan_publish to promote to docs/plans/ after acceptance.
+
+#### Input schema (JSON Schema)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Short human-readable plan title."
+    },
+    "intent": {
+      "type": "string",
+      "description": "One to two sentences describing the goal."
+    },
+    "slug": {
+      "type": "string",
+      "description": "Lowercase-kebab slug; auto-derived from title when omitted."
+    },
+    "owner": {
+      "type": "string",
+      "description": "GitHub/Cursor handle (default: $USER or 'local')."
+    },
+    "project_type": {
+      "type": "string",
+      "enum": [
+        "coded-agent",
+        "coded-app",
+        "mixed",
+        "rpa",
+        "solution"
+      ],
+      "description": "UiPath project type; defaults to 'mixed'."
+    },
+    "project_root": {
+      "type": "string",
+      "description": "Repository root (defaults to cwd)."
+    }
+  },
+  "required": [
+    "title",
+    "intent"
+  ]
+}
+```
+
+#### Behavior flow
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
+flowchart LR
+  ARGS[MCP arguments]:::process --> T["uipath_plan_new"]:::service
+  T --> RES[Tool-specific result]:::data
+
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef mutate fill:#FFF7ED,stroke:#EA580C,color:#9A3412,stroke-width:1.25px
+  classDef stage fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.25px
+  classDef data fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef error fill:#FEF2F2,stroke:#EF4444,color:#991B1B,stroke-width:1.5px
+  classDef endOk fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:1.25px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.25px
+
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+### `uipath_plan_brainstorm`
+
+#### Audience guide
+
+**Brainstorm grounding hints.** Read-only grounding helper for drafting plans. Given a draft's intent (or an explicit prompt), returns a context pack of hints the caller should use to flesh out tasks: suggested library searches (call uipath_library_search with these), candidate specialist skills to load (uipath_skill_get), PDD/SDD/ADD candidates under docs/, and up to three clarifying questions to batch back to the user. When UIPATH_PLAN_WEB=1 and no web tool is registered, the response notes that web research was requested but skipped. This tool does NOT write to the plan.
+
+**Required MCP arguments:**
+
+_No required parameters (all optional)._
+
+**Typical return:** **Dict** (or similar) from the planner-with-discovery pipeline, including trace metadata.
+
+**Side effect (MCP `ToolAnnotations`):** read-only
+
+**Dispatch:** [`mcp_server/tools/plan_tools.py`](../mcp_server/tools/plan_tools.py) `call_plan_tool`
+
+#### Author registration (`Tool.description` verbatim)
+
+> Read-only grounding helper for drafting plans. Given a draft's intent (or an explicit prompt), returns a context pack of hints the caller should use to flesh out tasks: suggested library searches (call uipath_library_search with these), candidate specialist skills to load (uipath_skill_get), PDD/SDD/ADD candidates under docs/, and up to three clarifying questions to batch back to the user. When UIPATH_PLAN_WEB=1 and no web tool is registered, the response notes that web research was requested but skipped. This tool does NOT write to the plan.
+
+#### Input schema (JSON Schema)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "prompt": {
+      "type": "string",
+      "description": "Free-text intent; when omitted the tool reads the draft's title + Goal section."
+    },
+    "slug": {
+      "type": "string",
+      "description": "Draft slug under .cursor/plans/ (optional)."
+    },
+    "filename": {
+      "type": "string",
+      "description": "Draft basename under .cursor/plans/ (optional)."
+    },
+    "project_root": {
+      "type": "string",
+      "description": "Repository root (defaults to cwd)."
+    }
+  }
+}
+```
+
+#### Behavior flow
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
+flowchart LR
+  ARGS[MCP arguments]:::process --> T["uipath_plan_brainstorm"]:::service
+  T --> RES[Tool-specific result]:::data
+
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef mutate fill:#FFF7ED,stroke:#EA580C,color:#9A3412,stroke-width:1.25px
+  classDef stage fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.25px
+  classDef data fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef error fill:#FEF2F2,stroke:#EF4444,color:#991B1B,stroke-width:1.5px
+  classDef endOk fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:1.25px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.25px
+
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+### `uipath_plan_refine`
+
+#### Audience guide
+
+**Apply structured patch to draft plan.** Apply a structured patch to a draft under .cursor/plans/. Operations: set_title / set_goal / append_task / replace_body_section (section_heading + new_body) / add_mermaid (appends a fenced mermaid block under ``## Architecture diagram``). Validates that the resulting file still has front matter + at least one mermaid block. Flips status to 'refining' unless explicitly set.
+
+**Required MCP arguments:**
+
+- **`operations`** — List of patch operations to apply in order.
+
+**Typical return:** **Dict** (or similar) from the planner-with-discovery pipeline, including trace metadata.
+
+**Side effect (MCP `ToolAnnotations`):** destructive (idempotent where noted)
+
+**Dispatch:** [`mcp_server/tools/plan_tools.py`](../mcp_server/tools/plan_tools.py) `call_plan_tool`
+
+#### Author registration (`Tool.description` verbatim)
+
+> Apply a structured patch to a draft under .cursor/plans/. Operations: set_title / set_goal / append_task / replace_body_section (section_heading + new_body) / add_mermaid (appends a fenced mermaid block under ``## Architecture diagram``). Validates that the resulting file still has front matter + at least one mermaid block. Flips status to 'refining' unless explicitly set.
+
+#### Input schema (JSON Schema)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "slug": {
+      "type": "string"
+    },
+    "filename": {
+      "type": "string"
+    },
+    "operations": {
+      "type": "array",
+      "description": "List of patch operations to apply in order.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "op": {
+            "type": "string",
+            "enum": [
+              "set_title",
+              "set_goal",
+              "append_task",
+              "replace_body_section",
+              "add_mermaid"
+            ]
+          },
+          "value": {
+            "type": "string"
+          },
+          "section_heading": {
+            "type": "string"
+          },
+          "new_body": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "op"
+        ]
+      }
+    },
+    "project_root": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "operations"
+  ]
+}
+```
+
+#### Behavior flow
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
+flowchart LR
+  ARGS[MCP arguments]:::process --> T["uipath_plan_refine"]:::service
+  T --> RES[Tool-specific result]:::data
+
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef mutate fill:#FFF7ED,stroke:#EA580C,color:#9A3412,stroke-width:1.25px
+  classDef stage fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.25px
+  classDef data fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef error fill:#FEF2F2,stroke:#EF4444,color:#991B1B,stroke-width:1.5px
+  classDef endOk fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:1.25px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.25px
+
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+### `uipath_plan_diff`
+
+#### Audience guide
+
+**Diff a plan draft.** Return a unified diff for a plan. By default compares a draft in .cursor/plans/ against its published twin in docs/plans/ (same basename); pass mode='self' to diff the draft against its own last-saved snapshot when one exists in .cursor/plans/.snapshots/.
+
+**Required MCP arguments:**
+
+_No required parameters (all optional)._
+
+**Typical return:** **Dict** (or similar) from the planner-with-discovery pipeline, including trace metadata.
+
+**Side effect (MCP `ToolAnnotations`):** read-only
+
+**Dispatch:** [`mcp_server/tools/plan_tools.py`](../mcp_server/tools/plan_tools.py) `call_plan_tool`
+
+#### Author registration (`Tool.description` verbatim)
+
+> Return a unified diff for a plan. By default compares a draft in .cursor/plans/ against its published twin in docs/plans/ (same basename); pass mode='self' to diff the draft against its own last-saved snapshot when one exists in .cursor/plans/.snapshots/.
+
+#### Input schema (JSON Schema)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "slug": {
+      "type": "string"
+    },
+    "filename": {
+      "type": "string"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "vs-published",
+        "self"
+      ],
+      "description": "vs-published (default) or self."
+    },
+    "project_root": {
+      "type": "string"
+    }
+  }
+}
+```
+
+#### Behavior flow
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
+flowchart LR
+  ARGS[MCP arguments]:::process --> T["uipath_plan_diff"]:::service
+  T --> RES[Tool-specific result]:::data
+
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef mutate fill:#FFF7ED,stroke:#EA580C,color:#9A3412,stroke-width:1.25px
+  classDef stage fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.25px
+  classDef data fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef error fill:#FEF2F2,stroke:#EF4444,color:#991B1B,stroke-width:1.5px
+  classDef endOk fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:1.25px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.25px
+
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+### `uipath_plan_accept`
+
+#### Audience guide
+
+**Accept a plan draft.** Mark a draft plan as accepted: status='accepted', stamps accepted_at (UTC ISO) and accepted_by. The draft is the source of truth until uipath_plan_publish promotes it to docs/plans/. When UIPATH_PLAN_GATE=1, destructive workflow tools consult this acceptance record for project_dir before writing.
+
+**Required MCP arguments:**
+
+_No required parameters (all optional)._
+
+**Typical return:** **Dict** (or similar) from the planner-with-discovery pipeline, including trace metadata.
+
+**Side effect (MCP `ToolAnnotations`):** destructive (idempotent where noted)
+
+**Dispatch:** [`mcp_server/tools/plan_tools.py`](../mcp_server/tools/plan_tools.py) `call_plan_tool`
+
+#### Author registration (`Tool.description` verbatim)
+
+> Mark a draft plan as accepted: status='accepted', stamps accepted_at (UTC ISO) and accepted_by. The draft is the source of truth until uipath_plan_publish promotes it to docs/plans/. When UIPATH_PLAN_GATE=1, destructive workflow tools consult this acceptance record for project_dir before writing.
+
+#### Input schema (JSON Schema)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "slug": {
+      "type": "string"
+    },
+    "filename": {
+      "type": "string"
+    },
+    "actor": {
+      "type": "string",
+      "description": "Who accepted (default: $USER or 'human')."
+    },
+    "note": {
+      "type": "string",
+      "description": "Optional short acceptance note."
+    },
+    "project_root": {
+      "type": "string"
+    }
+  }
+}
+```
+
+#### Behavior flow
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
+flowchart LR
+  ARGS[MCP arguments]:::process --> T["uipath_plan_accept"]:::service
+  T --> RES[Tool-specific result]:::data
+
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef mutate fill:#FFF7ED,stroke:#EA580C,color:#9A3412,stroke-width:1.25px
+  classDef stage fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.25px
+  classDef data fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef error fill:#FEF2F2,stroke:#EF4444,color:#991B1B,stroke-width:1.5px
+  classDef endOk fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:1.25px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.25px
+
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+### `uipath_plan_reject`
+
+#### Audience guide
+
+**Reject a plan draft.** Mark a draft as rejected and record the reason. Refuses when rejection_reason is empty; the rationale lives in front matter for auditability. Does NOT delete the draft - the caller may archive or supersede it.
+
+**Required MCP arguments:**
+
+- **`rejection_reason`** — Non-empty rationale recorded in front matter.
+
+**Typical return:** **Dict** (or similar) from the planner-with-discovery pipeline, including trace metadata.
+
+**Side effect (MCP `ToolAnnotations`):** destructive (idempotent where noted)
+
+**Dispatch:** [`mcp_server/tools/plan_tools.py`](../mcp_server/tools/plan_tools.py) `call_plan_tool`
+
+#### Author registration (`Tool.description` verbatim)
+
+> Mark a draft as rejected and record the reason. Refuses when rejection_reason is empty; the rationale lives in front matter for auditability. Does NOT delete the draft - the caller may archive or supersede it.
+
+#### Input schema (JSON Schema)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "slug": {
+      "type": "string"
+    },
+    "filename": {
+      "type": "string"
+    },
+    "rejection_reason": {
+      "type": "string",
+      "description": "Non-empty rationale recorded in front matter."
+    },
+    "actor": {
+      "type": "string"
+    },
+    "project_root": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "rejection_reason"
+  ]
+}
+```
+
+#### Behavior flow
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
+flowchart LR
+  ARGS[MCP arguments]:::process --> T["uipath_plan_reject"]:::service
+  T --> RES[Tool-specific result]:::data
+
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef mutate fill:#FFF7ED,stroke:#EA580C,color:#9A3412,stroke-width:1.25px
+  classDef stage fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.25px
+  classDef data fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef error fill:#FEF2F2,stroke:#EF4444,color:#991B1B,stroke-width:1.5px
+  classDef endOk fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:1.25px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.25px
+
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+### `uipath_plan_publish`
+
+#### Audience guide
+
+**Publish accepted plan to docs/plans/.** Promote an accepted draft from .cursor/plans/ to docs/plans/ (git-tracked). Refuses when status != 'accepted'. Stamps published_at (UTC ISO) and regenerates docs/plans/README.md. Overwrites any existing same-named file only when force=true.
+
+**Required MCP arguments:**
+
+_No required parameters (all optional)._
+
+**Typical return:** **Dict** (or similar) from the planner-with-discovery pipeline, including trace metadata.
+
+**Side effect (MCP `ToolAnnotations`):** destructive (idempotent where noted)
+
+**Dispatch:** [`mcp_server/tools/plan_tools.py`](../mcp_server/tools/plan_tools.py) `call_plan_tool`
+
+#### Author registration (`Tool.description` verbatim)
+
+> Promote an accepted draft from .cursor/plans/ to docs/plans/ (git-tracked). Refuses when status != 'accepted'. Stamps published_at (UTC ISO) and regenerates docs/plans/README.md. Overwrites any existing same-named file only when force=true.
+
+#### Input schema (JSON Schema)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "slug": {
+      "type": "string"
+    },
+    "filename": {
+      "type": "string"
+    },
+    "force": {
+      "type": "boolean",
+      "default": false
+    },
+    "project_root": {
+      "type": "string"
+    }
+  }
+}
+```
+
+#### Behavior flow
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
+flowchart LR
+  ARGS[MCP arguments]:::process --> T["uipath_plan_publish"]:::service
+  T --> RES[Tool-specific result]:::data
 
   classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
   classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px

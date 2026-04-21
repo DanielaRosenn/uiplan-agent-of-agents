@@ -30,9 +30,35 @@ Skip for one-line fixes or a single obvious file change.
 - **Template:** Start from [docs/plans/_TEMPLATE.md](../../../docs/plans/_TEMPLATE.md).
 - **Index:** After creating or materially editing a plan, run `python scripts/generate_plan_index.py` from repo root (or ask the user to run it) so [docs/plans/README.md](../../../docs/plans/README.md) stays current.
 
+## Drafting vs publishing (brainstorm loop)
+
+For multi-step or ambiguous work, load the `brainstorming-plan` skill first.
+It runs the full loop and writes to the correct location:
+
+- **Drafts** live under `.cursor/plans/<YYYY-MM-DD-slug>.md` (git-ignored, per-user).
+  Created by `uipath_plan_new`, evolved by `uipath_plan_refine`.
+- **Publishing** copies the accepted draft to `docs/plans/` (git-tracked) via
+  `uipath_plan_publish`. Publish only after `uipath_plan_accept`.
+- **Acceptance is recorded in front matter** (`status: accepted`,
+  `accepted_at`, `accepted_by`). When `UIPATH_PLAN_GATE=1`, destructive
+  workflow tools refuse writes until a plan is accepted.
+
+This skill (writing-uipath-plans) still owns the *shape* of the file:
+required sections, front matter, Mermaid. The `brainstorming-plan` skill
+owns the *workflow* of getting there.
+
 ## MCP (optional but recommended)
 
-Prefer **`uipath_plan_save`** / **`uipath_plan_list`** / **`uipath_plan_read`** / **`uipath_plan_render_mermaid`** so Cursor and agents share one source of truth. **`uipath_plan_status_set`** to `done` may require an approved design for that `project_dir` when design approval is enabled (same gate as workflow writes).
+Prefer the plan MCP tools so Cursor and agents share one source of truth.
+
+- Brainstorm loop: `uipath_plan_new` -> `uipath_plan_brainstorm` ->
+  `uipath_plan_refine` -> `uipath_plan_diff` -> `uipath_plan_accept`
+  (or `uipath_plan_reject`) -> `uipath_plan_publish`.
+- CRUD on the published set: `uipath_plan_save`, `uipath_plan_list`
+  (`scope=drafts|published|both`), `uipath_plan_read`,
+  `uipath_plan_render_mermaid`, `uipath_plan_status_set`.
+- `uipath_plan_status_set` to `done` may require an approved design for
+  that `project_dir` when `UIPATH_DESIGN_APPROVAL_ENABLED` is on.
 
 ## Plan contents (required)
 

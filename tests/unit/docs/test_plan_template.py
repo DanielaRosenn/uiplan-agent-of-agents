@@ -12,6 +12,10 @@ def test_plan_template_has_required_sections():
     for needle in (
         "slug:",
         "status:",
+        "accepted_at:",
+        "accepted_by:",
+        "rejection_reason:",
+        "published_at:",
         "## Architecture diagram",
         "## Bite-sized tasks",
         "## Verification",

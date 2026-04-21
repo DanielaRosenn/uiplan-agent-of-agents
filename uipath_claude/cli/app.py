@@ -157,6 +157,186 @@ def _default(ctx: typer.Context) -> None:
 
 register_library_proposals_command(app)
 
+
+plan_app = typer.Typer(
+    help="Plan lifecycle commands (draft -> refine -> accept -> publish).",
+    no_args_is_help=True,
+)
+app.add_typer(plan_app, name="plan")
+
+
+def _run_plan_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+    """Invoke a plan MCP tool from the CLI without needing the MCP transport."""
+    from mcp_server.tools.plan_tools import call_plan_tool
+
+    return asyncio.run(call_plan_tool(name, arguments))
+
+
+def _print_plan_result(result: dict[str, Any]) -> None:
+    import json as _json
+
+    print(_json.dumps(result, indent=2, default=str))
+
+
+@plan_app.command("new")
+def plan_new_cmd(
+    title: str = typer.Argument(..., help="Plan title"),
+    intent: str = typer.Option(..., "--intent", "-i", help="One-liner goal."),
+    slug: str | None = typer.Option(None, "--slug"),
+    owner: str | None = typer.Option(None, "--owner"),
+    project_type: str = typer.Option("mixed", "--project-type"),
+    project_root: str | None = typer.Option(None, "--project-root"),
+) -> None:
+    """Scaffold a new draft plan under .cursor/plans/."""
+    args: dict[str, Any] = {
+        "title": title,
+        "intent": intent,
+        "project_type": project_type,
+    }
+    if slug:
+        args["slug"] = slug
+    if owner:
+        args["owner"] = owner
+    if project_root:
+        args["project_root"] = project_root
+    _print_plan_result(_run_plan_tool("uipath_plan_new", args))
+
+
+@plan_app.command("brainstorm")
+def plan_brainstorm_cmd(
+    prompt: str | None = typer.Option(None, "--prompt", "-p"),
+    slug: str | None = typer.Option(None, "--slug"),
+    filename: str | None = typer.Option(None, "--filename"),
+    project_root: str | None = typer.Option(None, "--project-root"),
+) -> None:
+    """Return grounding hints for a draft."""
+    args: dict[str, Any] = {}
+    if prompt:
+        args["prompt"] = prompt
+    if slug:
+        args["slug"] = slug
+    if filename:
+        args["filename"] = filename
+    if project_root:
+        args["project_root"] = project_root
+    _print_plan_result(_run_plan_tool("uipath_plan_brainstorm", args))
+
+
+@plan_app.command("refine")
+def plan_refine_cmd(
+    operations_json: str = typer.Argument(
+        ..., help="JSON list of operations to apply."
+    ),
+    slug: str | None = typer.Option(None, "--slug"),
+    filename: str | None = typer.Option(None, "--filename"),
+    project_root: str | None = typer.Option(None, "--project-root"),
+) -> None:
+    """Apply structured patch operations to a draft."""
+    import json as _json
+
+    args: dict[str, Any] = {"operations": _json.loads(operations_json)}
+    if slug:
+        args["slug"] = slug
+    if filename:
+        args["filename"] = filename
+    if project_root:
+        args["project_root"] = project_root
+    _print_plan_result(_run_plan_tool("uipath_plan_refine", args))
+
+
+@plan_app.command("diff")
+def plan_diff_cmd(
+    slug: str | None = typer.Option(None, "--slug"),
+    filename: str | None = typer.Option(None, "--filename"),
+    mode: str = typer.Option("vs-published", "--mode"),
+    project_root: str | None = typer.Option(None, "--project-root"),
+) -> None:
+    """Diff a draft against its published twin or last snapshot."""
+    args: dict[str, Any] = {"mode": mode}
+    if slug:
+        args["slug"] = slug
+    if filename:
+        args["filename"] = filename
+    if project_root:
+        args["project_root"] = project_root
+    result = _run_plan_tool("uipath_plan_diff", args)
+    diff = result.get("diff") or "(no differences)"
+    print(diff)
+
+
+@plan_app.command("accept")
+def plan_accept_cmd(
+    slug: str | None = typer.Option(None, "--slug"),
+    filename: str | None = typer.Option(None, "--filename"),
+    actor: str | None = typer.Option(None, "--actor"),
+    note: str | None = typer.Option(None, "--note"),
+    project_root: str | None = typer.Option(None, "--project-root"),
+) -> None:
+    """Mark a draft accepted."""
+    args: dict[str, Any] = {}
+    if slug:
+        args["slug"] = slug
+    if filename:
+        args["filename"] = filename
+    if actor:
+        args["actor"] = actor
+    if note:
+        args["note"] = note
+    if project_root:
+        args["project_root"] = project_root
+    _print_plan_result(_run_plan_tool("uipath_plan_accept", args))
+
+
+@plan_app.command("reject")
+def plan_reject_cmd(
+    rejection_reason: str = typer.Argument(..., help="Why the plan was rejected."),
+    slug: str | None = typer.Option(None, "--slug"),
+    filename: str | None = typer.Option(None, "--filename"),
+    actor: str | None = typer.Option(None, "--actor"),
+    project_root: str | None = typer.Option(None, "--project-root"),
+) -> None:
+    """Reject a draft with a non-empty reason."""
+    args: dict[str, Any] = {"rejection_reason": rejection_reason}
+    if slug:
+        args["slug"] = slug
+    if filename:
+        args["filename"] = filename
+    if actor:
+        args["actor"] = actor
+    if project_root:
+        args["project_root"] = project_root
+    _print_plan_result(_run_plan_tool("uipath_plan_reject", args))
+
+
+@plan_app.command("publish")
+def plan_publish_cmd(
+    slug: str | None = typer.Option(None, "--slug"),
+    filename: str | None = typer.Option(None, "--filename"),
+    force: bool = typer.Option(False, "--force"),
+    project_root: str | None = typer.Option(None, "--project-root"),
+) -> None:
+    """Promote an accepted draft to docs/plans/."""
+    args: dict[str, Any] = {"force": force}
+    if slug:
+        args["slug"] = slug
+    if filename:
+        args["filename"] = filename
+    if project_root:
+        args["project_root"] = project_root
+    _print_plan_result(_run_plan_tool("uipath_plan_publish", args))
+
+
+@plan_app.command("list")
+def plan_list_cmd(
+    scope: str = typer.Option("both", "--scope", help="drafts | published | both."),
+    project_root: str | None = typer.Option(None, "--project-root"),
+) -> None:
+    """List plans by scope."""
+    args: dict[str, Any] = {"scope": scope}
+    if project_root:
+        args["project_root"] = project_root
+    _print_plan_result(_run_plan_tool("uipath_plan_list", args))
+
 _UIPATH_CHAT_SYSTEM = f"""You are UiPath Claude Code, an agentic AI assistant with direct access to the user's local file system, UiPath CLI, and UiPath skills. You build UiPath Studio automations (workflow XAML), not WPF desktop apps, unless the user explicitly asks for WPF.
 
 CRITICAL CAPABILITIES:

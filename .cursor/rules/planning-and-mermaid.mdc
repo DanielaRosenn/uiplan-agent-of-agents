@@ -1,13 +1,54 @@
 ---
-description: Multi-step work — persist plans under docs/plans/ with Mermaid (Pro Standard) and uipath_plan_* MCP tools
-globs: docs/plans/**/*.md
+description: Multi-step work — brainstorm first, draft under .cursor/plans/, publish to docs/plans/ with Mermaid (Pro Standard) via uipath_plan_* MCP tools
+globs: docs/plans/**/*.md, .cursor/plans/**/*.md
 alwaysApply: false
 ---
 
 # Planning artifacts (this repo)
 
-- For non-trivial work, follow `.cursor/skills/writing-uipath-plans/SKILL.md` and save under `docs/plans/YYYY-MM-DD-<slug>.md` using `docs/plans/_TEMPLATE.md`.
-- Diagrams: `.cursor/skills/mermaid-diagram-builder/SKILL.md` (tinted fills, `classDef`, `linkStyle`; no inline `style` fills).
-- Prefer MCP `uipath_plan_save` / `uipath_plan_list` / `uipath_plan_read` / `uipath_plan_render_mermaid`; `uipath_plan_status_set` to `done` may require an approved design when `UIPATH_DESIGN_APPROVAL_ENABLED` is on.
-- Formal PDD/SDD/ADD: `docs/PDD_LIFECYCLE.md`. Link paths in plan front matter `linked_pdd` when applicable.
-- After adding or editing plans, run `python scripts/generate_plan_index.py` (or rely on MCP save/status which triggers the same script).
+## Brainstorm first
+
+For non-trivial work (3+ steps, multiple files, unclear scope, or when
+`UIPATH_PLAN_GATE=1`), load `.cursor/skills/brainstorming-plan/SKILL.md`
+**before** touching build tools. That skill runs the full loop:
+`uipath_plan_brainstorm` -> `uipath_plan_new` -> `uipath_plan_refine` ->
+`uipath_plan_accept` -> (later) `uipath_plan_publish`.
+
+## Drafts vs published
+
+- **Drafts** live under `.cursor/plans/<YYYY-MM-DD-slug>.md` (git-ignored,
+  per-user). Created by `uipath_plan_new`, never hand-edited — use
+  `uipath_plan_refine` so validation + snapshots kick in.
+- **Published plans** live under `docs/plans/` (git-tracked). Promote via
+  `uipath_plan_publish`; the plan must have `status: accepted` first.
+
+## Authoring rules
+
+- File shape: `.cursor/skills/writing-uipath-plans/SKILL.md` +
+  `docs/plans/_TEMPLATE.md` (front matter with `slug / title / date /
+  status / owner / project_type`, plus `accepted_at / accepted_by /
+  rejection_reason / published_at`).
+- Diagrams: `.cursor/skills/mermaid-diagram-builder/SKILL.md` (tinted
+  fills, `classDef`, `linkStyle`; no inline `style` fills).
+- `uipath_plan_refine` and `uipath_plan_save` refuse plans without at
+  least one ```mermaid block.
+- Prefer the plan MCP tools over raw reads/writes: `uipath_plan_list`
+  (`scope=drafts|published|both`), `uipath_plan_read`,
+  `uipath_plan_render_mermaid`, `uipath_plan_status_set`.
+
+## Acceptance gate
+
+- `uipath_plan_accept` stamps the draft; `uipath_plan_reject` refuses
+  empty reasons.
+- When `UIPATH_PLAN_GATE=1`, `uipath_workflow_write_file` /
+  `_install_package` / `_deploy` / `_publish` all require an accepted
+  plan. Complements `UIPATH_DESIGN_APPROVAL_ENABLED`.
+- `uipath_plan_status_set` to `done` still requires an approved design
+  when the design gate is on.
+
+## After editing plans
+
+Run `python scripts/generate_plan_index.py` (or rely on
+`uipath_plan_save` / `uipath_plan_publish` which trigger the same
+script). Formal PDD/SDD/ADD lifecycle: `docs/PDD_LIFECYCLE.md` — link
+paths via plan front matter `linked_pdd` when applicable.

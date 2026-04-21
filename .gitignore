@@ -71,6 +71,7 @@ Thumbs.db
 !.cursor/skills
 !.cursor/skills/**
 .cursor/hooks/state/
+.cursor/plans/
 
 # Local runtime / tooling data
 # Legacy cache dirs accidentally created inside committed library content

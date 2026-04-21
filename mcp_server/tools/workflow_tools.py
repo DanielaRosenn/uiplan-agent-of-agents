@@ -109,6 +109,27 @@ def _design_block_or_text(
     return None
 
 
+def _plan_gate_block_or_text(
+    project_dir: str | None,
+    calling_tool: str,
+) -> str | None:
+    """Opt-in plan-acceptance gate (UIPATH_PLAN_GATE=1)."""
+    try:
+        from mcp_server.tools.plan_tools import require_accepted_plan
+    except Exception:
+        return None
+    try:
+        verdict = require_accepted_plan(project_dir)
+    except Exception:
+        return None
+    if verdict.get("allowed"):
+        return None
+    return (
+        f"[BLOCKED] {calling_tool}: UIPATH_PLAN_GATE=1 and no accepted plan "
+        "was found. Accept a plan via uipath_plan_accept (or disable the gate)."
+    )
+
+
 def _maybe_mark_dirty_after_write(file_path: str, write_result: Any) -> None:
     """Mark the owning project dirty when a write to a gated file succeeded."""
     if not isinstance(write_result, str) or not write_result.startswith("[OK]"):
@@ -826,6 +847,9 @@ async def call_workflow_tool(name: str, arguments: dict[str, Any]) -> Any:
         )
         if blocked:
             return blocked
+        blocked = _plan_gate_block_or_text(owning_project, "uipath_workflow_write_file")
+        if blocked:
+            return blocked
         result = _write_file.invoke(
             {
                 "file_path": arguments["file_path"],
@@ -861,6 +885,11 @@ async def call_workflow_tool(name: str, arguments: dict[str, Any]) -> Any:
             _project_dir_for(arguments),
             "uipath_workflow_install_package",
             bool(arguments.get("allow_unverified", False)),
+        )
+        if blocked:
+            return blocked
+        blocked = _plan_gate_block_or_text(
+            _project_dir_for(arguments), "uipath_workflow_install_package"
         )
         if blocked:
             return blocked
@@ -993,6 +1022,11 @@ async def call_workflow_tool(name: str, arguments: dict[str, Any]) -> Any:
         )
         if blocked:
             return blocked
+        blocked = _plan_gate_block_or_text(
+            arguments.get("project_path"), "uipath_workflow_deploy"
+        )
+        if blocked:
+            return blocked
         result = _deploy(
             project_path=arguments["project_path"],
             orchestrator_url=arguments["orchestrator_url"],
@@ -1011,6 +1045,11 @@ async def call_workflow_tool(name: str, arguments: dict[str, Any]) -> Any:
             arguments.get("project_dir"),
             "uipath_workflow_publish",
             bool(arguments.get("allow_unverified", False)),
+        )
+        if blocked:
+            return blocked
+        blocked = _plan_gate_block_or_text(
+            arguments.get("project_dir"), "uipath_workflow_publish"
         )
         if blocked:
             return blocked

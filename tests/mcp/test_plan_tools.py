@@ -49,6 +49,13 @@ class TestGetPlanTools:
             "uipath_plan_read",
             "uipath_plan_status_set",
             "uipath_plan_render_mermaid",
+            "uipath_plan_new",
+            "uipath_plan_brainstorm",
+            "uipath_plan_refine",
+            "uipath_plan_diff",
+            "uipath_plan_accept",
+            "uipath_plan_reject",
+            "uipath_plan_publish",
         }
 
 
@@ -260,6 +267,135 @@ project_type: mixed
             },
         )
         assert out["status"] == "ok"
+
+
+class TestBrainstormLoop:
+    @pytest.mark.asyncio
+    async def test_new_brainstorm_refine_accept_publish(self, repo):
+        new_out = await plan_tools.call_plan_tool(
+            "uipath_plan_new",
+            {
+                "project_root": str(repo),
+                "title": "Intake Routing",
+                "intent": "Route invoices to approvers",
+                "owner": "tester",
+                "project_type": "rpa",
+            },
+        )
+        assert new_out["status"] == "ok"
+        slug = new_out["slug"]
+        draft_path = Path(new_out["path"])
+        assert draft_path.exists()
+        assert ".cursor" in draft_path.parts and "plans" in draft_path.parts
+
+        # brainstorm is read-only
+        bs = await plan_tools.call_plan_tool(
+            "uipath_plan_brainstorm",
+            {"project_root": str(repo), "slug": slug},
+        )
+        assert bs["status"] == "ok"
+        assert isinstance(bs["library_queries"], list)
+        assert bs["web_research"]["requested"] is False
+
+        refine = await plan_tools.call_plan_tool(
+            "uipath_plan_refine",
+            {
+                "project_root": str(repo),
+                "slug": slug,
+                "operations": [
+                    {"op": "append_task", "value": "Write failing test"},
+                    {"op": "set_goal", "value": "Route invoices in under 1 minute"},
+                ],
+            },
+        )
+        assert refine["status"] == "ok"
+        assert refine["new_status"] == "refining"
+        text = draft_path.read_text(encoding="utf-8")
+        assert "Write failing test" in text
+        assert "Route invoices in under 1 minute" in text
+
+        diff = await plan_tools.call_plan_tool(
+            "uipath_plan_diff",
+            {"project_root": str(repo), "slug": slug, "mode": "self"},
+        )
+        assert diff["status"] == "ok"
+
+        accept = await plan_tools.call_plan_tool(
+            "uipath_plan_accept",
+            {"project_root": str(repo), "slug": slug, "actor": "tester"},
+        )
+        assert accept["status"] == "ok"
+        assert accept["accepted_by"] == "tester"
+
+        pub = await plan_tools.call_plan_tool(
+            "uipath_plan_publish",
+            {"project_root": str(repo), "slug": slug},
+        )
+        assert pub["status"] == "ok"
+        assert (repo / "docs" / "plans" / draft_path.name).is_file()
+
+        listed_both = await plan_tools.call_plan_tool(
+            "uipath_plan_list",
+            {"project_root": str(repo), "scope": "both"},
+        )
+        scopes = {p["scope"] for p in listed_both["plans"]}
+        assert {"draft", "published"} <= scopes
+
+    @pytest.mark.asyncio
+    async def test_reject_requires_reason(self, repo):
+        out = await plan_tools.call_plan_tool(
+            "uipath_plan_new",
+            {
+                "project_root": str(repo),
+                "title": "Reject Test",
+                "intent": "Reject flow",
+            },
+        )
+        with pytest.raises(ValueError, match="rejection_reason"):
+            await plan_tools.call_plan_tool(
+                "uipath_plan_reject",
+                {
+                    "project_root": str(repo),
+                    "slug": out["slug"],
+                    "rejection_reason": "",
+                },
+            )
+
+    @pytest.mark.asyncio
+    async def test_publish_blocks_when_not_accepted(self, repo):
+        out = await plan_tools.call_plan_tool(
+            "uipath_plan_new",
+            {"project_root": str(repo), "title": "Publish Block", "intent": "Test"},
+        )
+        pub = await plan_tools.call_plan_tool(
+            "uipath_plan_publish",
+            {"project_root": str(repo), "slug": out["slug"]},
+        )
+        assert pub["status"] == "blocked"
+        assert pub["reason"] == "not_accepted"
+
+    @pytest.mark.asyncio
+    async def test_refine_keeps_mermaid(self, repo):
+        out = await plan_tools.call_plan_tool(
+            "uipath_plan_new",
+            {"project_root": str(repo), "title": "Mermaid Test", "intent": "Test"},
+        )
+        r = await plan_tools.call_plan_tool(
+            "uipath_plan_refine",
+            {
+                "project_root": str(repo),
+                "slug": out["slug"],
+                "operations": [
+                    {
+                        "op": "add_mermaid",
+                        "value": "flowchart LR\n  A --> B",
+                    }
+                ],
+            },
+        )
+        assert r["status"] == "ok"
+        text = Path(out["path"]).read_text(encoding="utf-8")
+        assert text.count("```mermaid") >= 2
 
 
 class TestGeneratePlanIndexScript:
