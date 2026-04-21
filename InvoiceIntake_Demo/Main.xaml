@@ -1,0 +1,129 @@
+<Activity mc:Ignorable="sads sap sap2010" x:Class="Main" sap:VirtualizedContainerService.HintSize="600,400" sap2010:WorkflowViewState.IdRef="ActivityBuilder_1" sads:DebugSymbol.Symbol="" xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:s="clr-namespace:System;assembly=System.Private.CoreLib" xmlns:sads="http://schemas.microsoft.com/netfx/2010/xaml/activities/debugger" xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation" xmlns:sap2010="http://schemas.microsoft.com/netfx/2010/xaml/activities/presentation" xmlns:scg="clr-namespace:System.Collections.Generic;assembly=System.Private.CoreLib" xmlns:sco="clr-namespace:System.Collections.ObjectModel;assembly=System.Private.CoreLib" xmlns:si="clr-namespace:System.IO;assembly=System.Private.CoreLib" xmlns:ui="http://schemas.uipath.com/workflow/activities" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <TextExpression.NamespacesForImplementation>
+    <sco:Collection x:TypeArguments="x:String">
+      <x:String>GlobalConstantsNamespace</x:String>
+      <x:String>GlobalVariablesNamespace</x:String>
+      <x:String>System</x:String>
+      <x:String>System.Activities</x:String>
+      <x:String>System.Activities.Statements</x:String>
+      <x:String>System.Collections.Generic</x:String>
+      <x:String>System.Collections.ObjectModel</x:String>
+      <x:String>System.IO</x:String>
+      <x:String>System.Linq</x:String>
+      <x:String>System.Text.RegularExpressions</x:String>
+      <x:String>UiPath.Core</x:String>
+      <x:String>UiPath.Core.Activities</x:String>
+    </sco:Collection>
+  </TextExpression.NamespacesForImplementation>
+  <TextExpression.ReferencesForImplementation>
+    <sco:Collection x:TypeArguments="AssemblyReference">
+      <AssemblyReference>System.Activities</AssemblyReference>
+      <AssemblyReference>System.ComponentModel.TypeConverter</AssemblyReference>
+      <AssemblyReference>System.Linq</AssemblyReference>
+      <AssemblyReference>System.ObjectModel</AssemblyReference>
+      <AssemblyReference>System.Private.CoreLib</AssemblyReference>
+      <AssemblyReference>UiPath.System.Activities</AssemblyReference>
+    </sco:Collection>
+  </TextExpression.ReferencesForImplementation>
+  <Sequence DisplayName="Main" sap2010:WorkflowViewState.IdRef="Sequence_1">
+    <Sequence.Variables>
+      <Variable x:TypeArguments="x:String" Default="[&quot;&quot;]" Name="inputDir" />
+      <Variable x:TypeArguments="s:String[]" Name="files" />
+      <Variable x:TypeArguments="x:String" Default="[&quot;&quot;]" Name="invoiceData" />
+      <Variable x:TypeArguments="x:String" Default="[&quot;&quot;]" Name="policyResult" />
+    </Sequence.Variables>
+    <sap:WorkflowViewStateService.ViewState>
+      <scg:Dictionary x:TypeArguments="x:String, x:Object">
+        <x:Boolean x:Key="IsExpanded">True</x:Boolean>
+      </scg:Dictionary>
+    </sap:WorkflowViewStateService.ViewState>
+    <ui:LogMessage DisplayName="Log intake started" sap2010:WorkflowViewState.IdRef="LogMessage_1" Level="Info" Message="[&quot;[Main] Invoice intake started&quot;]" />
+    <Assign DisplayName="Resolve input folder" sap2010:WorkflowViewState.IdRef="Assign_1">
+      <Assign.To>
+        <OutArgument x:TypeArguments="x:String">[inputDir]</OutArgument>
+      </Assign.To>
+      <Assign.Value>
+        <InArgument x:TypeArguments="x:String">[Path.Combine(Directory.GetCurrentDirectory(), "Data", "Input")]</InArgument>
+      </Assign.Value>
+    </Assign>
+    <InvokeMethod DisplayName="Ensure Data/Input" sap2010:WorkflowViewState.IdRef="InvokeMethod_1" MethodName="CreateDirectory" TargetType="si:Directory">
+      <InArgument x:TypeArguments="x:String">[inputDir]</InArgument>
+    </InvokeMethod>
+    <InvokeMethod DisplayName="Ensure Data/Output" sap2010:WorkflowViewState.IdRef="InvokeMethod_2" MethodName="CreateDirectory" TargetType="si:Directory">
+      <InArgument x:TypeArguments="x:String">[Path.Combine(Directory.GetCurrentDirectory(), "Data", "Output")]</InArgument>
+    </InvokeMethod>
+    <If Condition="[Directory.GetFiles(inputDir, &quot;*.pdf&quot;).Length &gt; 0]" DisplayName="Prefer PDF files else TXT" sap2010:WorkflowViewState.IdRef="If_1">
+      <If.Then>
+        <Assign DisplayName="Assign PDF list" sap2010:WorkflowViewState.IdRef="Assign_2">
+          <Assign.To>
+            <OutArgument x:TypeArguments="s:String[]">[files]</OutArgument>
+          </Assign.To>
+          <Assign.Value>
+            <InArgument x:TypeArguments="s:String[]">[Directory.GetFiles(inputDir, "*.pdf")]</InArgument>
+          </Assign.Value>
+        </Assign>
+      </If.Then>
+      <If.Else>
+        <Assign DisplayName="Assign TXT list" sap2010:WorkflowViewState.IdRef="Assign_3">
+          <Assign.To>
+            <OutArgument x:TypeArguments="s:String[]">[files]</OutArgument>
+          </Assign.To>
+          <Assign.Value>
+            <InArgument x:TypeArguments="s:String[]">[Directory.GetFiles(inputDir, "*.txt")]</InArgument>
+          </Assign.Value>
+        </Assign>
+      </If.Else>
+    </If>
+    <ui:LogMessage DisplayName="Log file count" sap2010:WorkflowViewState.IdRef="LogMessage_2" Level="Info" Message="[&quot;[Main] Files to process: &quot; + files.Length.ToString()]" />
+    <ui:ForEach x:TypeArguments="x:String" CurrentIndex="{x:Null}" DisplayName="For each invoice file" sap2010:WorkflowViewState.IdRef="ForEach_1" Values="[files]">
+      <ui:ForEach.Body>
+        <ActivityAction x:TypeArguments="x:String">
+          <ActivityAction.Argument>
+            <DelegateInArgument x:TypeArguments="x:String" Name="currentFile" />
+          </ActivityAction.Argument>
+          <Sequence DisplayName="Body" sap2010:WorkflowViewState.IdRef="Sequence_2">
+            <TryCatch DisplayName="Process with error handling" sap2010:WorkflowViewState.IdRef="TryCatch_1">
+              <TryCatch.Try>
+                <Sequence DisplayName="Try" sap2010:WorkflowViewState.IdRef="Sequence_3">
+                  <ui:InvokeWorkflowFile ArgumentsVariable="{x:Null}" DisplayName="Extract" sap2010:WorkflowViewState.IdRef="InvokeWorkflowFile_1" UnSafe="False" WorkflowFileName="Workflows/ExtractInvoice.xaml">
+                    <ui:InvokeWorkflowFile.Arguments>
+                      <InArgument x:TypeArguments="x:String" x:Key="in_InvoiceFilePath">[currentFile]</InArgument>
+                      <OutArgument x:TypeArguments="x:String" x:Key="out_InvoiceData">[invoiceData]</OutArgument>
+                    </ui:InvokeWorkflowFile.Arguments>
+                  </ui:InvokeWorkflowFile>
+                  <ui:InvokeWorkflowFile ArgumentsVariable="{x:Null}" DisplayName="Apply policy" sap2010:WorkflowViewState.IdRef="InvokeWorkflowFile_2" UnSafe="False" WorkflowFileName="Workflows/ApplyPolicy.xaml">
+                    <ui:InvokeWorkflowFile.Arguments>
+                      <InArgument x:TypeArguments="x:String" x:Key="in_InvoiceData">[invoiceData]</InArgument>
+                      <OutArgument x:TypeArguments="x:String" x:Key="out_PolicyResult">[policyResult]</OutArgument>
+                    </ui:InvokeWorkflowFile.Arguments>
+                  </ui:InvokeWorkflowFile>
+                  <ui:InvokeWorkflowFile ArgumentsVariable="{x:Null}" DisplayName="Write result" sap2010:WorkflowViewState.IdRef="InvokeWorkflowFile_3" UnSafe="False" WorkflowFileName="Workflows/WriteResult.xaml">
+                    <ui:InvokeWorkflowFile.Arguments>
+                      <InArgument x:TypeArguments="x:String" x:Key="in_FileName">[System.IO.Path.GetFileName(currentFile)]</InArgument>
+                      <InArgument x:TypeArguments="x:String" x:Key="in_InvoiceData">[invoiceData]</InArgument>
+                      <InArgument x:TypeArguments="x:String" x:Key="in_PolicyResult">[policyResult]</InArgument>
+                    </ui:InvokeWorkflowFile.Arguments>
+                  </ui:InvokeWorkflowFile>
+                  <ui:LogMessage DisplayName="Log file processed OK" sap2010:WorkflowViewState.IdRef="LogMessage_3" Level="Info" Message="[&quot;[Main] Finished: &quot; + System.IO.Path.GetFileName(currentFile)]" />
+                </Sequence>
+              </TryCatch.Try>
+              <TryCatch.Catches>
+                <Catch x:TypeArguments="s:Exception" sap2010:WorkflowViewState.IdRef="Catch`1_1">
+                  <ActivityAction x:TypeArguments="s:Exception">
+                    <ActivityAction.Argument>
+                      <DelegateInArgument x:TypeArguments="s:Exception" Name="ex" />
+                    </ActivityAction.Argument>
+                    <Sequence DisplayName="Handler" sap2010:WorkflowViewState.IdRef="Sequence_4">
+                      <ui:LogMessage DisplayName="Log processing failure" sap2010:WorkflowViewState.IdRef="LogMessage_4" Level="Error" Message="[&quot;[Main] Failed on &quot; + currentFile + &quot;: &quot; + ex.Message]" />
+                    </Sequence>
+                  </ActivityAction>
+                </Catch>
+              </TryCatch.Catches>
+            </TryCatch>
+          </Sequence>
+        </ActivityAction>
+      </ui:ForEach.Body>
+    </ui:ForEach>
+    <ui:LogMessage DisplayName="Log intake completed" sap2010:WorkflowViewState.IdRef="LogMessage_5" Level="Info" Message="[&quot;[Main] Invoice intake completed&quot;]" />
+  </Sequence>
+</Activity>

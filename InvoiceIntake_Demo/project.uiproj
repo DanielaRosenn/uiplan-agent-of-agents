@@ -1,0 +1,6 @@
+{
+  "Name": "InvoiceIntake_Demo",
+  "ProjectType": "Process",
+  "Description": "Invoice intake automation demo",
+  "MainFile": "Main.xaml"
+}
