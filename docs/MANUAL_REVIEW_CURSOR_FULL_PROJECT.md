@@ -18,21 +18,46 @@ Use this document after a **fresh clone** (or any time you need a wide pass) to 
 
 ---
 
-## Cursor best practices (clone → working MCP)
+## Almost zero work (onboarding)
 
-Do these **in order** on a clean machine. Matches [CURSOR_USER_GUIDE.md](CURSOR_USER_GUIDE.md) and [CONTRIBUTING.md](../CONTRIBUTING.md).
+Goal: **one terminal command**, then **two clicks** in Cursor.
+
+1. **Prereqs on PATH:** `git`, `uv` ([install uv](https://docs.astral.sh/uv/)).
+2. From **repo root** after `git clone`:
+
+```powershell
+.\ops\scripts\cursor-quickstart.ps1
+```
+
+macOS / Linux:
+
+```bash
+bash ops/scripts/cursor-quickstart.sh
+```
+
+That runs: `git submodule update --init --recursive` → `uv sync --extra mcp` → creates `.cursor/mcp.json` from [.cursor/mcp.json.example](../.cursor/mcp.json.example) if missing → runs `ops/scripts/setup-cursor.ps1` or `setup-cursor.sh` (skills junction/symlink).
+
+3. In Cursor only: **File → Open Folder** (this repo) → **Settings → MCP** → confirm **uipath-builder-agent** is connected → **Developer: Reload Window** if it was red.
+
+Optional later: Superpowers plugin ([CURSOR_USER_GUIDE.md](CURSOR_USER_GUIDE.md)); use **Agent** mode when you want tools.
+
+If you ran quickstart successfully, you can mark **CC1–CC7** in the table below as **PASS** (or **N/A**) without doing each line by hand.
+
+---
+
+## Cursor checklist (expanded — only if you skipped quickstart)
 
 | Step | Action | Status | Notes | Date |
 | --- | --- | --- | --- | --- |
 | CC1 | `git clone …` then `cd` into **repo root** | | | |
 | CC2 | `git submodule update --init --recursive` | | | |
-| CC3 | `uv sync` at repo root (recommended; aligns with [.cursor/mcp.json.example](../.cursor/mcp.json.example)) | | | |
-| CC4 | `Copy-Item .cursor/mcp.json.example .cursor/mcp.json` (PowerShell) or equivalent | | | |
-| CC5 | Run `.\ops\scripts\setup-cursor.ps1` (Windows) or `./ops/scripts/setup-cursor.sh` (Unix) so rules/skills/hooks match the repo | | | |
-| CC6 | **File → Open Folder** → pick **this repo root** (not a parent directory) | | | |
-| CC7 | **Cursor Settings → MCP** → `uipath-builder-agent` shows **connected** (reload window after `mcp.json` edits) | | | |
-| CC8 | Optional: add `cursor-public/superpowers` per user guide for workflow skills | | | |
-| CC9 | In chat, enable **Agent** mode when you want tool use; use **Ask** only for read-only Q&A | | | |
+| CC3 | `uv sync --extra mcp` at repo root | | | |
+| CC4 | `Copy-Item .cursor/mcp.json.example .cursor/mcp.json` (or rely on quickstart) | | | |
+| CC5 | Run `.\ops\scripts\setup-cursor.ps1` or `./ops/scripts/setup-cursor.sh` | | | |
+| CC6 | **File → Open Folder** → **this repo root** | | | |
+| CC7 | **Settings → MCP** → `uipath-builder-agent` **connected** | | | |
+| CC8 | Optional: `cursor-public/superpowers` | | | |
+| CC9 | **Agent** vs **Ask** mode as needed | | | |
 
 **Tip:** If MCP stays red, run from repo root: `uv run python -m mcp_server.server` with `PYTHONPATH` including `framework` — the terminal error is the source of truth ([MANUAL_TESTING_POST_PHASE4.md](MANUAL_TESTING_POST_PHASE4.md) §6).
 
@@ -40,7 +65,7 @@ Do these **in order** on a clean machine. Matches [CURSOR_USER_GUIDE.md](CURSOR_
 
 ## Prerequisites (review session)
 
-1. Complete **Cursor best practices** above.
+1. Complete **Almost zero work** (quickstart) or the **expanded checklist** above.
 2. **Destructive work** — Use a throwaway branch; confirm **Allow** on Cursor prompts for destructive MCP tools.
 3. **Optional env** — Bedrock / Ask AI for heavy agents ([SMOKE_TESTS.md](SMOKE_TESTS.md)); `uip` for platform doc steps; Studio only when a scenario requires it.
 

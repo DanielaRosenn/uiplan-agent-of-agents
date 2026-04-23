@@ -5,7 +5,8 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+# Script lives at <repo>/ops/scripts/ — repo root is two levels up
+REPO_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 CURSOR_SKILLS_DIR="$REPO_ROOT/.cursor/skills"
 SOURCE_SKILLS_DIR="$REPO_ROOT/skills/skills"
 
@@ -48,8 +49,9 @@ echo "========================================"
 echo "STEP 2: Install MCP Tools (Optional)"
 echo "========================================"
 echo ""
-echo "For UiPath CLI integration (validation, execution, packages):"
-echo '  pip install -e ".[mcp]"'
+echo "Python deps (if not already done):"
+echo '  uv sync --extra mcp   OR   pip install -e ".[mcp]"'
+echo "  Or: bash ops/scripts/cursor-quickstart.sh"
 echo ""
 echo "MCP config is at: .cursor/mcp.json"
 echo "Cursor will auto-detect it when you open the folder."

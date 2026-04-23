@@ -6,7 +6,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$RepoRoot = Split-Path -Parent $PSScriptRoot
+# Script lives at <repo>/ops/scripts/ — repo root is two levels up
+$RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $CursorSkillsDir = Join-Path $RepoRoot ".cursor\skills"
 $SourceSkillsDir = Join-Path $RepoRoot "skills\skills"
 
@@ -64,8 +65,9 @@ Write-Host "========================================" -ForegroundColor Yellow
 Write-Host "STEP 2: Install MCP Tools (Optional)" -ForegroundColor Yellow
 Write-Host "========================================" -ForegroundColor Yellow
 Write-Host ""
-Write-Host "For UiPath CLI integration (validation, execution, packages):" -ForegroundColor Cyan
-Write-Host "  pip install -e `".[mcp]`"" -ForegroundColor White
+Write-Host "Python deps (if not already done):" -ForegroundColor Cyan
+Write-Host "  uv sync --extra mcp   OR   pip install -e `".[mcp]`"" -ForegroundColor White
+Write-Host "  Or run: ops/scripts/cursor-quickstart.ps1 (does uv + MCP copy + this script)" -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "MCP config is at: .cursor/mcp.json" -ForegroundColor Cyan
 Write-Host "Cursor will auto-detect it when you open the folder." -ForegroundColor White

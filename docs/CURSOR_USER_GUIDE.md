@@ -4,6 +4,20 @@ This guide covers using the UiPath Builder Agent skills in Cursor IDE for buildi
 
 ## Quick Setup (5 minutes)
 
+### 0. Almost zero work (one script)
+
+From repo root after clone — does submodules, `uv sync --extra mcp`, copies MCP config if missing, links skills:
+
+```powershell
+.\ops\scripts\cursor-quickstart.ps1
+```
+
+```bash
+bash ops/scripts/cursor-quickstart.sh
+```
+
+Then open this folder in Cursor and confirm **Settings → MCP → uipath-builder-agent** is green (reload window if needed). Requires **git** and **uv** on PATH.
+
 ### 1. Clone and Initialize
 
 ```powershell
@@ -14,7 +28,7 @@ git submodule update --init --recursive
 
 ### 2. Install Dependencies
 
-**Recommended (matches [.cursor/mcp.json.example](.cursor/mcp.json.example)):** use **uv** at repo root so Cursor and the MCP server share the same environment.
+**Recommended (matches [.cursor/mcp.json.example](.cursor/mcp.json.example)):** use **uv** at repo root so Cursor and the MCP server share the same environment. (Skip manual steps here if you already ran **§0 quickstart**.)
 
 ```powershell
 cd uipath-builder-agent
