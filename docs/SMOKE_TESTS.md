@@ -11,7 +11,7 @@ Optional environment overrides (everything has sensible defaults):
 | `UIPATH_CLAUDE_MODEL_HEAVY` | Bedrock model for HEAVY tasks (BA, SA, Dev, QA, planner, agentic executor). Default: `anthropic.claude-3-5-sonnet-20241022-v2:0`. |
 | `UIPATH_CLAUDE_MODEL_LIGHT` | Bedrock model for LIGHT tasks (distiller, classifiers, short-text rewrites). Default: `anthropic.claude-3-5-haiku-20241022-v1:0`. |
 | `UIPATH_CLAUDE_MODEL` | Legacy global override; applies to both tiers unless a per-tier var is set. |
-| `UIPATH_CLAUDE_TOOL_PROFILE` | `all` (default), `safe`, or `uipath-dev`. Controls which slash commands the chat exposes. |
+| `UIPATH_CLAUDE_TOOL_PROFILE` | `all` (default), `safe`, or `uipath-dev`. Gates slash commands in `uipath chat`; `safe` and `uipath-dev` use the same SDLC-focused allow-list ([SLASH_COMMANDS.md](SLASH_COMMANDS.md)). |
 | `UIPATH_DISTILLER_MODEL` | Explicit override for the skill distiller only (beats the tier router). |
 
 To use Sonnet 4.x when Bedrock has it enabled in your region, you must use a

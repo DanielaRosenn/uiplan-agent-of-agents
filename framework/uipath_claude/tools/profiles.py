@@ -10,19 +10,28 @@ class ToolProfile:
     commands: tuple[str, ...]
 
 
+# ``safe`` includes the full in-chat slash surface needed for SDLC work
+# (PDD lifecycle, validation, UiPlan, library harvest, repair) while still
+# being a finite allow-list (unlike ``all`` which permits any string).
 _SAFE_COMMANDS = (
     "help",
     "status",
     "skills",
     "analyze",
+    "validate",
     "bootstrap",
     "recall",
     "update-skills",
     "books",
     "scan-upstream-skills",
     "library-proposals",
+    "library-harvest",
+    "pdd",
+    "repair-restore",
+    "uiplan",
+    "plan",
 )
-_UIPATH_DEV_COMMANDS = (*_SAFE_COMMANDS, "validate", "library-harvest")
+_UIPATH_DEV_COMMANDS = (*_SAFE_COMMANDS,)
 
 _PROFILES = {
     "safe": ToolProfile(name="safe", commands=_SAFE_COMMANDS),

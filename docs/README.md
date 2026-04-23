@@ -6,6 +6,7 @@ Landing page for everything under `docs/`. Start with [ARCHITECTURE.md](ARCHITEC
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — runtime, agentic executor, validator gate, `/pdd` and `/bootstrap` pipelines.
 - [USER_GUIDE.md](USER_GUIDE.md) — day-to-day CLI usage, slash commands, env vars.
+- [SLASH_COMMANDS.md](SLASH_COMMANDS.md) — slash command reference, SDLC mapping, `UIPATH_CLAUDE_TOOL_PROFILE`.
 - [PDD_LIFECYCLE.md](PDD_LIFECYCLE.md) — the full BA -> SA -> ADD -> TDD -> Dev -> QA -> publish -> deploy flow driven by `/pdd` (includes **Naming: SDD vs lifecycle TDD**).
 - [CURSOR_USER_GUIDE.md](CURSOR_USER_GUIDE.md) — using the UiPath skills + MCP tools from inside Cursor.
 - [INSTALL.md](INSTALL.md) — full installation: UiPath CLI, Studio 26.2+, submodules, AWS Bedrock.

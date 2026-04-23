@@ -382,8 +382,7 @@ python -m mcp_server.server
 
 ### Safety rails worth knowing
 
-- `UIPATH_CLAUDE_TOOL_PROFILE=safe|uipath-dev|all` gates which slash
-  commands are reachable in a session.
+- `UIPATH_CLAUDE_TOOL_PROFILE=safe|uipath-dev|all` gates which slash commands are accepted in `uipath chat` (`safe` and `uipath-dev` share one SDLC allow-list; see [SLASH_COMMANDS.md](SLASH_COMMANDS.md)).
 - `UIPATH_CLAUDE_REQUIRE_APPROVAL=true` forces a human approval on every
   guarded CLI operation. Grant per-run with `UIPATH_CLAUDE_CLI_APPROVED=true`.
 - Nothing publishes or deploys without an explicit approval prompt.

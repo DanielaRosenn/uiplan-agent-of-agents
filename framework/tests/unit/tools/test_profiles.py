@@ -23,6 +23,11 @@ def test_uipath_dev_profile_includes_validate_command():
     assert "validate" in profile.commands
 
 
+def test_safe_profile_includes_validate_command():
+    profile = resolve_tool_profile("safe")
+    assert "validate" in profile.commands
+
+
 @pytest.mark.parametrize("raw_profile", [None, "", "   "])
 def test_empty_profile_values_fall_back_to_all(raw_profile):
     profile = resolve_tool_profile(raw_profile)
@@ -41,9 +46,9 @@ def test_all_profile_allows_any_command():
     assert is_command_allowed(profile, "nonexistent-command")
 
 
-def test_safe_profile_blocks_non_safe_command():
+def test_safe_profile_blocks_unknown_command():
     profile = resolve_tool_profile("safe")
-    assert not is_command_allowed(profile, "validate")
+    assert not is_command_allowed(profile, "definitely-not-a-real-command")
 
 
 def test_default_profile_allows_recall_command():
@@ -59,11 +64,24 @@ def test_safe_profile_allows_readonly_library_commands():
     assert is_command_allowed(profile, "library-proposals")
 
 
-def test_safe_profile_blocks_library_harvest():
+def test_safe_profile_allows_library_harvest():
     profile = resolve_tool_profile("safe")
-    assert not is_command_allowed(profile, "library-harvest")
+    assert is_command_allowed(profile, "library-harvest")
+
+
+def test_safe_profile_allows_pdd_and_uiplan():
+    profile = resolve_tool_profile("safe")
+    assert is_command_allowed(profile, "pdd")
+    assert is_command_allowed(profile, "uiplan")
+    assert is_command_allowed(profile, "repair-restore")
 
 
 def test_uipath_dev_profile_allows_library_harvest():
     profile = resolve_tool_profile("uipath-dev")
     assert is_command_allowed(profile, "library-harvest")
+
+
+def test_safe_and_uipath_dev_allow_same_command_set():
+    safe_p = resolve_tool_profile("safe")
+    dev_p = resolve_tool_profile("uipath-dev")
+    assert safe_p.commands == dev_p.commands

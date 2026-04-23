@@ -58,7 +58,7 @@ Use this document to **manually exercise** the UiPath Builder Agent surface **th
 
 ## Slash and chat commands (when exposed)
 
-These are documented for the **CLI / embedded chat** profile ([USER_GUIDE.md](USER_GUIDE.md)). In **Cursor**, most automation is via **MCP**; still verify any slash surface your deployment exposes.
+These run in **`uipath chat`** (not Cursor MCP). With **`UIPATH_CLAUDE_TOOL_PROFILE=safe`** or **`uipath-dev`**, the SDLC commands below are **allowed** (same allow-list). See [SLASH_COMMANDS.md](SLASH_COMMANDS.md). In **Cursor**, most automation is via **MCP**; run slash checks from a terminal chat session if your review scope includes the CLI.
 
 | Id | Command | Status | Notes | Date |
 | --- | --- | --- | --- | --- |
@@ -70,6 +70,14 @@ These are documented for the **CLI / embedded chat** profile ([USER_GUIDE.md](US
 | S6 | `/analyze` | | | |
 | S7 | `/validate` | | | |
 | S8 | `/recall <term>` | | | |
+| S9 | `/update-skills --check` | | | |
+| S10 | `/scan-upstream-skills --dry-run` | | | |
+| S11 | `/library-proposals list` | | | |
+| S12 | `/library-harvest` (optional; mutates proposal queue) | | | |
+| S13 | `/books` | | | |
+| S14 | `/repair-restore` (with safe args; may touch project) | | | |
+| S15 | `/uiplan` (see [SLASH_COMMANDS.md](SLASH_COMMANDS.md)) | | | |
+| S16 | `/plan` (only if planner enabled in session) | | | |
 
 ---
 

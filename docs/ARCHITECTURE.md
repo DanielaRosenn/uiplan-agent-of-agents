@@ -156,7 +156,7 @@ Runtime behavior is configured by environment variables:
 
 - `UIPATH_CLAUDE_TOOL_PROFILE=safe|uipath-dev|all`
   - Resolved in `uipath_claude.tools.profiles`.
-  - Controls which slash commands are available to the session.
+  - Controls which slash commands are available to the session (`safe` / `uipath-dev`: SDLC allow-list; see [SLASH_COMMANDS.md](SLASH_COMMANDS.md)).
 - `UIPATH_CLAUDE_REQUIRE_APPROVAL=true`
   - Enforces the approval gate in `uipath_claude.tools.uipath.approval`
     for guarded UiPath CLI operations.

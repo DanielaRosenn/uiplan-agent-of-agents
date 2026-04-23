@@ -165,7 +165,7 @@ Create a workflow that reads a CSV file, transforms the data, and uploads to Orc
 
 ## Slash Commands
 
-Use slash commands for quick actions:
+Use slash commands for quick actions in **`uipath chat`** (input starts with `/`). Which commands are accepted is controlled by **`UIPATH_CLAUDE_TOOL_PROFILE`** (`safe`, `uipath-dev`, or `all`); the **`safe`** profile includes the full SDLC set (`/pdd`, `/validate`, `/uiplan`, library commands, etc.). Full matrix: [SLASH_COMMANDS.md](SLASH_COMMANDS.md).
 
 | Command | Description |
 |---------|-------------|

@@ -103,6 +103,7 @@ Required environment for real deploys: `UIPATH_ORCHESTRATOR_URL`, `UIPATH_TENANT
 
 ## Related docs
 
+- [SLASH_COMMANDS.md](SLASH_COMMANDS.md) - All in-chat slash commands, SDLC mapping, `UIPATH_CLAUDE_TOOL_PROFILE`.
 - [USER_GUIDE.md](USER_GUIDE.md) - CLI usage, slash commands.
 - [ARCHITECTURE.md](ARCHITECTURE.md) - Where `/pdd` fits in the broader runtime.
 - [CURSOR_USER_GUIDE.md](CURSOR_USER_GUIDE.md) - MCP tool surface used inside the lifecycle.
