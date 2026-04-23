@@ -9,8 +9,8 @@ _DEFAULT_LOOPS = 5
 _MIN_LOOPS = 1
 _MAX_LOOPS = 25
 
-# Gate ids passed to the skill executor each iteration (UiPlan bundle shape).
-DEFAULT_GATES: list[str] = ["spec", "plan", "tasks", "constitution"]
+# Gate ids passed to the skill executor each iteration (build loop contract).
+DEFAULT_GATES: list[str] = ["restore", "analyze", "test", "pack"]
 
 
 def _parse_loop_int(raw: str, *, source: str) -> int:
