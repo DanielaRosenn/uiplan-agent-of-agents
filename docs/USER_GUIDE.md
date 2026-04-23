@@ -62,6 +62,87 @@ aws configure
 uipath-claude chat
 ```
 
+## Use Everything Workflow (recommended)
+
+Follow this sequence when you want to leverage the full project stack end-to-end:
+
+1. **Pick assistant mode**: Cursor (`ops/scripts/cursor-quickstart.*`) or CLI (`ops/scripts/claude-quickstart.*`).
+2. **Define change shape**:
+   - small obvious edit -> direct implementation + validation
+   - medium/large change -> UiPlan first
+   - formal initiative with stakeholder artifacts -> `/pdd`
+3. **Plan**: run UiPlan (`/uiplan` in chat or `uipath-claude plan uiplan ...` in terminal).
+4. **Review + accept**: verify spec/plan/tasks quality before publishing.
+5. **Build**: implement using approved plan with validator loops.
+6. **Verify**: run analyze/validate/tests/manual checks from docs.
+7. **Publish/deploy only with explicit confirmation** (and never to Production from assistant flow).
+
+For deeper context, see [README.md](../README.md), [PDD_LIFECYCLE.md](PDD_LIFECYCLE.md), and [uiplan/README.md](uiplan/README.md).
+
+## UiPlan Cookbook (how to leverage it well)
+
+UiPlan is best when you need clear separation between **what to build**, **how to build**, and **in what order**.
+
+### Choose the right mode
+
+| Scenario | Use this | Why |
+| --- | --- | --- |
+| One-file bug fix with no design tradeoff | Direct edit + validate | Faster than full planning ceremony |
+| Feature across multiple files/tools | UiPlan (`spec.md` + `plan.md` + `tasks.md`) | Reduces rework and keeps scope aligned |
+| Cross-team delivery with formal handoff | `/pdd` lifecycle | Produces PDD/SDD/ADD/TDD and staged execution |
+
+### Cursor recipe
+
+In Cursor chat:
+
+```text
+/uiplan full "Invoice exception handling hardening"
+```
+
+Then iterate:
+
+```text
+/uiplan review
+/uiplan tasks --refine
+```
+
+Use natural language with MCP tools as needed:
+
+```text
+Ground this plan against constitution and current repo context, then show gaps before acceptance.
+```
+
+### CLI recipe
+
+```bash
+# create full bundle
+uipath-claude plan uiplan full "Invoice exception handling hardening"
+
+# staged flow (optional)
+uipath-claude plan uiplan ground "Invoice exception handling hardening"
+uipath-claude plan uiplan spec --slug invoice-exception-handling-hardening
+uipath-claude plan uiplan plan --slug invoice-exception-handling-hardening
+uipath-claude plan uiplan tasks --slug invoice-exception-handling-hardening
+uipath-claude plan uiplan review --slug invoice-exception-handling-hardening
+```
+
+### Quality checklist before accept/publish
+
+- `spec.md` names scope boundaries and explicit non-goals.
+- `plan.md` includes architecture choices and risk controls.
+- `tasks.md` has atomic, testable tasks (not vague bundles).
+- Diagrams are readable and consistent with project terms.
+- Validation approach is written (what must pass before done).
+
+### Common mistakes and fixes
+
+| Mistake | Symptom | Fix |
+| --- | --- | --- |
+| Writing tasks before grounding | Rewrites and drift | Run ground/review first, then task split |
+| Mixing implementation details into spec | Blurry requirements | Keep spec focused on intent and outcomes |
+| Overly large tasks | Hard to verify progress | Split into independently verifiable steps |
+| Skipping review | Late surprises in build | Run `uiplan review` before acceptance |
+
 ## First Chat Session
 
 When you start a chat session, you can ask the agent to create UiPath automations:

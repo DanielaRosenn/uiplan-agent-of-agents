@@ -115,6 +115,8 @@ Type the **Example user message** in Cursor (Agent mode). Do **not** paste tool 
 | NL18 | "Bootstrap a minimal agentic plan JSON for exploration only—use a throwaway output path I will delete." | `uipath_agent_*` (destructive — careful) | | | |
 | NL19 | "Generate BA-style product text only from this one paragraph brief—no full lifecycle, single agent." | `uipath_agent_ba` | | | |
 | NL20 | "Turn the last BA output into a solution design draft text only—still no scaffold." | `uipath_agent_sa` | | | |
+| NL21 | "In 60 seconds, explain this repo's purpose, who should use it, and the safest first workflow for a new user." | README + USER_GUIDE routing clarity | | | |
+| NL22 | "I want to leverage everything: give me the exact order from onboarding to UiPlan to validate to manual review." | Cross-doc path (`README` -> `USER_GUIDE` -> `uiplan` -> review docs) | | | |
 
 ---
 
@@ -132,6 +134,16 @@ Verify the **human docs** and **templates** are coherent and that both **CLI** a
 | UP5 | Open the three generated files; confirm placeholders and Mermaid fences present | | | |
 | UP6 | `uv run python -m tools.uiplan scaffold-code 2099-12-31-uiplan-review` at repo root | Coded-agent checks pass | | | |
 | UP7 | Optional: `uv run python -m tools.uiplan validate-mermaid docs/uiplan/kit/_diagram-patterns.md` if `mmdc` installed | | | |
+
+## Onboarding narrative quality (new-user comprehension)
+
+Confirm the docs now answer three first-time questions quickly: **what is this project**, **how do I use it well**, **what should I run first**.
+
+| Id | Check | Status | Notes | Date |
+| --- | --- | --- | --- | --- |
+| ON1 | README includes clear purpose and "use everything" map | | | |
+| ON2 | USER_GUIDE includes practical UiPlan cookbook with decision guidance | | | |
+| ON3 | docs/uiplan/README has first-15-min flow and decision tree | | | |
 
 ---
 

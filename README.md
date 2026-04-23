@@ -6,10 +6,22 @@
 ![License](https://img.shields.io/badge/license-Internal-lightgrey)
 ![Built with](https://img.shields.io/badge/built%20with-LangGraph%20%2B%20Bedrock-6f42c1)
 ![Status](https://img.shields.io/badge/status-v0.2-green)
+![UiPlan logo](docs/assets/uiplan-logo.svg)
 
 RPA developers spend hours scaffolding projects, hand-writing XAML, and chasing validator errors that all look alike. UiPath Claude Code runs that loop for you: it scaffolds the project, writes the XAML, runs the UiPath validator, fixes what it breaks, and only stops to ask when a human decision actually matters. It works from the CLI, inside Cursor, and as a full BA → SA → ADD → TDD → Dev → QA pipeline that turns a one-paragraph brief into a validated, packaged, optionally deployed UiPath project.
 
 ![demo](docs/assets/demo.gif)
+
+## Purpose
+
+This project exists to make UiPath delivery faster and safer by combining:
+
+- **Build automation** (scaffold -> validate -> fix loop) for XAML/C# workflows.
+- **Planning discipline** via UiPlan (`spec.md` + `plan.md` + `tasks.md`) before destructive implementation.
+- **Dual interaction modes** so teams can work from CLI or Cursor while using the same runtime/tooling.
+- **Human control gates** for approvals, deployment boundaries, and plan acceptance.
+
+If you are onboarding, think of this repo as a **UiPath build operating system**: planning, generation, validation, docs, and governance in one place.
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
@@ -112,6 +124,17 @@ uipath-claude chat
 ```
 
 Full setup (UiPath CLI, Studio 26.2+, Orchestrator auth, AWS region overrides) lives in [docs/INSTALL.md](docs/INSTALL.md).
+
+### How to use everything (at a glance)
+
+| Goal | Best entry point | Why |
+| --- | --- | --- |
+| Understand project purpose and architecture | [README.md](README.md) + [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Fast orientation + deep runtime model |
+| Plan a meaningful change before code | [docs/uiplan/README.md](docs/uiplan/README.md) + `/uiplan` | Structured spec/plan/tasks with review gates |
+| Run full SDLC lifecycle | `/pdd` + [docs/PDD_LIFECYCLE.md](docs/PDD_LIFECYCLE.md) | BA -> SA -> ADD -> TDD -> Dev -> QA flow |
+| Work primarily in Cursor | [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md) | Skills + MCP tooling + quickstart path |
+| Work primarily in CLI | [docs/USER_GUIDE.md](docs/USER_GUIDE.md) | Command-first daily workflow |
+| Validate broad functionality manually | [docs/MANUAL_REVIEW_CURSOR_FULL_PROJECT.md](docs/MANUAL_REVIEW_CURSOR_FULL_PROJECT.md) | End-to-end test matrix and report template |
 
 ---
 

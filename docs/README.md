@@ -11,6 +11,7 @@ Landing page for everything under `docs/`. Start with [ARCHITECTURE.md](ARCHITEC
 - [CURSOR_USER_GUIDE.md](CURSOR_USER_GUIDE.md) — using the UiPath skills + MCP tools from inside Cursor (clone + `uv sync --extra mcp` + `mcp.json`).
 - Local setup policy: one assistant per clone via `ops/scripts/cursor-quickstart.*` or `ops/scripts/claude-quickstart.*` (`.assistant-choice`, switch with force).
 - [MANUAL_REVIEW_CURSOR_FULL_PROJECT.md](MANUAL_REVIEW_CURSOR_FULL_PROJECT.md) — wide Cursor pass: natural-language MCP routing, UiPlan kit; **almost-zero-work** onboarding via `ops/scripts/cursor-quickstart.ps1` (or `.sh`).
+- [uiplan/README.md](uiplan/README.md) — UiPlan quick start, decision tree, and leverage patterns for `spec.md` + `plan.md` + `tasks.md`.
 - [INSTALL.md](INSTALL.md) — full installation: UiPath CLI, Studio 26.2+, submodules, AWS Bedrock.
 - [TOOLS.md](TOOLS.md) — reference for every tool the agent can call.
 - [MCP_TOOLS.md](MCP_TOOLS.md) — generated catalog of MCP-exposed tools (run `python ops/scripts/generate_mcp_tools_doc.py` after changes).

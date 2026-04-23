@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="240" viewBox="0 0 920 240" role="img" aria-labelledby="title desc">
+  <title id="title">UiPlan Logo</title>
+  <desc id="desc">UiPlan planning identity with spec, plan, tasks flow</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#22c55e"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="920" height="240" rx="24" fill="url(#bg)"/>
+  <rect x="24" y="24" width="872" height="192" rx="18" fill="#0b1220" stroke="#334155" stroke-width="1"/>
+
+  <g transform="translate(48,62)">
+    <rect x="0" y="0" width="110" height="110" rx="16" fill="#111827" stroke="#475569"/>
+    <rect x="16" y="16" width="78" height="78" rx="10" fill="#0f172a" stroke="url(#accent)" stroke-width="3"/>
+    <path d="M29 52h52M29 67h52M29 82h40" stroke="#94a3b8" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="82" cy="82" r="9" fill="#22c55e"/>
+  </g>
+
+  <g transform="translate(188,68)" fill="#e2e8f0" font-family="Inter, Segoe UI, Arial, sans-serif">
+    <text x="0" y="36" font-size="44" font-weight="700">UiPlan</text>
+    <text x="0" y="72" font-size="20" fill="#94a3b8">Spec ’ Plan ’ Tasks for reliable UiPath delivery</text>
+  </g>
+
+  <g transform="translate(520,72)" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="14">
+    <rect x="0" y="0" width="98" height="34" rx="8" fill="#0f172a" stroke="#38bdf8"/>
+    <text x="49" y="22" text-anchor="middle" fill="#bae6fd">spec.md</text>
+    <path d="M103 17h26" stroke="#64748b" stroke-width="2"/>
+    <rect x="132" y="0" width="98" height="34" rx="8" fill="#0f172a" stroke="#f59e0b"/>
+    <text x="181" y="22" text-anchor="middle" fill="#fde68a">plan.md</text>
+    <path d="M235 17h26" stroke="#64748b" stroke-width="2"/>
+    <rect x="264" y="0" width="104" height="34" rx="8" fill="#0f172a" stroke="#22c55e"/>
+    <text x="316" y="22" text-anchor="middle" fill="#bbf7d0">tasks.md</text>
+  </g>
+</svg>

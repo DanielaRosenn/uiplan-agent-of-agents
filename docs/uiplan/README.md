@@ -1,6 +1,32 @@
 # UiPlan (spec + plan + tasks)
 
 UiPlan is the **three-file planning bundle** used before implementation: `spec.md` (what), `plan.md` (how), and `tasks.md` (executable steps). It pairs with MCP plan tools and the local **`tools/uiplan`** CLI for generate → review → scaffold workflows.
+![UiPlan logo](../assets/uiplan-logo.svg)
+
+## First 15 minutes
+
+If you are new, do this in order:
+
+1. Read [HOW_TO_USE.md](HOW_TO_USE.md) for the mode matrix (MCP vs CLI vs skill).
+2. Generate a bundle: `uv run python -m tools.uiplan generate-docs <slug>`.
+3. Review the three files (`spec.md`, `plan.md`, `tasks.md`) and tighten scope.
+4. Run review (`uipath_plan_review` or `/uiplan review`) and resolve findings.
+5. Move to scaffold/build only after acceptance.
+
+This flow is the fastest way to keep planning quality high and implementation predictable.
+
+## Decision tree (when to use UiPlan)
+
+```mermaid
+flowchart TD
+  startNode["Need to change behavior"] --> scopeNode{"Single-file small fix?"}
+  scopeNode -->|yes| directNode["Edit directly + validate"]
+  scopeNode -->|no| formalNode{"Need formal BA/SA/ADD/TDD outputs?"}
+  formalNode -->|yes| pddNode["Use /pdd lifecycle"]
+  formalNode -->|no| uiplanNode["Use UiPlan bundle"]
+  uiplanNode --> reviewNode["Review and accept"]
+  reviewNode --> buildNode["Scaffold/build"]
+```
 
 ## Audience
 
@@ -71,3 +97,11 @@ sequenceDiagram
   class Dev human
   class CLI,FS,Rev service
 ```
+
+## Best leverage patterns
+
+| Pattern | Use UiPlan this way | Expected benefit |
+| --- | --- | --- |
+| Small feature | Keep spec short, focus plan on integration points, split 3-6 tasks | Fast implementation with low overhead |
+| Medium refactor | Expand risks/rollback in plan, enforce task-level validation checks | Lower regression risk |
+| Formal initiative | Use UiPlan for build contract, then handoff to `/pdd` for full lifecycle docs | Better cross-team coordination |
