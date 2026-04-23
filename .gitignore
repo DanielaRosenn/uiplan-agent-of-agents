@@ -73,6 +73,7 @@ Thumbs.db
 !.cursor/rules/**
 !.cursor/skills
 !.cursor/skills/**
+!.cursor/mcp.json.example
 .cursor/hooks/state/
 .cursor/plans/
 

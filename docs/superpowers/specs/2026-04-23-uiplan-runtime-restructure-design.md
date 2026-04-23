@@ -191,10 +191,14 @@ Completed path:
 - `tools/uiplan/validators/visual_density.py` — minimum Mermaid counts + Pro Standard heuristics (`classDef`, `linkStyle` on flowcharts).
 - `uv run python -m tools.uiplan generate-docs <slug>` wired with `--out`, `--kit`, `--strict`.
 
+**Shipped (partial, 2026-04-23):**
+
+- `tools/uiplan/scaffold/` — `detect_project_kind`, `ScaffoldAdapter` registry, `coded-agent` and `rpa` adapters with explicit `ExplicitStubAdapter` for other kinds; `scaffold-code` Typer command with `--repo`; baseline note `docs/uiplan/SCAFFOLD_CODE.md`; tests in `tools/uiplan/tests/test_scaffold_adapters.py`.
+- Optional `mmdc` path — `tools.uiplan validate-mermaid`, `tools/uiplan/validators/mermaid_extract.py` + `mermaid_mmdc.py`, doc `docs/uiplan/MERMAID_VALIDATION.md`, manual GitHub workflow `.github/workflows/mermaid-validate.yml`.
+
 **Backlog (design §3 parity):**
 
-- Per-project-type adapters under `tools/uiplan/scaffold/` beyond the current stub loop.
-- `mmdc` syntax validation when CLI available.
+- Deeper scaffold execution (real `uipcli` / `uipath` subprocess loops per adapter, not only static checks).
 - Rich MCP bridges (`integrations/mcp_bridge.py` patterns) as described in earlier sections of this doc.
 
 ## 11) Test strategy

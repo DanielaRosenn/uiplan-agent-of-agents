@@ -5,6 +5,8 @@ import typer
 
 from tools.uiplan.generators.docs_bundle import default_kit_dir, generate_docs_bundle
 from tools.uiplan.scaffold.loop_runner import resolve_max_loops
+from tools.uiplan.scaffold.runner import format_scaffold_stdout, run_scaffold
+from tools.uiplan.validators.mermaid_mmdc import validate_mermaid_with_mmdc
 from tools.uiplan.validators.visual_density import validate_uiplan_docs
 
 app = typer.Typer(help="UiPlan runtime commands")
@@ -61,9 +63,39 @@ def scaffold_code(
         "--max-loops",
         help="Max validate/fix loops (1-25). Overrides UIPLAN_MAX_LOOPS. Default: 5.",
     ),
+    repo: Path | None = typer.Option(
+        None,
+        "--repo",
+        help="Repository root to classify (default: parent of tools/, i.e. this monorepo).",
+    ),
 ) -> None:
+    """Run scaffold checks for the detected project type (see docs/uiplan/SCAFFOLD_CODE.md)."""
     effective = resolve_max_loops(
         flag_value=max_loops,
         env_value=os.environ.get("UIPLAN_MAX_LOOPS"),
     )
-    print(f"scaffold-code:{plan_slug}:max_loops={effective}")
+    root = repo.resolve() if repo is not None else _repo_root()
+    payload = run_scaffold(plan_slug=plan_slug, repo_root=root, max_loops=effective)
+    typer.echo(format_scaffold_stdout(payload))
+    outcome = payload.get("loop_outcome") or {}
+    if outcome.get("status") != "ok":
+        raise typer.Exit(code=1)
+
+
+@app.command("validate-mermaid")
+def validate_mermaid(
+    paths: list[Path] = typer.Argument(
+        ...,
+        help="Markdown files to scan for ```mermaid fences.",
+        exists=True,
+        dir_okay=False,
+        readable=True,
+    ),
+) -> None:
+    """Validate fenced Mermaid blocks using ``mmdc`` (optional; see docs/uiplan/MERMAID_VALIDATION.md)."""
+    issues = validate_mermaid_with_mmdc(paths)
+    if issues:
+        for line in issues:
+            typer.echo(line, err=True)
+        raise typer.Exit(code=1)
+    typer.echo("mermaid: OK")

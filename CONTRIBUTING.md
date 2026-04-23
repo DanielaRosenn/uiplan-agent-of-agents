@@ -94,9 +94,9 @@ python run_evals.py
 
 ## MCP setup (Cursor)
 
-The repo ships a project-scoped `.cursor/mcp.json` that registers the
-`uipath-builder-agent` MCP server (stdio transport, `python -m mcp_server.server` with
-`PYTHONPATH` including `framework/`).
+Copy `.cursor/mcp.json.example` to `.cursor/mcp.json` (the latter is gitignored).
+The example registers the `uipath-builder-agent` MCP server (stdio transport,
+`uv run python -m mcp_server.server` with `PYTHONPATH` including `framework/`).
 Cursor will only pick it up when three conditions are met:
 
 1. **Python deps installed in a venv on PATH.** Run `pip install -e ".[dev]"`

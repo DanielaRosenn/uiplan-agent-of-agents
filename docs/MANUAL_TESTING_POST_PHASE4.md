@@ -95,27 +95,13 @@ uv run python -c "import mcp_server.server; print('ok')"
 
 ## 7. Cursor MCP config
 
-Per-repo `.cursor/mcp.json` is **gitignored** (local IDE file). Create it manually. Recommended contents (save as `.cursor/mcp.json` at the repo root; adjust paths if not using `uv`):
+Per-repo `.cursor/mcp.json` is **gitignored** (local IDE file). Use the **tracked** template at [.cursor/mcp.json.example](../.cursor/mcp.json.example):
 
-```json
-{
-  "mcpServers": {
-    "uipath-builder-agent": {
-      "command": "uv",
-      "args": ["run", "python", "-m", "mcp_server.server"],
-      "cwd": "${workspaceFolder}",
-      "env": {
-        "PYTHONUNBUFFERED": "1",
-        "PYTHONPATH": "${workspaceFolder}/framework"
-      }
-    }
-  }
-}
+```powershell
+Copy-Item .cursor/mcp.json.example .cursor/mcp.json
 ```
 
-Alternative without `uv`: `"command": "python"` and `"args": ["-m", "mcp_server.server"]` with the same `PYTHONPATH` (use the interpreter that has this project installed). See [CURSOR_USER_GUIDE.md](CURSOR_USER_GUIDE.md).
-
-**Team hygiene (optional):** add a tracked `.cursor/mcp.json.example` plus `!.cursor/mcp.json.example` in [.gitignore](../.gitignore) so the example is shared without committing personal `mcp.json`.
+That file matches the tested layout (`uv` + `PYTHONPATH` `${workspaceFolder}/framework`). If you do not use `uv`, edit `.cursor/mcp.json` to use `"command": "python"` and `"args": ["-m", "mcp_server.server"]` with the same `PYTHONPATH` (interpreter must have this repo and MCP deps installed). See [CURSOR_USER_GUIDE.md](CURSOR_USER_GUIDE.md).
 
 **Manual in Cursor:** Settings → MCP → confirm `uipath-builder-agent` connects; invoke a read-only tool (e.g. `uipath_plan_list` with safe scope) once.
 

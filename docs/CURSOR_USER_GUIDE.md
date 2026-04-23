@@ -38,11 +38,13 @@ pip install -e ".[mcp]"
 
 The MCP server gives Cursor access to UiPath CLI tools (validation, execution, package management).
 
-Copy `.cursor/mcp.json` to enable MCP:
+Copy the tracked example to your local (gitignored) MCP config:
+
 ```powershell
-# The mcp.json is already in .cursor/ after setup
-# Cursor will auto-detect it when you open the folder
+Copy-Item .cursor/mcp.json.example .cursor/mcp.json
 ```
+
+Edit `.cursor/mcp.json` only if your machine needs a different `command` (for example bare `python` instead of `uv`). The canonical template is `.cursor/mcp.json.example`.
 
 Or manually add to Cursor's MCP settings:
 ```json

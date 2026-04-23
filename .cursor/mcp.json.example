@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "uipath-builder-agent": {
+      "command": "uv",
+      "args": ["run", "python", "-m", "mcp_server.server"],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "PYTHONUNBUFFERED": "1",
+        "PYTHONPATH": "${workspaceFolder}/framework"
+      }
+    }
+  }
+}

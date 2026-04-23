@@ -1,0 +1,26 @@
+# Optional: run `uv run python -m tools.uiplan validate-mermaid` on kit templates.
+# Requires `mmdc` (npm install -g @mermaid-js/mermaid-cli). Does not run on push.
+name: Mermaid validate (manual)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  mmdc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install mermaid-cli
+        run: npm install -g @mermaid-js/mermaid-cli
+      - name: Validate kit diagrams
+        run: |
+          uv sync
+          uv run python -m tools.uiplan validate-mermaid \
+            docs/uiplan/kit/_spec-template.md \
+            docs/uiplan/kit/_plan-template.md \
+            docs/uiplan/kit/_tasks-template.md \
+            docs/uiplan/kit/_diagram-patterns.md

@@ -15,6 +15,8 @@ UiPlan is the **three-file planning bundle** used before implementation: `spec.m
 | [UiPlan framework (MCP matrix)](../plans/2026-04-21-uiplan-framework.md) | Tooling roles and storage model |
 | [Template kit](kit/) | `_spec-template.md`, `_plan-template.md`, `_tasks-template.md`, `_diagram-patterns.md` |
 | [Mermaid Pro Standard](../../.cursor/skills/mermaid-diagram-builder/SKILL.md) | Diagram style contract for this repo |
+| [MERMAID_VALIDATION.md](MERMAID_VALIDATION.md) | Optional `mmdc` batch check for fenced diagrams |
+| [SCAFFOLD_CODE.md](SCAFFOLD_CODE.md) | What `tools.uiplan scaffold-code` does today |
 
 ## Repository layout (UiPlan-related)
 
