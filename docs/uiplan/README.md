@@ -17,6 +17,7 @@ UiPlan is the **three-file planning bundle** used before implementation: `spec.m
 | [Mermaid Pro Standard](../../.cursor/skills/mermaid-diagram-builder/SKILL.md) | Diagram style contract for this repo |
 | [MERMAID_VALIDATION.md](MERMAID_VALIDATION.md) | Optional `mmdc` batch check for fenced diagrams |
 | [SCAFFOLD_CODE.md](SCAFFOLD_CODE.md) | What `tools.uiplan scaffold-code` does today |
+| [MANUAL_REVIEW_CURSOR_FULL_PROJECT.md](../MANUAL_REVIEW_CURSOR_FULL_PROJECT.md) | Cursor-first checklist (NL prompts, kit verification **UP** rows) |
 
 ## Repository layout (UiPlan-related)
 

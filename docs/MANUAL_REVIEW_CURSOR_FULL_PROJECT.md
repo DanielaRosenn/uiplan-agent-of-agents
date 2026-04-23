@@ -1,46 +1,116 @@
-# Full-project manual review (Cursor)
+# Full-project manual review (Cursor-first)
 
-Use this document to **manually exercise** the UiPath Builder Agent surface **through Cursor** (chat + MCP tools + skills), record **PASS / FAIL / BLOCKED / N/A**, and paste the **Results** section into your team’s ticket, PR, or wiki when done.
+Use this document after a **fresh clone** (or any time you need a wide pass) to exercise the builder agent **primarily through Cursor**: natural-language chat, **MCP** tools, and project skills. Record **PASS / FAIL / BLOCKED / N/A** and paste **[Results (copy-paste)](#results-copy-paste)** when done.
+
+**What you are testing**
+
+1. **Intent routing** — You type **everyday language** (no tool IDs). The agent should pick the right MCP tool from **names and descriptions** registered on the server ([MCP_TOOLS.md](MCP_TOOLS.md)).
+2. **Repo + UiPlan** — Layout, kit, generated bundles, and docs hang together.
+3. **Clone ergonomics** — A new developer following this doc + [CURSOR_USER_GUIDE.md](CURSOR_USER_GUIDE.md) gets a **green MCP** and sensible first prompts.
 
 | Scope | This doc | Other docs |
 | --- | --- | --- |
-| Post–Phase 4 layout, submodule, quick gates | Rows under **Repo and CLI gates** | [MANUAL_TESTING_POST_PHASE4.md](MANUAL_TESTING_POST_PHASE4.md) |
-| Long scripted scenarios (Ask AI, library loop, etc.) | Use **Notes** to point at step IDs | [SMOKE_TESTS.md](SMOKE_TESTS.md) |
-| Tool semantics and schemas | **Notes** only; source of truth | [MCP_TOOLS.md](MCP_TOOLS.md) (regenerate with `python ops/scripts/generate_mcp_tools_doc.py` if tools change) |
+| Phase 4 quick gates | **Fresh clone** + **Repo gates** | [MANUAL_TESTING_POST_PHASE4.md](MANUAL_TESTING_POST_PHASE4.md) |
+| Long scripted flows | Notes → step ids | [SMOKE_TESTS.md](SMOKE_TESTS.md) |
+| Tool schemas / diagrams | Reference only | [MCP_TOOLS.md](MCP_TOOLS.md) |
 
-**Non-goals:** This does not replace `uv run pytest -q`. It does not authorize Production Orchestrator deploy ([CLAUDE.md](../CLAUDE.md)).
-
----
-
-## Prerequisites
-
-1. **Workspace** — Open the **repository root** as the Cursor folder (not a parent path).
-2. **Python / uv** — `uv sync` from repo root; interpreter matches what MCP uses ([.cursor/mcp.json.example](../.cursor/mcp.json.example)).
-3. **MCP** — Copy `.cursor/mcp.json.example` → `.cursor/mcp.json` if needed; confirm **Settings → MCP** shows `uipath-builder-agent` connected.
-4. **Optional** — AWS Bedrock env for BA/SA/agent tools ([SMOKE_TESTS.md](SMOKE_TESTS.md) “Model + profile env vars”); `uip` on PATH for doc steps 8–9 in the Phase 4 checklist; Studio / tenant only where a row explicitly requires them.
-5. **Destructive tools** — When testing writers (`uipath_workflow_write_file`, `uipath_plan_accept`, …), use a **throwaway branch** or temp paths. Click **Allow** in Cursor when exercising destructive MCP tools.
+**Non-goals:** Does not replace `uv run pytest -q`. No Production Orchestrator deploy ([CLAUDE.md](../CLAUDE.md)).
 
 ---
 
-## How to run the review
+## Cursor best practices (clone → working MCP)
 
-1. Work **section by section** (or one long session), asking the agent in Cursor to invoke the named MCP tool with **minimal safe arguments** (read-only first).
-2. For each row: set **Status** to `PASS`, `FAIL`, `BLOCKED` (missing creds/Studio/binary), or `N/A` (not applicable to your environment). Fill **Notes** with the error string, ticket id, or “see SMOKE_TESTS §…”.
-3. Copy **Date** when you touched that row (or once per section if you prefer).
-4. When finished, fill **[Results (copy-paste)](#results-copy-paste)** at the bottom and submit per your team process.
+Do these **in order** on a clean machine. Matches [CURSOR_USER_GUIDE.md](CURSOR_USER_GUIDE.md) and [CONTRIBUTING.md](../CONTRIBUTING.md).
+
+| Step | Action | Status | Notes | Date |
+| --- | --- | --- | --- | --- |
+| CC1 | `git clone …` then `cd` into **repo root** | | | |
+| CC2 | `git submodule update --init --recursive` | | | |
+| CC3 | `uv sync` at repo root (recommended; aligns with [.cursor/mcp.json.example](../.cursor/mcp.json.example)) | | | |
+| CC4 | `Copy-Item .cursor/mcp.json.example .cursor/mcp.json` (PowerShell) or equivalent | | | |
+| CC5 | Run `.\ops\scripts\setup-cursor.ps1` (Windows) or `./ops/scripts/setup-cursor.sh` (Unix) so rules/skills/hooks match the repo | | | |
+| CC6 | **File → Open Folder** → pick **this repo root** (not a parent directory) | | | |
+| CC7 | **Cursor Settings → MCP** → `uipath-builder-agent` shows **connected** (reload window after `mcp.json` edits) | | | |
+| CC8 | Optional: add `cursor-public/superpowers` per user guide for workflow skills | | | |
+| CC9 | In chat, enable **Agent** mode when you want tool use; use **Ask** only for read-only Q&A | | | |
+
+**Tip:** If MCP stays red, run from repo root: `uv run python -m mcp_server.server` with `PYTHONPATH` including `framework` — the terminal error is the source of truth ([MANUAL_TESTING_POST_PHASE4.md](MANUAL_TESTING_POST_PHASE4.md) §6).
+
+---
+
+## Prerequisites (review session)
+
+1. Complete **Cursor best practices** above.
+2. **Destructive work** — Use a throwaway branch; confirm **Allow** on Cursor prompts for destructive MCP tools.
+3. **Optional env** — Bedrock / Ask AI for heavy agents ([SMOKE_TESTS.md](SMOKE_TESTS.md)); `uip` for platform doc steps; Studio only when a scenario requires it.
+
+---
+
+## How to run this review (Cursor)
+
+1. Prefer **natural-language rows** first: paste the **Example user message** into Cursor chat **without** naming MCP tools (e.g. do not write `uipath_library_search`).
+2. Watch which tools the agent calls; confirm behavior matches **Expected** (or is an acceptable alternative).
+3. Use **Tool / MCP name** rows when you need a **1:1 audit** or regression against a specific tool.
+4. Fill **Status** / **Notes** / **Date**; then complete **[Results](#results-copy-paste)**.
 
 **Status legend**
 
 | Value | Meaning |
 | --- | --- |
-| `PASS` | Observed success through Cursor |
-| `FAIL` | Invoked but incorrect / error |
-| `BLOCKED` | Cannot run (env, policy, missing install) — explain in Notes |
-| `N/A` | Deliberately skipped (not in scope for this reviewer) |
+| `PASS` | Correct routing + outcome in Cursor |
+| `FAIL` | Wrong tool, error, or unsafe suggestion |
+| `BLOCKED` | Missing env, policy, binary |
+| `N/A` | Skipped by choice |
 
 ---
 
-## Repo and CLI gates (non-MCP or hybrid)
+## Natural-language scenarios (wide intent routing)
+
+Type the **Example user message** in Cursor (Agent mode). Do **not** paste tool names into your prompt unless the row says you may.
+
+| Id | Example user message (copy into Cursor) | Expected (MCP / area) | Status | Notes | Date |
+| --- | --- | --- | --- | --- | --- |
+| NL1 | "List the books in the internal UiPath documentation library and give me one chapter title from any book." | `uipath_library_*` read path | | | |
+| NL2 | "Search the docs library for how Orchestrator queues work and quote one sentence with the section id." | `uipath_library_search` or lookup | | | |
+| NL3 | "What skills are available in this project for RPA work, and which one best matches building a coded workflow in C#?" | `uipath_skill_list` / `uipath_skill_match` | | | |
+| NL4 | "I am planning a small automation: ground a plan from our constitution and repo context, then outline spec sections only—no writes to disk yet." | `uipath_plan_ground`, read-only plan tools | | | |
+| NL5 | "Show me the current draft plans under the default scope and the status of each." | `uipath_plan_list`, `uipath_plan_read` | | | |
+| NL6 | "Render the Mermaid from my current plan bundle as markdown I can paste into a review." | `uipath_plan_render_mermaid` | | | |
+| NL7 | "Classify this request as BUILD vs QUESTION: I need to add a Log Message to Main.xaml in an existing Studio project." | `uipath_intent_classify` or planner path | | | |
+| NL8 | "What UiPath activity packages exist for Excel in the bundled activity docs, and list one activity type?" | `uipath_doc_list_packages` / `uipath_doc_get_activity` | | | |
+| NL9 | "Find documentation for Retry Scope in the activity reference and summarize constraints in two bullets." | `uipath_doc_search` / `query_uipath_docs` | | | |
+| NL10 | "Probe my local Studio environment for installed package versions before we add dependencies." | `uipath_workflow_environment_probe` | | | |
+| NL11 | "Read project.json from my UiPath project path and tell me the entry workflow name—read only." | `uipath_workflow_read_project` / read_file | | | |
+| NL12 | "We have an approved design: append a short note to session memory under key demo-review." | `uipath_memory_append` / save | | | |
+| NL13 | "List pending design proposals for this workspace and whether any are approved." | `uipath_design_list` / `uipath_design_status` | | | |
+| NL14 | "What is the MCP session gate status for workflow builds right now?" | `uipath_workflow_session_status` | | | |
+| NL15 | "Run a read-only validation on my UiPath project at this path and summarize errors." | `uipath_workflow_validate` | | | |
+| NL16 | "Propose a library section update based on a lesson learned from last sprint—staging only, do not approve yet." | `uipath_library_propose_section` (staging) | | | |
+| NL17 | "Summarize this answer from the builder agent perspective: why use environment probe before install_package?" | `uipath_answer` | | | |
+| NL18 | "Bootstrap a minimal agentic plan JSON for exploration only—use a throwaway output path I will delete." | `uipath_agent_*` (destructive — careful) | | | |
+| NL19 | "Generate BA-style product text only from this one paragraph brief—no full lifecycle, single agent." | `uipath_agent_ba` | | | |
+| NL20 | "Turn the last BA output into a solution design draft text only—still no scaffold." | `uipath_agent_sa` | | | |
+
+---
+
+## UiPlan — docs, kit, and MCP alignment
+
+Verify the **human docs** and **templates** are coherent and that both **CLI** and **MCP** paths are described ([HOW_TO_USE.md](uiplan/HOW_TO_USE.md)).
+
+| Id | Check | Status | Notes | Date |
+| --- | --- | --- | --- | --- |
+| UP0 | In Cursor (natural language): "Explain when to use UiPlan `generate-docs` vs MCP `uipath_plan_uiplan_new`, and where the kit lives." | Agent cites `docs/uiplan/` paths | | | |
+| UP1 | Read [docs/uiplan/README.md](uiplan/README.md) — links resolve | | | |
+| UP2 | Read [docs/uiplan/HOW_TO_USE.md](uiplan/HOW_TO_USE.md) — decision table matches your mental model | | | |
+| UP3 | Confirm kit files exist: `docs/uiplan/kit/_spec-template.md`, `_plan-template.md`, `_tasks-template.md`, `_diagram-patterns.md` | | | |
+| UP4 | `uv run python -m tools.uiplan generate-docs 2099-12-31-uiplan-review --out (Join-Path $env:TEMP 'uiplan-kit-test')` — **strict** (PowerShell) | Three files + density OK | | | |
+| UP5 | Open the three generated files; confirm placeholders and Mermaid fences present | | | |
+| UP6 | `uv run python -m tools.uiplan scaffold-code 2099-12-31-uiplan-review` at repo root | Coded-agent checks pass | | | |
+| UP7 | Optional: `uv run python -m tools.uiplan validate-mermaid docs/uiplan/kit/_diagram-patterns.md` if `mmdc` installed | | | |
+
+---
+
+## Repo and CLI gates (hybrid — terminal OK)
 
 | Id | Check | Status | Notes | Date |
 | --- | --- | --- | --- | --- |
@@ -48,17 +118,14 @@ Use this document to **manually exercise** the UiPath Builder Agent surface **th
 | G2 | `uv run python -m uipath_claude.skills.submodule_guard` | | | |
 | G3 | `uv run pytest -q` (full suite) | | | |
 | G4 | `PYTHONPATH=framework` + `uv run python -c "import mcp_server.server"` | | | |
-| G5 | `uv run python -m tools.uiplan generate-docs 2099-12-31-review --out %TEMP%\uiplan-review` | | | |
-| G6 | `uv run python -m tools.uiplan scaffold-code 2099-12-31-review` (repo root) | | | |
-| G7 | `uv run python -m tools.uiplan validate-mermaid` on one kit file (optional; `BLOCKED` if no `mmdc`) | | | |
 | G8 | `uv run python -c "from uipath_claude.graph import graph; print(type(graph))"` | | | |
 | G9 | `uip --version` (optional) | | | |
 
 ---
 
-## Slash and chat commands (when exposed)
+## Slash commands (CLI only — optional)
 
-These run in **`uipath chat`** (not Cursor MCP). With **`UIPATH_CLAUDE_TOOL_PROFILE=safe`** or **`uipath-dev`**, the SDLC commands below are **allowed** (same allow-list). See [SLASH_COMMANDS.md](SLASH_COMMANDS.md). In **Cursor**, most automation is via **MCP**; run slash checks from a terminal chat session if your review scope includes the CLI.
+`uipath chat` slash commands; not Cursor MCP. See [SLASH_COMMANDS.md](SLASH_COMMANDS.md).
 
 | Id | Command | Status | Notes | Date |
 | --- | --- | --- | --- | --- |
@@ -73,176 +140,176 @@ These run in **`uipath chat`** (not Cursor MCP). With **`UIPATH_CLAUDE_TOOL_PROF
 | S9 | `/update-skills --check` | | | |
 | S10 | `/scan-upstream-skills --dry-run` | | | |
 | S11 | `/library-proposals list` | | | |
-| S12 | `/library-harvest` (optional; mutates proposal queue) | | | |
+| S12 | `/library-harvest` | | | |
 | S13 | `/books` | | | |
-| S14 | `/repair-restore` (with safe args; may touch project) | | | |
-| S15 | `/uiplan` (see [SLASH_COMMANDS.md](SLASH_COMMANDS.md)) | | | |
-| S16 | `/plan` (only if planner enabled in session) | | | |
+| S14 | `/repair-restore` | | | |
+| S15 | `/uiplan` | | | |
+| S16 | `/plan` (if planner enabled) | | | |
 
 ---
 
 ## MCP tools — workflow
 
-| Tool | Side-effect hint | Status | Notes | Date |
-| --- | --- | --- | --- | --- |
-| `uipath_workflow_read_file` | read-only | | | |
-| `uipath_workflow_write_file` | destructive | | | |
-| `uipath_workflow_list_directory` | read-only | | | |
-| `uipath_workflow_read_project` | read-only | | | |
-| `uipath_workflow_install_package` | destructive | | | |
-| `uipath_workflow_validate` | read-only | | | |
-| `uipath_workflow_validate_loop` | destructive | | | |
-| `uipath_workflow_build_and_verify` | destructive | | | |
-| `uipath_workflow_environment_probe` | read-only | | | |
-| `uipath_workflow_create_project` | destructive | | | |
-| `uipath_workflow_run` | destructive | | | |
-| `uipath_workflow_debug` | destructive | | | |
-| `uipath_workflow_ensure_project` | read-only | | | |
-| `uipath_workflow_run_command` | destructive | | | |
-| `uipath_workflow_deploy` | destructive | | | |
-| `uipath_workflow_publish` | destructive | | | |
-| `uipath_workflow_session_status` | read-only | | | |
+| Tool | Hint | Example user message (Cursor — do not name the tool) | Status | Notes | Date |
+| --- | --- | --- | --- | --- | --- |
+| `uipath_workflow_read_file` | read-only | "Open and show the text of this file inside my UiPath project: …" | | | |
+| `uipath_workflow_write_file` | destructive | "After design approval, apply this patch to Main.xaml in my project: …" | | | |
+| `uipath_workflow_list_directory` | read-only | "What files are under the Tests folder in my automation project?" | | | |
+| `uipath_workflow_read_project` | read-only | "Summarize entry points and dependencies from my Studio project metadata." | | | |
+| `uipath_workflow_install_package` | destructive | "Add the official Excel activities package compatible with my Studio install." | | | |
+| `uipath_workflow_validate` | read-only | "Run static validation on the project and list blocking issues only." | | | |
+| `uipath_workflow_validate_loop` | destructive | "Iterate validate/fix until clean or hit a cap—explain each loop." | | | |
+| `uipath_workflow_build_and_verify` | destructive | "Run restore/analyze-style verification after my last XAML edit; say if I can mark done." | | | |
+| `uipath_workflow_environment_probe` | read-only | "What Studio package versions does my machine expose for this solution?" | | | |
+| `uipath_workflow_create_project` | destructive | "Scaffold a new blank UiPath process in this empty folder using CLI—not hand-written JSON." | | | |
+| `uipath_workflow_run` | destructive | "Execute the main workflow locally with safe test inputs." | | | |
+| `uipath_workflow_debug` | destructive | "Collect debug info for the last failed run in this project." | | | |
+| `uipath_workflow_ensure_project` | read-only | "Confirm this path is a valid UiPath project root and say what is missing if not." | | | |
+| `uipath_workflow_run_command` | destructive | "Run this approved diagnostic command in the project context." | | | |
+| `uipath_workflow_deploy` | destructive | "Do **not** run against Production; if you must demo deploy, use personal workspace only with explicit OK." | | | |
+| `uipath_workflow_publish` | destructive | Same caution as deploy—personal workspace only with human confirmation. | | | |
+| `uipath_workflow_session_status` | read-only | "Is the workflow session dirty or blocked after recent edits?" | | | |
 
 ---
 
 ## MCP tools — skill
 
-| Tool | Side-effect hint | Status | Notes | Date |
-| --- | --- | --- | --- | --- |
-| `uipath_skill_list` | read-only | | | |
-| `uipath_skill_get` | read-only | | | |
-| `uipath_skill_match` | read-only | | | |
-| `uipath_skill_insights_query` | read-only | | | |
-| `uipath_skill_insights_add` | staging | | | |
-| `uipath_skill_manifest` | read-only | | | |
-| `uipath_skill_check_updates` | read-only | | | |
-| `uipath_skill_update` | destructive | | | |
-| `uipath_skill_lessons_list` | read-only | | | |
-| `uipath_skill_lessons_approve` | destructive | | | |
+| Tool | Hint | Example user message (Cursor) | Status | Notes | Date |
+| --- | --- | --- | --- | --- | --- |
+| `uipath_skill_list` | read-only | "List skills the MCP can see for this workspace." | | | |
+| `uipath_skill_get` | read-only | "Show the SKILL.md header and when-to-use for the RPA skill." | | | |
+| `uipath_skill_match` | read-only | "Which skill should I use for Orchestrator folder operations?" | | | |
+| `uipath_skill_insights_query` | read-only | "Any recorded insights about package version mismatches?" | | | |
+| `uipath_skill_insights_add` | staging | "Stage a short insight about a recurring validation error we saw." | | | |
+| `uipath_skill_manifest` | read-only | "Show the skill manifest grouping for this session." | | | |
+| `uipath_skill_check_updates` | read-only | "Does the skills submodule differ from upstream default branch?" | | | |
+| `uipath_skill_update` | destructive | "Update the skills submodule in a throwaway branch only—confirm with me first." | | | |
+| `uipath_skill_lessons_list` | read-only | "List pending lesson drafts from the distiller." | | | |
+| `uipath_skill_lessons_approve` | destructive | "Approve lesson L123 after human review." | | | |
 
 ---
 
 ## MCP tools — agent
 
-| Tool | Side-effect hint | Status | Notes | Date |
-| --- | --- | --- | --- | --- |
-| `uipath_agent_bootstrap` | destructive | | | |
-| `uipath_agent_plan` | destructive | | | |
-| `uipath_agent_execute` | destructive | | | |
-| `uipath_agent_classify_intent` | read-only | | | |
-| `uipath_agent_ba` | destructive | | | |
-| `uipath_agent_sa` | destructive | | | |
+| Tool | Hint | Example user message (Cursor) | Status | Notes | Date |
+| --- | --- | --- | --- | --- | --- |
+| `uipath_agent_bootstrap` | destructive | "Run a controlled bootstrap of the agent stack to this temp output directory." | | | |
+| `uipath_agent_plan` | destructive | "Produce a structured implementation plan JSON for this brief." | | | |
+| `uipath_agent_execute` | destructive | "Execute the previously approved plan step list with logging." | | | |
+| `uipath_agent_classify_intent` | read-only | "Is this message a build request or a documentation question?" | | | |
+| `uipath_agent_ba` | destructive | "Draft a PDD-style product brief from this stakeholder paragraph." | | | |
+| `uipath_agent_sa` | destructive | "Turn the product brief into a solution design narrative." | | | |
 
 ---
 
 ## MCP tools — doc
 
-| Tool | Side-effect hint | Status | Notes | Date |
-| --- | --- | --- | --- | --- |
-| `uipath_doc_list_packages` | read-only | | | |
-| `uipath_doc_list_activities` | read-only | | | |
-| `uipath_doc_get_activity` | read-only | | | |
-| `uipath_doc_get_package_overview` | read-only | | | |
-| `uipath_doc_search` | read-only | | | |
-| `uipath_doc_find_activity` | read-only | | | |
-| `query_uipath_docs` | read-only | | | |
-| `uipath_doc_query` | read-only | | | |
-| `uipath_doc_read_template` | read-only | | | |
-| `uipath_doc_list_docs` | read-only | | | |
-| `uipath_doc_read_doc` | read-only | | | |
-| `uipath_doc_write_doc` | destructive | | | |
+| Tool | Hint | Example user message (Cursor) | Status | Notes | Date |
+| --- | --- | --- | --- | --- | --- |
+| `uipath_doc_list_packages` | read-only | "What activity packages are indexed for documentation lookup?" | | | |
+| `uipath_doc_list_activities` | read-only | "List activities in UiPath.Excel.Activities for quick pick." | | | |
+| `uipath_doc_get_activity` | read-only | "Property summary for Use Excel File activity." | | | |
+| `uipath_doc_get_package_overview` | read-only | "High-level overview of the System activities package." | | | |
+| `uipath_doc_search` | read-only | "Search activity docs for 'queue trigger' snippets." | | | |
+| `uipath_doc_find_activity` | read-only | "Find the package that owns 'Set Transaction Status'." | | | |
+| `query_uipath_docs` | read-only | "Ask the unified docs endpoint a narrow factual question about Orchestrator folders." | | | |
+| `uipath_doc_query` | read-only | "Structured doc query for templates mentioning REFramework." | | | |
+| `uipath_doc_read_template` | read-only | "Load the SDD template excerpt for headings only." | | | |
+| `uipath_doc_list_docs` | read-only | "List internal markdown docs under docs/ the tool can read." | | | |
+| `uipath_doc_read_doc` | read-only | "Open ARCHITECTURE.md and summarize the runtime diagram in three bullets." | | | |
+| `uipath_doc_write_doc` | destructive | "Persist this approved doc body to docs/foo.md—only after explicit human OK." | | | |
 
 ---
 
 ## MCP tools — memory
 
-| Tool | Side-effect hint | Status | Notes | Date |
-| --- | --- | --- | --- | --- |
-| `uipath_memory_load` | read-only | | | |
-| `uipath_memory_save` | destructive | | | |
-| `uipath_memory_append` | destructive | | | |
+| Tool | Hint | Example user message (Cursor) | Status | Notes | Date |
+| --- | --- | --- | --- | --- | --- |
+| `uipath_memory_load` | read-only | "Recall what we stored under session key sprint-42." | | | |
+| `uipath_memory_save` | destructive | "Replace session memory map with this JSON blob for demo only." | | | |
+| `uipath_memory_append` | destructive | "Append a timestamped note to the running session log in memory." | | | |
 
 ---
 
 ## MCP tools — library
 
-| Tool | Side-effect hint | Status | Notes | Date |
-| --- | --- | --- | --- | --- |
-| `uipath_library_list` | read-only | | | |
-| `uipath_library_toc` | read-only | | | |
-| `uipath_library_read_section` | read-only | | | |
-| `uipath_library_search` | read-only | | | |
-| `uipath_library_lookup` | read-only | | | |
-| `uipath_library_propose_section` | staging | | | |
-| `uipath_library_propose_chapter` | staging | | | |
-| `uipath_library_list_proposals` | read-only | | | |
-| `uipath_library_approve_proposal` | destructive | | | |
-| `uipath_library_reject_proposal` | destructive | | | |
+| Tool | Hint | Example user message (Cursor) | Status | Notes | Date |
+| --- | --- | --- | --- | --- | --- |
+| `uipath_library_list` | read-only | "What books exist in the curated library catalog?" | | | |
+| `uipath_library_toc` | read-only | "Table of contents for book uipath-docs." | | | |
+| `uipath_library_read_section` | read-only | "Fetch section text for orchestrator / queues / overview." | | | |
+| `uipath_library_search` | read-only | "Full-text search the library for 'personal workspace'." | | | |
+| `uipath_library_lookup` | read-only | "Lookup curated snippets for keyword 'governance'." | | | |
+| `uipath_library_propose_section` | staging | "Stage a proposed rewrite for one library section with citations." | | | |
+| `uipath_library_propose_chapter` | staging | "Stage a new chapter skeleton for review." | | | |
+| `uipath_library_list_proposals` | read-only | "List open library proposals with ids." | | | |
+| `uipath_library_approve_proposal` | destructive | "Approve proposal P-… after maintainer review in meeting." | | | |
+| `uipath_library_reject_proposal` | destructive | "Reject proposal P-… with reason duplicate content." | | | |
 
 ---
 
 ## MCP tools — design
 
-| Tool | Side-effect hint | Status | Notes | Date |
-| --- | --- | --- | --- | --- |
-| `uipath_design_propose` | staging | | | |
-| `uipath_design_approve` | destructive | | | |
-| `uipath_design_reject` | destructive | | | |
-| `uipath_design_list` | read-only | | | |
-| `uipath_design_status` | read-only | | | |
+| Tool | Hint | Example user message (Cursor) | Status | Notes | Date |
+| --- | --- | --- | --- | --- | --- |
+| `uipath_design_propose` | staging | "Submit a design summary for this small XAML change for human approval." | | | |
+| `uipath_design_approve` | destructive | "Record human approval for design D-… so writes unblock." | | | |
+| `uipath_design_reject` | destructive | "Reject design D-… and ask for narrower scope." | | | |
+| `uipath_design_list` | read-only | "List designs visible for this repo session." | | | |
+| `uipath_design_status` | read-only | "Is there an approved design for the project I am editing?" | | | |
 
 ---
 
 ## MCP tools — intent
 
-| Tool | Side-effect hint | Status | Notes | Date |
-| --- | --- | --- | --- | --- |
-| `uipath_intent_classify` | read-only | | | |
+| Tool | Hint | Example user message (Cursor) | Status | Notes | Date |
+| --- | --- | --- | --- | --- | --- |
+| `uipath_intent_classify` | read-only | "Classify: 'bump version and publish tonight' vs 'explain queues'." | | | |
 
 ---
 
 ## MCP tools — plan
 
-| Tool | Side-effect hint | Status | Notes | Date |
-| --- | --- | --- | --- | --- |
-| `uipath_plan_build` | read-only | | | |
-| `uipath_plan_save` | destructive | | | |
-| `uipath_plan_list` | read-only | | | |
-| `uipath_plan_read` | read-only | | | |
-| `uipath_plan_status_set` | staging | | | |
-| `uipath_plan_render_mermaid` | read-only | | | |
-| `uipath_plan_new` | staging | | | |
-| `uipath_plan_brainstorm` | read-only | | | |
-| `uipath_plan_refine` | destructive | | | |
-| `uipath_plan_diff` | read-only | | | |
-| `uipath_plan_accept` | destructive | | | |
-| `uipath_plan_reject` | destructive | | | |
-| `uipath_plan_publish` | destructive | | | |
-| `uipath_plan_ground` | read-only | | | |
-| `uipath_plan_spec_new` | destructive | | | |
-| `uipath_plan_plan_new` | destructive | | | |
-| `uipath_plan_tasks_new` | destructive | | | |
-| `uipath_plan_review` | read-only | | | |
-| `uipath_plan_uiplan_new` | destructive | | | |
+| Tool | Hint | Example user message (Cursor) | Status | Notes | Date |
+| --- | --- | --- | --- | --- | --- |
+| `uipath_plan_build` | read-only | "Build the plan markdown from the current draft metadata." | | | |
+| `uipath_plan_save` | destructive | "Save this edited plan body to the draft slug I specify." | | | |
+| `uipath_plan_list` | read-only | "List plans in scope personal with newest first." | | | |
+| `uipath_plan_read` | read-only | "Read plan body for slug 2026-04-23-demo." | | | |
+| `uipath_plan_status_set` | staging | "Mark plan status to in_review for slug …" | | | |
+| `uipath_plan_render_mermaid` | read-only | "Render diagrams from plan markdown to a preview block." | | | |
+| `uipath_plan_new` | staging | "Start a new brainstorm thread id for this feature name." | | | |
+| `uipath_plan_brainstorm` | read-only | "Continue brainstorming round 2 with objections addressed." | | | |
+| `uipath_plan_refine` | destructive | "Apply refinements from the last review notes to the draft." | | | |
+| `uipath_plan_diff` | read-only | "Show diff between draft v1 and v2 for this slug." | | | |
+| `uipath_plan_accept` | destructive | "Accept the draft after human sign-off in chat." | | | |
+| `uipath_plan_reject` | destructive | "Reject draft and request narrower scope." | | | |
+| `uipath_plan_publish` | destructive | "Publish accepted plan to docs/plans after policy check." | | | |
+| `uipath_plan_ground` | read-only | "Ground a new plan pack from constitution + skills + optional PDD path." | | | |
+| `uipath_plan_spec_new` | destructive | "Materialize spec.md for slug … from grounded context." | | | |
+| `uipath_plan_plan_new` | destructive | "Materialize plan.md for slug …" | | | |
+| `uipath_plan_tasks_new` | destructive | "Materialize tasks.md with test-before-impl sections." | | | |
+| `uipath_plan_review` | read-only | "Run structured review on the three-file bundle; return ok flag." | | | |
+| `uipath_plan_uiplan_new` | destructive | "Create the UiPlan three-file bundle via MCP for this slug." | | | |
 
 ---
 
 ## MCP tools — answer
 
-| Tool | Side-effect hint | Status | Notes | Date |
-| --- | --- | --- | --- | --- |
-| `uipath_answer` | read-only | | | |
+| Tool | Hint | Example user message (Cursor) | Status | Notes | Date |
+| --- | --- | --- | --- | --- | --- |
+| `uipath_answer` | read-only | "Answer succinctly: why must analyze pass before pack in our gates?" | | | |
 
 ---
 
 ## Cursor skills (spot-check)
 
-Manually ask the agent to follow **at least two** project skills (e.g. `uipath-rpa`, `uipath-platform`) on a trivial question and confirm answers ground in skill paths.
+Use **natural language**; the agent should pick skills via rules / match tools.
 
-| Id | Check | Status | Notes | Date |
-| --- | --- | --- | --- | --- |
-| C1 | Skill A (name): | | | |
-| C2 | Skill B (name): | | | |
+| Id | Example user message | Expected | Status | Notes | Date |
+| --- | --- | --- | --- | --- | --- |
+| C1 | "Following our RPA skill conventions, name the expression language we use for modern projects and cite the skill." | Grounded in `uipath-rpa` or extension | | | |
+| C2 | "Using platform guidance, list two ways to authenticate `uip` for tenant operations—no secrets in chat." | `uipath-platform` / docs | | | |
 
 ---
 
@@ -280,4 +347,5 @@ Follow-ups:
 
 ## Maintainer note
 
-When MCP tools are added or renamed, update the **module tables** in this file to match the **Index** table in [MCP_TOOLS.md](MCP_TOOLS.md) (lines under `## Index (all tool names)`).
+- Regenerate [MCP_TOOLS.md](MCP_TOOLS.md) after tool registration changes (`python ops/scripts/generate_mcp_tools_doc.py`), then **add rows** here for new tools (with NL column).
+- Keep **NL scenarios** aligned with real product language from BA/SA workshops when possible.

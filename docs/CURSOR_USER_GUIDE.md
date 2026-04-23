@@ -14,6 +14,15 @@ git submodule update --init --recursive
 
 ### 2. Install Dependencies
 
+**Recommended (matches [.cursor/mcp.json.example](.cursor/mcp.json.example)):** use **uv** at repo root so Cursor and the MCP server share the same environment.
+
+```powershell
+cd uipath-builder-agent
+uv sync --extra mcp
+```
+
+**Alternative (venv + pip):**
+
 ```powershell
 # Create virtual environment
 python -m venv .venv
@@ -23,6 +32,8 @@ python -m venv .venv
 # Install with MCP support
 pip install -e ".[mcp]"
 ```
+
+If you use venv + pip, point `.cursor/mcp.json` at that interpreter instead of `uv run` (see the JSON block in step 4).
 
 ### 3. Setup Cursor Skills
 

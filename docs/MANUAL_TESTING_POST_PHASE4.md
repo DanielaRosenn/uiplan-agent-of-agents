@@ -2,7 +2,7 @@
 
 Use this checklist after pulling `main` to confirm **framework-only runtime**, **UiPlan kit under `docs/uiplan/`**, **MCP path**, and **tooling** behave as expected. It complements automated tests (`pytest`) and does **not** replace Orchestrator deploy smoke (not in scope for this migration).
 
-For a **deeper pass** over the whole product surface in Cursor (every MCP tool, plan/workflow modules, slash commands, and a copy-paste **results** block for tickets or PRs), use [MANUAL_REVIEW_CURSOR_FULL_PROJECT.md](MANUAL_REVIEW_CURSOR_FULL_PROJECT.md). Scripted scenarios that overlap this checklist are detailed in [SMOKE_TESTS.md](SMOKE_TESTS.md).
+For a **deeper, Cursor-first pass** (natural-language prompts to test MCP intent routing, UiPlan doc/kit checks, per-tool NL examples, slash commands, and a copy-paste **results** block), use [MANUAL_REVIEW_CURSOR_FULL_PROJECT.md](MANUAL_REVIEW_CURSOR_FULL_PROJECT.md). Scripted scenarios that overlap this checklist are detailed in [SMOKE_TESTS.md](SMOKE_TESTS.md).
 
 ## Preconditions
 
