@@ -35,6 +35,7 @@ Landing page for everything under `docs/`. Start with [ARCHITECTURE.md](ARCHITEC
 ## Evaluation and QA
 
 - [Testing_Guide.md](Testing_Guide.md) — how to run tests.
+- [MANUAL_TESTING_POST_PHASE4.md](MANUAL_TESTING_POST_PHASE4.md) — manual checklist after Phase 4 + UiPlan (layout, MCP, UiPlan CLI, `uip`, pytest).
 - [SMOKE_TESTS.md](SMOKE_TESTS.md) — end-to-end smoke scenarios.
 - [MANUAL_EVAL_AND_QA.md](MANUAL_EVAL_AND_QA.md) — manual evaluation checklist.
 - [workflow-benchmarks.md](workflow-benchmarks.md) — benchmark workflows.
