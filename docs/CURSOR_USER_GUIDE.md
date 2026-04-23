@@ -28,10 +28,10 @@ pip install -e ".[mcp]"
 
 ```powershell
 # Windows
-.\scripts\setup-cursor.ps1
+.\ops\scripts\setup-cursor.ps1
 
 # macOS/Linux
-./scripts/setup-cursor.sh
+./ops/scripts/setup-cursor.sh
 ```
 
 ### 4. Enable MCP Tools (Optional but Recommended)
@@ -467,7 +467,7 @@ dir .cursor\skills
 
 If missing, re-run setup:
 ```powershell
-.\scripts\setup-cursor.ps1 -Force
+.\ops\scripts\setup-cursor.ps1 -Force
 ```
 
 ### Submodule Not Initialized

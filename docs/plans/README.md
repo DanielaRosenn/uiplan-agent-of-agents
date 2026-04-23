@@ -5,7 +5,7 @@ Git-tracked plans for multi-step work in this repo. Template: [_TEMPLATE.md](_TE
 To refresh this table after adding or editing a plan:
 
 ```bash
-python scripts/generate_plan_index.py
+python ops/scripts/generate_plan_index.py
 ```
 
 | File | Date | Status | Slug | Title | Owner | Linked PDD |

@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["framework"]
 include = ["uipath_claude*", "mcp_server*"]
 exclude = ["agent*", "cli*", "tests*"]
 
@@ -42,8 +42,8 @@ mcp = [
 uipath-claude = "uipath_claude.cli.app:app"
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "tools/uiplan/tests"]
-pythonpath = ["."]
+testpaths = ["framework/tests", "tools/uiplan/tests"]
+pythonpath = [".", "framework"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]

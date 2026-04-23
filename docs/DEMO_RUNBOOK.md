@@ -35,7 +35,7 @@ Get-Command uipath | Select-Object Name, Source
 
 ```powershell
 Set-Location c:\Users\DanielaRosenstein\projects\uipath-builder-agent
-python scripts/smoke_chat_pipeline.py
+python ops/scripts/smoke_chat_pipeline.py
 ```
 
 Expected: `SMOKE OK`. Any other output means **abort the recording**. The
@@ -171,7 +171,7 @@ For each file under `Workflows\`:
 If you maintain a copy under this repository, from repo root:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_invoice_intake_demo.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\ops\scripts\verify_invoice_intake_demo.ps1
 ```
 
 That regenerates XAML from the deterministic emitter and runs the same style
@@ -219,7 +219,7 @@ Type:
 - Expected: streaming prose answer, no plan panel.
 - Green light: you see prose, not an "Implementation Plan" box.
 - Red flag: plan panel appears -> classifier fix didn't load. Abort, rerun
-  `python scripts/smoke_chat_pipeline.py`.
+  `python ops/scripts/smoke_chat_pipeline.py`.
 
 #### Prompt 2 - kick off the build
 

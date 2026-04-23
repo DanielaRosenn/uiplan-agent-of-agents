@@ -10,12 +10,12 @@ This repository exposes the same skill catalog to **Cursor** and to the **Python
 ## Cursor discovery (not a second copy)
 
 - **`.cursor/skills`** — On Windows this is typically a **junction** pointing at `skills/skills/`. Cursor indexes skills here; it does not duplicate disk usage beyond one directory tree.
-- If `scripts/setup-cursor.ps1` fell back to a **recursive copy** (junction creation failed), `.cursor/skills` is a **separate tree**. After every `git pull` or submodule advance, re-run **`scripts/setup-cursor.ps1 -Force`** so Cursor sees new upstream `SKILL.md` files. Junction mode does not need this.
+- If `ops/scripts/setup-cursor.ps1` fell back to a **recursive copy** (junction creation failed), `.cursor/skills` is a **separate tree**. After every `git pull` or submodule advance, re-run **`ops/scripts/setup-cursor.ps1 -Force`** so Cursor sees new upstream `SKILL.md` files. Junction mode does not need this.
 
 ## Monitoring upstream (already wired)
 
 - **Canonical content** lives only in the **`skills/` git submodule** (`skills/skills/<name>/`). Commit hash is pinned for reproducibility; see `.uipath/skills-approved.sha` and `python -m uipath_claude.skills.submodule_guard`.
-- **SessionStart hook** (repo root `.cursor/hooks.json`) runs **`.cursor/hooks/check-skills-update.ps1`**: at most every few days it checks whether the submodule is behind `origin/main` and prints a **banner** suggesting `/update-skills` or `scripts/update-skills.ps1`. It does not auto-pull (that would be unsafe without review).
+- **SessionStart hook** (repo root `.cursor/hooks.json`) runs **`.cursor/hooks/check-skills-update.ps1`**: at most every few days it checks whether the submodule is behind `origin/main` and prints a **banner** suggesting `/update-skills` or `ops/scripts/update-skills.ps1`. It does not auto-pull (that would be unsafe without review).
 - **Claude Code / `uip` session** uses the submodule’s **`skills/hooks/hooks.json`** (e.g. `ensure-uip.sh`) for npm-based tooling, not for copying skill markdown into `.cursor/`.
 
 ## Python skill engine (not skill content)

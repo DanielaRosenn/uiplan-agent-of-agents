@@ -1,103 +1,80 @@
-"""Loop policy and skill-driven gate iteration for UiPlan scaffold."""
-
 from __future__ import annotations
 
 import os
-from collections.abc import Callable
 
 _DEFAULT_LOOPS = 5
 _MIN_LOOPS = 1
 _MAX_LOOPS = 25
 
-# Gate ids passed to the skill executor each iteration (build loop contract).
-DEFAULT_GATES: list[str] = ["restore", "analyze", "test", "pack"]
+DEFAULT_GATE_NAMES = ["restore", "analyze", "test", "pack"]
 
 
-def _parse_loop_int(raw: str, *, source: str) -> int:
-    s = raw.strip()
-    if not s:
-        return _DEFAULT_LOOPS
-    try:
-        return int(s, 10)
-    except ValueError as e:
-        raise ValueError(
-            f"{source}: expected integer, got {raw!r}"
-        ) from e
-
-
-def _enforce_bounds(value: int, *, source: str) -> int:
+def _parse_int_bounds(value: int, *, what: str) -> int:
     if value < _MIN_LOOPS or value > _MAX_LOOPS:
         raise ValueError(
-            f"{source}: max loops must be between {_MIN_LOOPS} and {_MAX_LOOPS} "
-            f"(inclusive), got {value}"
+            f"{what} must be between {_MIN_LOOPS} and {_MAX_LOOPS} inclusive, got {value!r}"
         )
     return value
 
 
 def resolve_max_loops_from_env() -> int:
-    """Read ``UIPLAN_MAX_LOOPS`` from the environment; default 5 if unset or blank."""
-    raw = os.environ.get("UIPLAN_MAX_LOOPS")
-    if raw is None:
-        return _DEFAULT_LOOPS
-    return _parse_loop_int(raw, source="UIPLAN_MAX_LOOPS")
+    """Resolve max loops using ``UIPLAN_MAX_LOOPS`` from the process environment."""
+    return resolve_max_loops(flag_value=None, env_value=os.environ.get("UIPLAN_MAX_LOOPS"))
 
 
 def resolve_max_loops(flag_value: int | None, env_value: str | None = None) -> int:
     """
-    Resolve effective max loops: CLI flag wins, then explicit env string, then
-    ``UIPLAN_MAX_LOOPS`` from the environment. Default 5. Result is always in 1..25.
+    Effective max loops: CLI flag wins, else env int, else default 5.
+    Values must be in 1..25 inclusive.
     """
     if flag_value is not None:
-        candidate = flag_value
-        source = "--max-loops"
-    elif env_value is not None:
-        candidate = _parse_loop_int(env_value, source="UIPLAN_MAX_LOOPS")
-        source = "UIPLAN_MAX_LOOPS"
-    else:
-        candidate = resolve_max_loops_from_env()
-        source = "UIPLAN_MAX_LOOPS"
-
-    return _enforce_bounds(candidate, source=source)
-
-
-SkillExecutor = Callable[..., dict]
+        return _parse_int_bounds(flag_value, what="max_loops")
+    if env_value is None or env_value.strip() == "":
+        return _DEFAULT_LOOPS
+    try:
+        parsed = int(env_value.strip(), 10)
+    except ValueError as e:
+        raise ValueError(
+            f"UIPLAN_MAX_LOOPS must be an integer between {_MIN_LOOPS} and {_MAX_LOOPS}, "
+            f"got {env_value!r}"
+        ) from e
+    return _parse_int_bounds(parsed, what="UIPLAN_MAX_LOOPS")
 
 
 def run_gate_sequence(
-    skill_executor: SkillExecutor,
+    skill_executor,
     max_loops: int,
     *,
     gates: list[str] | None = None,
 ) -> dict:
     """
-    For iteration ``i`` in ``1..max_loops``, call
-    ``skill_executor(iteration=i, gates=<gates>)``.
+    Run up to ``max_loops`` iterations. Each iteration calls
+    ``skill_executor(iteration=i, gates=...)`` with the standard gate list.
 
-    Stops early when the executor returns ``status == "ok"``. On unrecoverable
-    failure, returns immediately. If loops exhaust without ok, returns failed.
+    Stops on first successful status (``status == "ok"``), non-recoverable failure, or loop exhaustion.
     """
-    gate_list = gates if gates is not None else DEFAULT_GATES
+    _parse_int_bounds(max_loops, what="max_loops")
+    gate_list = list(DEFAULT_GATE_NAMES if gates is None else gates)
     last: dict = {}
-
-    for i in range(1, max_loops + 1):
-        last = skill_executor(iteration=i, gates=gate_list)
-        status = last.get("status")
+    for iteration in range(1, max_loops + 1):
+        last = skill_executor(iteration=iteration, gates=gate_list)
+        status = last.get("status", "failed")
         if status == "ok":
             return {
                 "status": "ok",
-                "iteration": i,
-                "last": last,
+                "iteration": iteration,
+                "result": last,
             }
         if not last.get("recoverable", False):
             return {
                 "status": "failed",
-                "iteration": i,
-                "last": last,
+                "iteration": iteration,
+                "result": last,
+                "reason": "non_recoverable",
             }
-
     return {
         "status": "failed",
         "iteration": max_loops,
-        "last": last,
+        "result": last,
         "reason": "max_loops_exhausted",
     }

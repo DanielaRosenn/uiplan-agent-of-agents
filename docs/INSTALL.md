@@ -71,12 +71,12 @@ The UiPath skills work directly in Cursor without the CLI runtime:
 
 ```powershell
 # Windows
-.\scripts\setup-cursor.ps1
+.\ops\scripts\setup-cursor.ps1
 ```
 
 ```bash
 # macOS/Linux
-./scripts/setup-cursor.sh
+./ops/scripts/setup-cursor.sh
 ```
 
 This creates `.cursor/skills/` linking to the UiPath skills. Open the repo in Cursor; skills load automatically. Full guide: [CURSOR_USER_GUIDE.md](CURSOR_USER_GUIDE.md).

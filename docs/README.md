@@ -10,7 +10,7 @@ Landing page for everything under `docs/`. Start with [ARCHITECTURE.md](ARCHITEC
 - [CURSOR_USER_GUIDE.md](CURSOR_USER_GUIDE.md) — using the UiPath skills + MCP tools from inside Cursor.
 - [INSTALL.md](INSTALL.md) — full installation: UiPath CLI, Studio 26.2+, submodules, AWS Bedrock.
 - [TOOLS.md](TOOLS.md) — reference for every tool the agent can call.
-- [MCP_TOOLS.md](MCP_TOOLS.md) — generated catalog of MCP-exposed tools (run `python scripts/generate_mcp_tools_doc.py` after changes).
+- [MCP_TOOLS.md](MCP_TOOLS.md) — generated catalog of MCP-exposed tools (run `python ops/scripts/generate_mcp_tools_doc.py` after changes).
 - [MCP_TOOLS_FINDINGS.md](MCP_TOOLS_FINDINGS.md) — known gaps and recommended fixes for MCP tools.
 
 ## Planning (Cursor + agent)
@@ -22,7 +22,7 @@ Landing page for everything under `docs/`. Start with [ARCHITECTURE.md](ARCHITEC
 - MCP (CRUD): `uipath_plan_save`, `uipath_plan_list` (scope), `uipath_plan_read`, `uipath_plan_status_set`, `uipath_plan_render_mermaid`, `uipath_plan_build`.
 - MCP (brainstorm loop): `uipath_plan_new`, `uipath_plan_brainstorm`, `uipath_plan_refine`, `uipath_plan_diff`, `uipath_plan_accept`, `uipath_plan_reject`, `uipath_plan_publish` — see [MCP_TOOLS.md](MCP_TOOLS.md).
 - CLI: `uipath plan new|brainstorm|refine|diff|accept|reject|publish|list`.
-- Regenerate the plans table: `python scripts/generate_plan_index.py`.
+- Regenerate the plans table: `python ops/scripts/generate_plan_index.py`.
 - Formal lifecycle: [PDD_LIFECYCLE.md](PDD_LIFECYCLE.md).
 
 ## Skills and library

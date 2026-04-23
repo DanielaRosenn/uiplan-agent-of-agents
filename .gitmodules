@@ -2,11 +2,11 @@
 	path = skills
 	url = https://github.com/UiPath/skills
 [submodule "templates/dispatcher"]
-	path = templates/dispatcher
+	path = scaffold/template/dispatcher
 	url = https://github.com/cato-networks-IT/AgenticAi_PROCESSNAME_DispatcherTemplate
 [submodule "templates/performer"]
-	path = templates/performer
+	path = scaffold/template/performer
 	url = https://github.com/cato-networks-IT/AgenticAi_PROCESSNAME_PerformerTemplate
 [submodule "templates/long-running"]
-	path = templates/long-running
+	path = scaffold/template/long-running
 	url = https://github.com/cato-networks-IT/AgenticAi_PROCESSNAME_LongRunningAutomationTemplate

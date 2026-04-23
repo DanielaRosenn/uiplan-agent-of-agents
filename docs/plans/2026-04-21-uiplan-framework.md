@@ -127,7 +127,7 @@ uipath_claude/cli/app.py                            # add `plan uiplan` subcomma
 tests/mcp/test_plan_tools.py                        # extend TestGetPlanTools
 tests/mcp/test_tool_annotations.py                  # classify new tools
 tests/mcp/test_tool_descriptions.py                 # descriptions for new params
-scripts/mcp_tools_doc_diagrams.py                   # diagrams for new tools
+ops/scripts/mcp_tools_doc_diagrams.py                   # diagrams for new tools
 docs/PLANNING_FRAMEWORK.md                          # /uiplan section with grounding diagram
 README.md                                           # link /uiplan from SDLC section
 .gitignore                                          # ensure .cursor/plans/**/ is still covered
@@ -267,7 +267,7 @@ Regenerate `docs/MCP_TOOLS.md` and `docs/plans/README.md`.
 ### Task 14: final run + commit
 
 ```bash
-uv run python scripts/generate_mcp_tools_doc.py; uv run python scripts/generate_plan_index.py
+uv run python ops/scripts/generate_mcp_tools_doc.py; uv run python ops/scripts/generate_plan_index.py
 uv run pytest tests/mcp tests/unit -q
 ```
 

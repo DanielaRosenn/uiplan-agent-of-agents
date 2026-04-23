@@ -92,12 +92,12 @@ Use the UiPath skills directly inside Cursor without the CLI runtime. Good for q
 
 ```powershell
 # Windows
-.\scripts\setup-cursor.ps1
+.\ops\scripts\setup-cursor.ps1
 ```
 
 ```bash
 # macOS / Linux
-./scripts/setup-cursor.sh
+./ops/scripts/setup-cursor.sh
 ```
 
 Open the repo in Cursor; skills auto-load. Guide: [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md).
@@ -107,7 +107,7 @@ Open the repo in Cursor; skills auto-load. Guide: [docs/CURSOR_USER_GUIDE.md](do
 Adds validation, package install, and run-workflow tools to Cursor via the bundled MCP server.
 
 - Install MCP extras: `pip install -e ".[mcp]"`.
-- Run `scripts/setup-cursor.ps1` / `.sh` (writes `.cursor/mcp.json`).
+- Run `ops/scripts/setup-cursor.ps1` / `.sh` (writes `.cursor/mcp.json`).
 - Open the repo in Cursor — the `uipath-builder-agent` MCP server auto-connects.
 - Verify in Cursor: Settings -> MCP -> `uipath-builder-agent` shows connected.
 - MCP tool reference and patterns: [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md#mcp-tools-advanced).
@@ -118,7 +118,7 @@ Adds validation, package install, and run-workflow tools to Cursor via the bundl
 
 - **Generate validated UiPath projects from a description.** Describe the automation in plain English; the agent scaffolds the project, writes XAML, runs the UiPath Workflow Analyzer and `uip rpa` validator, and auto-fixes validator errors until the workflow passes both static and runtime checks.
 - **Bootstrap end-to-end with the BA → SA → ADD → TDD → Dev → QA pipeline.** `/pdd "InvoiceBot"` turns a one-paragraph brief into a PDD, SDD, ADD, TDD, scaffolded project, validated workflow, and (optionally) a published + deployed Orchestrator process. The legacy four-stage `/bootstrap` flow is still available for quick BA → SA → Dev → QA runs. Full reference: [docs/PDD_LIFECYCLE.md](docs/PDD_LIFECYCLE.md).
-- **Works where you work.** Use the CLI (`uipath-claude chat`), drive it from Cursor (the skills register automatically after running `scripts/setup-cursor.ps1`), or call slash commands like `/pdd`, `/bootstrap`, `/skills`, `/analyze`, `/recall`.
+- **Works where you work.** Use the CLI (`uipath-claude chat`), drive it from Cursor (the skills register automatically after running `ops/scripts/setup-cursor.ps1`), or call slash commands like `/pdd`, `/bootstrap`, `/skills`, `/analyze`, `/recall`.
 - **Learns as you use it.** A layered skills system (user → project → team extensions → official UiPath submodule) plus a library learning loop capture gotchas and edge cases as you hit them, so the agent gets better at your codebase over time.
 - **Safe by default.** Tool profiles (`safe`, `uipath-dev`, `all`), per-operation approval gates, and session hooks keep destructive actions behind human review. Nothing touches Orchestrator unless you say so.
 
@@ -184,7 +184,7 @@ Same seven steps either way. Cursor drives them through chat + the MCP tools; th
 
 #### In Cursor (recommended for interactive work)
 
-Prereq: ran `scripts/setup-cursor.ps1` / `.sh` so `.cursor/mcp.json` is wired and the `uipath-builder-agent` MCP server shows **connected** under Cursor Settings -> MCP. The `brainstorming-plan` skill (`.cursor/skills/brainstorming-plan/SKILL.md`) auto-loads and orchestrates the loop.
+Prereq: ran `ops/scripts/setup-cursor.ps1` / `.sh` so `.cursor/mcp.json` is wired and the `uipath-builder-agent` MCP server shows **connected** under Cursor Settings -> MCP. The `brainstorming-plan` skill (`.cursor/skills/brainstorming-plan/SKILL.md`) auto-loads and orchestrates the loop.
 
 1. **Kick it off in chat.** Say *"Let's plan a new automation for &lt;X&gt;"* or *"Use the brainstorming-plan skill to plan &lt;X&gt;"*. The skill calls `uipath_plan_new` to scaffold a draft under `.cursor/plans/<date>-<slug>.md` (git-ignored, per-user).
 2. **Ground it.** The skill calls `uipath_plan_brainstorm`, which returns suggested library searches, candidate specialist skills (`uipath-rpa`, `uipath-agents`, ...), PDD/SDD/ADD candidates under `docs/`, and up to three clarifying questions. Answer them in chat.
@@ -335,7 +335,7 @@ The `skills/` git submodule tracks [UiPath/skills](https://github.com/UiPath/ski
 - **Automatic (server-side, daily):** [.github/workflows/update-skills-submodule.yml](.github/workflows/update-skills-submodule.yml) runs at 06:00 UTC and opens a PR `chore/update-skills-submodule` when upstream moves. Also triggerable from the Actions tab.
 - **Automatic (per Cursor session, every 2 days):** [.cursor/hooks.json](.cursor/hooks.json) registers a `sessionStart` hook that runs [.cursor/hooks/check-skills-update.ps1](.cursor/hooks/check-skills-update.ps1) on Windows (or `.sh` on mac/linux). It surfaces a banner in the new chat when updates are available; throttled via `.cursor/hooks/state/last-update-check` (gitignored, per-user). Change `$ThrottleDays` at the top of the script to tune the cadence.
 - **Manual in chat:** `/update-skills [--check|--info|--force]` and `/scan-upstream-skills` inside the CLI.
-- **Manual in a shell:** `scripts/update-skills.ps1 [-Check] [-Commit]` (or `scripts/update-skills.sh [--check|--commit]`) for one-off pulls outside Cursor.
+- **Manual in a shell:** `ops/scripts/update-skills.ps1 [-Check] [-Commit]` (or `ops/scripts/update-skills.sh [--check|--commit]`) for one-off pulls outside Cursor.
 
 > Mac/linux teammates: if `pwsh` is not installed, replace the `command` in `.cursor/hooks.json` with `bash .cursor/hooks/check-skills-update.sh`, or place an override at `~/.cursor/hooks.json` (user-scope hooks take precedence over project-scope).
 

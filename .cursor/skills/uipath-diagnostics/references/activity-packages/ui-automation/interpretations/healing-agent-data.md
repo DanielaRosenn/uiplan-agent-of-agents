@@ -120,12 +120,12 @@ If HA is disabled, all UI failure diagnostics are severely limited — no UI tre
 
      ```powershell
      # Windows (PowerShell)
-     pwsh scripts/strip-ha-images.ps1 -Path uia/
+     pwsh ops/scripts/strip-ha-images.ps1 -Path uia/
      ```
 
      ```bash
      # Linux/macOS
-     bash scripts/strip-ha-images.sh uia/
+     bash ops/scripts/strip-ha-images.sh uia/
      ```
 
    - **3b. Preserve images** — if visual confirmation IS needed (e.g., to show the user the UI state at failure), do NOT run the strip script. Instead, extract screenshots selectively — images are base64 encoded, ~500KB each. Only read the last image (most recent UI state).

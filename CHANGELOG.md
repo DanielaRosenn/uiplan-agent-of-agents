@@ -17,9 +17,9 @@ All notable changes to this project are documented in this file. The format is b
 - `docs/INSTALL.md` long-form installation guide.
 - `CONTRIBUTING.md` covering the extension model (skills, tools, slash commands).
 - `examples/` folder with four runnable scenarios including a Confluence-publisher dogfooding example.
-- `scripts/publish_confluence.py` + PowerShell wrapper for publishing docs to the Cato RPA Confluence space. Auth proxies through the UiPath Integration Service Atlassian Confluence connection; no standalone Atlassian API token is held on the developer machine.
+- `ops/scripts/publish_confluence.py` + PowerShell wrapper for publishing docs to the Cato RPA Confluence space. Auth proxies through the UiPath Integration Service Atlassian Confluence connection; no standalone Atlassian API token is held on the developer machine.
 - `docs/wiki/` drafts for the Confluence overview and quickstart pages.
-- `docs/assets/demo.tape` VHS script + `scripts/record-demo.ps1` for reproducible terminal casts.
+- `docs/assets/demo.tape` VHS script + `ops/scripts/record-demo.ps1` for reproducible terminal casts.
 
 ### Removed
 - Stale and historical docs: `README_DEPLOYMENT.md`, `IMPLEMENTATION_COMPLETE.md`, `docs/UIPATH_CLAUDE_CODE_IMPLEMENTATION.md`, `docs/sprint-1-summary.md`, `docs/CLEANUP_PLAN.md`, `docs/EVALUATION_RESULTS.md`, `docs/CLAUDE_CODE_FEATURE_RELEVANCE_MATRIX.md`, `docs/wiki/azure-devops-landing.md`, the two `docs/plans/2026-04-14-*.md` files, and the entire `docs/superpowers/plans/` and `docs/superpowers/specs/` directories.
@@ -40,7 +40,7 @@ All notable changes to this project are documented in this file. The format is b
 - Hooks system (session start, tool use, file changes).
 - Tool profiles (`safe`, `uipath-dev`, `all`) and per-operation approval gates.
 - Evaluation framework with datasets and composite evaluators.
-- Cursor integration via `scripts/setup-cursor.ps1` / `.sh` linking skills into `.cursor/skills/`.
+- Cursor integration via `ops/scripts/setup-cursor.ps1` / `.sh` linking skills into `.cursor/skills/`.
 - Slash commands: `/help`, `/status`, `/skills`, `/analyze`, `/bootstrap`, `/chat`, `/recall`, `/repair-restore`, `/validate`.
 - UiPath integrations: CLI runner, Workflow Analyzer, Orchestrator REST API, Ask AI, Integration Service smoke check.
 - MCP server entrypoint (`mcp_server/`) for Model Context Protocol clients.

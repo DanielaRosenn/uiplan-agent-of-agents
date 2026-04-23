@@ -37,6 +37,6 @@ print(msg)
     if [ "$first_line" != "HAS_UPDATES" ]; then emit_empty; fi
 
     detail=$(printf '%s' "$out" | tail -n +2 | tr '\n' ' ' | sed 's/[[:space:]]*$//')
-    banner="UiPath skills submodule has updates available (${detail}). Run /update-skills in chat, or scripts/update-skills.sh from a shell."
+    banner="UiPath skills submodule has updates available (${detail}). Run /update-skills in chat, or ops/scripts/update-skills.sh from a shell."
     emit_banner "$banner"
 } || emit_empty

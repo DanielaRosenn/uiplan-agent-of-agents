@@ -1,5 +1,4 @@
 import os
-from typing import Optional
 
 import typer
 
@@ -16,10 +15,10 @@ def generate_docs(plan_slug: str) -> None:
 @app.command("scaffold-code")
 def scaffold_code(
     plan_slug: str,
-    max_loops: Optional[int] = typer.Option(
+    max_loops: int | None = typer.Option(
         None,
         "--max-loops",
-        help="Max refinement loops (1-25). Overrides UIPLAN_MAX_LOOPS.",
+        help="Max validate/fix loops (1-25). Overrides UIPLAN_MAX_LOOPS. Default: 5.",
     ),
 ) -> None:
     effective = resolve_max_loops(

@@ -28,7 +28,7 @@ Skip for one-line fixes or a single obvious file change.
 
 - **Path:** `docs/plans/YYYY-MM-DD-<slug>.md` (UTC or local date — be consistent with existing files in that folder).
 - **Template:** Start from [docs/plans/_TEMPLATE.md](../../../docs/plans/_TEMPLATE.md).
-- **Index:** After creating or materially editing a plan, run `python scripts/generate_plan_index.py` from repo root (or ask the user to run it) so [docs/plans/README.md](../../../docs/plans/README.md) stays current.
+- **Index:** After creating or materially editing a plan, run `python ops/scripts/generate_plan_index.py` from repo root (or ask the user to run it) so [docs/plans/README.md](../../../docs/plans/README.md) stays current.
 
 ## Drafting vs publishing (brainstorm loop)
 

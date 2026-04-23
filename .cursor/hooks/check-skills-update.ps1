@@ -62,7 +62,7 @@ print(msg)
 
     $detail = ($lines[1..($lines.Length-1)] -join " ").Trim()
     $banner = "UiPath skills submodule has updates available ($detail). " +
-              "Run /update-skills in chat, or scripts/update-skills.ps1 -Commit from a shell."
+              "Run /update-skills in chat, or ops/scripts/update-skills.ps1 -Commit from a shell."
     Emit-Banner $banner
 }
 catch {

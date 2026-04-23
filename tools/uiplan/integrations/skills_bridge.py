@@ -1,6 +1,6 @@
-"""Stub skill executor for tests and offline CLI wiring."""
+"""Bridge between UiPlan scaffold loops and specialist skills (stub)."""
 
 
 def noop_skill_executor(iteration: int, gates: list[str]) -> dict:
-    """Always succeeds; ignores ``iteration`` and ``gates``."""
-    return {"status": "ok", "recoverable": True, "iteration": iteration, "gates": gates}
+    """Stub executor that always reports a successful gate run (for tests and dry runs)."""
+    return {"status": "ok", "recoverable": True}

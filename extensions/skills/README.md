@@ -38,7 +38,7 @@ extensions/skills/
   my-skill-name/
     SKILL.md          # Required - main skill document
     references/       # Optional - supporting docs
-    scripts/          # Optional - helper scripts
+    ops/scripts/          # Optional - helper scripts
 ```
 
 ### SKILL.md Format
