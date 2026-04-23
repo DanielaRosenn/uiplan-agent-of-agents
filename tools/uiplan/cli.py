@@ -1,4 +1,9 @@
+import os
+from typing import Optional
+
 import typer
+
+from tools.uiplan.scaffold.loop_runner import resolve_max_loops
 
 app = typer.Typer(help="UiPlan runtime commands")
 
@@ -9,5 +14,16 @@ def generate_docs(plan_slug: str) -> None:
 
 
 @app.command("scaffold-code")
-def scaffold_code(plan_slug: str, max_loops: int = 5) -> None:
-    print(f"scaffold-code:{plan_slug}:max_loops={max_loops}")
+def scaffold_code(
+    plan_slug: str,
+    max_loops: Optional[int] = typer.Option(
+        None,
+        "--max-loops",
+        help="Max refinement loops (1-25). Overrides UIPLAN_MAX_LOOPS.",
+    ),
+) -> None:
+    effective = resolve_max_loops(
+        flag_value=max_loops,
+        env_value=os.environ.get("UIPLAN_MAX_LOOPS"),
+    )
+    print(f"scaffold-code:{plan_slug}:max_loops={effective}")
