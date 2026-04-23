@@ -5,12 +5,29 @@
 # Or from repo root:
 #   .\ops\scripts\cursor-quickstart.ps1
 
+param(
+    [switch]$Force
+)
+
 $ErrorActionPreference = "Stop"
 $ScriptDir = $PSScriptRoot
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $ScriptDir)
 Set-Location $RepoRoot
 
 Write-Host "== Cursor quickstart (repo: $RepoRoot) ==" -ForegroundColor Cyan
+
+$choiceFile = Join-Path $RepoRoot ".assistant-choice"
+$choice = "cursor"
+if (Test-Path $choiceFile) {
+    $existing = (Get-Content $choiceFile -Raw).Trim().ToLowerInvariant()
+    if ($existing -and $existing -ne $choice -and -not $Force) {
+        Write-Host "This clone is currently configured for '$existing'." -ForegroundColor Yellow
+        Write-Host "To switch to Cursor, re-run with -Force." -ForegroundColor Yellow
+        exit 1
+    }
+}
+Set-Content -Path $choiceFile -Value $choice -NoNewline
+Write-Host "Assistant choice for this clone: $choice" -ForegroundColor Green
 
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     Write-Host "git is required on PATH." -ForegroundColor Red

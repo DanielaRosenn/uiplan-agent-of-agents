@@ -4,6 +4,13 @@ This guide covers using the UiPath Builder Agent skills in Cursor IDE for buildi
 
 ## Quick Setup (5 minutes)
 
+Use one assistant per clone. This repo supports both, but your local setup should be either:
+
+- `cursor` -> `ops/scripts/cursor-quickstart.*`
+- `claude` -> `ops/scripts/claude-quickstart.*`
+
+The quickstart scripts persist your local selection in `.assistant-choice` and block cross-setup unless you pass `-Force` / `--force`.
+
 ### 0. Almost zero work (one script)
 
 From repo root after clone — does submodules, `uv sync --extra mcp`, copies MCP config if missing, links skills:
@@ -17,6 +24,8 @@ bash ops/scripts/cursor-quickstart.sh
 ```
 
 Then open this folder in Cursor and confirm **Settings → MCP → uipath-builder-agent** is green (reload window if needed). Requires **git** and **uv** on PATH.
+
+If this clone is already configured for Claude, run with `-Force` / `--force` to switch.
 
 ### 1. Clone and Initialize
 

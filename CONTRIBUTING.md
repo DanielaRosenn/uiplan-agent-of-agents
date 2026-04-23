@@ -118,6 +118,15 @@ Cursor will only pick it up when three conditions are met:
 Smoke-test the wiring by following the "Cursor test (MCP tools)" section in
 [docs/SMOKE_TESTS.md](docs/SMOKE_TESTS.md), starting at Step 0.
 
+### Assistant choice policy (local clone)
+
+This repo supports both Cursor and Claude integrations, but contributors should use one assistant per clone.
+
+- Cursor setup: `ops/scripts/cursor-quickstart.ps1` or `bash ops/scripts/cursor-quickstart.sh`
+- Claude setup: `ops/scripts/claude-quickstart.ps1` or `bash ops/scripts/claude-quickstart.sh`
+
+Quickstart writes `.assistant-choice` (gitignored) and blocks switching unless you pass `-Force` / `--force`.
+
 Step 9 (`query_uipath_docs`) needs an Ask AI backend. For a clean clone the
 fastest way to mark Step 9 PASS is to set
 `UIPATH_ASKAI_ENDPOINT=mock://localfixture` before launching the MCP

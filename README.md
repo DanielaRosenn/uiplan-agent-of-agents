@@ -117,13 +117,20 @@ Full setup (UiPath CLI, Studio 26.2+, Orchestrator auth, AWS region overrides) l
 
 ## Choose your setup path
 
-Three supported ways to use the project. Pick one (or combine).
+Three supported ways to use the project. Pick one per clone.
+
+For cleaner onboarding and fewer collisions, this repo now recommends **one assistant per clone**:
+
+- Cursor path writes `.assistant-choice = cursor`
+- Claude path writes `.assistant-choice = claude`
+- Switching tools in the same clone requires `-Force` / `--force`
 
 ### A. CLI (`uipath-claude chat`) — Claude Code-style agent
 
 The full agentic CLI with auto-fix loop, planner, and BA -> SA -> ADD -> TDD -> Dev -> QA pipeline driven by `/pdd`.
 
 - Requires `pip install -e ".[dev]"` and AWS Bedrock access.
+- Fast path: `ops/scripts/claude-quickstart.ps1` (Windows) or `bash ops/scripts/claude-quickstart.sh`.
 - Run: `uipath-claude chat`
 - Day-to-day usage: [docs/USER_GUIDE.md](docs/USER_GUIDE.md)
 
@@ -133,12 +140,12 @@ Use the UiPath skills directly inside Cursor without the CLI runtime. Good for q
 
 ```powershell
 # Windows
-.\ops\scripts\setup-cursor.ps1
+.\ops\scripts\cursor-quickstart.ps1
 ```
 
 ```bash
 # macOS / Linux
-./ops/scripts/setup-cursor.sh
+bash ops/scripts/cursor-quickstart.sh
 ```
 
 Open the repo in Cursor; skills auto-load. Guide: [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md).

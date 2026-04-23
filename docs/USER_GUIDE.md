@@ -13,6 +13,20 @@ This guide walks you through setting up and using UiPath Claude Code for UiPath 
 
 ### Installation
 
+Use one assistant per clone. This repo supports both Cursor and Claude, but each local clone should pick one setup path.
+
+Recommended Claude-first setup:
+
+```powershell
+.\ops\scripts\claude-quickstart.ps1
+```
+
+```bash
+bash ops/scripts/claude-quickstart.sh
+```
+
+The quickstart scripts persist your local selection in `.assistant-choice` and block cross-setup unless you pass `-Force` / `--force`.
+
 ```bash
 # Clone the repository
 git clone <repo-url>
