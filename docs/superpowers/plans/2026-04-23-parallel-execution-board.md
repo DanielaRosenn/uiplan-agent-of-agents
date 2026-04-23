@@ -21,7 +21,7 @@ Run both approved plans in parallel while preventing cross-track breakage:
 
 1. **Checkpoint S1 (after A-Task2 and B-Task2)**
    - Run:
-     - `uv run pytest tests/migration -q`
+     - `uv run pytest framework/tests/migration -q`
      - `uv run pytest tools/uiplan/tests/test_template_kit.py -q`
    - Must pass before:
      - A moves to reference switching,
@@ -30,14 +30,14 @@ Run both approved plans in parallel while preventing cross-track breakage:
 2. **Checkpoint S2 (before A Phase 4 fallback removal)**
    - Run:
      - `uv run pytest tools/uiplan/tests -q`
-     - `uv run pytest tests/mcp/test_plan_tools.py -q`
-     - `uv run pytest tests/migration -q`
+     - `uv run pytest framework/tests/mcp/test_plan_tools.py -q`
+     - `uv run pytest framework/tests/migration -q`
    - Must pass with no known legacy-path dependency in Track B.
 
 3. **Checkpoint S3 (pre-merge final suite)**
    - Run:
-     - `uv run pytest tools/uiplan/tests tests/migration -q`
-     - `uv run pytest tests/mcp/test_tool_annotations.py tests/mcp/test_tool_descriptions.py tests/mcp/test_plan_tools.py -q`
+     - `uv run pytest tools/uiplan/tests framework/tests/migration -q`
+     - `uv run pytest framework/tests/mcp/test_tool_annotations.py framework/tests/mcp/test_tool_descriptions.py framework/tests/mcp/test_plan_tools.py -q`
    - Must pass before merge.
 
 ## Branching strategy

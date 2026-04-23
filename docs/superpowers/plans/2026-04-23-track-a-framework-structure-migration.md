@@ -219,6 +219,18 @@ Expected:
 
 **Also on `main`:** Agentic executor only nudges build/verify when those tools exist; **`uip rpa close-project`** hygiene in `CLAUDE.md`, `docs/uipath-workflows.md`, `.cursor/skills/uipath-rpa/references/environment-setup.md`, `docs/Testing_Guide.md`, and executor system prompt.
 
-**Phase 4 (optional later):** Remove legacy root compatibility and no-legacy gates only after board **S2/S3** and product sign-off per the original plan.
+**Phase 4 (not done yet — required for “clean” architecture):** Repo root still contains **legacy duplicates** alongside `framework/`: `uipath_claude/`, `mcp_server/`, and `scripts/` (verify with `Test-Path`). The design’s **Phase 4** is to remove old trees and resolver fallbacks after **S2** proves Track B has no stale path deps, then enforce **no-legacy** contract tests. Until Phase 4 lands, two copies can **drift** — prefer editing **`framework/`** only.
 
-**Subagent-driven-development** remains the recommended shape for any follow-up tasks (fresh implementer per task, spec then quality review, worktrees for risky refactors).
+**Other steps often still outstanding after a merge like this:**
+
+| Step | Why |
+|------|-----|
+| Re-run board **S2/S3** commands verbatim (paths: `framework/tests/...`) | Board paths were pre-move; confirms MCP + migration lanes after any change. |
+| **`langgraph.json` / packaging entrypoints** | Still use import path `uipath_claude.graph:graph` (works with `pythonpath`); optional explicit `framework.uipath_claude.graph:graph` for clarity once Phase 4 removes root package. |
+| **Git checkpoint tags** | Plan mentions `phase-1-pass` … `phase-4-final` — create if you rely on tagged rollback. |
+| **Docs & links** | `README.md` still links `uipath_claude/tools/` as a repo path; should point at `framework/uipath_claude/tools/` after Phase 4 (or note “import path” vs path). |
+| **Worktree / branch hygiene** | `feat/parallel-a-b-impl` may still sit at pre-merge SHA in a worktree — align or remove to avoid editing the wrong tree. |
+| **CI / release** | If external pipelines invoked old `pytest tests/` paths, update them to `framework/tests/` (or rely on default `testpaths` in `pyproject.toml`). |
+| **Push `main`** | Local branch ahead of `origin` until published. |
+
+**Subagent-driven-development** remains the recommended shape for Phase 4 and doc/CI follow-ups (fresh implementer per task, spec then quality review, worktrees for risky refactors).
