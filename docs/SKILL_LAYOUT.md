@@ -18,9 +18,14 @@ This repository exposes the same skill catalog to **Cursor** and to the **Python
 - **SessionStart hook** (repo root `.cursor/hooks.json`) runs **`.cursor/hooks/check-skills-update.ps1`**: at most every few days it checks whether the submodule is behind `origin/main` and prints a **banner** suggesting `/update-skills` or `ops/scripts/update-skills.ps1`. It does not auto-pull (that would be unsafe without review).
 - **Claude Code / `uip` session** uses the submodule’s **`skills/hooks/hooks.json`** (e.g. `ensure-uip.sh`) for npm-based tooling, not for copying skill markdown into `.cursor/`.
 
+## Knowledge library (not under `.cursor/`)
+
+- **`data/library/`** — Curated **content**: `catalog.yaml`, `books/<id>/…` markdown. MCP tools `uipath_library_*` read from here by default (`UIPATH_CLAUDE_LIBRARY` overrides the root). This is **not** the Cursor config folder; it is normal repo data.
+- **`framework/uipath_claude/library/`** — **Python code** for that feature (`catalog.py`, `harvest.py`, `reader.py`, …). It lives under `framework/` with the rest of `uipath_claude` because the MCP server and CLI import it as `uipath_claude.library`. Same pattern as `framework/uipath_claude/skills/` (code) vs `skills/` (markdown submodule).
+
 ## Python skill engine (not skill content)
 
-- **`uipath_claude/skills/`** — Code: `registry.py`, `loader.py`, `sources.py`, `insights.py`, etc. This loads and merges skill roots; it is **not** a folder of `SKILL.md` files.
+- **`framework/uipath_claude/skills/`** — Code: `registry.py`, `loader.py`, `sources.py`, `insights.py`, etc. This loads and merges skill roots; it is **not** a folder of `SKILL.md` files.
 
 ## Team and local overlays
 
