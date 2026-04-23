@@ -42,7 +42,7 @@ mcp = [
 uipath-claude = "uipath_claude.cli.app:app"
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "tools/uiplan/tests"]
 pythonpath = ["."]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
