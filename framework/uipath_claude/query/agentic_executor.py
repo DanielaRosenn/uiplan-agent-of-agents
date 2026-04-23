@@ -10,7 +10,7 @@ import re
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
 from botocore.config import Config as BotoConfig
 from botocore.exceptions import ClientError, ConnectTimeoutError, ReadTimeoutError
@@ -173,6 +173,11 @@ def _last_build_verify_was_pass(messages: list[Any]) -> tuple[bool, str | None]:
 
 def _has_mutated_project(tool_calls_made: list[dict[str, Any]]) -> bool:
     return any(tc.get("name") in _PROJECT_MUTATING_NAMES for tc in tool_calls_made)
+
+
+def _build_verify_tool_available(tool_map: Mapping[str, Any]) -> bool:
+    """True when the bound tool set includes a workflow build/verify tool."""
+    return bool(_BUILD_VERIFY_NAMES & frozenset(tool_map.keys()))
 
 
 # Tools that should be redirected to `uipath_design_propose` when the target
@@ -863,7 +868,8 @@ class AgenticExecutor:
                     return err_result
 
                 if (
-                    _has_mutated_project(tool_calls_made)
+                    _build_verify_tool_available(tool_map)
+                    and _has_mutated_project(tool_calls_made)
                     and verify_nudges < 5
                     and iterations < max_iter
                 ):
@@ -1265,7 +1271,12 @@ class AgenticExecutor:
             "mutation. A static get-errors pass alone is NOT sufficient.",
             "6. Check project.json dependencies before using activities - install missing packages.",
             "7. If user requests deployment/publishing, use deploy_to_orchestrator AFTER build_and_verify reports verdict='pass'.",
-            "8. When done AND verdict='pass', provide a summary of what was created/modified plus the headless and Studio debug log excerpts from the final build_and_verify payload.",
+            "8. When done AND verdict='pass': (a) if Studio had this project open "
+            "(open-project, StartDebugging, or build_and_verify Studio steps), call "
+            "`uip rpa close-project` for that project_dir (e.g. via run_uip_command) "
+            "before you stop; (b) then summarize what was created/modified plus "
+            "headless and Studio debug log excerpts from the final build_and_verify "
+            "payload.",
             "9. For write_file and other session-scoped paths, use paths relative to the chat "
             "artifact root only — do not pass Windows absolute paths to write_file.",
             "10. Do not pass --use-studio to the uip CLI via run_uip_command; it is not "

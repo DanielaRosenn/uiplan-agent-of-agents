@@ -184,8 +184,9 @@ async def test_agentic_executor_no_tool_calls_immediate_answer(mock_tools):
 
 
 @pytest.mark.asyncio
-async def test_agentic_executor_max_iterations():
+async def test_agentic_executor_max_iterations(monkeypatch):
     """Test executor stops at max iterations."""
+    monkeypatch.setenv("UIPATH_MAX_ITER_EXTEND", "0")
     executor = AgenticExecutor(
         model_name="test-model",
         region="us-east-1",

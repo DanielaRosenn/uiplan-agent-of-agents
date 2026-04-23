@@ -44,7 +44,18 @@ uip rpa open-project --project-dir "{projectRoot}"```
 
 **Note:** If `start-studio` fails with a registry key error, pass `--studio-dir` explicitly pointing to the Studio installation directory.
 
-## Step 0.3: Authentication (If Needed)
+## Step 0.3: Close the project when Studio work is finished
+
+If you ran **`uip rpa open-project`**, **attached Studio debug** (`run-file` with `StartDebugging --use-studio`), or otherwise had Studio load `{projectRoot}`, make **closing the project** part of the same flow—not an optional extra:
+
+```bash
+uip rpa close-project --project-dir "{projectRoot}" --output json
+```
+
+- Run **after** the last `get-errors` / `run-file` / manual check for that session, and **before** switching to another project, running pack/analyze that needs an exclusive lock, or ending the turn if no further edits are planned.
+- Keeps the project database unlocked (avoids “already opened in another Studio instance”) and reduces leftover Studio instances. For full-process cleanup after heavy tests, still follow `docs/Testing_Guide.md`.
+
+## Step 0.4: Authentication (If Needed)
 
 Some commands (IS connections, workflow examples, cloud features) require authentication:
 
@@ -54,7 +65,7 @@ uip login
 
 If you encounter auth errors (401, 403, "not authenticated") during any phase, prompt the user to run `uip login` to authenticate against their UiPath Cloud tenant.
 
-## Step 0.4: Creating a New Project
+## Step 0.5: Creating a New Project
 
 **ALWAYS use `uip rpa create-project`** — never write `project.json`, `project.uiproj`, or other scaffolding files manually.
 
@@ -144,3 +155,4 @@ uip rpa new \
 1. Open the project in Studio: `uip rpa open-project --project-dir "/path/to/MyAutomation"`
 2. **Read the scaffolded files** — the command generates starter files. Read them before making changes so you build on valid defaults
 3. Proceed with the skill workflow using the new project root
+4. When that Studio pass is done (validation / smoke / edits), **close the project**: `uip rpa close-project --project-dir "/path/to/MyAutomation"` (see Step 0.3)

@@ -796,6 +796,7 @@ def run_uip_command(
     - uip rpa get-default-activity-xaml --activity-class-name "..."
     - uip rpa list-instances
     - uip rpa create-project --name "..." --location "..."
+    - uip rpa close-project --output json  (after open-project / Studio debug; releases DB lock)
     
     Args:
         command: The uip subcommand (e.g., "rpa", "is")
@@ -892,10 +893,10 @@ def run_uip_command(
         and "already opened in another Studio instance" in output
     ):
         studio_hint = (
-            "\n\nHint: Close every UiPath Studio window that has this project open, "
-            "then retry. While Studio holds the project database, `uip rpa analyze` "
-            "cannot run. Alternatively use `uipcli package analyze` from CI without "
-            "Studio.\n"
+            "\n\nHint: Run `uip rpa close-project --project-dir <root>` (or close Studio "
+            "windows) for every instance holding this project, then retry. While Studio "
+            "holds the project database, `uip rpa analyze` cannot run. Alternatively use "
+            "`uipcli package analyze` from CI without Studio.\n"
         )
     return _tool(ok, note + studio_hint + tail if (note or studio_hint) else tail)
 

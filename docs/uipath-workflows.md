@@ -89,6 +89,16 @@ uipcli test run Tests\project.json https://cloud.uipath.com/ <tenant> \
   --testset "Smoke" --result_path test-results.xml
 ```
 
+### Studio Desktop via `uip rpa` (session hygiene)
+
+If an assistant or script **opens** a project in Studio Desktop (`uip rpa open-project`, `run-file` with Studio-attached debug, or repeated IPC against a project), **close** it in the same flow when that pass is done—before switching projects, packing from another tool, or ending the session:
+
+```bash
+uip rpa close-project --project-dir "<projectRoot>" --output json
+```
+
+This releases project locks (avoids “already opened in another Studio instance”) and pairs with broader cleanup when needed (`docs/Testing_Guide.md`). See `.cursor/skills/uipath-rpa/references/environment-setup.md` Step 0.3.
+
 ### AI-assistant boundaries for XAML {#xaml-ai-edits}
 
 XAML is XML under the hood. AI assistants can safely edit XAML for:

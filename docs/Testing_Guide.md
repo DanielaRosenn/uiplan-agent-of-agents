@@ -33,6 +33,13 @@
    Select-String -Path output.txt -Pattern "\[ANSWERING\]|\[CLARIFYING\]"
    ```
 
+3b. **Close the Studio project (same flow as open/validate)**  
+   If Studio had the test project open (`open-project`, debug, or CLI-driven Studio IPC), release it before cleanup scripts:
+
+   ```powershell
+   uip rpa close-project --project-dir $testDir --output json
+   ```
+
 4. **⚠️ IMPORTANT: Cleanup Studio processes**
    ```powershell
    cd C:\Users\DanielaRosenstein\projects\uipath-builder-agent
