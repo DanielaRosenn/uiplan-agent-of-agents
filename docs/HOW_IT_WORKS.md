@@ -155,7 +155,7 @@ Ten ordered stages. Every stage returns `{status: ok|failed}`; first failure
 short-circuits. Documents land in `output_root/docs/<stage>/`; the generated
 project in `output_root/generated/automation/<stamp>/`.
 
-Code: [`uipath_claude/query/pdd_lifecycle.py`](../uipath_claude/query/pdd_lifecycle.py).
+Code: [`uipath_claude/query/pdd_lifecycle.py`](../uipath_claude/query/pdd_lifecycle.py). Naming for **SDD** vs the **`tdd`** stage artefact (vs methodology “TDD”): [PDD_LIFECYCLE.md](PDD_LIFECYCLE.md#naming-sdd-vs-lifecycle-tdd).
 
 ### 3b. `/bootstrap` — lighter four-stage flow with approvals
 

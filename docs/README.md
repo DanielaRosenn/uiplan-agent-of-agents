@@ -6,7 +6,7 @@ Landing page for everything under `docs/`. Start with [ARCHITECTURE.md](ARCHITEC
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — runtime, agentic executor, validator gate, `/pdd` and `/bootstrap` pipelines.
 - [USER_GUIDE.md](USER_GUIDE.md) — day-to-day CLI usage, slash commands, env vars.
-- [PDD_LIFECYCLE.md](PDD_LIFECYCLE.md) — the full BA -> SA -> ADD -> TDD -> Dev -> QA -> publish -> deploy flow driven by `/pdd`.
+- [PDD_LIFECYCLE.md](PDD_LIFECYCLE.md) — the full BA -> SA -> ADD -> TDD -> Dev -> QA -> publish -> deploy flow driven by `/pdd` (includes **Naming: SDD vs lifecycle TDD**).
 - [CURSOR_USER_GUIDE.md](CURSOR_USER_GUIDE.md) — using the UiPath skills + MCP tools from inside Cursor.
 - [INSTALL.md](INSTALL.md) — full installation: UiPath CLI, Studio 26.2+, submodules, AWS Bedrock.
 - [TOOLS.md](TOOLS.md) — reference for every tool the agent can call.
@@ -36,6 +36,7 @@ Landing page for everything under `docs/`. Start with [ARCHITECTURE.md](ARCHITEC
 
 - [Testing_Guide.md](Testing_Guide.md) — how to run tests.
 - [MANUAL_TESTING_POST_PHASE4.md](MANUAL_TESTING_POST_PHASE4.md) — manual checklist after Phase 4 + UiPlan (layout, MCP, UiPlan CLI, `uip`, pytest).
+- [MANUAL_REVIEW_CURSOR_FULL_PROJECT.md](MANUAL_REVIEW_CURSOR_FULL_PROJECT.md) — full-project matrix for Cursor (every MCP tool + gates + slash commands + results template).
 - [SMOKE_TESTS.md](SMOKE_TESTS.md) — end-to-end smoke scenarios.
 - [MANUAL_EVAL_AND_QA.md](MANUAL_EVAL_AND_QA.md) — manual evaluation checklist.
 - [workflow-benchmarks.md](workflow-benchmarks.md) — benchmark workflows.

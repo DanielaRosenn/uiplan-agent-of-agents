@@ -27,6 +27,18 @@ Examples:
 /pdd --project-type maestro --deploy "Triage support tickets across email and Slack"
 ```
 
+## Naming: SDD vs lifecycle TDD
+
+In this repository the words mean **different artefacts** in the same `/pdd` pipeline:
+
+| Term | Meaning here |
+| --- | --- |
+| **SDD** | Solution Design Document produced by the **`sdd`** stage (SA agent), seeded from the PDD. |
+| **Lifecycle TDD** | The **`tdd`** stage output (`docs/tdd/<stamp>.md`): technical + test design seeded from the ADD. It is **not** the same document as the SDD. |
+| **“TDD” in the methodology sense** | Red/green/refactor test-first coding — a **general software practice**, not the name of the `tdd` stage file unless context says so. |
+
+Do not conflate **SDD** with the **`tdd`** stage artefact; both are produced in sequence for the default UiPath lifecycle ([stages table](#stages) below).
+
 ## Stages
 
 Defined as `STAGES = ("pdd", "sdd", "add", "tdd", "scaffold", "implement", "validate", "run", "publish", "deploy")`. Every stage records `{"status": "ok"|"failed"|"skipped", ...}` in the result `stages` map. The first failed stage short-circuits the lifecycle and returns `failed_at=<stage>` plus `error=<message>`.

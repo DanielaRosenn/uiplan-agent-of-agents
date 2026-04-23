@@ -1,5 +1,7 @@
 # Smoke Tests
 
+For a **tabular** full-project review (tick each MCP tool and repo gate with PASS/FAIL/BLOCKED and submit results), use [MANUAL_REVIEW_CURSOR_FULL_PROJECT.md](MANUAL_REVIEW_CURSOR_FULL_PROJECT.md). This file stays **scenario-based** (long flows, env tables, step-by-step).
+
 ## Model + profile env vars
 
 Optional environment overrides (everything has sensible defaults):
