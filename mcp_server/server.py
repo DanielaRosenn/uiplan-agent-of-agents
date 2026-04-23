@@ -14,7 +14,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+_REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_REPO))
+from uipath_claude.context.path_contract import runtime_root  # noqa: E402
+
+sys.path[0] = str(runtime_root(_REPO))
 
 try:
     from mcp.server import Server
