@@ -14,7 +14,7 @@ Run both approved plans in parallel while preventing cross-track breakage:
 | Lane | Owner | Scope |
 |---|---|---|
 | A1 | Migration lead | Path contracts, structure phases, compatibility windows |
-| B1 | UiPlan lead | `tools/uiplan/`, `_uiplan-kit`, command loop policy |
+| B1 | UiPlan lead | `tools/uiplan/`, `docs/uiplan/kit/`, command loop policy |
 | Shared QA | Both | Sync-point tests and final regression suite |
 
 ## Sync checkpoints (hard gates)

@@ -7,7 +7,7 @@ import pytest
 
 # framework/tests/unit/docs/<this_file> -> parents[4] is repo root
 REPO = Path(__file__).resolve().parents[4]
-TPL = REPO / "docs" / "plans" / "_uiplan"
+TPL = REPO / "docs" / "uiplan" / "kit"
 
 
 @pytest.mark.parametrize(

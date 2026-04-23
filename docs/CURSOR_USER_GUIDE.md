@@ -53,7 +53,7 @@ Or manually add to Cursor's MCP settings:
       "args": ["-m", "mcp_server.server"],
       "cwd": "c:/path/to/uipath-builder-agent",
       "env": {
-        "PYTHONPATH": "c:/path/to/uipath-builder-agent"
+        "PYTHONPATH": "c:/path/to/uipath-builder-agent/framework"
       }
     }
   }
@@ -530,5 +530,5 @@ If superpowers skills don't appear:
 - [README.md](../README.md) - Project overview
 - [USER_GUIDE.md](USER_GUIDE.md) - CLI usage guide
 - [skills/skills/](../skills/skills/) - Browse skill source files
-- [mcp_server/](../mcp_server/) - MCP server source
+- [framework/mcp_server/](../framework/mcp_server/) - MCP server source
 - [UiPath Documentation](https://docs.uipath.com/) - Official reference

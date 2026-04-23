@@ -12,17 +12,58 @@ RPA developers spend hours scaffolding projects, hand-writing XAML, and chasing 
 ![demo](docs/assets/demo.gif)
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
 flowchart LR
-    User[User prompt] --> Router[Query router]
-    Router --> Executor[Agentic ReAct executor]
-    Executor --> Tools[Tool registry]
-    Tools --> Skills[Skills and Library]
-    Tools --> UiPath[UiPath CLI / Analyzer / Orchestrator]
-    Tools --> Validator{Validator gate}
+    User[User prompt]:::process --> Router[Query router]:::service
+    Router --> Executor[Agentic ReAct executor]:::service
+    Executor --> Tools[Tool registry]:::process
+    Tools --> Skills[Skills and Library]:::data
+    Tools --> UiPath[UiPath CLI / Analyzer / Orchestrator]:::external
+    Tools --> Validator{Validator gate}:::decision
     Validator -->|errors| Executor
-    Validator -->|ok| Output[Generated project]
-    Executor -->|needs approval| Human[HITL approval]
+    Validator -->|ok| Output[Generated project]:::success
+    Executor -->|needs approval| Human[HITL approval]:::human
     Human --> Executor
+
+    classDef process  fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+    classDef service  fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+    classDef data     fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+    classDef external fill:#FAFAFA,stroke:#94A3B8,color:#334155,stroke-width:1.25px
+    classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+    classDef success  fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:2px
+    classDef human    fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.5px
+
+    linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+---
+
+## Repository layout (runtime code)
+
+After the **Phase 4** migration, Python packages and the MCP server live only under **`framework/`**. Operations scripts are under **`ops/scripts/`**. UiPlan templates ship under **`docs/uiplan/kit/`**.
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
+flowchart LR
+  subgraph Code["Code"]
+    F[framework/]:::service
+  end
+  subgraph Ops["Ops"]
+    O[ops/scripts/]:::process
+  end
+  subgraph Docs["Docs + UiPlan"]
+    D[docs/uiplan/]:::human
+    S[scaffold/template/]:::process
+  end
+  F --> O
+  F --> D
+
+  classDef process  fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service  fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef human    fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.5px
+
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+  linkStyle 0,1 stroke:#3B82F6,stroke-width:2px
 ```
 
 ---
@@ -143,6 +184,7 @@ candidates, and **`docs/plans/constitution.md`** gates into the plan. **`uipath_
 returns machine-readable findings (spec/plan/tasks/all) before you accept.
 
 ```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
 flowchart LR
   G[uipath_plan_ground]:::ro --> S[uipath_plan_spec_new]:::w
   S --> P[uipath_plan_plan_new]:::w
@@ -150,13 +192,16 @@ flowchart LR
   T --> R[uipath_plan_review]:::ro
   R --> A[uipath_plan_accept]:::w
   A --> Pub[uipath_plan_publish]:::w
-  classDef ro fill:#E0F2FE,stroke:#0284C7,color:#0C4A6E
-  classDef w fill:#FEF3C7,stroke:#D97706,color:#78350F
+  classDef ro fill:#E0F2FE,stroke:#0284C7,color:#0C4A6E,stroke-width:1.25px
+  classDef w fill:#FEF3C7,stroke:#D97706,color:#78350F,stroke-width:1.25px
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
 ```
 
 - **Cursor:** `/uiplan full <title>` or staged `/uiplan ground|spec|plan|tasks|review ...` (slash command).
 - **CLI:** `uipath-claude plan uiplan full "..."` or `plan uiplan ground|spec|plan|tasks|review ...`.
 - **Skill:** [.cursor/skills/uiplan/SKILL.md](.cursor/skills/uiplan/SKILL.md).
+- **Docs:** [docs/uiplan/README.md](docs/uiplan/README.md), [docs/uiplan/HOW_TO_USE.md](docs/uiplan/HOW_TO_USE.md), and the [UiPlan framework matrix](docs/plans/2026-04-21-uiplan-framework.md).
+- **Local kit + generator:** `uv run python -m tools.uiplan generate-docs <slug>` (templates default to `docs/uiplan/kit/`).
 
 Single-file drafts (`uipath_plan_new`) stay supported; `uipath_plan_refine` / `uipath_plan_diff` apply to those only, not UiPlan folders.
 

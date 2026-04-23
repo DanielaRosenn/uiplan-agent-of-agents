@@ -14,16 +14,22 @@ import sys
 from pathlib import Path
 from typing import Any
 
-_pkg_parent = Path(__file__).resolve().parent.parent
-if (_pkg_parent / "uipath_claude").is_dir():
-    sys.path.insert(0, str(_pkg_parent))
-elif (_pkg_parent.parent / "uipath_claude").is_dir():
-    sys.path.insert(0, str(_pkg_parent.parent))
+_FRAMEWORK_DIR = Path(__file__).resolve().parent.parent
+_uc = _FRAMEWORK_DIR / "uipath_claude"
+_ms = _FRAMEWORK_DIR / "mcp_server"
+if not _uc.is_dir() or not _ms.is_dir():
+    raise FileNotFoundError(
+        "MCP server must run inside the framework tree "
+        f"(expected uipath_claude/ and mcp_server/ under {_FRAMEWORK_DIR})",
+    )
+sys.path.insert(0, str(_FRAMEWORK_DIR))
 
 from uipath_claude.context.path_contract import repo_root_from_any, runtime_root  # noqa: E402
 
 _REPO = repo_root_from_any(Path(__file__))
-sys.path.insert(0, str(runtime_root(_REPO)))
+_rt = runtime_root(_REPO)
+if _rt != _FRAMEWORK_DIR:
+    sys.path.insert(0, str(_rt))
 
 try:
     from mcp.server import Server

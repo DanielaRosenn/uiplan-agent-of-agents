@@ -72,8 +72,8 @@ Every stage consults the workspace before generating:
 | Stage | Sources |
 |---|---|
 | `ground` / `spec_new` | `.claude/rules/project-context.md` (or triggers `uipath-project-discovery-agent`), `CLAUDE.md` hard gates, existing `docs/PDD/*.md` |
-| `plan_new` | `uipath-planner` skill match -> matched specialist skills (via `uipath_skill_get`); `uipath_library_search` for each capability; `templates/` (dispatcher/long-running/performer) for project shell; `uipath_claude/templates/sdd.md` for structure |
-| `tasks_new` | Drafted `plan.md` structure; `uipath_doc_get_activity` for activities; skill SKILL.md capability sections; `uipath_claude/templates/tdd.md` for test patterns; project template file layouts |
+| `plan_new` | `uipath-planner` skill match -> matched specialist skills (via `uipath_skill_get`); `uipath_library_search` for each capability; `scaffold/template/` (dispatcher/long-running/performer) for project shell; `framework/uipath_claude/templates/sdd.md` for structure |
+| `tasks_new` | Drafted `plan.md` structure; `uipath_doc_get_activity` for activities; skill SKILL.md capability sections; `framework/uipath_claude/templates/tdd.md` for test patterns; project template file layouts |
 | `review` | `CLAUDE.md` hard gates as constitution, optional `docs/plans/constitution.md` override; cross-doc consistency; existing plans for duplicate/supersede detection |
 
 Every generated section gets inline citations (`[skill:uipath-rpa]`,
@@ -95,10 +95,10 @@ Output shape: `{ok, stage, findings[], next_action}`.
 
 - Python 3.11, existing `uv` workspace
 - `pyyaml` for `.meta.yaml`
-- Existing MCP plumbing in `mcp_server/tools/plan_tools.py`
+- Existing MCP plumbing in `framework/mcp_server/tools/plan_tools.py`
 - Existing `uipath_library_search`, `uipath_doc_get_activity`,
   `uipath_skill_get`, `uipath_plan_brainstorm`
-- Existing templates under `uipath_claude/templates/` and `templates/`
+- Existing templates under `framework/uipath_claude/templates/` and `scaffold/template/`
 
 ---
 
@@ -108,25 +108,25 @@ Output shape: `{ok, stage, findings[], next_action}`.
 
 ```
 .cursor/skills/uiplan/SKILL.md
-docs/plans/_uiplan/_spec-template.md
-docs/plans/_uiplan/_plan-template.md
-docs/plans/_uiplan/_tasks-template.md
+docs/uiplan/kit/_spec-template.md
+docs/uiplan/kit/_plan-template.md
+docs/uiplan/kit/_tasks-template.md
 docs/plans/constitution.md                          # seeded from CLAUDE.md
-uipath_claude/commands/uiplan.md                    # /uiplan slash command
-tests/unit/docs/test_uiplan_templates.py
-tests/mcp/test_uiplan_tools.py
-tests/mcp/test_uiplan_review.py
-tests/mcp/test_plan_grounding.py
+framework/uipath_claude/commands/uiplan.md        # /uiplan slash command
+framework/tests/unit/docs/test_uiplan_templates.py
+framework/tests/mcp/test_uiplan_tools.py
+framework/tests/mcp/test_uiplan_review.py
+framework/tests/mcp/test_plan_grounding.py
 ```
 
 ### Modified files
 
 ```
-mcp_server/tools/plan_tools.py                      # +6 tools, folder-plan helpers
-uipath_claude/cli/app.py                            # add `plan uiplan` subcommand group
-tests/mcp/test_plan_tools.py                        # extend TestGetPlanTools
-tests/mcp/test_tool_annotations.py                  # classify new tools
-tests/mcp/test_tool_descriptions.py                 # descriptions for new params
+framework/mcp_server/tools/plan_tools.py            # +6 tools, folder-plan helpers
+framework/uipath_claude/cli/app.py                  # add `plan uiplan` subcommand group
+framework/tests/mcp/test_plan_tools.py              # extend TestGetPlanTools
+framework/tests/mcp/test_tool_annotations.py        # classify new tools
+framework/tests/mcp/test_tool_descriptions.py       # descriptions for new params
 ops/scripts/mcp_tools_doc_diagrams.py                   # diagrams for new tools
 docs/PLANNING_FRAMEWORK.md                          # /uiplan section with grounding diagram
 README.md                                           # link /uiplan from SDLC section
@@ -141,17 +141,17 @@ README.md                                           # link /uiplan from SDLC sec
 
 **Files:**
 
-- Create: `mcp_server/tools/plan_folder.py`
+- Create: `framework/mcp_server/tools/plan_folder.py`
   (`load_meta(slug) -> dict`, `save_meta(slug, meta)`, `is_folder_plan(path)`,
   `resolve_slug(root, slug)` returns a `PlanLocation` that is either a single
   file path or a directory path)
-- Modify: `mcp_server/tools/plan_tools.py:_find_plan_path`
+- Modify: `framework/mcp_server/tools/plan_tools.py:_find_plan_path`
   (delegate to `plan_folder.resolve_slug`)
-- Test: `tests/mcp/test_plan_folder.py`
+- Test: `framework/tests/mcp/test_plan_folder.py`
 
 Steps:
 
-- [ ] **Step 1:** Write `tests/mcp/test_plan_folder.py` covering:
+- [ ] **Step 1:** Write `framework/tests/mcp/test_plan_folder.py` covering:
   `resolve_slug` returns file for legacy single-file plan and directory for
   folder plan; `load_meta`/`save_meta` roundtrips; `is_folder_plan` true for
   dir with `.meta.yaml`.
@@ -159,7 +159,7 @@ Steps:
 - [ ] **Step 3:** Implement `plan_folder.py`.
 - [ ] **Step 4:** Re-run; expect PASS.
 - [ ] **Step 5:** Patch `_find_plan_path` and any `uipath_plan_read` / `list`
-  / `accept` / `reject` / `publish` call sites; re-run full `tests/mcp`.
+  / `accept` / `reject` / `publish` call sites; re-run full `framework/tests/mcp`.
 - [ ] **Step 6:** Commit: `feat(plan): folder-plan helpers + back-compat`.
 
 ### Task 2: constitution seeding
@@ -167,9 +167,9 @@ Steps:
 **Files:**
 
 - Create: `docs/plans/constitution.md` (seeded from CLAUDE.md hard gates)
-- Create: `mcp_server/tools/plan_constitution.py`
+- Create: `framework/mcp_server/tools/plan_constitution.py`
   (`load_constitution(root) -> list[Gate]`)
-- Test: `tests/mcp/test_plan_constitution.py`
+- Test: `framework/tests/mcp/test_plan_constitution.py`
 
 Steps as above (test-first, minimal impl, commit).
 
@@ -177,12 +177,12 @@ Steps as above (test-first, minimal impl, commit).
 
 **Files:**
 
-- Modify: `mcp_server/tools/plan_tools.py` (+ tool definition + handler)
-- New helper: `mcp_server/tools/plan_grounding.py` orchestrating
+- Modify: `framework/mcp_server/tools/plan_tools.py` (+ tool definition + handler)
+- New helper: `framework/mcp_server/tools/plan_grounding.py` orchestrating
   `project-context` read, `uipath-planner` skill match, `library_search`
   fan-out, `doc_get_activity` fetches, template picker.
-- Test: `tests/mcp/test_plan_grounding.py` (library hits via `search_library.invoke`);
-  `tests/mcp/test_uiplan_tools.py` (`test_uiplan_ground_smoke`).
+- Test: `framework/tests/mcp/test_plan_grounding.py` (library hits via `search_library.invoke`);
+  `framework/tests/mcp/test_uiplan_tools.py` (`test_uiplan_ground_smoke`).
 
 Tests cover: missing project-context path, skills matched by intent keywords,
 library hits returned with citations, similar-PDD detection, constitution
@@ -190,13 +190,13 @@ load.
 
 ### Task 4: templates
 
-Create `docs/plans/_uiplan/_spec-template.md`, `_plan-template.md`,
+Create `docs/uiplan/kit/_spec-template.md`, `_plan-template.md`,
 `_tasks-template.md`, each adapted from spec-kit with UiPath-specific
 sections (project type, orchestrator folder, coded-vs-XAML, HITL surface).
 Each template includes inline citation block headers like
 `> Grounding: [...]` that the tools fill in.
 
-Tests: `tests/unit/docs/test_uiplan_templates.py` asserts each required
+Tests: `framework/tests/unit/docs/test_uiplan_templates.py` asserts each required
 section exists by heading.
 
 ### Task 5: `uipath_plan_spec_new`
@@ -242,7 +242,7 @@ findings so the caller can refine.
 ### Task 10: CLI + slash
 
 Add `uipath-claude plan uiplan` Typer subcommand dispatching to each tool.
-Add `uipath_claude/commands/uiplan.md` so `/uiplan` works in Cursor chat.
+Add `framework/uipath_claude/commands/uiplan.md` so `/uiplan` works in Cursor chat.
 
 ### Task 11: skill
 
@@ -259,7 +259,7 @@ Regenerate `docs/MCP_TOOLS.md` and `docs/plans/README.md`.
 
 ### Task 13: full-loop test + annotations
 
-- `tests/mcp/test_uiplan_tools.py` (`test_uiplan_full_scaffold`): full ground -> ... -> review green
+- `framework/tests/mcp/test_uiplan_tools.py` (`test_uiplan_full_scaffold`): full ground -> ... -> review green
   roundtrip against a fixture repo.
 - Update `test_tool_annotations.py` to classify the six new tools.
 - Update `test_tool_descriptions.py` for new params.
@@ -268,7 +268,7 @@ Regenerate `docs/MCP_TOOLS.md` and `docs/plans/README.md`.
 
 ```bash
 uv run python ops/scripts/generate_mcp_tools_doc.py; uv run python ops/scripts/generate_plan_index.py
-uv run pytest tests/mcp tests/unit -q
+uv run pytest framework/tests/mcp framework/tests/unit -q
 ```
 
 If green, commit in one logical push:

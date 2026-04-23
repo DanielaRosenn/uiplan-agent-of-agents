@@ -41,7 +41,7 @@ Validate your skill registered: `uipath-claude chat` → `/skills`. The origin c
 
 ## Add a tool
 
-Tools live under [uipath_claude/tools/](uipath_claude/tools/). Each tool is a Python function registered in a tool group. Follow the pattern in [uipath_claude/tools/skill_execution_tools.py](uipath_claude/tools/skill_execution_tools.py):
+Tools live under [framework/uipath_claude/tools/](framework/uipath_claude/tools/). Each tool is a Python function registered in a tool group. Follow the pattern in [framework/uipath_claude/tools/skill_execution_tools.py](framework/uipath_claude/tools/skill_execution_tools.py):
 
 1. Add the function with a typed signature and a docstring (the docstring becomes the model-visible description).
 2. Register it in the relevant tool group / profile in `uipath_claude/tools/profiles.py`.
@@ -52,10 +52,10 @@ Profiles (`safe`, `uipath-dev`, `all`) control which tools the agent sees. Defau
 
 ## Add a slash command
 
-Slash commands live under `uipath_claude/commands/`. Each command is a small module exposing a `run(session, args)` function and registered on the command registry:
+Slash commands live under `framework/uipath_claude/commands/`. Each command is a small module exposing a `run(session, args)` function and registered on the command registry:
 
-1. Create `uipath_claude/commands/my_command.py` with a `run` function (or use the `@register_command` decorator from `uipath_claude/commands/registry.py`).
-2. Register it on the active `CommandRegistry` (most commands are registered when the chat session boots; see `uipath_claude/cli/app.py` for `/bootstrap` and `/pdd`).
+1. Create `framework/uipath_claude/commands/my_command.py` with a `run` function (or use the `@register_command` decorator from `framework/uipath_claude/commands/registry.py`).
+2. Register it on the active `CommandRegistry` (most commands are registered when the chat session boots; see `framework/uipath_claude/cli/app.py` for `/bootstrap` and `/pdd`).
 3. Document the command in `README.md` and [docs/USER_GUIDE.md](docs/USER_GUIDE.md).
 4. Add a unit test under `tests/unit/commands/`.
 
@@ -63,8 +63,14 @@ Slash commands call into the same Python packages as the CLI, so keep business l
 
 Real-world examples:
 
-- [`uipath_claude/commands/pdd.py`](uipath_claude/commands/pdd.py) - `/pdd`, parses `--project-type` / `--deploy` / `--folder` and delegates to `run_pdd_lifecycle` (full BA -> SA -> ADD -> TDD -> Dev -> QA + publish + deploy). See [docs/PDD_LIFECYCLE.md](docs/PDD_LIFECYCLE.md).
-- [`uipath_claude/commands/bootstrap.py`](uipath_claude/commands/bootstrap.py) - `/bootstrap`, the legacy four-stage flow.
+- [`framework/uipath_claude/commands/pdd.py`](framework/uipath_claude/commands/pdd.py) - `/pdd`, parses `--project-type` / `--deploy` / `--folder` and delegates to `run_pdd_lifecycle` (full BA -> SA -> ADD -> TDD -> Dev -> QA + publish + deploy). See [docs/PDD_LIFECYCLE.md](docs/PDD_LIFECYCLE.md).
+- [`framework/uipath_claude/commands/bootstrap.py`](framework/uipath_claude/commands/bootstrap.py) - `/bootstrap`, the legacy four-stage flow.
+
+## UiPlan templates
+
+- **Kit:** [docs/uiplan/kit/](docs/uiplan/kit/) (`_spec-template.md`, `_plan-template.md`, `_tasks-template.md`, `_diagram-patterns.md`).
+- **Kit tests:** `uv run pytest tools/uiplan/tests/test_template_kit.py tools/uiplan/tests/test_generate_docs.py -q`
+- **Skills submodule:** do not advance `skills/` without updating `.uipath/skills-approved.sha` and running `uv run python -m uipath_claude.skills.submodule_guard`.
 
 ## Dev loop
 
@@ -89,7 +95,8 @@ python run_evals.py
 ## MCP setup (Cursor)
 
 The repo ships a project-scoped `.cursor/mcp.json` that registers the
-`uipath-builder-agent` MCP server (stdio transport, `python -m mcp_server.server`).
+`uipath-builder-agent` MCP server (stdio transport, `python -m mcp_server.server` with
+`PYTHONPATH` including `framework/`).
 Cursor will only pick it up when three conditions are met:
 
 1. **Python deps installed in a venv on PATH.** Run `pip install -e ".[dev]"`

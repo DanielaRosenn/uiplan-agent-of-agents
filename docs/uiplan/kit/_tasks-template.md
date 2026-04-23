@@ -12,12 +12,14 @@ Execution order vs. parallel tracks (replace with story IDs and real tasks).
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
 flowchart TD
-  Setup([Setup / shared]):::start
-  Foundation[Foundational work]:::process
-  StoryA[User story A]:::service
-  StoryB[User story B]:::service
-  Polish[Polish / cross-cutting]:::process
-  Done(((Done))):::endOk
+  subgraph Phases["Phases"]
+    Setup([Setup / shared]):::start
+    Foundation[Foundational work]:::process
+    StoryA[User story A]:::service
+    StoryB[User story B]:::service
+    Polish[Polish / cross-cutting]:::process
+    Done(((Done))):::endOk
+  end
   Setup --> Foundation
   Foundation --> StoryA
   Foundation --> StoryB

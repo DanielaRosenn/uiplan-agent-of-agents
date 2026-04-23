@@ -62,10 +62,10 @@ Promotion from draft to published is explicit via `uipath_plan_publish`
 
 Use UiPlan when you want **three linked artifacts** plus a **structured review** pass before build:
 
-1. **`uipath_plan_ground`** — read-only pack: project-context excerpt, `CLAUDE.md` excerpt, `uipath_skill_match` results, `uipath_library_search` snippets, PDD/SDD candidates, suggested `templates/` starter, constitution gates from `docs/plans/constitution.md` (or built-in defaults).
-2. **`uipath_plan_spec_new`** — creates the draft folder + `spec.md` from `docs/plans/_uiplan/_spec-template.md`.
+1. **`uipath_plan_ground`** — read-only pack: project-context excerpt, `CLAUDE.md` excerpt, `uipath_skill_match` results, `uipath_library_search` snippets, PDD/SDD candidates, suggested `scaffold/template/` starter, constitution gates from `docs/plans/constitution.md` (or built-in defaults).
+2. **`uipath_plan_spec_new`** — creates the draft folder + `spec.md` from `docs/uiplan/kit/_spec-template.md`.
 3. **`uipath_plan_plan_new`** — writes `plan.md` (Technical Context, Constitution Check, Project Structure).
-4. **`uipath_plan_tasks_new`** — writes `tasks.md` (phases, `[USn]` traceability, test-before-impl sections). It also appends **Resolved activity docs** for each **`[activity:PackageId:ActivityName]`** tag found in **plan.md** or **spec.md** (inline excerpts from the activity-docs cache), and a short **TDD reference (excerpt)** from `uipath_claude/templates/tdd.md` when that file exists in the repo.
+4. **`uipath_plan_tasks_new`** — writes `tasks.md` (phases, `[USn]` traceability, test-before-impl sections). It also appends **Resolved activity docs** for each **`[activity:PackageId:ActivityName]`** tag found in **plan.md** or **spec.md** (inline excerpts from the activity-docs cache), and a short **TDD reference (excerpt)** from `framework/uipath_claude/templates/tdd.md` when that file exists in the repo.
 5. **`uipath_plan_review`** — returns `{ ok, findings[], next_action }` for `stage`: `spec` \| `plan` \| `tasks` \| `all`.
 6. **`uipath_plan_uiplan_new`** — runs ground through review in one call.
 
@@ -93,7 +93,7 @@ Legacy **single-file** drafts (`uipath_plan_new`, refine, diff) are unchanged. U
 
 ### UiPlan template kit and two-step runtime (local `tools/uiplan`)
 
-For normalized templates and the **generate-docs → human approval → scaffold-code** flow, see [docs/plans/_uiplan-kit/README.md](plans/_uiplan-kit/README.md). From the repo root, the local runtime is:
+For normalized templates and the **generate-docs → human approval → scaffold-code** flow, see [docs/uiplan/README.md](uiplan/README.md) and [docs/uiplan/HOW_TO_USE.md](uiplan/HOW_TO_USE.md). From the repo root, the local runtime is:
 
 1. `uv run python -m tools.uiplan generate-docs <slug>` — materialize or refresh the doc bundle (drafts under `.cursor/plans/`, published copies under `docs/plans/`, per storage rules above).
 2. Human approval on that bundle before implementation.

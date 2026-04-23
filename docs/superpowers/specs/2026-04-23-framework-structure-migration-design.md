@@ -132,7 +132,7 @@ Running this structure migration in parallel with the UiPlan runtime restructure
 
 ### Track B: UiPlan runtime restructure
 
-- Owns `tools/uiplan/` + `docs/plans/_uiplan-kit/` package design and behavior.
+- Owns `tools/uiplan/` + `docs/uiplan/kit/` package design and behavior.
 
 ### Coordination points (must sync)
 
@@ -154,6 +154,10 @@ Running this structure migration in parallel with the UiPlan runtime restructure
 - Cursor-first flow verified; Claude compatibility retained.
 - Combined parallel-track regression run green.
 - Migration docs updated and consistent.
+
+## 10) Phase 4 closure (legacy removal)
+
+**Completed:** duplicate runtime trees at the repository root (`uipath_claude/`, `mcp_server/`, `scripts/`) are removed; `runtime_root()` requires `framework/uipath_claude` and `framework/mcp_server`; `scripts_root()` requires `ops/scripts/`; MCP server bootstraps `sys.path` from `framework/` only. Contract tests live in `framework/tests/migration/test_path_resolution.py`. UiPlan templates moved to `docs/uiplan/kit/` so `docs/plans/` holds feature plans only.
 
 ---
 

@@ -9,11 +9,11 @@ description: UiPlan (spec-kit-style) — three-file bundle under .cursor/plans/ 
 
 Local UiPlan runtime splits **documentation** from **implementation**:
 
-1. **Generate** — from the repo root, run `uv run python -m tools.uiplan generate-docs <slug>` (or `python -m tools.uiplan` with the project interpreter on `PYTHONPATH`). This materializes the spec/plan/tasks bundle (draft location follows repo convention: under `.cursor/plans/<slug>/` or published under `docs/plans/<slug>/`).
+1. **Generate** — from the repo root, run `uv run python -m tools.uiplan generate-docs <slug>` (or `python -m tools.uiplan` with the project interpreter on `PYTHONPATH`). This materializes the spec/plan/tasks bundle (default draft: `.cursor/plans/<slug>/`; publish still goes through `uipath_plan_publish` to `docs/plans/<slug>/`).
 2. **Human approval** — review the generated `spec.md`, `plan.md`, and `tasks.md` for accuracy, scope, and constitution checks before any scaffold or implementation work.
 3. **Scaffold** — run `uv run python -m tools.uiplan scaffold-code <slug> --max-loops N` (or omit `--max-loops` to use the **`UIPLAN_MAX_LOOPS`** environment default from `tools/uiplan` loop policy).
 
-Template kit and flow notes: [docs/plans/_uiplan-kit/README.md](../../../docs/plans/_uiplan-kit/README.md).
+Canonical human entry + kit: [docs/uiplan/README.md](../../../docs/uiplan/README.md) and [docs/uiplan/kit/README.md](../../../docs/uiplan/kit/README.md).
 
 ## When to use
 
@@ -44,4 +44,4 @@ Do **not** start implementation (workflow writes, package installs, deploy) unti
 
 ## Mermaid
 
-Use `.cursor/skills/mermaid-diagram-builder/SKILL.md` for diagrams embedded in `plan.md`.
+Before finalizing generated `spec.md` / `plan.md` / `tasks.md`, apply **Pro Standard** rules from [`mermaid-diagram-builder`](../mermaid-diagram-builder/SKILL.md) (`classDef` on meaningful nodes, `linkStyle` on flowcharts, calm subgraph fills). Do not ship a single-diagram plan bundle for non-trivial features.

@@ -82,7 +82,13 @@ def _tdd_excerpt_lines(lines: list[str]) -> str:
 
 
 def _tdd_reference_append(repo: Path) -> str:
-    tdd = runtime_root(repo) / "uipath_claude" / "templates" / "tdd.md"
+    try:
+        rt = runtime_root(repo)
+    except FileNotFoundError:
+        import uipath_claude  # noqa: PLC0415
+
+        rt = Path(uipath_claude.__file__).resolve().parent.parent
+    tdd = rt / "uipath_claude" / "templates" / "tdd.md"
     if not tdd.is_file():
         return ""
     excerpt = _tdd_excerpt_lines(tdd.read_text(encoding="utf-8").splitlines())
@@ -92,7 +98,18 @@ def _tdd_reference_append(repo: Path) -> str:
 
 
 def _template_dir(repo: Path) -> Path:
-    return repo / "docs" / "plans" / "_uiplan"
+    """Return the kit directory, preferring *repo* then the checkout that owns ``uipath_claude``."""
+    direct = repo / "docs" / "uiplan" / "kit"
+    if (direct / "_spec-template.md").is_file():
+        return direct
+    import uipath_claude  # noqa: PLC0415 — runtime import to infer checkout root
+
+    inferred_root = Path(uipath_claude.__file__).resolve().parents[2]
+    fallback = inferred_root / "docs" / "uiplan" / "kit"
+    if (fallback / "_spec-template.md").is_file():
+        return fallback
+    msg = f"UiPlan template kit missing: tried {direct} and {fallback}"
+    raise FileNotFoundError(msg)
 
 
 def _fill(tpl: str, mapping: dict[str, str]) -> str:

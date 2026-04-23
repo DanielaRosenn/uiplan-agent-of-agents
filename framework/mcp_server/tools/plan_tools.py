@@ -532,7 +532,7 @@ def get_plan_tools() -> list[Tool]:
             name="uipath_plan_spec_new",
             description=(
                 "Create a UiPlan draft folder under .cursor/plans/ with spec.md "
-                "from docs/plans/_uiplan/_spec-template.md plus .meta.yaml "
+                "from docs/uiplan/kit/_spec-template.md plus .meta.yaml "
                 "(plan_kind=uiplan). Optionally pass grounding_pack from "
                 "uipath_plan_ground; otherwise grounding is computed from intent."
             ),

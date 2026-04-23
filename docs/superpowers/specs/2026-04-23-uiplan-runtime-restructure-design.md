@@ -7,7 +7,7 @@
 
 ## 1) Problem and intent
 
-Current `docs/plans/_uiplan/` templates are useful but underpowered for full planning-to-build execution.  
+Legacy `docs/plans/_uiplan/` templates are superseded by the kit under `docs/uiplan/kit/` for full planning-to-build execution.  
 The target is a first-class UiPlan package that:
 
 - mirrors superpowers/spec-kit quality for documentation and structure,
@@ -18,7 +18,7 @@ The target is a first-class UiPlan package that:
 
 1. **Architecture model:** Hybrid split
    - Runtime package under `tools/uiplan/`.
-   - Human-facing kit under `docs/plans/_uiplan-kit/`.
+   - Human-facing kit under `docs/uiplan/kit/` (see `docs/uiplan/README.md`).
 2. **Command model:** Explicit two-step (Option A)
    - `uiplan generate-docs`
    - `uiplan scaffold-code`
@@ -53,14 +53,19 @@ tools/
     tests/
 
 docs/
-  plans/
-    _uiplan-kit/
+  uiplan/
+    README.md
+    HOW_TO_USE.md
+    kit/
       README.md
       _spec-template.md
       _plan-template.md
       _tasks-template.md
       _diagram-patterns.md
-      _project-types.md
+  plans/
+    README.md
+    constitution.md
+    <slug folders> / single-file plans
 ```
 
 ## 4) Command behavior
@@ -69,7 +74,7 @@ docs/
 
 Produces a complete planning bundle:
 
-- Spec, plan, and tasks documents from `_uiplan-kit` templates.
+- Spec, plan, and tasks documents from `docs/uiplan/kit/` templates.
 - Required Mermaid architecture/flow diagrams.
 - Embedded references to:
   - existing project PDD/SDD (when present),
@@ -171,13 +176,26 @@ UiPlan integrates with existing assets before build:
 
 ## 10) Migration from current `_uiplan`
 
-Migration strategy:
+Completed path:
 
-1. Create `tools/uiplan/` runtime package and `docs/plans/_uiplan-kit/`.
-2. Copy and normalize current templates from `docs/plans/_uiplan/`.
-3. Keep legacy `_uiplan/` as compatibility alias for one transition cycle.
-4. Update references in `.cursor/skills/uiplan/SKILL.md`.
-5. Remove legacy alias after all tests and docs references are green.
+1. `tools/uiplan/` runtime package (Typer CLI, loop runner).
+2. Kit lives at `docs/uiplan/kit/` with `_diagram-patterns.md` and Pro Standard templates.
+3. `docs/plans/_uiplan/README.md` stub points to the new kit; duplicate templates under `docs/plans/_uiplan/` were removed.
+4. `.cursor/skills/uiplan/SKILL.md` links `docs/uiplan/README.md` as the canonical human entry.
+
+## 13) Phase 4 closure — generate-docs MVP vs backlog
+
+**Shipped (MVP):**
+
+- `tools/uiplan/generators/docs_bundle.py` — copy kit templates to `spec.md` / `plan.md` / `tasks.md` with baseline placeholder substitution.
+- `tools/uiplan/validators/visual_density.py` — minimum Mermaid counts + Pro Standard heuristics (`classDef`, `linkStyle` on flowcharts).
+- `uv run python -m tools.uiplan generate-docs <slug>` wired with `--out`, `--kit`, `--strict`.
+
+**Backlog (design §3 parity):**
+
+- Per-project-type adapters under `tools/uiplan/scaffold/` beyond the current stub loop.
+- `mmdc` syntax validation when CLI available.
+- Rich MCP bridges (`integrations/mcp_bridge.py` patterns) as described in earlier sections of this doc.
 
 ## 11) Test strategy
 

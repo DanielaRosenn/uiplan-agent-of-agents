@@ -9,20 +9,21 @@ from mcp_server.tools import plan_tools, plan_uiplan
 @pytest.fixture
 def repo(tmp_path, monkeypatch):
     monkeypatch.setattr(plan_tools, "_regen_plan_index", lambda r: {"skipped": True})
+    (tmp_path / "pyproject.toml").write_text("[project]\nname = \"tmp\"\n", encoding="utf-8")
+    (tmp_path / "langgraph.json").write_text("{}", encoding="utf-8")
     (tmp_path / "docs" / "plans").mkdir(parents=True)
     (tmp_path / ".cursor" / "plans").mkdir(parents=True)
-    (tmp_path / "docs" / "plans" / "_uiplan").mkdir(parents=True)
+    kit = tmp_path / "docs" / "uiplan" / "kit"
+    kit.mkdir(parents=True)
     for name in ("_spec-template.md", "_plan-template.md", "_tasks-template.md"):
-        (tmp_path / "docs" / "plans" / "_uiplan" / name).write_text(
-            "# T\n\n{{TITLE}}\n{{INTENT}}\n", encoding="utf-8"
-        )
+        (kit / name).write_text("# T\n\n{{TITLE}}\n{{INTENT}}\n", encoding="utf-8")
     return tmp_path
 
 
 @pytest.mark.asyncio
 async def test_uiplan_full_scaffold(repo, monkeypatch):
     """Minimal templates: use tiny files so _fill leaves unreplaced tokens acceptable."""
-    tpl = repo / "docs" / "plans" / "_uiplan"
+    tpl = repo / "docs" / "uiplan" / "kit"
     (tpl / "_spec-template.md").write_text(
         "# {{TITLE}}\n{{INTENT}}\n## User Scenarios\n### User Story 1 - A (Priority: P1)\n"
         "**Given** g **When** w **Then** t\n## Requirements\n### Functional Requirements\n"
@@ -46,7 +47,6 @@ async def test_uiplan_full_scaffold(repo, monkeypatch):
         {"project_root": str(repo), "title": "UiPlan Integration Test", "intent": "test intent"},
     )
     assert out.get("status") == "ok"
-    slug = out["slug"]
     drafts = repo / ".cursor" / "plans"
     folders = [p for p in drafts.iterdir() if p.is_dir() and (p / ".meta.yaml").is_file()]
     assert len(folders) == 1
@@ -71,7 +71,7 @@ async def test_uiplan_ground_smoke(repo):
 
 @pytest.mark.asyncio
 async def test_tasks_new_resolved_activity_docs(repo, monkeypatch):
-    tpl = repo / "docs" / "plans" / "_uiplan"
+    tpl = repo / "docs" / "uiplan" / "kit"
     (tpl / "_spec-template.md").write_text(
         "# {{TITLE}}\n{{INTENT}}\n## User Scenarios\n### User Story 1 - A (Priority: P1)\n"
         "**Given** g **When** w **Then** t\n## Requirements\n### Functional Requirements\n"

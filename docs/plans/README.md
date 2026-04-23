@@ -1,6 +1,8 @@
 # Implementation plans
 
-Git-tracked plans for multi-step work in this repo. Template: [_TEMPLATE.md](_TEMPLATE.md). Process context: [../PDD_LIFECYCLE.md](../PDD_LIFECYCLE.md).
+Git-tracked **feature plans** and published UiPlan bundles under `docs/plans/`. For the reusable UiPlan template kit and how to run `generate-docs`, see [../uiplan/README.md](../uiplan/README.md).
+
+Template for single-file plans: [_TEMPLATE.md](_TEMPLATE.md). Process context: [../PDD_LIFECYCLE.md](../PDD_LIFECYCLE.md).
 
 To refresh this table after adding or editing a plan:
 

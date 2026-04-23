@@ -22,14 +22,24 @@ def repo_root_from_any(path: Path) -> Path:
 
 
 def runtime_root(repo_root: Path) -> Path:
-    new_root = repo_root / "framework"
-    if (new_root / "uipath_claude").exists() and (new_root / "mcp_server").exists():
-        return new_root
-    return repo_root
+    """Return ``<repo>/framework`` after verifying the Phase 4 runtime layout."""
+    fr = repo_root / "framework"
+    uc = fr / "uipath_claude"
+    ms = fr / "mcp_server"
+    missing = [p.name for p in (uc, ms) if not p.is_dir()]
+    if missing:
+        msg = (
+            f"Framework runtime incomplete at {fr}: "
+            f"missing {', '.join(missing)}. Expected uipath_claude/ and mcp_server/ under framework/."
+        )
+        raise FileNotFoundError(msg)
+    return fr
 
 
 def scripts_root(repo_root: Path) -> Path:
-    new_scripts = repo_root / "ops" / "scripts"
-    if new_scripts.exists():
-        return new_scripts
-    return repo_root / "scripts"
+    """Return ``<repo>/ops/scripts`` (canonical); no repo-root ``scripts/`` fallback."""
+    p = repo_root / "ops" / "scripts"
+    if not p.is_dir():
+        msg = f"Expected scripts directory at {p}"
+        raise FileNotFoundError(msg)
+    return p

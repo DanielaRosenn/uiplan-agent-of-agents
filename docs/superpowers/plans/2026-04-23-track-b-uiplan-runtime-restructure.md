@@ -248,10 +248,12 @@ Expected:
 
 ## Plan closure (2026-04-23)
 
-**Disposition:** **Implemented on `main`** — `tools/uiplan/` (Typer CLI, `generate-docs` / `scaffold-code`, loop runner, `UIPLAN_MAX_LOOPS`), `docs/plans/_uiplan-kit/`, tests under `tools/uiplan/tests/`, and doc/skill alignment per Task 4 landed with the same merge as Track A.
+**Disposition:** **Implemented on `main`** — `tools/uiplan/` (Typer CLI, `generate-docs` / `scaffold-code`, loop runner, `UIPLAN_MAX_LOOPS`), template kit under **`docs/uiplan/kit/`** (moved out of `docs/plans/` in the Phase 4 + docs topology pass), tests under `tools/uiplan/tests/`, and doc/skill alignment per Task 4 landed with the same merge as Track A.
 
-**Design:** `docs/superpowers/specs/2026-04-23-uiplan-runtime-restructure-design.md` (finalized baseline).
+**Design:** `docs/superpowers/specs/2026-04-23-uiplan-runtime-restructure-design.md` (finalized baseline; see **§13** for `generate-docs` MVP vs backlog).
 
 **Post-merge verification (2026-04-23):** `uv run pytest tools/uiplan/tests framework/tests/migration -q` green; full `uv run pytest -q` green on merged tree (see Track A closure for counts).
 
-**Follow-up:** Wire deeper MCP/planner integration or Phase 4 path cleanup under the same **subagent-driven-development** + board checkpoint discipline.
+**Phase 4 follow-up (completed 2026-04-23):** Legacy root `uipath_claude/`, `mcp_server/`, and `scripts/` shells removed; `path_contract` + MCP bootstrap enforce `framework/` only; `generate-docs` MVP copies from `docs/uiplan/kit/` with `visual_density` validation.
+
+**Backlog:** adapter depth, `mmdc` validation, richer MCP bridges — see design §13 and earlier §3 structural notes.

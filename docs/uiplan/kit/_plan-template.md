@@ -74,6 +74,40 @@ flowchart LR
   linkStyle 1 stroke:#10B981,stroke-width:2px
 ```
 
+## Build and verify gates
+
+Restore, analyze, test, and pack (adapt steps to your project type).
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
+flowchart TB
+  subgraph Prep["Prepare"]
+    R[Restore deps]:::process
+  end
+  subgraph Gates["Quality gates"]
+    A[Analyze]:::service
+    T[Tests]:::service
+    P[Pack]:::process
+  end
+  subgraph Ship["Handoff"]
+    D[Deploy to personal workspace]:::human
+  end
+  R --> A
+  A -->|errors| R
+  A --> T
+  T -->|fail| R
+  T --> P
+  P --> D
+
+  classDef process  fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service  fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef human    fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.5px
+
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+  linkStyle 0,1 stroke:#3B82F6,stroke-width:2px
+  linkStyle 4,5 stroke:#10B981,stroke-width:2px
+```
+
 ## Activity references (optional)
 
 `uipath_plan_tasks_new` scans **plan.md** and **spec.md** for machine-readable activity tags (up to 8 unique pairs) and appends matching documentation to **tasks.md**.

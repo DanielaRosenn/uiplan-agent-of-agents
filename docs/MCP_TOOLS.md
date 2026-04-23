@@ -5359,7 +5359,7 @@ flowchart LR
 
 #### Audience guide
 
-**Create UiPlan spec.md draft folder.** Create a UiPlan draft folder under .cursor/plans/ with spec.md from docs/plans/_uiplan/_spec-template.md plus .meta.yaml (plan_kind=uiplan). Optionally pass grounding_pack from uipath_plan_ground; otherwise grounding is computed from intent.
+**Create UiPlan spec.md draft folder.** Create a UiPlan draft folder under .cursor/plans/ with spec.md from docs/uiplan/kit/_spec-template.md plus .meta.yaml (plan_kind=uiplan). Optionally pass grounding_pack from uipath_plan_ground; otherwise grounding is computed from intent.
 
 **Required MCP arguments:**
 
@@ -5373,7 +5373,7 @@ flowchart LR
 
 #### Author registration (`Tool.description` verbatim)
 
-> Create a UiPlan draft folder under .cursor/plans/ with spec.md from docs/plans/_uiplan/_spec-template.md plus .meta.yaml (plan_kind=uiplan). Optionally pass grounding_pack from uipath_plan_ground; otherwise grounding is computed from intent.
+> Create a UiPlan draft folder under .cursor/plans/ with spec.md from docs/uiplan/kit/_spec-template.md plus .meta.yaml (plan_kind=uiplan). Optionally pass grounding_pack from uipath_plan_ground; otherwise grounding is computed from intent.
 
 #### Input schema (JSON Schema)
 
