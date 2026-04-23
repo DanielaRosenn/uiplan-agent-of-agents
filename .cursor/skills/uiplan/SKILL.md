@@ -5,6 +5,16 @@ description: UiPlan (spec-kit-style) — three-file bundle under .cursor/plans/ 
 
 # UiPlan (spec + plan + tasks)
 
+## Runtime (two-step)
+
+Local UiPlan runtime splits **documentation** from **implementation**:
+
+1. **Generate** — from the repo root, run `uv run python -m tools.uiplan generate-docs <slug>` (or `python -m tools.uiplan` with the project interpreter on `PYTHONPATH`). This materializes the spec/plan/tasks bundle (draft location follows repo convention: under `.cursor/plans/<slug>/` or published under `docs/plans/<slug>/`).
+2. **Human approval** — review the generated `spec.md`, `plan.md`, and `tasks.md` for accuracy, scope, and constitution checks before any scaffold or implementation work.
+3. **Scaffold** — run `uv run python -m tools.uiplan scaffold-code <slug> --max-loops N` (or omit `--max-loops` to use the **`UIPLAN_MAX_LOOPS`** environment default from `tools/uiplan` loop policy).
+
+Template kit and flow notes: [docs/plans/_uiplan-kit/README.md](../../../docs/plans/_uiplan-kit/README.md).
+
 ## When to use
 
 - You need a **structured** build contract: `spec.md` (what), `plan.md` (how), `tasks.md` (atomic steps).

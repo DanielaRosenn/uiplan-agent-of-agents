@@ -91,6 +91,14 @@ flowchart LR
 
 Legacy **single-file** drafts (`uipath_plan_new`, refine, diff) are unchanged. UiPlan folders skip `uipath_plan_refine` / `uipath_plan_diff` (edit markdown directly or regenerate stages).
 
+### UiPlan template kit and two-step runtime (local `tools/uiplan`)
+
+For normalized templates and the **generate-docs → human approval → scaffold-code** flow, see [docs/plans/_uiplan-kit/README.md](plans/_uiplan-kit/README.md). From the repo root, the local runtime is:
+
+1. `uv run python -m tools.uiplan generate-docs <slug>` — materialize or refresh the doc bundle (drafts under `.cursor/plans/`, published copies under `docs/plans/`, per storage rules above).
+2. Human approval on that bundle before implementation.
+3. `uv run python -m tools.uiplan scaffold-code <slug> --max-loops N` — drive implementation with an explicit loop cap; omit `--max-loops` to use the **`UIPLAN_MAX_LOOPS`** default.
+
 ## Front matter (template-of-record)
 
 See [docs/plans/\_TEMPLATE.md](plans/_TEMPLATE.md). New status values and
