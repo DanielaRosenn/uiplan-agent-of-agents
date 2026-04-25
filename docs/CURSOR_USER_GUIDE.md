@@ -258,6 +258,68 @@ When the MCP server is enabled, Cursor can call the same Python entry points the
 
 **Project root:** set `UIPATH_MCP_PROJECT_ROOT` to your UiPath project or repo root so skill discovery and paths resolve consistently (defaults to the process current working directory).
 
+### Best Practice: Treat MCP Tools Like a UiPath Workbench
+
+Cursor is strongest when you let skills explain the intent and MCP tools verify reality. A reliable loop is:
+
+1. **Route first.** Ask which skill/tool should handle the task if the prompt is ambiguous.
+2. **Read before writing.** Use `uipath_workflow_read_project`, `uipath_workflow_read_file`, `uipath_library_lookup`, or `uipath_doc_find_activity` before edits.
+3. **Plan risky changes.** Use `/uiplan` or the `uipath_plan_*` tools for multi-file workflow changes, publish/deploy work, or anything touching Orchestrator.
+4. **Make one coherent edit.** Keep each prompt scoped to one project, workflow, or feature slice.
+5. **Validate immediately.** Run `uipath_workflow_validate` or `uipath_workflow_build_and_verify` after generated XAML or package changes.
+6. **Capture the lesson.** If you hit a durable gotcha, stage it through `uipath_library_propose_section` instead of letting it disappear into chat history.
+
+### Best Practice: Ask Cursor With the Right Shape
+
+High-signal Cursor prompts include five things:
+
+- **Goal:** what the automation or answer should achieve.
+- **Target:** project path, workflow file, package, queue, asset, folder, or app under test.
+- **Mode:** authoring, live inspection, validation, docs, debug, review, deploy, or Q&A.
+- **Constraints:** attended/unattended, Windows/cross-platform, Studio version, Orchestrator folder, no deploy, no file writes, etc.
+- **Verification:** which MCP tool or manual check should prove the result.
+
+Good prompt:
+
+```text
+Use uipath-rpa. In ./InvoiceProcessor, update Main.xaml to read Sheet1 from input.xlsx,
+create queue items for rows where Status = Ready, and validate with uipath_workflow_validate.
+Do not publish or deploy.
+```
+
+For live UI work, be explicit that you want interaction rather than workflow authoring:
+
+```text
+Use uipath-interact. Inspect the live browser, take a screenshot, identify the login button,
+and report the selector candidates. Do not edit workflow files yet.
+```
+
+### Best Practice: Choose Tools By Risk
+
+| Situation | Cursor Tool Pattern | Why |
+| --- | --- | --- |
+| Need an answer grounded in project knowledge | `uipath_library_lookup` -> cite sections | Avoids plausible but unsupported answers. |
+| Need an activity/property name | `uipath_doc_find_activity` / `uipath_doc_get_activity` | Uses bundled UiPath docs instead of guessing XAML properties. |
+| Need to edit a workflow | read project/file -> edit -> `uipath_workflow_validate` | Keeps generation tied to actual project state. |
+| Need a full local proof | `uipath_workflow_build_and_verify` | Combines build, static validation, headless run, and debug checks where available. |
+| Need publish/deploy | plan first -> human confirmation -> `uipath_workflow_publish` / `deploy` | These are destructive or environment-visible operations. |
+| Need live UI evidence | `uipath-interact` skill first, then author with `uipath-rpa` | Keeps observation separate from workflow generation. |
+
+### Best Practice: Keep Cursor Context Small
+
+- Attach the specific workflow, `project.json`, error output, or plan file instead of the whole repository.
+- Prefer links to docs sections such as [MCP_TOOLS.md](MCP_TOOLS.md), [LIBRARY_LEARNING.md](LIBRARY_LEARNING.md), and [uiplan/README.md](uiplan/README.md) when asking for process help.
+- Start a new chat for a new feature or investigation so old routing assumptions do not leak.
+- If Cursor seems confused after a large branch switch, run `uipath-claude doctor`, reload the window, and confirm Settings > MCP is green.
+
+### Best Practice: Cursor Safety Rules
+
+- Do not ask Cursor to publish/deploy without naming the Orchestrator folder and confirming the environment.
+- Do not let `uipath-interact` clicks mutate production data unless that is the explicit test objective.
+- Prefer read-only tools for diagnosis until you have a concrete fix.
+- For generated XAML, never stop at "looks right"; validate with Studio/`uip` tooling.
+- Keep `uipath-servo` out of new prompts. Use `uipath-interact`; Servo is only a compatibility redirect.
+
 ### Workflow tools (`uipath_workflow_*`)
 
 | Tool | Description |
