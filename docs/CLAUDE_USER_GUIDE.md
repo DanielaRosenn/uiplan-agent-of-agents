@@ -196,6 +196,83 @@ Environment variables (`UIPATH_AGENTIC_MODE`, `UIPATH_CLAUDE_TOOL_PROFILE`, Bedr
 
 ---
 
+## Best practices for Claude / terminal work
+
+The CLI is best when you want a bounded, repeatable agent run with explicit gates. Use it like a disciplined terminal partner:
+
+### 1. Start every serious session with a preflight
+
+```powershell
+git pull
+git submodule update --init --recursive
+uv sync --extra dev
+uv run uipath-claude doctor
+```
+
+If `doctor` reports `FAIL`, fix that first. If it reports library `WARN` rows, you can still work, but consider cleaning the proposal queue before a release or demo.
+
+### 2. Give the agent an operating envelope
+
+Good terminal prompts say what is allowed and what is forbidden:
+
+```text
+In project C:\work\InvoiceProcessor, update Main.xaml to create queue items for ready invoices.
+Use uipath-rpa patterns, validate after edits, and do not publish or deploy.
+```
+
+For read-only analysis:
+
+```text
+Review this project for selector fragility and package risks. Read files and run validation only;
+do not write files unless I explicitly approve a fix plan.
+```
+
+### 3. Use slash commands for fixed workflows
+
+| Need | Prefer |
+| --- | --- |
+| Full delivery lifecycle | `/pdd` |
+| Structured spec/plan/tasks | `/uiplan` |
+| Existing workflow validation | `/validate` or `/analyze` |
+| Skill refresh/checks | `/update-skills`, `/scan-upstream-skills` |
+| Library proposal review | `/library-proposals` |
+
+Plain chat is good for exploration; slash commands are better for repeatable operations.
+
+### 4. Keep writes behind plans when risk is non-trivial
+
+Use `/uiplan full "<title>"` when the change touches multiple files, changes architecture, adds Orchestrator behavior, affects credentials/assets/queues, or changes production-facing deployment. Let the plan reach review/acceptance before asking for implementation.
+
+For stricter local enforcement:
+
+```powershell
+$env:UIPATH_PLAN_GATE = "1"
+uv run uipath-claude chat --project-dir "C:\work\InvoiceProcessor"
+```
+
+### 5. Validate in the same session that made the change
+
+After edits, ask for a concrete verification result, not a summary:
+
+```text
+Run the relevant validation now and summarize exact errors/warnings. If validation passes,
+tell me which command/tool proved it.
+```
+
+When Studio or `uip` gets wedged, exit chat, close Studio, run `doctor`, and start a fresh session.
+
+### 6. Use the library deliberately
+
+- Ask the CLI to search the library before answering policy, architecture, or recurring UiPath questions.
+- When a fix teaches a reusable rule, ask it to stage a library proposal instead of burying the lesson in logs.
+- Review proposals with `uipath-claude library-proposals list/show/approve/reject` before relying on them as approved guidance.
+
+### 7. Prefer one assistant per clone
+
+Use a Cursor-configured clone for IDE/MCP work and a Claude-configured clone for terminal runs when possible. If you intentionally switch a clone, use the quickstart `-Force` / `--force` flag so `.assistant-choice`, hooks, and local expectations stay honest.
+
+---
+
 ## How the CLI session differs from Cursor
 
 | Concern | Cursor (+ optional MCP) | CLI (`uipath-claude chat`) |

@@ -5,6 +5,7 @@ All notable changes to this project are documented in this file. The format is b
 ## [Unreleased]
 
 ### Changed
+- [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md) and [docs/CLAUDE_USER_GUIDE.md](docs/CLAUDE_USER_GUIDE.md) now include practical best practices for Cursor MCP usage, prompt shape, tool selection by risk, context hygiene, safety rules, CLI preflight, slash-command selection, validation, and library learning.
 - [README.md](README.md) — refreshed as the project front door with a stronger visual overview, Cursor/CLI/library entry points, current skill routing (`uipath-rpa` vs `uipath-interact`), doctor preflight instructions, library learning links, and corrected `framework/` contribution paths.
 - [docs/CLAUDE_USER_GUIDE.md](docs/CLAUDE_USER_GUIDE.md) — terminal / Claude Code guide: step-by-step `uipath-claude` usage, `chat` flags, session ids, Typer commands, hooks vs Actions, and debugging/restart; [docs/USER_GUIDE.md](docs/USER_GUIDE.md) and [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md) cross-link it.
 
