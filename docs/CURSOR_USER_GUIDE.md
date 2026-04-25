@@ -581,6 +581,7 @@ If superpowers skills don't appear:
 ## Further Reading
 
 - [README.md](../README.md) - Project overview
+- [CLAUDE_USER_GUIDE.md](CLAUDE_USER_GUIDE.md) - Terminal / Claude Code setup (hooks, no IDE MCP)
 - [USER_GUIDE.md](USER_GUIDE.md) - CLI usage guide
 - [skills/skills/](../skills/skills/) - Browse skill source files
 - [framework/mcp_server/](../framework/mcp_server/) - MCP server source

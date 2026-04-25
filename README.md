@@ -140,7 +140,8 @@ Full setup (UiPath CLI, Studio 26.2+, Orchestrator auth, AWS region overrides) l
 | Plan a meaningful change before code | [docs/uiplan/README.md](docs/uiplan/README.md) + `/uiplan` | Structured spec/plan/tasks with review gates |
 | Run full SDLC lifecycle | `/pdd` + [docs/PDD_LIFECYCLE.md](docs/PDD_LIFECYCLE.md) | BA -> SA -> ADD -> TDD -> Dev -> QA flow |
 | Work primarily in Cursor | [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md) | Skills + MCP tooling + quickstart path |
-| Work primarily in CLI | [docs/USER_GUIDE.md](docs/USER_GUIDE.md) | Command-first daily workflow |
+| Work primarily in CLI (terminal / Claude Code) | [docs/CLAUDE_USER_GUIDE.md](docs/CLAUDE_USER_GUIDE.md) | Setup, hooks, slash-first workflow |
+| CLI reference (commands, env, cookbook) | [docs/USER_GUIDE.md](docs/USER_GUIDE.md) | Deeper command and env documentation |
 | Validate broad functionality manually | [docs/MANUAL_REVIEW_CURSOR_FULL_PROJECT.md](docs/MANUAL_REVIEW_CURSOR_FULL_PROJECT.md) | End-to-end test matrix and report template |
 
 ---
@@ -162,7 +163,7 @@ The full agentic CLI with auto-fix loop, planner, and BA -> SA -> ADD -> TDD -> 
 - Requires `pip install -e ".[dev]"` and AWS Bedrock access.
 - Fast path: `ops/scripts/claude-quickstart.ps1` (Windows) or `bash ops/scripts/claude-quickstart.sh`.
 - Run: `uipath-claude chat`
-- Day-to-day usage: [docs/USER_GUIDE.md](docs/USER_GUIDE.md)
+- Terminal guide: [docs/CLAUDE_USER_GUIDE.md](docs/CLAUDE_USER_GUIDE.md); command reference: [docs/USER_GUIDE.md](docs/USER_GUIDE.md)
 
 ### B. Cursor (skills-only)
 
@@ -399,7 +400,8 @@ Deeper technical detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - [docs/README.md](docs/README.md) — index of every document in this repo
 - [docs/INSTALL.md](docs/INSTALL.md) — full installation (UiPath CLI, Studio, submodules, AWS)
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — runtime, executor, validator gate, pipeline
-- [docs/USER_GUIDE.md](docs/USER_GUIDE.md) — day-to-day CLI usage
+- [docs/CLAUDE_USER_GUIDE.md](docs/CLAUDE_USER_GUIDE.md) — Claude / terminal setup and workflow
+- [docs/USER_GUIDE.md](docs/USER_GUIDE.md) — day-to-day CLI usage (commands, env vars)
 - [docs/PDD_LIFECYCLE.md](docs/PDD_LIFECYCLE.md) — full `/pdd` lifecycle: BA → SA → ADD → TDD → Dev → QA → publish → deploy
 - [docs/PLANNING_FRAMEWORK.md](docs/PLANNING_FRAMEWORK.md) — brainstorm-to-plan loop (`uipath_plan_*`, `UIPATH_PLAN_GATE`, draft vs published)
 - [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md) — using the skills inside Cursor
@@ -414,10 +416,9 @@ Deeper technical detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Keeping skills up to date
 
-The `skills/` git submodule tracks [UiPath/skills](https://github.com/UiPath/skills). The workspace's `.cursor/skills` is a junction into `skills/skills/`, so any submodule bump is picked up by Cursor immediately. Four paths to stay current:
+The `skills/` git submodule tracks [UiPath/skills](https://github.com/UiPath/skills). The workspace's `.cursor/skills` is a junction into `skills/skills/`, so any submodule bump is picked up by Cursor immediately. **GitHub Actions workflows under `.github/workflows/` are not used in this branch** (re-add when you want server-side timers). Paths to stay current:
 
-- **Automatic (server-side, daily):** [.github/workflows/update-skills-submodule.yml](.github/workflows/update-skills-submodule.yml) runs at 06:00 UTC and opens a PR `chore/update-skills-submodule` when upstream moves. Also triggerable from the Actions tab.
-- **Automatic (per Cursor session, every 2 days):** [.cursor/hooks.json](.cursor/hooks.json) registers a `sessionStart` hook that runs [.cursor/hooks/check-skills-update.ps1](.cursor/hooks/check-skills-update.ps1) on Windows (or `.sh` on mac/linux). It surfaces a banner in the new chat when updates are available; throttled via `.cursor/hooks/state/last-update-check` (gitignored, per-user). Change `$ThrottleDays` at the top of the script to tune the cadence.
+- **Automatic (per Cursor session, throttled):** [.cursor/hooks.json](.cursor/hooks.json) registers a `sessionStart` hook that runs [.cursor/hooks/check-skills-update.ps1](.cursor/hooks/check-skills-update.ps1) on Windows (or `.sh` on mac/linux). It surfaces a banner in the new chat when updates are available; throttled via `.cursor/hooks/state/last-update-check` (gitignored, per-user). Change `$ThrottleDays` at the top of the script to tune the cadence. For timed checks outside Cursor, use your OS scheduler calling `ops/scripts/update-skills.ps1 -Check` or enable a minimal GitHub Action when ready.
 - **Manual in chat:** `/update-skills [--check|--info|--force]` and `/scan-upstream-skills` inside the CLI.
 - **Manual in a shell:** `ops/scripts/update-skills.ps1 [-Check] [-Commit]` (or `ops/scripts/update-skills.sh [--check|--commit]`) for one-off pulls outside Cursor.
 

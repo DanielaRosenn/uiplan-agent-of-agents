@@ -4,8 +4,14 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+- [docs/CLAUDE_USER_GUIDE.md](docs/CLAUDE_USER_GUIDE.md) — terminal / Claude Code onboarding (mirrors the Cursor guide); documents hooks-first skills updates and CLI vs Cursor differences.
+
+### Removed
+- Root **`.github/workflows/`** jobs (`mermaid-validate`, `update-skills-submodule`); use local `ops/scripts`, Cursor session hooks, or OS scheduling until you re-enable Actions.
+
 ### Changed
-- UiPlan template kit paths are consistently **`templates/uiplan/`** in contributor docs, superpowers records, Phase 4 checklists, and the optional **Mermaid validate** GitHub workflow (`workflow_dispatch`).
+- UiPlan template kit paths are consistently **`templates/uiplan/`** in contributor docs, superpowers records, and Phase 4 checklists.
 
 ### Fixed
 - Mermaid diagrams render reliably in GitHub and strict viewers: `ops/scripts/generate_mcp_tools_doc.py` no longer injects `%%{init}%%`, `classDef`, or `linkStyle` into generated `docs/MCP_TOOLS.md` charts; UiPlan kit templates (`templates/uiplan/_diagram-patterns.md`, `_spec-template.md`) and `docs/uiplan/README.md` drop unsupported sequence-diagram styling. Regenerate MCP docs with `python ops/scripts/generate_mcp_tools_doc.py` after tool changes.

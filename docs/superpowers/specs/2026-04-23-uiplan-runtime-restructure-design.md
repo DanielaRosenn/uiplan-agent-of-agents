@@ -194,7 +194,7 @@ Completed path:
 **Shipped (partial, 2026-04-23):**
 
 - `tools/uiplan/scaffold/` — `detect_project_kind`, `ScaffoldAdapter` registry, `coded-agent` and `rpa` adapters with explicit `ExplicitStubAdapter` for other kinds; `scaffold-code` Typer command with `--repo`; baseline note `docs/uiplan/SCAFFOLD_CODE.md`; tests in `framework/tests/uiplan/test_scaffold_adapters.py`.
-- Optional `mmdc` path — `tools.uiplan validate-mermaid`, `tools/uiplan/validators/mermaid_extract.py` + `mermaid_mmdc.py`, doc `docs/uiplan/MERMAID_VALIDATION.md`, manual GitHub workflow `.github/workflows/mermaid-validate.yml`.
+- Optional `mmdc` path — `tools.uiplan validate-mermaid`, `tools/uiplan/validators/mermaid_extract.py` + `mermaid_mmdc.py`, doc `docs/uiplan/MERMAID_VALIDATION.md`; run locally or via your own CI (no workflow ships in this repo branch).
 
 **Backlog (design §3 parity):**
 

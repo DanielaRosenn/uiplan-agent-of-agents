@@ -2,6 +2,8 @@
 
 This guide walks you through setting up and using UiPath Claude Code for UiPath automation development.
 
+For a **terminal / Claude Code**-oriented walkthrough (hooks vs Actions, how CLI differs from Cursor + MCP), see [CLAUDE_USER_GUIDE.md](CLAUDE_USER_GUIDE.md).
+
 ## Quick Start (5 Minutes)
 
 ### Prerequisites
