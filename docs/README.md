@@ -7,6 +7,7 @@ Landing page for everything under `docs/`. Start with [ARCHITECTURE.md](ARCHITEC
 - [ARCHITECTURE.md](ARCHITECTURE.md) — runtime, agentic executor, validator gate, `/pdd` and `/bootstrap` pipelines.
 - [USER_GUIDE.md](USER_GUIDE.md) — day-to-day CLI usage, slash commands, env vars, and Claude quickstart.
 - [CLAUDE_USER_GUIDE.md](CLAUDE_USER_GUIDE.md) — terminal / Claude Code: full **`uipath-claude`** step-by-step, flags, sessions, restart/debug, hooks-first policy, and how CLI differs from Cursor + MCP.
+- [SKILL_VISUAL_GUIDE.md](SKILL_VISUAL_GUIDE.md) — visual guide to skill families, routing, Cursor flow, Claude flow, and MCP tool families.
 - [SLASH_COMMANDS.md](SLASH_COMMANDS.md) — slash command reference, SDLC mapping, `UIPATH_CLAUDE_TOOL_PROFILE`.
 - [PDD_LIFECYCLE.md](PDD_LIFECYCLE.md) — the full BA -> SA -> ADD -> TDD -> Dev -> QA -> publish -> deploy flow driven by `/pdd` (includes **Naming: SDD vs lifecycle TDD**).
 - [CURSOR_USER_GUIDE.md](CURSOR_USER_GUIDE.md) — using the UiPath skills + MCP tools from inside Cursor (clone + `uv sync --extra mcp` + `mcp.json`).
@@ -33,6 +34,7 @@ Landing page for everything under `docs/`. Start with [ARCHITECTURE.md](ARCHITEC
 ## Skills and library
 
 - [SKILL_LAYOUT.md](SKILL_LAYOUT.md) — how skills are layered (user, project, extensions, submodule, template), and how to keep Cursor in sync with the submodule.
+- [SKILL_VISUAL_GUIDE.md](SKILL_VISUAL_GUIDE.md) — how every skill family works, with Mermaid diagrams and routing tables.
 - [LIBRARY_AUTHORING.md](LIBRARY_AUTHORING.md) — authoring content for the knowledge library.
 - [LIBRARY_LEARNING.md](LIBRARY_LEARNING.md) — the harvest -> propose -> apply learning loop.
 - [CAPABILITY_PARITY.md](CAPABILITY_PARITY.md) — feature parity tracker vs. Claude Code.
@@ -58,4 +60,5 @@ Landing page for everything under `docs/`. Start with [ARCHITECTURE.md](ARCHITEC
 ## Assets
 
 - [assets/demo.tape](assets/demo.tape) — VHS script for the hero terminal cast.
+- [assets/builder-agent-logo.svg](assets/builder-agent-logo.svg) — reusable UiPath Builder Agent logo used by the README and skill visual guide.
 - `assets/demo.gif` — rendered terminal cast (generated from `demo.tape`).

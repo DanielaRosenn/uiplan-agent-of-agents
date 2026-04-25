@@ -6,7 +6,7 @@
 ![License](https://img.shields.io/badge/license-Internal-lightgrey)
 ![Built with](https://img.shields.io/badge/built%20with-LangGraph%20%2B%20Bedrock-6f42c1)
 ![Status](https://img.shields.io/badge/status-v0.2-green)
-![UiPlan logo](docs/assets/uiplan-logo.svg)
+![UiPath Builder Agent logo](docs/assets/builder-agent-logo.svg)
 
 UiPath Builder Agent is a practical build operating system for UiPath work. It helps you plan the work, select the right skill, scaffold projects, generate or edit automations, validate with UiPath tooling, learn from failures, and keep humans in control before destructive actions such as publish or deploy.
 
@@ -16,6 +16,7 @@ It works three ways:
 | --- | --- | --- |
 | **Cursor + MCP** | Best IDE experience: skills, validation, library lookup, UiPlan, tool calls | [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md) |
 | **CLI / Claude Code-style terminal** | Headless or terminal-first agent workflow with slash commands | [docs/CLAUDE_USER_GUIDE.md](docs/CLAUDE_USER_GUIDE.md) |
+| **Visual skill map** | See how every skill family, MCP family, Cursor flow, and Claude flow fits together | [docs/SKILL_VISUAL_GUIDE.md](docs/SKILL_VISUAL_GUIDE.md) |
 | **Library + planning stack** | Grounded answers, reusable lessons, spec/plan/tasks before execution | [docs/LIBRARY_LEARNING.md](docs/LIBRARY_LEARNING.md), [docs/uiplan/README.md](docs/uiplan/README.md) |
 
 Hero terminal cast: source is [docs/assets/demo.tape](docs/assets/demo.tape); render `docs/assets/demo.gif` with [ops/scripts/record-demo.ps1](ops/scripts/record-demo.ps1) (see [docs/assets/README.md](docs/assets/README.md)).
@@ -239,6 +240,7 @@ Full setup (UiPath CLI, Studio 26.2+, Orchestrator auth, AWS region overrides) l
 | Run full SDLC lifecycle | `/pdd` + [docs/PDD_LIFECYCLE.md](docs/PDD_LIFECYCLE.md) | BA -> SA -> ADD -> TDD -> Dev -> QA flow |
 | Work primarily in Cursor | [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md) | Skills + MCP tooling + quickstart path |
 | Work primarily in CLI (terminal / Claude Code) | [docs/CLAUDE_USER_GUIDE.md](docs/CLAUDE_USER_GUIDE.md) | Setup, hooks, slash-first workflow |
+| Understand how every skill works visually | [docs/SKILL_VISUAL_GUIDE.md](docs/SKILL_VISUAL_GUIDE.md) | Skill families, routing, Cursor flow, Claude flow, MCP families |
 | Learn the recommended day-to-day usage patterns | [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md#mcp-tools-advanced) + [docs/CLAUDE_USER_GUIDE.md](docs/CLAUDE_USER_GUIDE.md#best-practices-for-claude--terminal-work) | Cursor MCP playbooks, prompt shape, safety rules, CLI preflight, plans, validation |
 | CLI reference (commands, env, cookbook) | [docs/USER_GUIDE.md](docs/USER_GUIDE.md) | Deeper command and env documentation |
 | Learn from accepted fixes and proposals | [docs/LIBRARY_LEARNING.md](docs/LIBRARY_LEARNING.md) | Operator workflow for proposal review and audit logs |
@@ -524,6 +526,7 @@ Deeper technical detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — runtime, executor, validator gate, pipeline
 - [docs/CLAUDE_USER_GUIDE.md](docs/CLAUDE_USER_GUIDE.md) — Claude / terminal setup and workflow
 - [docs/USER_GUIDE.md](docs/USER_GUIDE.md) — day-to-day CLI usage (commands, env vars)
+- [docs/SKILL_VISUAL_GUIDE.md](docs/SKILL_VISUAL_GUIDE.md) — visual guide to skill families, routing, Cursor, Claude, and MCP tools
 - [docs/PDD_LIFECYCLE.md](docs/PDD_LIFECYCLE.md) — full `/pdd` lifecycle: BA → SA → ADD → TDD → Dev → QA → publish → deploy
 - [docs/PLANNING_FRAMEWORK.md](docs/PLANNING_FRAMEWORK.md) — brainstorm-to-plan loop (`uipath_plan_*`, `UIPATH_PLAN_GATE`, draft vs published)
 - [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md) — using the skills inside Cursor

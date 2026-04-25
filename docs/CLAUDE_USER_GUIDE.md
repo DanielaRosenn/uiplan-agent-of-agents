@@ -2,6 +2,8 @@
 
 This guide is the **terminal-first** companion to [CURSOR_USER_GUIDE.md](CURSOR_USER_GUIDE.md). It covers **Claude Code-style** use of `uipath-claude` from a shell (no Cursor UI, no MCP in the IDE). For command tables, env vars, and deeper workflows, also keep [USER_GUIDE.md](USER_GUIDE.md) open.
 
+For the visual map of every skill family and how Claude/CLI routes work through skills and tools, see [SKILL_VISUAL_GUIDE.md](SKILL_VISUAL_GUIDE.md).
+
 ## Quick setup (about 5 minutes)
 
 Use **one assistant per clone**. Quickstart scripts record `.assistant-choice` and block switching unless you pass `-Force` / `--force`.

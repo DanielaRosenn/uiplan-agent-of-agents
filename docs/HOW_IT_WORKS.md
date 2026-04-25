@@ -4,10 +4,14 @@ A friendly, visual walkthrough of the **UiPath Builder Agent**: what's inside,
 how Claude Code and Cursor each use it, which tools exist, and how you
 actually drive it day-to-day.
 
+![UiPath Builder Agent logo](assets/builder-agent-logo.svg)
+
 > TL;DR: one Python brain (`framework/uipath_claude/`), one skills catalog
 > (`skills/skills/` + `.cursor/skills/`), one UiPath documentation library
 > (`data/library/`), exposed two ways — as **slash commands** in Claude Code
 > and as **MCP tools + skill picker** in Cursor.
+
+For the skill-by-skill visual map, see [SKILL_VISUAL_GUIDE.md](SKILL_VISUAL_GUIDE.md).
 
 ---
 

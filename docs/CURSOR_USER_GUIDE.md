@@ -2,6 +2,8 @@
 
 This guide covers using the UiPath Builder Agent skills in Cursor IDE for building UiPath automations.
 
+For the visual map of every skill family and how Cursor routes them through MCP tools, see [SKILL_VISUAL_GUIDE.md](SKILL_VISUAL_GUIDE.md).
+
 ## Quick Setup (5 minutes)
 
 Use one assistant per clone. This repo supports both, but your local setup should be either:
