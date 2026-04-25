@@ -1883,6 +1883,7 @@ dependencies = [
 [package.optional-dependencies]
 dev = [
     { name = "black" },
+    { name = "mcp" },
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -1902,6 +1903,7 @@ requires-dist = [
     { name = "langchain", specifier = ">=0.3.17" },
     { name = "langchain-aws", specifier = ">=0.2.14" },
     { name = "langgraph", specifier = ">=0.2.62" },
+    { name = "mcp", marker = "extra == 'dev'", specifier = ">=1.0.0" },
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.0.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
     { name = "psutil", specifier = ">=6.0.0" },

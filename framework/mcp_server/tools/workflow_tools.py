@@ -706,12 +706,14 @@ def get_workflow_tools() -> list[Tool]:
             name="uipath_workflow_deploy",
             description=(
                 "Pack the project and publish it to UiPath Orchestrator, "
-                "optionally creating a Process. Destructive and network-dependent: "
-                "requires an Orchestrator URL plus tenant, and uses ambient uip "
-                "auth credentials. Returns a JSON string with the publish result. "
-                "GATED: blocked by the MCP session gate when the project has "
-                "unverified writes; the call returns [BLOCKED] until "
-                "uipath_workflow_build_and_verify reports success=true."
+                "optionally creating a Process. Read docs/ORCHESTRATOR_DEPLOYMENT.md "
+                "first; requires explicit human approval before use; target only "
+                "personal workspace or a named Dev folder, never Production. "
+                "Destructive and network-dependent: requires an Orchestrator URL "
+                "plus tenant, and uses ambient uip auth credentials. Returns a JSON "
+                "string with the publish result. GATED: blocked by the MCP session "
+                "gate when the project has unverified writes; the call returns "
+                "[BLOCKED] until uipath_workflow_build_and_verify reports success=true."
             ),
             inputSchema={
                 "type": "object",
@@ -777,10 +779,13 @@ def get_workflow_tools() -> list[Tool]:
             name="uipath_workflow_publish",
             description=(
                 "Pack and publish a UiPath project to Orchestrator without creating "
-                "a Process. Wraps the modern uip CLI (uip solution pack/publish for "
-                "RPA, uip flow pack + uip solution publish for Maestro). Returns the "
-                "package path and CLI output. GATED by the MCP session gate; blocked "
-                "until uipath_workflow_build_and_verify reports success."
+                "a Process. Read docs/ORCHESTRATOR_DEPLOYMENT.md first; requires "
+                "explicit human approval before use; target only personal workspace "
+                "or a Dev target, never Production. Wraps the modern uip CLI (uip "
+                "solution pack/publish for RPA, uip flow pack + uip solution publish "
+                "for Maestro). Returns the package path and CLI output. GATED by the "
+                "MCP session gate; blocked until uipath_workflow_build_and_verify "
+                "reports success."
             ),
             inputSchema={
                 "type": "object",

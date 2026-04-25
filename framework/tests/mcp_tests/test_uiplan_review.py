@@ -13,7 +13,7 @@ from mcp_server.tools.plan_uiplan_review import (
 
 
 def test_review_citations_flags_unknown_skill():
-    # framework/tests/mcp/<this_file> -> parents[3] is repo root
+    # framework/tests/mcp_tests/<this_file> -> parents[3] is repo root
     repo = Path(__file__).resolve().parents[3]
     text = "[skill:uipath-planner] [skill:not-a-real-skill-xyz-123]"
     findings = review_citations(text, repo)

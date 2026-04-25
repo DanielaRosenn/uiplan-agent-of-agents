@@ -7,7 +7,7 @@ from mcp_server.tools.plan_grounding import build_grounding_pack
 
 
 def _repo_root() -> Path:
-    # framework/tests/mcp/<this_file> -> parents[3] is repository root
+    # framework/tests/mcp_tests/<this_file> -> parents[3] is repository root
     return Path(__file__).resolve().parents[3]
 
 

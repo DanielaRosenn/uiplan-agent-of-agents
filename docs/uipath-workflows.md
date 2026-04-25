@@ -21,6 +21,8 @@
 
 **Before scaffolding, pick the paradigm** - they are not freely convertible:
 
+**Compatibility preflight:** before creating any project or choosing package versions, run the preflight in [ORCHESTRATOR_DEPLOYMENT.md](ORCHESTRATOR_DEPLOYMENT.md). Confirm Studio, CLI tooling, target framework, package compatibility, Orchestrator target, and Solution/Maestro support first.
+
 ```
 Is it pure UI automation (clicking, typing in apps)?
   -> RPA (XAML or coded C#)

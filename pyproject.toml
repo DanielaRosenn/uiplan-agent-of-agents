@@ -33,6 +33,7 @@ dev = [
     "ruff>=0.8.4",
     "mypy>=1.14.0",
     "tomli>=2.2.1",
+    "mcp>=1.0.0",
 ]
 mcp = [
     "mcp>=1.0.0",
@@ -42,7 +43,7 @@ mcp = [
 uipath-claude = "uipath_claude.cli.app:app"
 
 [tool.pytest.ini_options]
-testpaths = ["framework/tests", "tools/uiplan/tests"]
+testpaths = ["framework/tests"]
 pythonpath = [".", "framework"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]

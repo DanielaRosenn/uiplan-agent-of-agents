@@ -198,7 +198,7 @@ def build_markdown() -> str:
     )
     lines.append(
         "3. Add `ToolAnnotations` (read-only vs destructive vs staging) and "
-        "extend [`framework/tests/mcp/test_tool_annotations.py`](../framework/tests/mcp/test_tool_annotations.py) "
+        "extend [`framework/tests/mcp_tests/test_tool_annotations.py`](../framework/tests/mcp_tests/test_tool_annotations.py) "
         "so `READ_ONLY` / `DESTRUCTIVE` / `STAGING` covers every tool."
     )
     lines.append(

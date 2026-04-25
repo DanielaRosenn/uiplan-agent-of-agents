@@ -75,6 +75,6 @@ The full per-tool table (with parameters and examples) lives in [CURSOR_USER_GUI
 
 ## Tests (where to look for regressions)
 
-- **MCP tool contracts and annotations:** `framework/tests/mcp/`
+- **MCP tool contracts and annotations:** `framework/tests/mcp_tests/`
 - **UiPlan CLI and docs bundle:** `framework/tests/uiplan/`
 - **Full map:** [TESTING.md](TESTING.md)

@@ -40,6 +40,7 @@ Each tool has an **audience guide** (synthesized from the registered `Tool` meta
 | `uipath_agent_bootstrap` | agent | destructive |
 | `uipath_agent_plan` | agent | destructive |
 | `uipath_agent_execute` | agent | destructive |
+| `uipath_agent_classify_intent` | agent | read-only |
 | `uipath_agent_ba` | agent | destructive |
 | `uipath_agent_sa` | agent | destructive |
 | `uipath_doc_list_packages` | doc | read-only |
@@ -49,6 +50,7 @@ Each tool has an **audience guide** (synthesized from the registered `Tool` meta
 | `uipath_doc_search` | doc | read-only |
 | `uipath_doc_find_activity` | doc | read-only |
 | `query_uipath_docs` | doc | read-only |
+| `uipath_doc_query` | doc | read-only |
 | `uipath_doc_read_template` | doc | read-only |
 | `uipath_doc_list_docs` | doc | read-only |
 | `uipath_doc_read_doc` | doc | read-only |
@@ -97,7 +99,7 @@ Each tool has an **audience guide** (synthesized from the registered `Tool` meta
 
 1. Implement `Tool(...)` in the appropriate `framework/mcp_server/tools/*.py` and wire `call_*_tool` dispatch.
 2. Register the name branch in [`framework/mcp_server/server.py`](../framework/mcp_server/server.py) `call_tool`.
-3. Add `ToolAnnotations` (read-only vs destructive vs staging) and extend [`framework/tests/mcp/test_tool_annotations.py`](../framework/tests/mcp/test_tool_annotations.py) so `READ_ONLY` / `DESTRUCTIVE` / `STAGING` covers every tool.
+3. Add `ToolAnnotations` (read-only vs destructive vs staging) and extend [`framework/tests/mcp_tests/test_tool_annotations.py`](../framework/tests/mcp_tests/test_tool_annotations.py) so `READ_ONLY` / `DESTRUCTIVE` / `STAGING` covers every tool.
 4. Add or adjust the tool-specific Mermaid body in [`ops/scripts/mcp_tools_doc_diagrams.py`](../ops/scripts/mcp_tools_doc_diagrams.py) (`diagram_body_for_tool`) so generated docs match real behavior.
 5. Re-run `python ops/scripts/generate_mcp_tools_doc.py`.
 
@@ -929,7 +931,7 @@ flowchart TD
 
 #### Audience guide
 
-**Deploy project to Orchestrator.** Pack the project and publish it to UiPath Orchestrator, optionally creating a Process. Destructive and network-dependent: requires an Orchestrator URL plus tenant, and uses ambient uip auth credentials. Returns a JSON string with the publish result. GATED: blocked by the MCP session gate when the project has unverified writes; the call returns [BLOCKED] until uipath_workflow_build_and_verify reports success=true.
+**Deploy project to Orchestrator.** Pack the project and publish it to UiPath Orchestrator, optionally creating a Process. Read docs/ORCHESTRATOR_DEPLOYMENT.md first; requires explicit human approval before use; target only personal workspace or a named Dev folder, never Production. Destructive and network-dependent: requires an Orchestrator URL plus tenant, and uses ambient uip auth credentials. Returns a JSON string with the publish result. GATED: blocked by the MCP session gate when the project has unverified writes; the call returns [BLOCKED] until uipath_workflow_build_and_verify reports success=true.
 
 **Required MCP arguments:**
 
@@ -945,7 +947,7 @@ flowchart TD
 
 #### Author registration (`Tool.description` verbatim)
 
-> Pack the project and publish it to UiPath Orchestrator, optionally creating a Process. Destructive and network-dependent: requires an Orchestrator URL plus tenant, and uses ambient uip auth credentials. Returns a JSON string with the publish result. GATED: blocked by the MCP session gate when the project has unverified writes; the call returns [BLOCKED] until uipath_workflow_build_and_verify reports success=true.
+> Pack the project and publish it to UiPath Orchestrator, optionally creating a Process. Read docs/ORCHESTRATOR_DEPLOYMENT.md first; requires explicit human approval before use; target only personal workspace or a named Dev folder, never Production. Destructive and network-dependent: requires an Orchestrator URL plus tenant, and uses ambient uip auth credentials. Returns a JSON string with the publish result. GATED: blocked by the MCP session gate when the project has unverified writes; the call returns [BLOCKED] until uipath_workflow_build_and_verify reports success=true.
 
 #### Input schema (JSON Schema)
 
@@ -1712,7 +1714,7 @@ flowchart LR
 
 #### Audience guide
 
-**Execute agentic ReAct loop.** Run the agentic ReAct loop with the full skill-execution tool belt for a chosen skill. Destructive: can transitively call uipath_workflow_write_file, _install_package, _run, _deploy, etc. Use uipath_agent_plan first for a dry-run trace. For intent classification (build vs question vs documentation), use uipath_intent_classify instead of this tool. Requires Amazon Bedrock access (UIPATH_CLAUDE_MODEL_HEAVY / UIPATH_CLAUDE_MODEL + AWS credentials in the configured region).
+**Execute agentic ReAct loop.** Run the agentic ReAct loop with the full skill-execution tool belt for a chosen skill. Destructive: can transitively call uipath_workflow_write_file, _install_package, _run, _deploy, etc. Use uipath_agent_plan first for a dry-run trace. Requires Amazon Bedrock access (UIPATH_CLAUDE_MODEL_HEAVY / UIPATH_CLAUDE_MODEL + AWS credentials in the configured region).
 
 **Required MCP arguments:**
 
@@ -1726,7 +1728,7 @@ flowchart LR
 
 #### Author registration (`Tool.description` verbatim)
 
-> Run the agentic ReAct loop with the full skill-execution tool belt for a chosen skill. Destructive: can transitively call uipath_workflow_write_file, _install_package, _run, _deploy, etc. Use uipath_agent_plan first for a dry-run trace. For intent classification (build vs question vs documentation), use uipath_intent_classify instead of this tool. Requires Amazon Bedrock access (UIPATH_CLAUDE_MODEL_HEAVY / UIPATH_CLAUDE_MODEL + AWS credentials in the configured region).
+> Run the agentic ReAct loop with the full skill-execution tool belt for a chosen skill. Destructive: can transitively call uipath_workflow_write_file, _install_package, _run, _deploy, etc. Use uipath_agent_plan first for a dry-run trace. Requires Amazon Bedrock access (UIPATH_CLAUDE_MODEL_HEAVY / UIPATH_CLAUDE_MODEL + AWS credentials in the configured region).
 
 #### Input schema (JSON Schema)
 
@@ -1766,6 +1768,51 @@ flowchart TD
   TK[task + skill_name]:::process --> SK[Load skill markdown from registry]:::service
   SK --> EX[AgenticExecutor ReAct + skill tools]:::mutate
   EX --> RES[success files_written validation_status]:::data
+```
+
+### `uipath_agent_classify_intent`
+
+#### Audience guide
+
+**Classify user intent.** Classify a user message into one of: question, build, ambiguous, documentation. Read-only and cheap (no LLM call required). Use as a triage step before deciding between uipath_agent_plan, uipath_agent_execute, uipath_doc_query, or a library lookup.
+
+**Required MCP arguments:**
+
+- **`user_input`** — Raw user message to classify.
+
+**Typical return:** **Dict** with keys such as `success`, `final_response`, `iterations`, `tool_calls`, previews, or intent classification fields.
+
+**Side effect (MCP `ToolAnnotations`):** read-only
+
+**Dispatch:** [`framework/mcp_server/tools/agent_tools.py`](../framework/mcp_server/tools/agent_tools.py) `call_agent_tool`
+
+#### Author registration (`Tool.description` verbatim)
+
+> Classify a user message into one of: question, build, ambiguous, documentation. Read-only and cheap (no LLM call required). Use as a triage step before deciding between uipath_agent_plan, uipath_agent_execute, uipath_doc_query, or a library lookup.
+
+#### Input schema (JSON Schema)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "user_input": {
+      "type": "string",
+      "description": "Raw user message to classify."
+    }
+  },
+  "required": [
+    "user_input"
+  ]
+}
+```
+
+#### Behavior flow
+
+```mermaid
+flowchart LR
+  ARGS[MCP arguments]:::process --> T["uipath_agent_classify_intent"]:::service
+  T --> RES[Tool-specific result]:::data
 ```
 
 ### `uipath_agent_ba`
@@ -2187,6 +2234,51 @@ flowchart LR
 flowchart LR
   Q[question]:::process --> ASK[query_uipath_docs Ask AI SDK or HTTP]:::service
   ASK --> ANS[Answer text]:::data
+```
+
+### `uipath_doc_query`
+
+#### Audience guide
+
+**Ask UiPath Ask AI (deprecated).** DEPRECATED alias of query_uipath_docs kept for one release for back-compat with existing Cursor MCP configs. Prefer query_uipath_docs in new clients; behavior is identical.
+
+**Required MCP arguments:**
+
+- **`question`** — Free-text question about UiPath products.
+
+**Typical return:** Typically a **string** or structured value serialized by the MCP server as text or JSON.
+
+**Side effect (MCP `ToolAnnotations`):** read-only
+
+**Dispatch:** [`framework/mcp_server/tools/doc_tools.py`](../framework/mcp_server/tools/doc_tools.py) `call_doc_tool`
+
+#### Author registration (`Tool.description` verbatim)
+
+> DEPRECATED alias of query_uipath_docs kept for one release for back-compat with existing Cursor MCP configs. Prefer query_uipath_docs in new clients; behavior is identical.
+
+#### Input schema (JSON Schema)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "question": {
+      "type": "string",
+      "description": "Free-text question about UiPath products."
+    }
+  },
+  "required": [
+    "question"
+  ]
+}
+```
+
+#### Behavior flow
+
+```mermaid
+flowchart LR
+  ARGS[MCP arguments]:::process --> T["uipath_doc_query"]:::service
+  T --> RES[Tool-specific result]:::data
 ```
 
 ### `uipath_doc_read_template`
@@ -2742,7 +2834,7 @@ flowchart LR
 
 #### Audience guide
 
-**Lookup UiPath knowledge.** Answer a UiPath product or RPA question using the local library first, then UiPath Ask AI, then optional web search if allow_network=true and UIPATH_WEB_SEARCH_ENABLED=1. The reply always ends with a 'SOURCE:' line and an optional CAPTURED_SOURCE JSON suitable for proposing a new library section. Prefer this over query_uipath_docs when the answer might exist locally.
+**Lookup UiPath knowledge.** Answer a UiPath product or RPA question using the local library first, then UiPath Ask AI, then optional web search if allow_network=true and UIPATH_WEB_SEARCH_ENABLED=1. The reply always ends with a 'SOURCE:' line and an optional CAPTURED_SOURCE JSON suitable for proposing a new library section. Prefer this over uipath_doc_query when the answer might exist locally.
 
 **Required MCP arguments:**
 
@@ -2756,7 +2848,7 @@ flowchart LR
 
 #### Author registration (`Tool.description` verbatim)
 
-> PREFER THIS over Grep/SemanticSearch on data/library/ for any UiPath product or RPA question. Answer a UiPath product or RPA question using the local library first, then UiPath Ask AI, then optional web search if allow_network=true and UIPATH_WEB_SEARCH_ENABLED=1. The reply always ends with a 'SOURCE:' line and an optional CAPTURED_SOURCE JSON suitable for proposing a new library section. Prefer this over query_uipath_docs when the answer might exist locally.
+> PREFER THIS over Grep/SemanticSearch on data/library/ for any UiPath product or RPA question. Answer a UiPath product or RPA question using the local library first, then UiPath Ask AI, then optional web search if allow_network=true and UIPATH_WEB_SEARCH_ENABLED=1. The reply always ends with a 'SOURCE:' line and an optional CAPTURED_SOURCE JSON suitable for proposing a new library section. Prefer this over uipath_doc_query when the answer might exist locally.
 
 #### Input schema (JSON Schema)
 
@@ -4253,7 +4345,7 @@ flowchart LR
 
 #### Audience guide
 
-**Create UiPlan spec.md draft folder.** Create a UiPlan draft folder under .cursor/plans/ with spec.md from docs/uiplan/kit/_spec-template.md plus .meta.yaml (plan_kind=uiplan). Optionally pass grounding_pack from uipath_plan_ground; otherwise grounding is computed from intent.
+**Create UiPlan spec.md draft folder.** Create a UiPlan draft folder under .cursor/plans/ with spec.md from templates/uiplan/_spec-template.md plus .meta.yaml (plan_kind=uiplan). Optionally pass grounding_pack from uipath_plan_ground; otherwise grounding is computed from intent.
 
 **Required MCP arguments:**
 
@@ -4267,7 +4359,7 @@ flowchart LR
 
 #### Author registration (`Tool.description` verbatim)
 
-> Create a UiPlan draft folder under .cursor/plans/ with spec.md from docs/uiplan/kit/_spec-template.md plus .meta.yaml (plan_kind=uiplan). Optionally pass grounding_pack from uipath_plan_ground; otherwise grounding is computed from intent.
+> Create a UiPlan draft folder under .cursor/plans/ with spec.md from templates/uiplan/_spec-template.md plus .meta.yaml (plan_kind=uiplan). Optionally pass grounding_pack from uipath_plan_ground; otherwise grounding is computed from intent.
 
 #### Input schema (JSON Schema)
 
@@ -4502,7 +4594,7 @@ flowchart TD
 
 #### Audience guide
 
-**Scaffold full UiPlan bundle.** Orchestrator: uipath_plan_ground -> spec_new -> plan_new -> tasks_new -> uipath_plan_review(all). Returns paths and review payload; refine spec/plan/tasks before accept if review has errors.
+**Scaffold full UiPlan bundle.** UiPlan orchestrator: uipath_plan_ground -> spec_new -> plan_new -> tasks_new -> uipath_plan_review(all). Returns paths and review payload; refine spec/plan/tasks before accept if review has errors. Generated deploy tasks reference docs/ORCHESTRATOR_DEPLOYMENT.md for compatibility preflight and explicit approval.
 
 **Required MCP arguments:**
 
@@ -4516,7 +4608,7 @@ flowchart TD
 
 #### Author registration (`Tool.description` verbatim)
 
-> Orchestrator: uipath_plan_ground -> spec_new -> plan_new -> tasks_new -> uipath_plan_review(all). Returns paths and review payload; refine spec/plan/tasks before accept if review has errors.
+> UiPlan orchestrator: uipath_plan_ground -> spec_new -> plan_new -> tasks_new -> uipath_plan_review(all). Returns paths and review payload; refine spec/plan/tasks before accept if review has errors. Generated deploy tasks reference docs/ORCHESTRATOR_DEPLOYMENT.md for compatibility preflight and explicit approval.
 
 #### Input schema (JSON Schema)
 
