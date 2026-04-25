@@ -38,7 +38,7 @@ from mcp_server.tools.plan_tools import get_plan_tools
 from mcp_server.tools.skill_tools import get_skill_tools
 from mcp_server.tools.workflow_tools import get_workflow_tools
 
-from mcp_tools_doc_diagrams import diagram_body_for_tool, extra_classdefs_block
+from mcp_tools_doc_diagrams import diagram_body_for_tool
 
 MODULE_GETTERS: list[tuple[str, Any]] = [
     ("workflow", get_workflow_tools),
@@ -73,26 +73,6 @@ def _quote_description(text: str) -> str:
 
 def _format_schema(schema: dict[str, Any]) -> str:
     return json.dumps(schema, indent=2)
-
-
-_MERMAID_INIT = (
-    "%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0',"
-    "'primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8',"
-    "'lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC',"
-    "'background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1',"
-    "'titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF',"
-    "'fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%"
-)
-
-_BASE_CLASSDEFS = "\n".join(
-    [
-        "  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px",
-        "  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px",
-        "  classDef mutate fill:#FFF7ED,stroke:#EA580C,color:#9A3412,stroke-width:1.25px",
-        "  classDef stage fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.25px",
-        "  classDef data fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px",
-    ]
-)
 
 
 def _dispatch_function(module: str) -> str:
@@ -167,16 +147,9 @@ def _returns_line(module: str, tool_name: str) -> str:
 
 def _full_mermaid_chart(tool: Tool) -> str:
     body = diagram_body_for_tool(tool.name).strip()
-    extra = extra_classdefs_block().rstrip("\n")
     parts = [
         "```mermaid",
-        _MERMAID_INIT,
         body,
-        "",
-        _BASE_CLASSDEFS,
-        extra,
-        "",
-        "  linkStyle default stroke:#94A3B8,stroke-width:1.5px",
         "```",
     ]
     return "\n".join(parts)
@@ -199,8 +172,8 @@ def build_markdown() -> str:
         "`Tool.description` from code), the JSON **input schema**, and a "
         "**behavior flow** Mermaid chart that reflects the real dispatch path "
         "(see `framework/mcp_server/tools/*_tools.py` and `call_*_tool`). Diagrams follow "
-        "the Pro Standard: neutral `%%{init}%%`, `classDef` node colors, "
-        "muted `linkStyle`."
+        "a renderer-safe subset of Mermaid syntax to maximize compatibility "
+        "across GitHub, Cursor, and CLI previews."
     )
     lines.append("")
     lines.append("## Index (all tool names)")

@@ -135,9 +135,6 @@ _TOOL_DIAGRAMS: dict[str, str] = {
   TK[task + skill_name]:::process --> SK[Load skill markdown from registry]:::service
   SK --> EX[AgenticExecutor ReAct + skill tools]:::mutate
   EX --> RES[success files_written validation_status]:::data""",
-    "uipath_agent_classify_intent": """flowchart LR
-  UI[user_input]:::process --> CL[classify_intent no LLM]:::service
-  CL --> OUT[intent + reason dict]:::data""",
     "uipath_agent_ba": """flowchart LR
   REQ[requirements]:::process --> LLM[BAAgent + invoke_agent_llm Bedrock]:::mutate
   LLM --> PDD[pdd text dict]:::data""",
@@ -165,9 +162,6 @@ _TOOL_DIAGRAMS: dict[str, str] = {
   FA --> RES[Resolution payload]:::data""",
     "query_uipath_docs": """flowchart LR
   Q[question]:::process --> ASK[query_uipath_docs Ask AI SDK or HTTP]:::service
-  ASK --> ANS[Answer text]:::data""",
-    "uipath_doc_query": """flowchart LR
-  Q[question]:::process --> ASK[Same as query_uipath_docs alias]:::service
   ASK --> ANS[Answer text]:::data""",
     "uipath_doc_read_template": """flowchart LR
   DT[doc_type enum]:::process --> TM[read_template bundled md]:::service

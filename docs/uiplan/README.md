@@ -48,7 +48,6 @@ flowchart TD
 ## Repository layout (UiPlan-related)
 
 ```mermaid
-%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
 flowchart TB
   subgraph Docs["Docs"]
     U[docs/uiplan/kit templates]:::service
@@ -65,20 +64,11 @@ flowchart TB
   T --> C
   C -->|review + accept| P
   F --> C
-
-  classDef process  fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
-  classDef service  fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
-  classDef human    fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.5px
-
-  linkStyle default stroke:#94A3B8,stroke-width:1.5px
-  linkStyle 0,1 stroke:#3B82F6,stroke-width:2px
-  linkStyle 3,4 stroke:#10B981,stroke-width:2px
 ```
 
 ## Generate → review → scaffold (sequence)
 
 ```mermaid
-%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
 sequenceDiagram
   autonumber
   actor Dev as Developer
@@ -91,11 +81,6 @@ sequenceDiagram
   Rev-->>Dev: ok / findings
   Dev->>CLI: scaffold-code <slug>
   CLI-->>Dev: implementation loop (capped)
-
-  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.5px
-  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
-  class Dev human
-  class CLI,FS,Rev service
 ```
 
 ## Best leverage patterns
