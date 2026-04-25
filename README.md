@@ -242,7 +242,9 @@ flowchart LR
 
 Single-file drafts (`uipath_plan_new`) stay supported; `uipath_plan_refine` / `uipath_plan_diff` apply to those only, not UiPlan folders.
 
-### The loop
+### Legacy single-file plan loop (optional)
+
+Use only when you explicitly want one `.md` draft under `.cursor/plans/` (not the UiPlan three-file folder). For normal work, use **UiPlan** above.
 
 ```mermaid
 flowchart LR
@@ -266,17 +268,17 @@ Same seven steps either way. Cursor drives them through chat + the MCP tools; th
 
 #### In Cursor (recommended for interactive work)
 
-Prereq: ran `ops/scripts/setup-cursor.ps1` / `.sh` so `.cursor/mcp.json` is wired and the `uipath-builder-agent` MCP server shows **connected** under Cursor Settings -> MCP. The `brainstorming-plan` skill (`.cursor/skills/brainstorming-plan/SKILL.md`) auto-loads and orchestrates the loop.
+Prereq: ran `ops/scripts/setup-cursor.ps1` / `.sh` so `.cursor/mcp.json` is wired and the `uipath-builder-agent` MCP server shows **connected** under Cursor Settings -> MCP. Load the **`uiplan`** skill ([`.cursor/skills/uiplan/SKILL.md`](.cursor/skills/uiplan/SKILL.md)) and attach **`@docs/uiplan/`** when you want the full contract in context.
 
-1. **Kick it off in chat.** Say *"Let's plan a new automation for &lt;X&gt;"* or *"Use the brainstorming-plan skill to plan &lt;X&gt;"*. The skill calls `uipath_plan_new` to scaffold a draft under `.cursor/plans/<date>-<slug>.md` (git-ignored, per-user).
-2. **Ground it.** The skill calls `uipath_plan_brainstorm`, which returns suggested library searches, candidate specialist skills (`uipath-rpa`, `uipath-agents`, ...), PDD/SDD/ADD candidates under `docs/`, and up to three clarifying questions. Answer them in chat.
-3. **Refine iteratively.** Ask for task breakdowns, mermaid diagrams, or section rewrites. The skill calls `uipath_plan_refine` with structured ops (`append_task`, `set_goal`, `add_mermaid`, `replace_body_section`). Each refine writes a snapshot under `.cursor/plans/.snapshots/` so you can diff.
-4. **Review the diff.** *"Show me what changed since the last snapshot"* -> `uipath_plan_diff --mode self`. Against a previously published version: `--mode vs-published`.
-5. **Accept (or reject).** *"Accept this plan"* -> `uipath_plan_accept` stamps `accepted_at` / `accepted_by` in the front matter. Cursor's native Allow/Deny card will also surface on any destructive tool. To reject: `uipath_plan_reject` with a non-empty reason.
-6. **Publish.** *"Publish the plan"* -> `uipath_plan_publish` promotes the draft from `.cursor/plans/` to `docs/plans/` and regenerates `docs/plans/README.md` on commit.
-7. **Hand off to build.** *"/pdd &lt;slug&gt;"* (full BA -> SA -> ADD -> TDD -> Dev -> QA pipeline) or just *"implement this plan"* to run the validator-gated build loop.
+1. **Kick it off in chat.** Use **`/uiplan full <title>`** or staged `/uiplan ground|spec|plan|tasks|review ...`. That drives `uipath_plan_ground` → three-file bundle → `uipath_plan_review` (or `uipath_plan_uiplan_new` for the bundled path). Drafts land under `.cursor/plans/<YYYY-MM-DD-slug>/` with `spec.md`, `plan.md`, `tasks.md` (git-ignored, per-user).
+2. **Ground and clarify.** Answer at most a couple of batched questions in chat; `uipath_plan_ground` returns matched skills, library hits, PDD candidates, and constitution gates. Optionally call `uipath_plan_brainstorm` for extra read-only hints — it does not replace UiPlan.
+3. **Iterate on the bundle.** Fix `unanswered` items and review findings; re-run stages or edit the three markdown files directly (do **not** use `uipath_plan_refine` on UiPlan folders — that path is for legacy single-file drafts only).
+4. **Review.** `uipath_plan_review` until `"ok": true` for the stages you care about.
+5. **Accept (or reject).** `uipath_plan_accept` stamps acceptance; `uipath_plan_reject` requires a non-empty reason.
+6. **Publish.** `uipath_plan_publish` promotes the accepted draft folder to `docs/plans/` and refreshes the index.
+7. **Hand off to build.** *"/pdd &lt;slug&gt;"* (full lifecycle) or *"implement this plan"* / `scaffold-code` per [docs/uiplan/HOW_TO_USE.md](docs/uiplan/HOW_TO_USE.md).
 
-The skill enforces read-only grounding before any writes, batches your clarifying questions, and stops at the accept gate before promoting anything.
+The skill keeps destructive workflow tools out of the planning phase and stops at the accept gate before promotion.
 
 #### From the CLI
 
@@ -329,8 +331,8 @@ Unset or set to `0` to restore the default (no gate).
 | Scenario | Entry point |
 |---|---|
 | One-off change with an obvious design | Skip - just edit and validate |
-| Planning interactively in Cursor | Chat: *"Use the brainstorming-plan skill to plan &lt;X&gt;"* |
-| Planning from a terminal / CI | `uipath-claude plan new ...` -> `brainstorm` -> `refine` -> `accept` -> `publish` |
+| Planning interactively in Cursor | **`/uiplan ...`** or load [`.cursor/skills/uiplan/SKILL.md`](.cursor/skills/uiplan/SKILL.md) + `@docs/uiplan/` |
+| Planning from a terminal / CI | **`uipath-claude plan uiplan ...`** for the three-file bundle; legacy: `plan new` -> `brainstorm` -> `refine` -> `accept` -> `publish` |
 | Formal PDD/SDD/ADD lifecycle (BA -> SA -> ADD -> TDD -> Dev -> QA) | `/pdd` - see [docs/PDD_LIFECYCLE.md](docs/PDD_LIFECYCLE.md) |
 | Spec-kit-style bundle (spec + plan + tasks + review) | `/uiplan` or `uipath-claude plan uiplan` — see [docs/PLANNING_FRAMEWORK.md](docs/PLANNING_FRAMEWORK.md#uiplan-spec-kit-style) |
 | Quick routing question ("which skill handles X?") | `uipath-planner` skill directly |

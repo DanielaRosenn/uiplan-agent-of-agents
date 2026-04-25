@@ -1,23 +1,31 @@
 ---
-description: Multi-step work — brainstorm first, draft under .cursor/plans/, publish to docs/plans/ with Mermaid (Pro Standard) via uipath_plan_* MCP tools
+description: Multi-step work — UiPlan first (uiplan skill), draft under .cursor/plans/, publish to docs/plans/ with Mermaid (Pro Standard) via uipath_plan_* MCP tools
 globs: docs/plans/**/*.md, .cursor/plans/**/*.md
 alwaysApply: false
 ---
 
 # Planning artifacts (this repo)
 
-## Brainstorm first
+## Plan first (UiPlan)
 
 For non-trivial work (3+ steps, multiple files, unclear scope, or when
-`UIPATH_PLAN_GATE=1`), load `.cursor/skills/brainstorming-plan/SKILL.md`
-**before** touching build tools. That skill runs the full loop:
-`uipath_plan_brainstorm` -> `uipath_plan_new` -> `uipath_plan_refine` ->
-`uipath_plan_accept` -> (later) `uipath_plan_publish`.
+`UIPATH_PLAN_GATE=1`), load `.cursor/skills/uiplan/SKILL.md` **before** touching
+build tools. Default path: `uipath_plan_ground` -> `uipath_plan_spec_new` ->
+`uipath_plan_plan_new` -> `uipath_plan_tasks_new` -> `uipath_plan_review` ->
+`uipath_plan_accept` -> (later) `uipath_plan_publish`. Optional one-shot:
+`uipath_plan_uiplan_new`.
+
+Legacy single-file only when explicitly requested: `uipath_plan_brainstorm` ->
+`uipath_plan_new` -> `uipath_plan_refine` -> accept -> publish. Do not use
+`uipath_plan_refine` on UiPlan **folder** drafts.
 
 ## Drafts vs published
 
-- **Drafts** live under `.cursor/plans/<YYYY-MM-DD-slug>.md` (git-ignored,
-  per-user). Created by `uipath_plan_new`, never hand-edited — use
+- **UiPlan drafts** live under `.cursor/plans/<YYYY-MM-DD-slug>/` with
+  `spec.md`, `plan.md`, `tasks.md`, `.meta.yaml` — edit those files or re-run
+  MCP stages; do not use `uipath_plan_refine` on this layout.
+- **Legacy single-file drafts** live under `.cursor/plans/<YYYY-MM-DD-slug>.md`
+  (git-ignored, per-user). Created by `uipath_plan_new`; prefer
   `uipath_plan_refine` so validation + snapshots kick in.
 - **Published plans** live under `docs/plans/` (git-tracked). Promote via
   `uipath_plan_publish`; the plan must have `status: accepted` first.

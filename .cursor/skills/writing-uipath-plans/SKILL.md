@@ -32,8 +32,9 @@ Skip for one-line fixes or a single obvious file change.
 
 ## Drafting vs publishing (brainstorm loop)
 
-For multi-step or ambiguous work, load the `brainstorming-plan` skill first.
-It runs the full loop and writes to the correct location:
+For multi-step or ambiguous work, load the **`uiplan`** skill first (see
+`.cursor/skills/uiplan/SKILL.md`). It runs the UiPlan loop and writes drafts to
+the correct location:
 
 - **Drafts** live under `.cursor/plans/<YYYY-MM-DD-slug>.md` (git-ignored, per-user).
   Created by `uipath_plan_new`, evolved by `uipath_plan_refine`.
@@ -44,8 +45,8 @@ It runs the full loop and writes to the correct location:
   workflow tools refuse writes until a plan is accepted.
 
 This skill (writing-uipath-plans) still owns the *shape* of the file:
-required sections, front matter, Mermaid. The `brainstorming-plan` skill
-owns the *workflow* of getting there.
+required sections, front matter, Mermaid. The **`uiplan`** skill owns the
+*workflow* of getting there (three-file bundle or explicit legacy single-file).
 
 ## MCP (optional but recommended)
 

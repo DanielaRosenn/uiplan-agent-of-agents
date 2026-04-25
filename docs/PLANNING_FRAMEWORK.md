@@ -1,13 +1,16 @@
-# Planning Framework (Brainstorm -> Plan -> Execute)
+# Planning Framework (UiPlan first, legacy single-file optional)
 
-A superpowers-style loop for UiPath work in Cursor. Drafts live per-user
-(git-ignored), brainstorming is grounded in the repo's documentation and
-skills, and acceptance is recorded both in Cursor's plan UI and on disk so
-destructive MCP tools can optionally gate on it.
+A superpowers-style loop for UiPath work in Cursor. **Default:** the **UiPlan**
+three-file bundle under `.cursor/plans/<slug>/`, grounded with `uipath_plan_ground`,
+reviewed with `uipath_plan_review`, accepted with `uipath_plan_accept`, then
+published to `docs/plans/` so destructive MCP tools can optionally gate on it.
+
+The canonical Cursor skill is **`uiplan`** (`.cursor/skills/uiplan/SKILL.md`).
+The old `brainstorming-plan` path is a **redirect stub** only — do not treat it as a second workflow.
 
 ## When to use it
 
-Load `brainstorming-plan` (the Cursor skill) and follow this loop when:
+Load **`uiplan`** and follow the UiPlan loop when:
 
 - The user requests a multi-step UiPath build, refactor, or migration.
 - The task touches more than one file, project, or skill domain.
@@ -21,17 +24,18 @@ Skip the loop for:
 - Pure QUESTION intents (answering what something is).
 - Emergencies where the user explicitly asks you to just do it.
 
-## The loop
+## The loop (UiPlan — default)
 
 ```mermaid
 flowchart LR
-  Req[User request]:::in --> BS[brainstorming-plan skill]:::process
-  BS --> Ground["Ground: library / skills / PDD / optional web"]:::process
-  Ground --> Draft[Draft plan]:::process
-  Draft --> Save["uipath_plan_new -> .cursor/plans/<slug>.md"]:::write
-  Save --> Review{User review}:::decision
-  Review -->|Refine| Refine[uipath_plan_refine]:::write
-  Refine --> Draft
+  Req[User request]:::in --> UI[uiplan skill]:::process
+  UI --> Ground[uipath_plan_ground]:::ro
+  Ground --> Spec[uipath_plan_spec_new]:::write
+  Spec --> Plan[uipath_plan_plan_new]:::write
+  Plan --> Tasks[uipath_plan_tasks_new]:::write
+  Tasks --> Rev[uipath_plan_review]:::ro
+  Rev --> Review{User review}:::decision
+  Review -->|Fix| Spec
   Review -->|Accept| Accept[uipath_plan_accept]:::write
   Review -->|Reject| Reject[uipath_plan_reject]:::write
   Accept --> Execute[Specialist skills / MCP execution]:::process
@@ -41,6 +45,31 @@ flowchart LR
   classDef process  fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
   classDef decision fill:#FEF3C7,stroke:#D97706,color:#78350F,stroke-width:1.25px
   classDef write    fill:#EEF2FF,stroke:#6366F1,color:#312E81,stroke-width:1.25px
+  classDef ro fill:#E0F2FE,stroke:#0284C7,color:#0C4A6E,stroke-width:1.25px
+
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+**Shortcut:** `uipath_plan_uiplan_new` runs ground through `uipath_plan_review(all)` in one call; iterate on findings, then accept and publish as above.
+
+## Legacy loop (single-file plan only)
+
+Use only when the user explicitly wants one markdown file under `.cursor/plans/<slug>.md` (not the UiPlan folder). `uipath_plan_refine` / `uipath_plan_diff` apply here **only**, not to UiPlan folders.
+
+```mermaid
+flowchart LR
+  Req2[User request]:::in --> Ground2[uipath_plan_brainstorm optional]:::ro
+  Ground2 --> New[uipath_plan_new]:::write
+  New --> Refine[uipath_plan_refine]:::write
+  Refine --> Review2{User review}:::decision
+  Review2 -->|Refine| Refine
+  Review2 -->|Accept| Accept2[uipath_plan_accept]:::write
+  Accept2 --> Publish2[uipath_plan_publish]:::write
+
+  classDef in       fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:2px
+  classDef ro fill:#E0F2FE,stroke:#0284C7,color:#0C4A6E,stroke-width:1.25px
+  classDef write    fill:#EEF2FF,stroke:#6366F1,color:#312E81,stroke-width:1.25px
+  classDef decision fill:#FEF3C7,stroke:#D97706,color:#78350F,stroke-width:1.25px
 
   linkStyle default stroke:#94A3B8,stroke-width:1.5px
 ```
@@ -111,8 +140,11 @@ auditable fields:
 
 ## Grounding rules
 
-`uipath_plan_brainstorm` is read-only and returns hints only. Call these
-tools as follow-ups to flesh out the draft:
+For **UiPlan**, start with **`uipath_plan_ground`** (read-only grounding pack).
+
+**`uipath_plan_brainstorm`** is also read-only and returns hints only; use it as
+an optional supplement, or when driving the **legacy single-file** path above.
+Follow-ups to flesh out any draft:
 
 1. `uipath_library_search` / `uipath_library_lookup` - UiPath docs in the
    library.
@@ -126,8 +158,8 @@ tools as follow-ups to flesh out the draft:
 
 ## Acceptance (two layers)
 
-1. **Cursor plan UI** - primary UX. The `brainstorming-plan` skill presents
-   the plan, user clicks accept, Cursor routes execution.
+1. **Cursor plan UI** - primary UX. The **`uiplan`** skill presents the plan
+   bundle, user clicks accept, Cursor routes execution.
 2. **MCP record + optional hard gate** - `uipath_plan_accept` stamps the
    file. When `UIPATH_PLAN_GATE=1`, these workflow tools refuse to run
    without an accepted plan:
@@ -182,7 +214,8 @@ uipath plan list --scope both
 
 ## Related
 
-- [.cursor/skills/brainstorming-plan/SKILL.md](../.cursor/skills/brainstorming-plan/SKILL.md) - how the assistant runs the loop.
+- [.cursor/skills/uiplan/SKILL.md](../.cursor/skills/uiplan/SKILL.md) - canonical planning loop (UiPlan + discovery).
+- [.cursor/skills/brainstorming-plan/SKILL.md](../.cursor/skills/brainstorming-plan/SKILL.md) - redirect to `uiplan` only.
 - [.cursor/skills/writing-uipath-plans/SKILL.md](../.cursor/skills/writing-uipath-plans/SKILL.md) - plan authoring conventions.
 - [docs/PDD_LIFECYCLE.md](PDD_LIFECYCLE.md) - PDD/SDD/ADD lifecycle that plans link back to.
 - [docs/MCP_TOOLS.md](MCP_TOOLS.md) - full MCP tool reference with Mermaid diagrams.
