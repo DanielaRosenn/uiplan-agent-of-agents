@@ -48,6 +48,7 @@ htmlcov/
 /co2.txt
 /mig.txt
 /full*.txt
+/pytest_run.log
 
 # Office lock files (often appear under docs/)
 **/~$*
