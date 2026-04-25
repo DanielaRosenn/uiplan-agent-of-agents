@@ -576,6 +576,8 @@ If superpowers skills don't appear:
 - Use **Cursor (no MCP)** for quick design and generation
 - Use **CLI** for batch operations and CI/CD integration
 
+For **step-by-step `uipath-claude` usage, all Typer commands, chat flags, session resume, and restart/debug** from a terminal, use [CLAUDE_USER_GUIDE.md](CLAUDE_USER_GUIDE.md).
+
 ---
 
 ## Further Reading

@@ -4,6 +4,17 @@ This guide walks you through setting up and using UiPath Claude Code for UiPath 
 
 For a **terminal / Claude Code**-oriented walkthrough (hooks vs Actions, how CLI differs from Cursor + MCP), see [CLAUDE_USER_GUIDE.md](CLAUDE_USER_GUIDE.md).
 
+## Operating and restarting `uipath-claude`
+
+The CLI is **not a background service**: each run is a new process. Full **step-by-step usage**, every subcommand, **`chat` flags**, session ids, and **restart / debugging** (Studio, streams, `PYTHONPATH`, doctor) live in [CLAUDE_USER_GUIDE.md](CLAUDE_USER_GUIDE.md).
+
+Quick reminders:
+
+1. Work from **repo root** (or pass **`--project-dir`** to a UiPath project).
+2. After pulls: **`git submodule update --init --recursive`** and **`uv sync --extra dev`** when deps change.
+3. Leave chat with **`exit`**, **`quit`**, or **Ctrl+C**; start again with **`uipath-claude chat`** (or `uv run uipath-claude chat`).
+4. When stuck: **`uipath-claude doctor`**, then **`uipath-claude chat --no-stream`** for cleaner logs.
+
 ## Quick Start (5 Minutes)
 
 ### Prerequisites

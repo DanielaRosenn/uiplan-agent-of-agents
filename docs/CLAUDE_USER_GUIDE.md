@@ -68,6 +68,134 @@ In the first session, run **`/help`**, **`/status`**, and **`/skills`** to confi
 
 ---
 
+## Complete step-by-step: using `uipath-claude` from a terminal
+
+Follow these steps in order whenever you sit down to work. Skip steps that do not apply (for example, skip `git pull` if you already have the latest).
+
+### 1. Open the right directory
+
+1. Open a terminal (PowerShell, bash, or the integrated terminal in VS Code / Cursor).
+2. `cd` to the **repository root** (the folder that contains `pyproject.toml` and `framework/`).
+
+All relative paths (`skills/`, `.cursor/plans/`, `generated/`) assume this is the current working directory unless you pass **`--project-dir`** (see below).
+
+### 2. Sync the repo (when you pulled changes)
+
+```powershell
+git pull
+git submodule update --init --recursive
+```
+
+If `pyproject.toml` or lockfiles changed, refresh Python deps:
+
+```powershell
+uv sync --extra dev
+```
+
+### 3. Preflight (recommended before demos or after big merges)
+
+```powershell
+uipath-claude doctor
+```
+
+Fix any **FAIL** lines before starting chat. **WARN** lines are hints (encoding, stale proposals, doc regen suggestions).
+
+### 4. Start interactive chat
+
+Either form starts the same chat loop (Typer default invokes `chat`):
+
+```powershell
+uipath-claude
+# same as:
+uipath-claude chat
+```
+
+From a clean tool environment, prefer:
+
+```powershell
+uv run uipath-claude chat
+```
+
+The banner prints a **session id**. The process tells you: `Type 'exit' or 'quit' to leave.`
+
+### 5. Inside chat: normal work loop
+
+1. Type a **goal** in plain language (include paths, project type, and constraints).
+2. Use **slash commands** when you want a fixed operation (`/validate`, `/uiplan`, `/pdd`, …). See [SLASH_COMMANDS.md](SLASH_COMMANDS.md).
+3. Answer **approval prompts** when the agent proposes destructive tools (unless you disabled prompts via `UIPATH_TOOL_APPROVAL` for CI).
+4. When finished, type **`exit`** or **`quit`**, or press **Ctrl+C** to abort the current line or stop the session.
+
+### 6. Optional: bind chat to an existing UiPath project folder
+
+If outputs and validators should target a Studio project on disk (instead of only the per-session `generated/chat/...` tree):
+
+```powershell
+uipath-claude chat --project-dir "C:\work\MyProcess"
+```
+
+That sets **`UIPATH_PROJECT_DIR`** for the process. Use an absolute path.
+
+### 7. Optional: plan and UiPlan **without** staying in chat
+
+Same MCP-backed tools the server uses, invoked from the shell:
+
+```powershell
+uipath-claude plan --help
+uipath-claude plan uiplan full "Your feature title"
+```
+
+Use **`uipath-claude plan uiplan --help`** for staged `ground`, `spec`, `plan`, `tasks`, `review`.
+
+### 8. Optional: library proposal queue (CLI)
+
+```powershell
+uipath-claude library-proposals list
+uipath-claude library-proposals show <id>
+uipath-claude library-proposals approve <id>
+```
+
+### 9. Optional: one-shot legacy bootstrap (non-chat)
+
+```powershell
+uipath-claude start-project "MyAutomationName"
+```
+
+Runs the legacy bootstrap flow and writes artifacts under the **current working directory**. Prefer **`/pdd`** or **`/bootstrap`** inside chat for interactive control.
+
+### 10. Discover every Typer flag
+
+```powershell
+uipath-claude --help
+uipath-claude chat --help
+uipath-claude doctor --help
+```
+
+---
+
+## `uipath-claude chat` flags you should know
+
+| Flag | When to use it |
+| --- | --- |
+| `--no-banner` | CI or scripted runs where the ASCII banner is noise. |
+| `--no-plan` | Skip the planning phase for BUILD intents (use sparingly). |
+| `--auto-approve-plan` | **CI / automation only** — auto-approves plans without prompts. |
+| `--project-dir` / `-p` | Point validators and writes at a real UiPath project directory. |
+| `--skip-docs` | Skip the PDD/SDD/TDD doc sub-flow when design docs already exist. |
+| `--no-stream` | Easier copy/paste logs; disables streaming tokens. Overrides `UIPATH_CHAT_STREAM`. |
+| `--no-track-processes` | If Studio process tracking interferes with your machine; see [Testing_Guide.md](Testing_Guide.md) / Studio close guidance. |
+
+Environment variables (`UIPATH_AGENTIC_MODE`, `UIPATH_CLAUDE_TOOL_PROFILE`, Bedrock overrides, etc.) are documented in [USER_GUIDE.md](USER_GUIDE.md) and [SMOKE_TESTS.md](SMOKE_TESTS.md).
+
+---
+
+## Sessions: new chat vs continuing
+
+- Each chat run allocates a **session id** (printed at startup) unless you pre-set **`UIPATH_CHAT_SESSION_ID`**.
+- **`/resume`** lists recent sessions and explains how to attach to one: set `UIPATH_CHAT_SESSION_ID` to that id, then **start `uipath-claude chat` again** in a new process so logs and outputs line up with the same session folder.
+- For a **fresh** session on the same machine, start chat **without** setting `UIPATH_CHAT_SESSION_ID` (or clear it in the shell before launching).
+
+---
+
 ## How the CLI session differs from Cursor
 
 | Concern | Cursor (+ optional MCP) | CLI (`uipath-claude chat`) |
@@ -142,17 +270,52 @@ For multi-file or risky work, run **`/uiplan full "<title>"`** (or staged `groun
 
 ---
 
-## Troubleshooting
+## Debugging, restart, and recovery
+
+### Restart the application (most common fix)
+
+`uipath-claude` is a **short-lived CLI process**: each `uipath-claude` / `uipath-claude chat` is a new Python interpreter. There is no separate daemon to “restart” beyond exiting and launching again.
+
+1. **Leave chat** — type `exit` or `quit`, or **Ctrl+C** (twice if the loop is busy).
+2. **Optional — new session identity** — open a **new** terminal tab or run `Remove-Item Env:UIPATH_CHAT_SESSION_ID` (PowerShell) / `unset UIPATH_CHAT_SESSION_ID` (bash) so the next chat does not inherit an old id.
+3. **Re-sync deps** (after `git pull` or branch switch): `uv sync --extra dev`.
+4. **Run doctor**: `uipath-claude doctor`.
+5. **Start again**: `uv run uipath-claude chat` (or `uipath-claude chat` from an activated venv).
+
+If **Studio** was opened by validation runs, close it before the next agentic loop (see [Testing_Guide.md](Testing_Guide.md) and repo `CLAUDE.md` Studio guidance).
+
+### Hung chat, partial output, or “nothing happens”
+
+| Symptom | What to try |
+| --- | --- |
+| Output buffered in a pipe | Prefer `uv run uipath-claude chat` in a real TTY; for scripts use `--no-stream`. |
+| Token stream too noisy | `--no-stream` or set `UIPATH_CHAT_STREAM=0`. |
+| Tool loop hard to understand | Set `UIPATH_DEBUG_AGENT=1` before chat (see [USER_GUIDE.md](USER_GUIDE.md) Agentic Mode). |
+| Studio locks or extra processes | `uipath-claude chat --no-track-processes` for that session; then close Studio. |
+| Stale skills content | `/update-skills` in chat or `ops/scripts/update-skills.ps1` from the shell. |
+
+### Import errors (`mcp_server`, `uipath_claude`)
+
+Run from **repo root** with the framework on `PYTHONPATH`:
+
+```powershell
+$env:PYTHONPATH = ".;framework"
+uipath-claude doctor
+```
+
+`uv run` sets the project layout correctly when invoked from the root with a synced env.
+
+### Bedrock / AWS / model errors
+
+1. `aws sts get-caller-identity`
+2. Region and model env vars from [INSTALL.md](INSTALL.md)
+3. Retry with a smaller request; confirm quotas in AWS console
 
 ### `skills/skills` missing
 
 ```bash
 git submodule update --init --recursive
 ```
-
-### Bedrock / AWS errors
-
-Confirm `aws sts get-caller-identity` and region overrides in [INSTALL.md](INSTALL.md).
 
 ### Validator or `uip` not found
 
@@ -161,6 +324,12 @@ Install UiPath **`uip`** CLI per [INSTALL.md](INSTALL.md); `doctor` reports PATH
 ### Same repo, switching from Cursor
 
 Re-run the opposite quickstart with **`-Force`** so `.assistant-choice` and expectations stay consistent.
+
+### Still blocked
+
+1. Capture **`uipath-claude doctor`** text output.
+2. Re-run with **`uipath-claude chat --no-banner --no-stream`** once to simplify logs.
+3. Open an issue with OS, `uv run uipath-claude --version` (or `pip show uipath-claude-code`), and the last 30 lines of the trace.
 
 ---
 

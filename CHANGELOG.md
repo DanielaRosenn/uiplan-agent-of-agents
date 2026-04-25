@@ -4,8 +4,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
-### Added
-- [docs/CLAUDE_USER_GUIDE.md](docs/CLAUDE_USER_GUIDE.md) — terminal / Claude Code onboarding (mirrors the Cursor guide); documents hooks-first skills updates and CLI vs Cursor differences.
+### Changed
+- [docs/CLAUDE_USER_GUIDE.md](docs/CLAUDE_USER_GUIDE.md) — terminal / Claude Code guide: step-by-step `uipath-claude` usage, `chat` flags, session ids, Typer commands, hooks vs Actions, and debugging/restart; [docs/USER_GUIDE.md](docs/USER_GUIDE.md) and [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md) cross-link it.
 
 ### Removed
 - Root **`.github/workflows/`** jobs (`mermaid-validate`, `update-skills-submodule`); use local `ops/scripts`, Cursor session hooks, or OS scheduling until you re-enable Actions.
