@@ -94,6 +94,16 @@ You should see a tenant, tool profile, and a list of available skills with origi
 
 ## Troubleshooting
 
+- **Windows chat crashes at the Orchestrator auth prompt with `UnicodeEncodeError` / `cp1252`** — update to a build that renders the auth warning with ASCII (`! UiPath CLI Authentication Required`). Then smoke-test startup with:
+  ```powershell
+  @'
+  2
+  /status
+  /skills
+  exit
+  '@ | .\.venv\Scripts\uipath-claude.exe chat
+  ```
+  Option `2` skips Orchestrator auth for the session; workflow authoring and local checks can still run, while deployment features stay disabled.
 - **`uipath CLI not found on PATH`** — install `@uipath/cli` globally with npm and reopen the shell.
 - **`Studio not running` during validation** — start UiPath Studio Desktop; `--use-studio` commands require an IPC-reachable Studio instance.
 - **Bedrock `AccessDeniedException`** — your role lacks `bedrock:InvokeModel`. Request access to `anthropic.claude-3-sonnet-20240229-v1:0` in the AWS Bedrock console for your region.

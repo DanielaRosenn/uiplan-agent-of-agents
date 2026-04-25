@@ -383,10 +383,26 @@ If **Studio** was opened by validation runs, close it before the next agentic lo
 | Symptom | What to try |
 | --- | --- |
 | Output buffered in a pipe | Prefer `uv run uipath-claude chat` in a real TTY; for scripts use `--no-stream`. |
+| Windows crash at the auth prompt with `UnicodeEncodeError` / `cp1252` | The auth prompt must be ASCII-safe (`! UiPath CLI Authentication Required`). Pull the latest fix, then run the smoke test below. |
 | Token stream too noisy | `--no-stream` or set `UIPATH_CHAT_STREAM=0`. |
 | Tool loop hard to understand | Set `UIPATH_DEBUG_AGENT=1` before chat (see [USER_GUIDE.md](USER_GUIDE.md) Agentic Mode). |
 | Studio locks or extra processes | `uipath-claude chat --no-track-processes` for that session; then close Studio. |
 | Stale skills content | `/update-skills` in chat or `ops/scripts/update-skills.ps1` from the shell. |
+
+Startup smoke test on Windows:
+
+```powershell
+@'
+2
+/status
+/skills
+exit
+'@ | .\.venv\Scripts\uipath-claude.exe chat
+```
+
+Expected: the chat starts, option `2` skips Orchestrator auth for that session,
+`/status` prints model/region/session details, `/skills` lists loaded skills, and
+the process exits cleanly.
 
 ### Import errors (`mcp_server`, `uipath_claude`)
 

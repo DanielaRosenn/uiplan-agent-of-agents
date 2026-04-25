@@ -75,6 +75,11 @@ aws configure
 uipath-claude chat
 ```
 
+On first run, the CLI may ask for UiPath Orchestrator authentication. Choose
+option `1` to run `uipath auth`, or choose option `2` to continue without
+deployment features. A healthy no-auth startup should still accept `/status`,
+`/skills`, and `exit`.
+
 ## Use Everything Workflow (recommended)
 
 Follow this sequence when you want to leverage the full project stack end-to-end:
@@ -335,6 +340,24 @@ Install the UiPath CLI:
 # Or use winget:
 winget install UiPath.CLI
 ```
+
+### Chat crashes or appears stuck at the auth prompt on Windows
+
+If the traceback mentions `UnicodeEncodeError` or `cp1252`, update to a build
+where the auth prompt uses ASCII (`! UiPath CLI Authentication Required`) and
+rerun this smoke test from repo root:
+
+```powershell
+@'
+2
+/status
+/skills
+exit
+'@ | .\.venv\Scripts\uipath-claude.exe chat
+```
+
+Expected result: option `2` skips Orchestrator auth for the session, `/status`
+prints session details, `/skills` lists loaded skills, and the process exits.
 
 ### Validation errors persist
 

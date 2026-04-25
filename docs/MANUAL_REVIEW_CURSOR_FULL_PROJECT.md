@@ -178,7 +178,19 @@ Confirm the docs now answer three first-time questions quickly: **what is this p
 | G3 | `uv run pytest -q` (full suite) | | | |
 | G4 | `PYTHONPATH=framework` + `uv run python -c "import mcp_server.server"` | | | |
 | G8 | `uv run python -c "from uipath_claude.graph import graph; print(type(graph))"` | | | |
-| G9 | `uip --version` (optional) | | | |
+| G9 | Windows CLI smoke: pipe `2`, `/status`, `/skills`, `exit` into `.\.venv\Scripts\uipath-claude.exe chat` | Chat starts, auth skip works, status and skills print, process exits 0 | | | |
+| G10 | `uip --version` (optional) | | | |
+
+PowerShell command for **G9**:
+
+```powershell
+@'
+2
+/status
+/skills
+exit
+'@ | .\.venv\Scripts\uipath-claude.exe chat
+```
 
 ---
 

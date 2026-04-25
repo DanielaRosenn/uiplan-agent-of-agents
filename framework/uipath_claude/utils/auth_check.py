@@ -202,7 +202,7 @@ def prompt_for_authentication(console, orchestrator_url: Optional[str] = None) -
     instructions = get_auth_instructions(orchestrator_url)
     
     console.print(Panel(
-        "[yellow]⚠ UiPath CLI Authentication Required[/yellow]\n\n"
+        "[yellow]! UiPath CLI Authentication Required[/yellow]\n\n"
         "You are not authenticated with UiPath Orchestrator.\n"
         "Authentication is required for deployment features.\n"
         + instructions +
