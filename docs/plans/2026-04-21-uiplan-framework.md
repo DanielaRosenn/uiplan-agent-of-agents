@@ -108,12 +108,11 @@ Output shape: `{ok, stage, findings[], next_action}`.
 
 ```
 .cursor/skills/uiplan/SKILL.md
-docs/uiplan/kit/_spec-template.md
-docs/uiplan/kit/_plan-template.md
-docs/uiplan/kit/_tasks-template.md
+templates/uiplan/_spec-template.md
+templates/uiplan/_plan-template.md
+templates/uiplan/_tasks-template.md
 docs/plans/constitution.md                          # seeded from CLAUDE.md
 framework/uipath_claude/commands/uiplan.md        # /uiplan slash command
-framework/tests/unit/docs/test_uiplan_templates.py
 framework/tests/mcp/test_uiplan_tools.py
 framework/tests/mcp/test_uiplan_review.py
 framework/tests/mcp/test_plan_grounding.py
@@ -190,14 +189,14 @@ load.
 
 ### Task 4: templates
 
-Create `docs/uiplan/kit/_spec-template.md`, `_plan-template.md`,
+Create `templates/uiplan/_spec-template.md`, `_plan-template.md`,
 `_tasks-template.md`, each adapted from spec-kit with UiPath-specific
 sections (project type, orchestrator folder, coded-vs-XAML, HITL surface).
 Each template includes inline citation block headers like
 `> Grounding: [...]` that the tools fill in.
 
-Tests: `framework/tests/unit/docs/test_uiplan_templates.py` asserts each required
-section exists by heading.
+Tests: `framework/tests/uiplan/test_generate_docs.py` exercises template copy and
+visual-density on generated bundles.
 
 ### Task 5: `uipath_plan_spec_new`
 

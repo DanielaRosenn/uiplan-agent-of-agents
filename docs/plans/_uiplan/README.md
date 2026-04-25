@@ -1,5 +1,5 @@
 # Moved
 
-UiPlan templates and the template kit now live under **[`docs/uiplan/kit/`](../../uiplan/kit/)**.
+UiPlan templates and the template kit now live under **[`templates/uiplan/`](../../../templates/uiplan/)**.
 
 Human-facing overview: **[`docs/uiplan/README.md`](../../uiplan/README.md)**.

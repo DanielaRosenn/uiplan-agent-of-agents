@@ -63,7 +63,7 @@ Overrides, in precedence order: `UIPATH_CLAUDE_MODEL_HEAVY` /
 
 | Prefix                       | Source file                                           | Coverage |
 | ---------------------------- | ----------------------------------------------------- | -------- |
-| `uipath_workflow_*`          | `mcp_server/tools/workflow_tools.py`                  | scaffold, write/read, validate, build_and_verify, run, debug, run_command, deploy, publish, environment_probe, session_status |
+| `uipath_workflow_*`          | `mcp_server/tools/workflow_tools.py`                  | scaffold, write/read, validate, build_and_verify, run, debug, run_command, deploy, publish, environment_probe, session_status. Deploy/publish follow [ORCHESTRATOR_DEPLOYMENT.md](ORCHESTRATOR_DEPLOYMENT.md). |
 | `uipath_skill_*`             | `mcp_server/tools/skill_tools.py`                     | list, get, match, manifest, insights, lessons, check/perform updates |
 | `uipath_agent_*`             | `mcp_server/tools/agent_tools.py`                     | bootstrap, plan, execute, classify_intent, ba, sa |
 | `uipath_doc_*`               | `mcp_server/tools/doc_tools.py`                       | list_packages/activities, get_activity, get_package_overview, search, find_activity, query, read_template, list_docs, read_doc, write_doc |
@@ -71,4 +71,10 @@ Overrides, in precedence order: `UIPATH_CLAUDE_MODEL_HEAVY` /
 | `uipath_library_*`           | `mcp_server/tools/library_tools.py`                   | list, toc, read_section, search, lookup, propose_section, propose_chapter, list_proposals, approve_proposal, reject_proposal |
 | `uipath_design_*`            | `mcp_server/tools/design_tools.py`                    | propose, approve, reject, list, status |
 
-The full per-tool table (with parameters and examples) lives in [CURSOR_USER_GUIDE.md](CURSOR_USER_GUIDE.md). The cross-surface CLI/MCP/skill matrix is [`CAPABILITY_PARITY.md`](CAPABILITY_PARITY.md).
+The full per-tool table (with parameters and examples) lives in [CURSOR_USER_GUIDE.md](CURSOR_USER_GUIDE.md). The cross-surface CLI/MCP/skill matrix is [`CAPABILITY_PARITY.md`](CAPABILITY_PARITY.md). Orchestrator publish/deploy policy lives in [ORCHESTRATOR_DEPLOYMENT.md](ORCHESTRATOR_DEPLOYMENT.md).
+
+## Tests (where to look for regressions)
+
+- **MCP tool contracts and annotations:** `framework/tests/mcp/`
+- **UiPlan CLI and docs bundle:** `framework/tests/uiplan/`
+- **Full map:** [TESTING.md](TESTING.md)

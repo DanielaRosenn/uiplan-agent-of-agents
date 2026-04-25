@@ -13,7 +13,7 @@ def repo(tmp_path, monkeypatch):
     (tmp_path / "langgraph.json").write_text("{}", encoding="utf-8")
     (tmp_path / "docs" / "plans").mkdir(parents=True)
     (tmp_path / ".cursor" / "plans").mkdir(parents=True)
-    kit = tmp_path / "docs" / "uiplan" / "kit"
+    kit = tmp_path / "templates" / "uiplan"
     kit.mkdir(parents=True)
     for name in ("_spec-template.md", "_plan-template.md", "_tasks-template.md"):
         (kit / name).write_text("# T\n\n{{TITLE}}\n{{INTENT}}\n", encoding="utf-8")
@@ -23,7 +23,7 @@ def repo(tmp_path, monkeypatch):
 @pytest.mark.asyncio
 async def test_uiplan_full_scaffold(repo, monkeypatch):
     """Minimal templates: use tiny files so _fill leaves unreplaced tokens acceptable."""
-    tpl = repo / "docs" / "uiplan" / "kit"
+    tpl = repo / "templates" / "uiplan"
     (tpl / "_spec-template.md").write_text(
         "# {{TITLE}}\n{{INTENT}}\n## User Scenarios\n### User Story 1 - A (Priority: P1)\n"
         "**Given** g **When** w **Then** t\n## Requirements\n### Functional Requirements\n"
@@ -71,7 +71,7 @@ async def test_uiplan_ground_smoke(repo):
 
 @pytest.mark.asyncio
 async def test_tasks_new_resolved_activity_docs(repo, monkeypatch):
-    tpl = repo / "docs" / "uiplan" / "kit"
+    tpl = repo / "templates" / "uiplan"
     (tpl / "_spec-template.md").write_text(
         "# {{TITLE}}\n{{INTENT}}\n## User Scenarios\n### User Story 1 - A (Priority: P1)\n"
         "**Given** g **When** w **Then** t\n## Requirements\n### Functional Requirements\n"

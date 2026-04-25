@@ -13,7 +13,7 @@ Syntax errors are caught early by running the Mermaid CLI in batch mode.
 From the repository root:
 
 ```powershell
-uv run python -m tools.uiplan validate-mermaid docs/uiplan/kit/_spec-template.md
+uv run python -m tools.uiplan validate-mermaid templates/uiplan/_spec-template.md
 ```
 
 Pass one or more Markdown files. The command extracts every fenced Mermaid block and runs `mmdc` for each. Exit code `1` on the first failing block (stderr surfaced).
@@ -21,6 +21,6 @@ Pass one or more Markdown files. The command extracts every fenced Mermaid block
 ## CI
 
 Default `pytest` stays fast and does **not** require Node. A lightweight unit test covers only the
-Markdown extractor (`tools/uiplan/validators/mermaid_extract.py`). To gate releases on diagrams,
+Markdown extractor (`tools/uiplan/validators/mermaid_extract.py`); see `framework/tests/uiplan/test_mermaid_extract.py` and `test_mermaid_mmdc_optional.py`. To gate releases on diagrams,
 add a separate workflow step or `workflow_dispatch` job that installs `@mermaid-js/mermaid-cli`
 and runs the command above on chosen paths.

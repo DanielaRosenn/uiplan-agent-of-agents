@@ -1,13 +1,13 @@
 # UiPlan Runtime Restructure Design
 
-**Date:** 2026-04-23  
-**Status:** Finalized 2026-04-23 — design baseline locked; **implementation merged to `main`** (see plan closure in `docs/superpowers/plans/2026-04-23-track-b-uiplan-runtime-restructure.md`).  
-**Owner:** Daniela + Agent collaboration  
+**Date:** 2026-04-23
+**Status:** Finalized 2026-04-23 — design baseline locked; **implementation merged to `main`** (see plan closure in `docs/superpowers/plans/2026-04-23-track-b-uiplan-runtime-restructure.md`).
+**Owner:** Daniela + Agent collaboration
 **Scope:** Reshape `_uiplan` into a spec-kit style package with explicit docs generation and scaffold execution phases, while preserving Cursor-first and Claude-compatible best practices.
 
 ## 1) Problem and intent
 
-Legacy `docs/plans/_uiplan/` templates are superseded by the kit under `docs/uiplan/kit/` for full planning-to-build execution.  
+Legacy `docs/plans/_uiplan/` templates are superseded by the kit under `templates/uiplan/` for full planning-to-build execution.
 The target is a first-class UiPlan package that:
 
 - mirrors superpowers/spec-kit quality for documentation and structure,
@@ -18,7 +18,7 @@ The target is a first-class UiPlan package that:
 
 1. **Architecture model:** Hybrid split
    - Runtime package under `tools/uiplan/`.
-   - Human-facing kit under `docs/uiplan/kit/` (see `docs/uiplan/README.md`).
+   - Human-facing kit under `templates/uiplan/` (see `docs/uiplan/README.md`).
 2. **Command model:** Explicit two-step (Option A)
    - `uiplan generate-docs`
    - `uiplan scaffold-code`
@@ -74,7 +74,7 @@ docs/
 
 Produces a complete planning bundle:
 
-- Spec, plan, and tasks documents from `docs/uiplan/kit/` templates.
+- Spec, plan, and tasks documents from `templates/uiplan/` templates.
 - Required Mermaid architecture/flow diagrams.
 - Embedded references to:
   - existing project PDD/SDD (when present),
@@ -84,7 +84,7 @@ Produces a complete planning bundle:
 
 ### Human approval gate (required)
 
-`scaffold-code` is blocked until docs are accepted.  
+`scaffold-code` is blocked until docs are accepted.
 Minimum gate checks:
 
 - no unresolved placeholders,
@@ -179,7 +179,7 @@ UiPlan integrates with existing assets before build:
 Completed path:
 
 1. `tools/uiplan/` runtime package (Typer CLI, loop runner).
-2. Kit lives at `docs/uiplan/kit/` with `_diagram-patterns.md` and Pro Standard templates.
+2. Kit lives at `templates/uiplan/` with `_diagram-patterns.md` and Pro Standard templates.
 3. `docs/plans/_uiplan/README.md` stub points to the new kit; duplicate templates under `docs/plans/_uiplan/` were removed.
 4. `.cursor/skills/uiplan/SKILL.md` links `docs/uiplan/README.md` as the canonical human entry.
 
@@ -193,7 +193,7 @@ Completed path:
 
 **Shipped (partial, 2026-04-23):**
 
-- `tools/uiplan/scaffold/` — `detect_project_kind`, `ScaffoldAdapter` registry, `coded-agent` and `rpa` adapters with explicit `ExplicitStubAdapter` for other kinds; `scaffold-code` Typer command with `--repo`; baseline note `docs/uiplan/SCAFFOLD_CODE.md`; tests in `tools/uiplan/tests/test_scaffold_adapters.py`.
+- `tools/uiplan/scaffold/` — `detect_project_kind`, `ScaffoldAdapter` registry, `coded-agent` and `rpa` adapters with explicit `ExplicitStubAdapter` for other kinds; `scaffold-code` Typer command with `--repo`; baseline note `docs/uiplan/SCAFFOLD_CODE.md`; tests in `framework/tests/uiplan/test_scaffold_adapters.py`.
 - Optional `mmdc` path — `tools.uiplan validate-mermaid`, `tools/uiplan/validators/mermaid_extract.py` + `mermaid_mmdc.py`, doc `docs/uiplan/MERMAID_VALIDATION.md`, manual GitHub workflow `.github/workflows/mermaid-validate.yml`.
 
 **Backlog (design §3 parity):**

@@ -12,7 +12,7 @@ _TASKS = ("_tasks-template.md", "tasks.md")
 
 
 def default_kit_dir(repo_root: Path) -> Path:
-    return repo_root / "docs" / "uiplan" / "kit"
+    return repo_root / "templates" / "uiplan"
 
 
 def _slug_title(slug: str) -> str:
@@ -65,13 +65,13 @@ def _default_mapping(plan_slug: str) -> dict[str, str]:
         "ENTITY_1_DESC": "_Description._",
         "SC_001": "_Measurable outcome._",
         "ASSUMPTION_1": "_Assumption._",
-        "T001": "_First task (edit with real paths)._",
-        "T002": "_Foundational task._",
+        "T001": "_Confirm project type and compatibility envelope before scaffolding._",
+        "T002": "_Set up source structure after preflight is recorded._",
         "US1_GOAL": "_Story goal._",
         "US1_IND_TEST": "_Independent test description._",
         "T010_TEST": "_Add failing test first._",
         "T011_IMPL": "_Implement to green._",
-        "T020": "_Polish / docs / telemetry._",
+        "T020": "_Polish / docs / telemetry; deploy remains approval-required via docs/ORCHESTRATOR_DEPLOYMENT.md._",
         "DEPENDENCIES_TEXT": "_Story B may start after foundation; otherwise parallel._",
     }
 

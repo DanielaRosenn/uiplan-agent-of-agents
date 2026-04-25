@@ -51,6 +51,13 @@ htmlcov/
 /output/
 /generated/
 
+# Ad-hoc Studio/RPA scaffolds at repo root (local experiments; not shipped fixtures)
+/LogMessageAutomation/
+/LogMessageProject/
+/LogMessageWorkflow/
+/LogWorkflow/
+/project/
+
 # Internal documentation (not for public)
 docs/internal/
 

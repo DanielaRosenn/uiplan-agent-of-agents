@@ -99,13 +99,13 @@ def _tdd_reference_append(repo: Path) -> str:
 
 def _template_dir(repo: Path) -> Path:
     """Return the kit directory, preferring *repo* then the checkout that owns ``uipath_claude``."""
-    direct = repo / "docs" / "uiplan" / "kit"
+    direct = repo / "templates" / "uiplan"
     if (direct / "_spec-template.md").is_file():
         return direct
     import uipath_claude  # noqa: PLC0415 — runtime import to infer checkout root
 
     inferred_root = Path(uipath_claude.__file__).resolve().parents[2]
-    fallback = inferred_root / "docs" / "uiplan" / "kit"
+    fallback = inferred_root / "templates" / "uiplan"
     if (fallback / "_spec-template.md").is_file():
         return fallback
     msg = f"UiPlan template kit missing: tried {direct} and {fallback}"

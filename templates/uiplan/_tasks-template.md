@@ -1,9 +1,9 @@
-# Tasks: {{TITLE}}
+﻿# Tasks: {{TITLE}}
 
 > **Grounding:** {{GROUNDING_CITATIONS}}
 > **Input**: `./spec.md`, `./plan.md`
 
-**Format**: `[ID] [P?] [Story] Description` — include exact file paths in descriptions.
+**Format**: `[ID] [P?] [Story] Description` ΓÇö include exact file paths in descriptions.
 
 ## Architecture diagram
 
@@ -40,6 +40,7 @@ flowchart TD
 ## Phase 1: Setup (Shared Infrastructure)
 
 - [ ] T001 [P] [US1] {{T001}}
+- [ ] T001A [US1] Run the compatibility preflight from [docs/ORCHESTRATOR_DEPLOYMENT.md](../../docs/ORCHESTRATOR_DEPLOYMENT.md) before scaffolding, package selection, pack, publish, or deploy; record Studio/CLI/package/target-folder evidence.
 
 ---
 
@@ -74,6 +75,7 @@ flowchart TD
 ## Phase 4: Polish & Cross-Cutting
 
 - [ ] T020 [P] {{T020}}
+- [ ] T021 [P] Optional deploy handoff: if deployment is in scope, request explicit approval and follow [docs/ORCHESTRATOR_DEPLOYMENT.md](../../docs/ORCHESTRATOR_DEPLOYMENT.md); do not embed unsafe deploy commands in this task list.
 
 ---
 

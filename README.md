@@ -52,7 +52,7 @@ flowchart LR
 
 ## Repository layout (runtime code)
 
-After the **Phase 4** migration, Python packages and the MCP server live only under **`framework/`**. Operations scripts are under **`ops/scripts/`**. UiPlan templates ship under **`docs/uiplan/kit/`**.
+After the **Phase 4** migration, Python packages and the MCP server live only under **`framework/`**. Operations scripts are under **`ops/scripts/`**. UiPlan **template kit** ships under **`templates/uiplan/`**; human guidance lives under **`docs/uiplan/`**.
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
@@ -231,7 +231,7 @@ flowchart LR
 - **CLI:** `uipath-claude plan uiplan full "..."` or `plan uiplan ground|spec|plan|tasks|review ...`.
 - **Skill:** [.cursor/skills/uiplan/SKILL.md](.cursor/skills/uiplan/SKILL.md).
 - **Docs:** [docs/uiplan/README.md](docs/uiplan/README.md), [docs/uiplan/HOW_TO_USE.md](docs/uiplan/HOW_TO_USE.md), and the [UiPlan framework matrix](docs/plans/2026-04-21-uiplan-framework.md).
-- **Local kit + generator:** `uv run python -m tools.uiplan generate-docs <slug>` (templates default to `docs/uiplan/kit/`).
+- **Local kit + generator:** `uv run python -m tools.uiplan generate-docs <slug>` (templates default to `templates/uiplan/`).
 
 Single-file drafts (`uipath_plan_new`) stay supported; `uipath_plan_refine` / `uipath_plan_diff` apply to those only, not UiPlan folders.
 

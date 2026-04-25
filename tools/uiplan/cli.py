@@ -28,7 +28,7 @@ def generate_docs(
     kit: Path | None = typer.Option(
         None,
         "--kit",
-        help="Template kit directory. Default: docs/uiplan/kit under repo root.",
+        help="Template kit directory. Default: templates/uiplan under repo root.",
     ),
     strict: bool = typer.Option(
         True,

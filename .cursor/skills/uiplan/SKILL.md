@@ -5,6 +5,19 @@ description: UiPlan (spec-kit-style) — three-file bundle under .cursor/plans/ 
 
 # UiPlan (spec + plan + tasks)
 
+## Canonical layout (no duplicate kits)
+
+| Role | Path |
+| --- | --- |
+| Template kit | `templates/uiplan/` only |
+| Human overview | `docs/uiplan/README.md`, `docs/uiplan/HOW_TO_USE.md` |
+| UiPlan pytest | `framework/tests/uiplan/` (collected via `testpaths = ["framework/tests"]`) |
+| After clone | `docs/uiplan/CLONED_PROJECT_SETUP.md` |
+| Draft bundle | `.cursor/plans/<YYYY-MM-DD-slug>/` |
+| Published bundle | `docs/plans/<YYYY-MM-DD-slug>/` after accept + publish |
+
+In **Cursor**, attach **`@docs/uiplan/`** so the full contract (paths, gates, Mermaid rules) is in context.
+
 ## Runtime (two-step)
 
 Local UiPlan runtime splits **documentation** from **implementation**:
@@ -13,7 +26,7 @@ Local UiPlan runtime splits **documentation** from **implementation**:
 2. **Human approval** — review the generated `spec.md`, `plan.md`, and `tasks.md` for accuracy, scope, and constitution checks before any scaffold or implementation work.
 3. **Scaffold** — run `uv run python -m tools.uiplan scaffold-code <slug> --max-loops N` (or omit `--max-loops` to use the **`UIPLAN_MAX_LOOPS`** environment default from `tools/uiplan` loop policy).
 
-Canonical human entry + kit: [docs/uiplan/README.md](../../../docs/uiplan/README.md) and [docs/uiplan/kit/README.md](../../../docs/uiplan/kit/README.md).
+Canonical human entry + kit: [docs/uiplan/README.md](../../../docs/uiplan/README.md) and [templates/uiplan/README.md](../../../templates/uiplan/README.md).
 
 ## When to use
 
@@ -37,10 +50,10 @@ Do **not** start implementation (workflow writes, package installs, deploy) unti
 5. **Review** — `uipath_plan_review`; iterate until `ok`.
 6. **Accept / publish** — `uipath_plan_accept` then `uipath_plan_publish` (copies folder to `docs/plans/`).
 
-## Slash / CLI
+## Slash / CLI (same MCP tools as Cursor)
 
-- Chat: `/uiplan full <title>` or staged `/uiplan ground|spec|plan|tasks|review ...`
-- CLI: `uipath-claude plan uiplan full "<title>"` or `plan uiplan spec`, `plan uiplan plan <slug>`, etc.
+- **`uipath chat`:** `/uiplan full <title>` or staged `/uiplan ground|spec|plan|tasks|review ...` (see `framework/uipath_claude/commands/uiplan.md`).
+- **Terminal:** `uipath-claude plan uiplan full "<title>"` or `plan uiplan spec`, `plan uiplan plan <slug>`, etc.
 
 ## Mermaid
 

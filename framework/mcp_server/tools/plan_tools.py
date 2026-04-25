@@ -532,7 +532,7 @@ def get_plan_tools() -> list[Tool]:
             name="uipath_plan_spec_new",
             description=(
                 "Create a UiPlan draft folder under .cursor/plans/ with spec.md "
-                "from docs/uiplan/kit/_spec-template.md plus .meta.yaml "
+                "from templates/uiplan/_spec-template.md plus .meta.yaml "
                 "(plan_kind=uiplan). Optionally pass grounding_pack from "
                 "uipath_plan_ground; otherwise grounding is computed from intent."
             ),
@@ -627,9 +627,11 @@ def get_plan_tools() -> list[Tool]:
         Tool(
             name="uipath_plan_uiplan_new",
             description=(
-                "Orchestrator: uipath_plan_ground -> spec_new -> plan_new -> "
+                "UiPlan orchestrator: uipath_plan_ground -> spec_new -> plan_new -> "
                 "tasks_new -> uipath_plan_review(all). Returns paths and review "
-                "payload; refine spec/plan/tasks before accept if review has errors."
+                "payload; refine spec/plan/tasks before accept if review has errors. "
+                "Generated deploy tasks reference docs/ORCHESTRATOR_DEPLOYMENT.md "
+                "for compatibility preflight and explicit approval."
             ),
             inputSchema={
                 "type": "object",

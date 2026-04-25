@@ -19,12 +19,12 @@
 - Create: `tools/uiplan/cli.py`
 - Create: `tools/uiplan/config.py`
 - Create: `tools/uiplan/generators/__init__.py`
-- Test: `tools/uiplan/tests/test_cli_entrypoints.py`
+- Test: `framework/tests/uiplan/test_cli_entrypoints.py`
 
 - [ ] **Step 1: Write failing CLI entrypoint test**
 
 ```python
-# tools/uiplan/tests/test_cli_entrypoints.py
+# framework/tests/uiplan/test_cli_entrypoints.py
 from tools.uiplan.cli import app
 
 
@@ -36,7 +36,7 @@ def test_commands_registered():
 
 - [ ] **Step 2: Run test and verify fail state**
 
-Run: `uv run pytest tools/uiplan/tests/test_cli_entrypoints.py -q`  
+Run: `uv run pytest framework/tests/uiplan/test_cli_entrypoints.py -q`
 Expected: FAIL (module/command missing).
 
 - [ ] **Step 3: Add minimal CLI with required commands**
@@ -60,13 +60,13 @@ def scaffold_code(plan_slug: str, max_loops: int = 5) -> None:
 
 - [ ] **Step 4: Re-run CLI test**
 
-Run: `uv run pytest tools/uiplan/tests/test_cli_entrypoints.py -q`  
+Run: `uv run pytest framework/tests/uiplan/test_cli_entrypoints.py -q`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add tools/uiplan/__init__.py tools/uiplan/cli.py tools/uiplan/config.py tools/uiplan/generators/__init__.py tools/uiplan/tests/test_cli_entrypoints.py
+git add tools/uiplan/__init__.py tools/uiplan/cli.py tools/uiplan/config.py tools/uiplan/generators/__init__.py framework/tests/uiplan/test_cli_entrypoints.py
 git commit -m "feat(uiplan): add runtime package and explicit command entrypoints"
 ```
 
@@ -77,7 +77,7 @@ git commit -m "feat(uiplan): add runtime package and explicit command entrypoint
 - Create: `docs/plans/_uiplan-kit/_plan-template.md`
 - Create: `docs/plans/_uiplan-kit/_tasks-template.md`
 - Create: `docs/plans/_uiplan-kit/README.md`
-- Create: `tools/uiplan/tests/test_template_kit.py`
+- Create: `framework/tests/uiplan/test_generate_docs.py`
 
 - [ ] **Step 1: Write failing template-kit test**
 
@@ -94,7 +94,7 @@ def test_uiplan_kit_contains_required_templates():
 
 - [ ] **Step 2: Run test to verify fail state**
 
-Run: `uv run pytest tools/uiplan/tests/test_template_kit.py -q`  
+Run: `uv run pytest framework/tests/uiplan/test_generate_docs.py -q`
 Expected: FAIL.
 
 - [ ] **Step 3: Create normalized kit templates with mandatory mermaid section**
@@ -111,13 +111,13 @@ flowchart TD
 
 - [ ] **Step 4: Re-run template-kit test**
 
-Run: `uv run pytest tools/uiplan/tests/test_template_kit.py -q`  
+Run: `uv run pytest framework/tests/uiplan/test_generate_docs.py -q`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add docs/plans/_uiplan-kit/_spec-template.md docs/plans/_uiplan-kit/_plan-template.md docs/plans/_uiplan-kit/_tasks-template.md docs/plans/_uiplan-kit/README.md tools/uiplan/tests/test_template_kit.py
+git add docs/plans/_uiplan-kit/_spec-template.md docs/plans/_uiplan-kit/_plan-template.md docs/plans/_uiplan-kit/_tasks-template.md docs/plans/_uiplan-kit/README.md framework/tests/uiplan/test_generate_docs.py
 git commit -m "feat(uiplan): add normalized template kit for generate-docs flow"
 ```
 
@@ -127,7 +127,7 @@ git commit -m "feat(uiplan): add normalized template kit for generate-docs flow"
 - Create: `tools/uiplan/scaffold/loop_runner.py`
 - Create: `tools/uiplan/integrations/skills_bridge.py`
 - Modify: `tools/uiplan/cli.py`
-- Create: `tools/uiplan/tests/test_loop_policy.py`
+- Create: `framework/tests/uiplan/test_loop_policy.py`
 
 - [ ] **Step 1: Write failing loop policy test**
 
@@ -165,13 +165,13 @@ def run_gate_sequence(skill_executor, max_loops: int) -> dict:
 
 - [ ] **Step 4: Run loop policy tests**
 
-Run: `uv run pytest tools/uiplan/tests/test_loop_policy.py -q`  
+Run: `uv run pytest framework/tests/uiplan/test_loop_policy.py -q`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add tools/uiplan/scaffold/loop_runner.py tools/uiplan/integrations/skills_bridge.py tools/uiplan/cli.py tools/uiplan/tests/test_loop_policy.py
+git add tools/uiplan/scaffold/loop_runner.py tools/uiplan/integrations/skills_bridge.py tools/uiplan/cli.py framework/tests/uiplan/test_loop_policy.py
 git commit -m "feat(uiplan): add configurable loop policy and skill-driven gate runner"
 ```
 
@@ -180,7 +180,7 @@ git commit -m "feat(uiplan): add configurable loop policy and skill-driven gate 
 **Files:**
 - Modify: `.cursor/skills/uiplan/SKILL.md`
 - Modify: `docs/PLANNING_FRAMEWORK.md`
-- Create: `tools/uiplan/tests/test_docs_links.py`
+- Create: `framework/tests/uiplan/manual docs-link review` (historical; later removed as string-only coverage)
 
 - [ ] **Step 1: Add failing docs-link test**
 
@@ -205,22 +205,22 @@ def test_uiplan_skill_mentions_generate_then_scaffold():
 
 - [ ] **Step 3: Re-run docs-link test**
 
-Run: `uv run pytest tools/uiplan/tests/test_docs_links.py -q`  
+Run: `uv run pytest framework/tests/uiplan/manual docs-link review -q`
 Expected: PASS.
 
 - [ ] **Step 4: Run full Track B test subset**
 
 Run:
 ```bash
-uv run pytest tools/uiplan/tests -q
-uv run pytest tests/mcp/test_plan_tools.py -q
+uv run pytest framework/tests/uiplan -q
+uv run pytest framework/tests/mcp/test_plan_tools.py -q
 ```
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add .cursor/skills/uiplan/SKILL.md docs/PLANNING_FRAMEWORK.md tools/uiplan/tests/test_docs_links.py
+git add .cursor/skills/uiplan/SKILL.md docs/PLANNING_FRAMEWORK.md framework/tests/uiplan/manual docs-link review
 git commit -m "docs(uiplan): align skill/docs with explicit two-step runtime workflow"
 ```
 
@@ -229,8 +229,8 @@ git commit -m "docs(uiplan): align skill/docs with explicit two-step runtime wor
 Run:
 
 ```bash
-uv run pytest tools/uiplan/tests -q
-uv run pytest tests/mcp/test_plan_tools.py tests/mcp/test_tool_annotations.py -q
+uv run pytest framework/tests/uiplan -q
+uv run pytest framework/tests/mcp/test_plan_tools.py framework/tests/mcp/test_tool_annotations.py -q
 ```
 
 Expected:
@@ -248,12 +248,14 @@ Expected:
 
 ## Plan closure (2026-04-23)
 
-**Disposition:** **Implemented on `main`** — `tools/uiplan/` (Typer CLI, `generate-docs` / `scaffold-code`, loop runner, `UIPLAN_MAX_LOOPS`), template kit under **`docs/uiplan/kit/`** (moved out of `docs/plans/` in the Phase 4 + docs topology pass), tests under `tools/uiplan/tests/`, and doc/skill alignment per Task 4 landed with the same merge as Track A.
+**Disposition:** **Implemented on `main`** — `tools/uiplan/` (Typer CLI, `generate-docs` / `scaffold-code`, loop runner, `UIPLAN_MAX_LOOPS`), template kit under **`templates/uiplan/`** (moved out of `docs/plans/` in the Phase 4 + docs topology pass), tests under `framework/tests/uiplan/`, and doc/skill alignment per Task 4 landed with the same merge as Track A.
 
 **Design:** `docs/superpowers/specs/2026-04-23-uiplan-runtime-restructure-design.md` (finalized baseline; see **§13** for `generate-docs` MVP vs backlog).
 
-**Post-merge verification (2026-04-23):** `uv run pytest tools/uiplan/tests framework/tests/migration -q` green; full `uv run pytest -q` green on merged tree (see Track A closure for counts).
+**Post-merge verification (2026-04-23):** `uv run pytest framework/tests/uiplan framework/tests/migration -q` green; full `uv run pytest -q` green on merged tree (see Track A closure for counts).
 
-**Phase 4 follow-up (completed 2026-04-23):** Legacy root `uipath_claude/`, `mcp_server/`, and `scripts/` shells removed; `path_contract` + MCP bootstrap enforce `framework/` only; `generate-docs` MVP copies from `docs/uiplan/kit/` with `visual_density` validation.
+**Phase 4 follow-up (completed 2026-04-23):** Legacy root `uipath_claude/`, `mcp_server/`, and `scripts/` shells removed; `path_contract` + MCP bootstrap enforce `framework/` only; `generate-docs` MVP copies from `templates/uiplan/` with `visual_density` validation.
+
+**UiPlan test layout (2026-04-25):** UiPlan pytest modules consolidated under **`framework/tests/uiplan/`** (single `testpaths` root: `framework/tests/`).
 
 **Backlog:** adapter depth, `mmdc` validation, richer MCP bridges — see design §13 and earlier §3 structural notes.

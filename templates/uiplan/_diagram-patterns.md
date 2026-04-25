@@ -1,6 +1,6 @@
-# UiPlan diagram patterns (Pro Standard)
+﻿# UiPlan diagram patterns (Pro Standard)
 
-Copy one of the blocks below into `spec.md`, `plan.md`, or `tasks.md`, then **replace labels only**. Full rules: [`.cursor/skills/mermaid-diagram-builder/SKILL.md`](../../../.cursor/skills/mermaid-diagram-builder/SKILL.md).
+Copy one of the blocks below into `spec.md`, `plan.md`, or `tasks.md`, then **replace labels only**. Full rules: [`.cursor/skills/mermaid-diagram-builder/SKILL.md`](../../.cursor/skills/mermaid-diagram-builder/SKILL.md).
 
 ## When to use which
 
@@ -8,7 +8,7 @@ Copy one of the blocks below into `spec.md`, `plan.md`, or `tasks.md`, then **re
 | --- | --- |
 | **Flowchart TB** | Layered architecture, scope boundaries, gate pipelines |
 | **Sequence** | Actor vs system vs HITL message flow |
-| **State** | Plan lifecycle (draft → review → accepted) |
+| **State** | Plan lifecycle (draft ΓåÆ review ΓåÆ accepted) |
 
 ---
 

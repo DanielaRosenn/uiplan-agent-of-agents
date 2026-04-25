@@ -39,7 +39,8 @@ flowchart TD
 | --- | --- |
 | [HOW_TO_USE.md](HOW_TO_USE.md) | MCP vs CLI vs skill; folder conventions; approval gate |
 | [UiPlan framework (MCP matrix)](../plans/2026-04-21-uiplan-framework.md) | Tooling roles and storage model |
-| [Template kit](kit/) | `_spec-template.md`, `_plan-template.md`, `_tasks-template.md`, `_diagram-patterns.md` |
+| [Template kit](../../templates/uiplan/) | `_spec-template.md`, `_plan-template.md`, `_tasks-template.md`, `_diagram-patterns.md` |
+| [Orchestrator deployment runbook](../ORCHESTRATOR_DEPLOYMENT.md) | Optional deploy gates and compatibility preflight for generated tasks |
 | [Mermaid Pro Standard](../../.cursor/skills/mermaid-diagram-builder/SKILL.md) | Diagram style contract for this repo |
 | [MERMAID_VALIDATION.md](MERMAID_VALIDATION.md) | Optional `mmdc` batch check for fenced diagrams |
 | [SCAFFOLD_CODE.md](SCAFFOLD_CODE.md) | What `tools.uiplan scaffold-code` does today |
@@ -49,9 +50,14 @@ flowchart TD
 
 ```mermaid
 flowchart TB
-  subgraph Docs["Docs"]
-    U[docs/uiplan/kit templates]:::service
-    P[docs/plans/ published bundles]:::process
+  subgraph Guides["Human guides (context)"]
+    H[docs/uiplan/]:::human
+  end
+  subgraph Templates["Reusable kit"]
+    U[templates/uiplan/]:::service
+  end
+  subgraph Published["Published bundles"]
+    P[docs/plans/]:::process
   end
   subgraph Runtime["Runtime"]
     T[tools/uiplan CLI]:::service
@@ -61,6 +67,7 @@ flowchart TB
     C[".cursor/plans/<slug>/"]:::human
   end
   U --> T
+  H -.->|read before drafting| C
   T --> C
   C -->|review + accept| P
   F --> C

@@ -1,5 +1,10 @@
 # How to use UiPlan
 
+## Canonical paths
+
+- **Kit:** `templates/uiplan/` at repo root (MCP and `generate-docs` resolve here).
+- **Pytest (UiPlan):** `framework/tests/uiplan/`. Example: `uv run pytest framework/tests/uiplan/ -q`.
+
 ## Decision table
 
 | I want to… | Use |
@@ -13,7 +18,7 @@
 
 - **Drafts (default):** `.cursor/plans/<slug>/` with `spec.md`, `plan.md`, `tasks.md`, `.meta.yaml` (`plan_kind: uiplan`). Draft trees are gitignored like other `.cursor/plans` work.
 - **Published:** `docs/plans/<slug>/` after `uipath_plan_accept` + `uipath_plan_publish`.
-- **Templates (kit):** [`kit/`](kit/) under this directory (`docs/uiplan/kit/`).
+- **Templates (kit):** [`templates/uiplan/`](../../templates/uiplan/) at the repo root.
 
 ## Human approval gate
 

@@ -26,4 +26,7 @@ uipath-claude plan uiplan review my-slug --stage all
 ## Docs
 
 - Skill: `.cursor/skills/uiplan/SKILL.md`
+- Human guides (Cursor context): `docs/uiplan/` — attach `@docs/uiplan/`
+- Template kit (source): `templates/uiplan/`
 - Framework: `docs/PLANNING_FRAMEWORK.md` (UiPlan section)
+- Pytest (UiPlan): `framework/tests/uiplan/`

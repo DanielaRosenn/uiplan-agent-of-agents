@@ -1,4 +1,4 @@
-# Implementation Plan: {{TITLE}}
+﻿# Implementation Plan: {{TITLE}}
 
 > **Grounding:** {{GROUNDING_CITATIONS}}
 > **Spec:** `./spec.md`
@@ -55,12 +55,12 @@ Implementation layering and dependencies (adapt nodes to this plan).
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
 flowchart LR
-  subgraph Packages["Packages / Modules"]
-    A[Package A]:::process
-    B[Package B]:::service
+  subgraph Packages["UiPath packages / projects"]
+    A[Process or library project]:::process
+    B[Shared library or test project]:::service
   end
   subgraph Tests["Verification"]
-    T[Tests / harness]:::human
+    T[uipcli analyze / test / pack]:::human
   end
   A --> B
   B --> T
@@ -89,8 +89,8 @@ flowchart TB
     T[Tests]:::service
     P[Pack]:::process
   end
-  subgraph Ship["Handoff"]
-    D[Deploy to personal workspace]:::human
+  subgraph Ship["Optional handoff"]
+    D[Approval-required deploy via runbook]:::human
   end
   R --> A
   A -->|errors| R
@@ -108,13 +108,21 @@ flowchart TB
   linkStyle 4,5 stroke:#10B981,stroke-width:2px
 ```
 
+## Deployment policy
+
+Deployment tasks are optional and approval-required. If this plan includes
+publish/deploy work, reference [docs/ORCHESTRATOR_DEPLOYMENT.md](../../docs/ORCHESTRATOR_DEPLOYMENT.md)
+instead of embedding long deploy recipes. The first task must be the
+compatibility preflight: Studio, CLI, package versions, target framework,
+Orchestrator target, and Solution/Maestro support.
+
 ## Activity references (optional)
 
 `uipath_plan_tasks_new` scans **plan.md** and **spec.md** for machine-readable activity tags (up to 8 unique pairs) and appends matching documentation to **tasks.md**.
 
 Tag shape on **one line** (no line breaks inside the tag): an opening square bracket `[`, the literal prefix `activity:`, your NuGet-style **PackageId**, a colon, the **ActivityName** as in Studio, then `]`. Only add tags for activities you will actually use; omit demo or placeholder tags so **Resolved activity docs** stays short.
 
-Human-readable shape (not a tag — note the space after `[` so tooling ignores it): `[ activity:YourPackage.YourActivities:YourActivityName ]`.
+Human-readable shape (not a tag ΓÇö note the space after `[` so tooling ignores it): `[ activity:YourPackage.YourActivities:YourActivityName ]`.
 
 ## Complexity Tracking
 
