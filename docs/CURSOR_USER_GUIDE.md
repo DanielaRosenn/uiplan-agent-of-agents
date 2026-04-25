@@ -561,7 +561,7 @@ If superpowers skills don't appear:
 
 | Feature | Cursor (no MCP) | Cursor (with MCP) | CLI (`uipath-claude chat`) |
 |---------|-----------------|-------------------|---------------------------|
-| Skills | All 21 UiPath skills | All 21 UiPath skills | All 21 UiPath skills |
+| Skills | Current UiPath skills | Current UiPath skills | Current UiPath skills |
 | Superpowers | Via plugin | Via plugin | Not available |
 | Runtime validation | Manual (Studio) | Via MCP tools | Automatic |
 | Package installation | Manual (Studio) | Via MCP tools | Automatic |
