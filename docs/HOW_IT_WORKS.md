@@ -4,7 +4,7 @@ A friendly, visual walkthrough of the **UiPath Builder Agent**: what's inside,
 how Claude Code and Cursor each use it, which tools exist, and how you
 actually drive it day-to-day.
 
-> TL;DR: one Python brain (`uipath_claude/`), one skills catalog
+> TL;DR: one Python brain (`framework/uipath_claude/`), one skills catalog
 > (`skills/skills/` + `.cursor/skills/`), one UiPath documentation library
 > (`data/library/`), exposed two ways — as **slash commands** in Claude Code
 > and as **MCP tools + skill picker** in Cursor.
@@ -20,7 +20,7 @@ flowchart LR
         CU["✨ Cursor<br/>(IDE chat)"]
     end
 
-    subgraph Brain["🧩 Shared brain — uipath_claude/"]
+    subgraph Brain["🧩 Shared brain — framework/uipath_claude/"]
         Router["Router<br/><i>which skill?</i>"]
         Planner["Planner<br/><i>ask + plan</i>"]
         Exec["ReAct Executor<br/><i>think → tool → check</i>"]
@@ -32,7 +32,7 @@ flowchart LR
     end
 
     subgraph Hands["🛠️ Hands — MCP + CLIs"]
-        MCP["MCP server<br/>mcp_server/"]
+        MCP["MCP server<br/>framework/mcp_server/"]
         CLI["uipcli · uipath · uip"]
         Orc["Orchestrator<br/>& Automation Cloud"]
     end
@@ -69,7 +69,7 @@ flowchart TB
         Know["📚 Knowledge tools<br/><i>get_knowledge_tools()</i><br/>library search,<br/>Ask AI, activity docs"]
     end
 
-    subgraph MCP["MCP server (mcp_server/)"]
+    subgraph MCP["MCP server (framework/mcp_server/)"]
         W["uipath_workflow_*<br/>scaffold · write · validate ·<br/>build · run · deploy · publish"]
         S["uipath_skill_*<br/>list · get · match · insights"]
         A["uipath_agent_*<br/>bootstrap · plan · execute ·<br/>ba · sa"]
@@ -155,7 +155,7 @@ Ten ordered stages. Every stage returns `{status: ok|failed}`; first failure
 short-circuits. Documents land in `output_root/docs/<stage>/`; the generated
 project in `output_root/generated/automation/<stamp>/`.
 
-Code: [`uipath_claude/query/pdd_lifecycle.py`](../uipath_claude/query/pdd_lifecycle.py). Naming for **SDD** vs the **`tdd`** stage artefact (vs methodology “TDD”): [PDD_LIFECYCLE.md](PDD_LIFECYCLE.md#naming-sdd-vs-lifecycle-tdd).
+Code: [`framework/uipath_claude/query/pdd_lifecycle.py`](../framework/uipath_claude/query/pdd_lifecycle.py). Naming for **SDD** vs the **`tdd`** stage artefact (vs methodology “TDD”): [PDD_LIFECYCLE.md](PDD_LIFECYCLE.md#naming-sdd-vs-lifecycle-tdd).
 
 ### 3b. `/bootstrap` — lighter four-stage flow with approvals
 
@@ -180,7 +180,7 @@ Good for iterating without publish/deploy. Each `approve` arrow is a real
 human gate. Plan mode (`UIPATH_PLAN_MODE=1`) adds a read-only plan step
 before any file is written.
 
-Code: [`uipath_claude/query/bootstrap.py`](../uipath_claude/query/bootstrap.py).
+Code: [`framework/uipath_claude/query/bootstrap.py`](../framework/uipath_claude/query/bootstrap.py).
 
 ### 3c. The inner loop — ReAct + validator gate
 
@@ -366,6 +366,7 @@ python -m uipath_claude.cli plan "build a queue processor"
 python -m uipath_claude.cli execute --plan-file plan.md
 
 # run the MCP server standalone (for other IDE integrations)
+$env:PYTHONPATH = ".;framework"
 python -m mcp_server.server
 ```
 
