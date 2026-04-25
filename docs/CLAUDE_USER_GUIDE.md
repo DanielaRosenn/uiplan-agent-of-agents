@@ -200,6 +200,21 @@ Environment variables (`UIPATH_AGENTIC_MODE`, `UIPATH_CLAUDE_TOOL_PROFILE`, Bedr
 
 The CLI is best when you want a bounded, repeatable agent run with explicit gates. Use it like a disciplined terminal partner:
 
+```mermaid
+flowchart LR
+    Preflight[Preflight<br/>doctor + sync] --> Scope[Scope prompt<br/>goal + constraints]
+    Scope --> Risk{Risky or multi-file?}
+    Risk -->|yes| Plan[/uiplan or /pdd]
+    Risk -->|no| Chat[Plain chat]
+    Plan --> Approve[Human approval]
+    Approve --> Implement[Implement]
+    Chat --> Implement
+    Implement --> Validate[Validate / run]
+    Validate -->|fail| Implement
+    Validate -->|pass| Learn[Library proposal<br/>if reusable lesson]
+    Learn --> Handoff[Summary + next steps]
+```
+
 ### 1. Start every serious session with a preflight
 
 ```powershell
