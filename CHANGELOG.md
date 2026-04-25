@@ -21,7 +21,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 - [docs/SKILL_VISUAL_GUIDE.md](docs/SKILL_VISUAL_GUIDE.md) with diagrams for the skill runtime loop, skill families, every UiPath skill, Cursor flow, Claude/CLI flow, MCP tool families, and an end-to-end sequence.
-- [docs/assets/builder-agent-logo.svg](docs/assets/builder-agent-logo.svg), now used by the README and visual docs as the project-level logo.
+- [docs/assets/builder-agent-logo.svg](docs/assets/builder-agent-logo.svg) and [docs/assets/builder-agent-icon.svg](docs/assets/builder-agent-icon.svg), now used by the README and visual docs as the project-level robot/AI visual identity.
 - UiPlan docs and onboarding refresh: README now has a clear purpose section and a "how to use everything" map; `docs/USER_GUIDE.md` includes a practical UiPlan cookbook and end-to-end workflow; `docs/uiplan/README.md` adds a first-15-min path, decision tree, and leverage patterns; `docs/MANUAL_REVIEW_CURSOR_FULL_PROJECT.md` adds onboarding-comprehension checks and extra NL routing prompts; docs index links updated; new logo asset at `docs/assets/uiplan-logo.svg`.
 - `ops/scripts/claude-quickstart.ps1` and `ops/scripts/claude-quickstart.sh` for near-zero-touch Claude onboarding (`git submodule update --init --recursive` + `uv sync --extra dev` + first-run checks).
 - Local assistant-selection lock for onboarding: Cursor and Claude quickstart scripts now write `.assistant-choice` (gitignored) and require `-Force` / `--force` to switch the same clone to the other assistant.

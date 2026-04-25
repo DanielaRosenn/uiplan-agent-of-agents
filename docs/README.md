@@ -61,4 +61,5 @@ Landing page for everything under `docs/`. Start with [ARCHITECTURE.md](ARCHITEC
 
 - [assets/demo.tape](assets/demo.tape) — VHS script for the hero terminal cast.
 - [assets/builder-agent-logo.svg](assets/builder-agent-logo.svg) — reusable UiPath Builder Agent logo used by the README and skill visual guide.
+- [assets/builder-agent-icon.svg](assets/builder-agent-icon.svg) — compact icon variant for smaller visual surfaces.
 - `assets/demo.gif` — rendered terminal cast (generated from `demo.tape`).
