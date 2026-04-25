@@ -103,7 +103,7 @@ def get_agent_tools() -> list[Tool]:
                     "skill_name": {
                         "type": "string",
                         "description": "Skill to load as the agent's system prompt.",
-                        "default": "uipath-automation",
+                        "default": "uipath-rpa",
                     },
                     "max_iterations": {
                         "type": "integer",
@@ -219,7 +219,7 @@ async def call_agent_tool(name: str, arguments: dict[str, Any]) -> Any:
         from mcp_server.tools.skill_tools import _get_registry
 
         registry = _get_registry()
-        skill_name = arguments.get("skill_name", "uipath-automation")
+        skill_name = arguments.get("skill_name", "uipath-rpa")
         skill = registry.get_skill(skill_name)
         skill_content = load_skill_content(skill) if skill else ""
 

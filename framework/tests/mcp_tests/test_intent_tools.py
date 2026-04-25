@@ -37,6 +37,7 @@ def test_question_routes_to_answer_with_persona():
     assert payload["intent"] == "question"
     assert payload["recommended_next_tool"] == "uipath_answer"
     assert payload["persona"] == "sa"
+    assert payload["persona_reason"] == "question_default"
 
 
 def test_documentation_intent_defaults_to_sa_persona():
@@ -64,6 +65,7 @@ def test_keyword_maps_to_specific_persona():
     payload = classify("What validation strategy should I use for this agent?")
     assert payload["intent"] == "question"
     assert payload["persona"] == "qa"
+    assert payload["persona_reason"] == "quality/testing keyword"
 
 
 def test_call_intent_tool_echoes_project_root():

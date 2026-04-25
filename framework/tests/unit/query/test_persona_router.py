@@ -1,6 +1,7 @@
 """Tests for persona_router."""
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -56,22 +57,22 @@ class TestQATools:
 
 
 class TestAnswerQuestion:
-    @pytest.mark.asyncio
-    async def test_rejects_empty_question(self):
+    def test_rejects_empty_question(self):
         with pytest.raises(ValueError):
-            await persona_router.answer_question("")
+            asyncio.run(persona_router.answer_question(""))
 
-    @pytest.mark.asyncio
-    async def test_uses_persona_prompt_and_readonly_tools(self):
+    def test_uses_persona_prompt_and_readonly_tools(self):
         exe = MagicMock()
         exe.execute = AsyncMock(
             return_value=AgenticResult(success=True, final_response="ANS")
         )
 
-        result = await persona_router.answer_question(
-            "How does REFramework handle business exceptions?",
-            persona="qa",
-            executor=exe,
+        result = asyncio.run(
+            persona_router.answer_question(
+                "How does REFramework handle business exceptions?",
+                persona="qa",
+                executor=exe,
+            )
         )
 
         assert result.persona == "qa"
@@ -85,11 +86,40 @@ class TestAnswerQuestion:
         assert kwargs["skill_name"] == "uipath-persona-qa"
         assert kwargs["project_context"]["persona"] == "qa"
 
-    @pytest.mark.asyncio
-    async def test_defaults_to_sa(self):
+    def test_defaults_to_sa(self):
         exe = MagicMock()
         exe.execute = AsyncMock(
             return_value=AgenticResult(success=True, final_response="A")
         )
-        result = await persona_router.answer_question("what is maestro?", executor=exe)
+        result = asyncio.run(persona_router.answer_question("what is maestro?", executor=exe))
         assert result.persona == "sa"
+        assert result.persona_reason == "question_default"
+
+    def test_auto_selects_qa_for_validation_question(self):
+        exe = MagicMock()
+        exe.execute = AsyncMock(
+            return_value=AgenticResult(success=True, final_response="A")
+        )
+        result = asyncio.run(
+            persona_router.answer_question(
+                "What validation strategy should I use for this workflow?",
+                executor=exe,
+            )
+        )
+        assert result.persona == "qa"
+        assert result.persona_reason == "quality/testing keyword"
+
+    def test_explicit_persona_override_wins(self):
+        exe = MagicMock()
+        exe.execute = AsyncMock(
+            return_value=AgenticResult(success=True, final_response="A")
+        )
+        result = asyncio.run(
+            persona_router.answer_question(
+                "What validation strategy should I use?",
+                persona="developer",
+                executor=exe,
+            )
+        )
+        assert result.persona == "developer"
+        assert result.persona_reason == "explicit"

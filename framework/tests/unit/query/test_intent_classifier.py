@@ -63,6 +63,11 @@ from uipath_claude.query.intent_classifier import IntentType, classify_intent
         ("have you created the project?", IntentType.QUESTION, "status_question"),
         ("have you built the workflow?", IntentType.QUESTION, "status_question"),
         ("was the project created?", IntentType.QUESTION, "status_question"),
+        ("debug this failed selector", IntentType.AMBIGUOUS, "default"),
+        ("review this workflow for reliability", IntentType.AMBIGUOUS, "default"),
+        ("validate this project", IntentType.AMBIGUOUS, "default"),
+        ("deploy this package", IntentType.AMBIGUOUS, "default"),
+        ("inspect the live browser and take a screenshot", IntentType.AMBIGUOUS, "default"),
     ],
 )
 def test_classify_intent(text: str, expected: IntentType, reason_substr: str) -> None:

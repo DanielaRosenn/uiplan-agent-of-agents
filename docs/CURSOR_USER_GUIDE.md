@@ -27,6 +27,19 @@ Then open this folder in Cursor and confirm **Settings → MCP → uipath-builde
 
 If this clone is already configured for Claude, run with `-Force` / `--force` to switch.
 
+### Preflight Doctor
+
+Before opening Cursor, you can run the same read-only health checks the team uses
+for support:
+
+```powershell
+uipath-claude doctor
+```
+
+The doctor checks the skills submodule, Cursor skill redirects, MCP config,
+`uip` availability, generated MCP docs, markdown encoding, and library proposal
+health. It does not edit files.
+
 ### 1. Clone and Initialize
 
 ```powershell
@@ -140,7 +153,7 @@ You ask:
 Create a workflow that reads an Excel file and logs each row
 ```
 
-Cursor uses the `uipath-automation` skill and generates:
+Cursor uses the `uipath-rpa` skill and generates:
 
 1. `project.json` with Excel package dependency
 2. `Main.xaml` with:
@@ -155,29 +168,29 @@ Cursor uses the `uipath-automation` skill and generates:
 
 | Skill | Use For |
 |-------|---------|
-| `uipath-automation` | XAML workflows, project structure, activities |
-| `uipath-reframework` | REFramework template, transaction processing |
-| `uipath-maestro-flow` | Maestro/BPMN process flows |
-| `uipath-diagnostics` | Troubleshooting, error analysis |
-| `uipath-code-reviewer` | Code quality, best practices review |
-| `uipath-document-understanding` | Document Understanding, ML models |
-| `uipath-integration-service` | Connectors, Integration Service |
-| `uipath-orchestrator-api` | Orchestrator REST API |
-| `uipath-cli-git` | UiPath CLI, CI/CD, Git workflows |
-| `uipath-human-in-the-loop` | Action Center, approvals |
-| `uipath-agents` | Agentic automation |
-| `uipath-planner` | Planning workflows |
-| `uipath-test-generator` | Test case generation |
+| `uipath-rpa` | XAML and coded RPA workflow authoring, validation, package setup, UI automation authoring |
+| `uipath-interact` | Live desktop/browser inspection, screenshots, click/type actions, post-build verification |
+| `uipath-planner` | Multi-skill planning and ambiguous UiPath requests |
+| `uiplan` | Cursor-first spec/plan/tasks bundle under `.cursor/plans/` |
+| `uipath-platform` | Orchestrator, folders, queues, assets, Integration Service, package publish/deploy |
+| `uipath-maestro-flow` | Maestro `.flow` orchestration |
+| `uipath-human-in-the-loop` | Action Center and approval gates in Flow/Maestro/agents |
+| `uipath-agents` | Coded and low-code UiPath agents |
+| `uipath-coded-apps` | UiPath Coded Apps |
+| `uipath-data-fabric` | Data Fabric entity and record operations |
+| `uipath-diagnostics` | Troubleshooting, failed jobs, selectors, permissions |
+| `uipath-feedback` | Report product or skill feedback |
+| `uipath-test` | Test Manager and test execution workflows |
 
 ### Trigger Keywords
 
 Skills activate on relevant keywords. Examples:
 
-- "create a workflow" / "XAML" / "sequence" → `uipath-automation`
-- "REFramework" / "transaction" / "queue processing" → `uipath-reframework`
+- "create a workflow" / "XAML" / "sequence" → `uipath-rpa`
+- "inspect the live browser" / "take a screenshot" / "click this running app" → `uipath-interact`
 - "Maestro" / "BPMN" / "process diagram" → `uipath-maestro-flow`
 - "error" / "not working" / "debug" → `uipath-diagnostics`
-- "review" / "best practices" / "code quality" → `uipath-code-reviewer`
+- "publish" / "folder" / "queue" / "asset" → `uipath-platform`
 
 ---
 
@@ -233,12 +246,9 @@ Review this workflow for best practices:
 [paste XAML or describe project]
 ```
 
-The `uipath-code-reviewer` skill checks:
-- Naming conventions
-- Error handling
-- Selector reliability
-- Logging completeness
-- Security practices
+Use `uipath-diagnostics` for failure analysis and `uipath-rpa` for workflow
+authoring fixes. For broader repository review, ask Cursor for a code review and
+include the relevant files or project path.
 
 ---
 
@@ -530,6 +540,13 @@ Example fix request:
 The generated XAML has error: "BC30451: 'UseExcelFile' is not declared"
 Add the required namespace for Excel activities.
 ```
+
+### 5. Use the Right UI Skill
+
+Use `uipath-rpa` when the task creates or edits an automation. Use
+`uipath-interact` only when the task drives a running app or browser directly,
+such as taking screenshots, reading current UI state, clicking a live button, or
+verifying behavior after a build.
 
 ### Superpowers Not Available
 

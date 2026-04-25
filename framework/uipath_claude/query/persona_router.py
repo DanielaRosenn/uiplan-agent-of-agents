@@ -22,6 +22,8 @@ from uipath_claude.agents.qa import QAAgent
 from uipath_claude.agents.sa import SAAgent
 from uipath_claude.agents.tdd import TDDAgent
 from uipath_claude.query.agentic_executor import AgenticExecutor, AgenticResult
+from uipath_claude.query.intent_classifier import IntentType
+from uipath_claude.query.persona_selection import select_persona_for_text
 from uipath_claude.tools.doc_tools import get_doc_tools
 from uipath_claude.tools.library_tools import get_library_tools
 
@@ -56,11 +58,15 @@ class PersonaAnswer:
     iterations: int
     tokens_in: int
     tokens_out: int
+    persona_reason: str | None = None
 
     @classmethod
-    def from_result(cls, persona: str, result: AgenticResult) -> "PersonaAnswer":
+    def from_result(
+        cls, persona: str, result: AgenticResult, persona_reason: str | None = None
+    ) -> "PersonaAnswer":
         return cls(
             persona=persona,
+            persona_reason=persona_reason,
             final_response=result.final_response,
             tool_calls_made=list(result.tool_calls_made),
             iterations=result.iterations,
@@ -122,7 +128,12 @@ async def answer_question(
     if not isinstance(user_question, str) or not user_question.strip():
         raise ValueError("'user_question' must be a non-empty string")
 
-    key = resolve_persona(persona)
+    persona_reason = "explicit" if persona else None
+    if persona:
+        key = resolve_persona(persona)
+    else:
+        selected, persona_reason = select_persona_for_text(user_question, IntentType.QUESTION)
+        key = resolve_persona(selected)
     system_prompt = build_system_prompt(key)
     exe = executor or AgenticExecutor()
 
@@ -133,10 +144,11 @@ async def answer_question(
         project_context={
             "selected_skill_names": [f"uipath-persona-{key}"],
             "persona": key,
+            "persona_reason": persona_reason,
             "mode": "qa",
         },
         skill_name=f"uipath-persona-{key}",
         prior_messages=history,
     )
 
-    return PersonaAnswer.from_result(key, result)
+    return PersonaAnswer.from_result(key, result, persona_reason)

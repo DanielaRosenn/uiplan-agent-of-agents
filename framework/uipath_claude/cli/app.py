@@ -37,6 +37,7 @@ from uipath_claude.commands.library_proposals import (
     register_library_proposals_chat_command,
     register_library_proposals_command,
 )
+from uipath_claude.commands.doctor import register_doctor_command
 from uipath_claude.cli.capability_hint import maybe_print_capability_build_hint
 from uipath_claude.cli.input import read_user_message
 from uipath_claude.context.project import detect_uipath_project
@@ -110,36 +111,6 @@ def _load_dotenv_from_cwd() -> None:
             val = val[1:-1]
         if key.startswith("UIPATH_") or key not in os.environ:
             os.environ[key] = val
-    # #region agent log
-    try:
-        _dbg = {
-            "sessionId": "7bfa30",
-            "runId": "run1",
-            "hypothesisId": "H1_H2",
-            "location": "uipath_claude/cli/app.py:_load_dotenv_from_cwd:after_load",
-            "message": "Dotenv loaded for chat startup",
-            "data": {
-                "cwd": str(Path.cwd()),
-                "env_path": str(path),
-                "exists": path.is_file(),
-                "uipath_claude_model": os.environ.get("UIPATH_CLAUDE_MODEL", ""),
-                "uipath_claude_model_heavy": os.environ.get(
-                    "UIPATH_CLAUDE_MODEL_HEAVY", ""
-                ),
-                "uipath_claude_model_light": os.environ.get(
-                    "UIPATH_CLAUDE_MODEL_LIGHT", ""
-                ),
-                "fallback_enabled": os.environ.get(
-                    "UIPATH_CLAUDE_FALLBACK_ENABLED", ""
-                ),
-            },
-            "timestamp": __import__("time").time_ns() // 1_000_000,
-        }
-        with open("debug-7bfa30.log", "a", encoding="utf-8") as _f:
-            _f.write(__import__("json").dumps(_dbg, ensure_ascii=True) + "\n")
-    except Exception:
-        pass
-    # #endregion
 
 
 app = typer.Typer(
@@ -157,6 +128,7 @@ def _default(ctx: typer.Context) -> None:
 
 
 register_library_proposals_command(app)
+register_doctor_command(app)
 
 
 plan_app = typer.Typer(
@@ -511,11 +483,14 @@ _CODED_HINT_TOKENS = {"coded", "csharp", "c#", ".cs"}
 _DOC_INTENT_TOKENS = {"pdd", "sdd", "document", "architecture", "design"}
 _FLOW_HINT_TOKENS = {"flow", "maestro", "agentic"}
 _PLATFORM_HINT_TOKENS = {"orchestrator", "deploy", "connector", "integration service"}
+_DEBUG_INTENT_TOKENS = {"debug", "diagnose", "error", "failed", "failure", "faulted"}
 _LIVE_INTERACTION_PHRASES = {
     "live desktop",
     "live browser",
     "running app",
     "running application",
+    "running desktop",
+    "running desktop app",
     "currently active browser",
     "active browser tab",
 }
@@ -749,11 +724,17 @@ def _score_skill(skill: dict, user_input: str, user_tokens: set[str]) -> int:
         "uipath-data-fabric": (("entity", "entities"), ("data fabric",)),
         "uipath-maestro-flow": (("maestro", "bpmn", "flow", "flows"), (".flow",)),
         "uipath-agents": (("langgraph", "llamaindex"), ("coded agent", "coded agents", "agentic process", "agent builder", "build an agent", "build agent")),
-        "uipath-interact": (("interact", "servo"), ("live desktop", "live browser")),
+        "uipath-interact": (
+            ("interact", "servo", "screenshot"),
+            ("live desktop", "live browser", "running app", "running desktop", "active browser tab"),
+        ),
         "uipath-test": (("tm",), ("test manager", "test execution", "test report")),
         "uipath-rpa-legacy": (("legacy", "net461"), (".net framework",)),
         "uipath-feedback": (("feedback",), ("report issue", "bug report")),
-        "uipath-diagnostics": (("diagnose", "diagnostic", "faulted"), ("failed job",)),
+        "uipath-diagnostics": (
+            ("debug", "diagnose", "diagnostic", "error", "failed", "faulted", "selector"),
+            ("failed job",),
+        ),
         "uipath-human-in-the-loop": (("hitl",), ("human in the loop", "approval gate")),
     }
     for gate_name, (token_kws, phrase_kws) in _specialist_gates.items():
@@ -780,6 +761,10 @@ def _is_workflow_intent(user_input: str, user_tokens: set[str]) -> bool:
         or ("coded" in user_tokens and "workflow" in user_tokens)
     )
     if is_coded_intent:
+        return False
+    if (user_tokens & _DEBUG_INTENT_TOKENS) and not (
+        user_tokens & {"build", "create", "generate", "workflow", "workflows", "xaml"}
+    ):
         return False
     if any(phrase in lower for phrase in _LIVE_INTERACTION_PHRASES) and not (
         user_tokens & {"build", "create", "generate", "project", "workflow", "workflows", "xaml"}
@@ -1048,22 +1033,6 @@ def _create_engine() -> ConversationEngine:
     """Create Bedrock conversation engine from environment settings."""
     model_name = model_for_task("agentic_executor")
     region = os.getenv("AWS_REGION", "us-east-1")
-    # #region agent log
-    try:
-        _dbg = {
-            "sessionId": "7bfa30",
-            "runId": "run1",
-            "hypothesisId": "H2_H4",
-            "location": "uipath_claude/cli/app.py:_create_engine",
-            "message": "Engine model resolved",
-            "data": {"task": "agentic_executor", "model_name": model_name, "region": region},
-            "timestamp": __import__("time").time_ns() // 1_000_000,
-        }
-        with open("debug-7bfa30.log", "a", encoding="utf-8") as _f:
-            _f.write(__import__("json").dumps(_dbg, ensure_ascii=True) + "\n")
-    except Exception:
-        pass
-    # #endregion
     return ConversationEngine(model_name=model_name, region=region)
 
 
@@ -1355,22 +1324,6 @@ def chat(
     skill_registry = SkillRegistry()
     model_name = model_for_task("planner")
     region = os.getenv("AWS_REGION", "us-east-1")
-    # #region agent log
-    try:
-        _dbg = {
-            "sessionId": "7bfa30",
-            "runId": "run1",
-            "hypothesisId": "H2_H3_H4",
-            "location": "uipath_claude/cli/app.py:chat:model_init",
-            "message": "Chat model initialized for planner/simple-answer path",
-            "data": {"task": "planner", "model_name": model_name, "region": region},
-            "timestamp": __import__("time").time_ns() // 1_000_000,
-        }
-        with open("debug-7bfa30.log", "a", encoding="utf-8") as _f:
-            _f.write(__import__("json").dumps(_dbg, ensure_ascii=True) + "\n")
-    except Exception:
-        pass
-    # #endregion
     tool_profile = resolve_tool_profile(os.getenv("UIPATH_CLAUDE_TOOL_PROFILE"))
     skills = skill_registry.load_skills()
     skills_by_name = {skill.get("name"): skill for skill in skills}
@@ -1648,27 +1601,6 @@ def chat(
 
                     continue
                 except Exception as exc:
-                    # #region agent log
-                    try:
-                        _dbg = {
-                            "sessionId": "7bfa30",
-                            "runId": "run1",
-                            "hypothesisId": "H3_H4",
-                            "location": "uipath_claude/cli/app.py:chat:question_exception",
-                            "message": "Simple answer failed with provider error",
-                            "data": {
-                                "model_name": model_name,
-                                "region": region,
-                                "error_type": type(exc).__name__,
-                                "error": str(exc),
-                            },
-                            "timestamp": __import__("time").time_ns() // 1_000_000,
-                        }
-                        with open("debug-7bfa30.log", "a", encoding="utf-8") as _f:
-                            _f.write(__import__("json").dumps(_dbg, ensure_ascii=True) + "\n")
-                    except Exception:
-                        pass
-                    # #endregion
                     progress.error("Simple answer failed")
                     console.print(f"Error: {exc}")
                     continue

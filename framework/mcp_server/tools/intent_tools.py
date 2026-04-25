@@ -6,16 +6,7 @@ from typing import Any
 from mcp.types import Tool, ToolAnnotations
 
 from uipath_claude.query.intent_classifier import IntentType, classify_intent
-
-
-_PERSONA_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("ba", ("requirement", "stakeholder", "process map", "business process", "interview")),
-    ("sa", ("architecture", "architect", "design", "trade-off", "tradeoff", "pattern")),
-    ("qa", ("test", "testing", "validation", "regression", "acceptance")),
-    ("add", ("agent design", "add doc", "agent design doc", "agent design document")),
-    ("tdd", ("tdd", "technical design", "technical design document")),
-    ("developer", ("implement", "implementation", "code", "bug", "refactor")),
-)
+from uipath_claude.query.persona_selection import select_persona_for_text
 
 
 _LIBRARY_HINT_KEYWORDS: tuple[str, ...] = (
@@ -44,25 +35,6 @@ _LIBRARY_HINT_KEYWORDS: tuple[str, ...] = (
 )
 
 
-def _pick_persona(text: str, intent: IntentType) -> str | None:
-    """Best-effort persona hint based on keywords.
-
-    Returns ``None`` for BUILD intent (the planner picks personas itself).
-    """
-    if intent == IntentType.BUILD:
-        return None
-    lower = text.lower()
-    for persona, keywords in _PERSONA_KEYWORDS:
-        if any(k in lower for k in keywords):
-            return persona
-    if intent == IntentType.DOCUMENTATION:
-        # Default documentation author is the Solution Architect.
-        return "sa"
-    if intent == IntentType.QUESTION:
-        return "sa"
-    return None
-
-
 def _library_hints(text: str) -> list[str]:
     lower = text.lower()
     hits = [kw for kw in _LIBRARY_HINT_KEYWORDS if kw in lower]
@@ -89,11 +61,13 @@ def classify(text: str, project_root: str | None = None) -> dict[str, Any]:
     emits from MCP.
     """
     intent, reason = classify_intent(text or "")
+    persona, persona_reason = select_persona_for_text(text or "", intent)
     return {
         "intent": intent.value,
         "reason": reason,
         "recommended_next_tool": _recommended_next_tool(intent),
-        "persona": _pick_persona(text or "", intent),
+        "persona": persona,
+        "persona_reason": persona_reason,
         "library_hints": _library_hints(text or ""),
         "project_root": project_root,
     }

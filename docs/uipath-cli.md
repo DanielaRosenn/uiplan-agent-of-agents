@@ -650,7 +650,6 @@ dependencies = [
 
 ```bash
 npm install -g @uipath/cli
-npm install -g @uipath/servo        # Windows-only live UI automation
 uip tools install @uipath/rpa-tool   # additional tooling
 uip --version
 ```
@@ -663,7 +662,7 @@ Consult the relevant `skills/skills/<skill>/SKILL.md` for authoritative usage. C
 - `uip codedapp ...` - scaffold / build / debug Coded (Web/Action) Apps.
 - `uip case ...` - Case Management preview.
 - `uip df ...` - Data Fabric entity/record operations.
-- `uip servo ...` - live UI automation for verification.
+- `uip rpa uia ...` - live UI inspection and interaction for verification.
 - `uip feedback send ...` - submit a feedback report to UiPath.
 - `uip tools install <pkg>` - install auxiliary tools.
 

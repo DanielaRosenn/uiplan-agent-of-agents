@@ -78,7 +78,7 @@ Are you building/packaging/deploying a C# or XAML project, or a Solution?
 Are you building a Python coded agent (LangGraph, LlamaIndex, generic)?
   -> uipath  (Python, distributed via PyPI)
 
-Do you need Studio Web sync, Servo (live UI automation), rpa-tool, Case Management,
+Do you need Studio Web sync, live UI interaction, rpa-tool, Case Management,
 Data Fabric, Coded App scaffolding, or the discovery/skills tooling?
   -> uip     (Node.js, distributed via npm as @uipath/cli)
 ```
@@ -104,14 +104,14 @@ Data Fabric, Coded App scaffolding, or the discovery/skills tooling?
 ### `uip` (Node.js, npm-distributed)
 
 - **What:** The **unified** UiPath CLI. Shipped as `@uipath/cli`.
-- **Use for:** everything covered by the UiPath/skills submodule - skill install, project discovery helpers, `uip rpa`, `uip rpa-legacy`, `uip case`, `uip df`, `uip codedapp`, `uip servo`, `uip feedback`, `uip tools install ...`.
+- **Use for:** everything covered by the UiPath/skills submodule - skill install, project discovery helpers, `uip rpa`, `uip rpa-legacy`, `uip case`, `uip df`, `uip codedapp`, `uip rpa uia`, `uip feedback`, `uip tools install ...`.
 - **Install:** `npm install -g @uipath/cli` (the `skills/hooks/ensure-uip.sh` session hook does this automatically).
-- **Skills in this repo:** session start runs `skills/hooks/ensure-uip.sh` which installs `@uipath/cli` and `@uipath/rpa-tool` (plus `@uipath/servo` on Windows).
+- **Skills in this repo:** session start runs `skills/hooks/ensure-uip.sh` which installs `@uipath/cli` and `@uipath/rpa-tool`.
 
 **Rule of thumb:**
 - Python agent packaging/publishing -> `uipath`.
 - RPA / Solutions CI -> `uipcli`.
-- Skill-level ops (discovery, Case, Data Fabric, Coded Apps, Servo, feedback) -> `uip`.
+- Skill-level ops (discovery, Case, Data Fabric, Coded Apps, live UI interaction, feedback) -> `uip`.
 
 Solutions containing a Python agent pack at the solution level with `uipcli solution pack`; the agent sub-project still uses `uipath` for local dev loops.
 
@@ -168,7 +168,7 @@ Whenever you're about to publish, deploy, or hand off code, run this loop. **Do 
 | CI/CD (pack, analyze, deploy) | `uipcli` in pipeline |
 | Local agent dev loop | `uipath run` with hot-reload |
 | End-to-end Solution deploy | `uipcli solution` commands |
-| Live UI verification | `uip servo` |
+| Live UI verification | `uip rpa uia` via the `uipath-interact` skill |
 | Studio Desktop held a project open for validation or debug | Close it in-flow: `uip rpa close-project --project-dir "<projectRoot>"` (then process cleanup if needed — `docs/Testing_Guide.md`) |
 
 **The AI assistant's role:** own the CLI-driven paths end-to-end. For Studio/Studio Web visual design, produce the design artifacts (BPMN diagrams as documentation, XAML scaffolds, workflow specs) and let the human drive the UI.

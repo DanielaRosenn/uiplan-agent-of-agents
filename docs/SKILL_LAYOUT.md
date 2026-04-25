@@ -27,6 +27,18 @@ This repository exposes the same skill catalog to **Cursor** and to the **Python
 
 - **`framework/uipath_claude/skills/`** — Code: `registry.py`, `loader.py`, `sources.py`, `insights.py`, etc. This loads and merges skill roots; it is **not** a folder of `SKILL.md` files.
 
+## `extensions/` at repo root (purpose and structure)
+
+The **`extensions/`** directory groups **git-tracked, team-owned material** that is not the UiPath submodule and not Cursor-only config:
+
+| Path | Role |
+| --- | --- |
+| **`extensions/skills/`** | Team skill overlays. Loaded by `build_skill_sources` **after** user/project paths and **before** `skills/skills/`, so same skill name can override upstream. See `extensions/skills/README.md`. |
+| **`extensions/skill-insights/`** | Curated PR-reviewed insight JSON (vs raw captures under `.uipath-claude/skill-insights/`). See `extensions/skill-insights/README.md` and `framework/uipath_claude/skills/insights.py`. |
+| **`extensions/uipath-rule-bundle/`** | A **portable drop-in kit** (CLAUDE.md, `.cursor/rules`, docs, hooks, optional zip) for other UiPath repos—not consumed as Python imports by this builder. Duplicate of patterns at repo root by design. |
+
+**Should it merge into another folder?** Generally **no**. Moving overlays under `.cursor/` would mix **editor config** with **versioned team extensions**; moving them into `skills/` would violate the submodule boundary. The layout matches `sources.py` (`project_root / "extensions" / "skills"`) and migration notes that keep `skills/` + `extensions/` top-level to reduce risk (`docs/superpowers/specs/2026-04-23-framework-structure-migration-design.md`). Optional future cleanup: a short `extensions/README.md` index file if the tree grows.
+
 ## Team and local overlays
 
 - **`extensions/skills/`** — Optional team-authored skills (may be empty; see `extensions/skills/README.md`).

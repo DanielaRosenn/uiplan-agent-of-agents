@@ -42,7 +42,12 @@ def _skills_fixture() -> list[dict]:
         {
             "name": "uipath-platform",
             "description": "UiPath platform operations - Orchestrator, deployment, Integration Service.",
-            "triggers": ["orchestrator", "deploy", "integration service", "connector"],
+            "triggers": ["orchestrator", "deploy", "publish", "asset", "queue", "integration service", "connector"],
+        },
+        {
+            "name": "uipath-diagnostics",
+            "description": "Diagnose failed jobs, validation errors, selectors, and permissions.",
+            "triggers": ["debug", "diagnose", "error", "failed", "selector"],
         },
         {
             "name": "uipath-maestro-flow",
@@ -131,6 +136,15 @@ class TestRPAWorkflowSkillPicking:
         assert selected
         assert selected[0]["name"] == "uipath-rpa"
 
+    def test_live_desktop_read_state_prefers_interact(self):
+        skills = _skills_fixture()
+        selected = _select_relevant_skills(
+            "Read the state of the running desktop app and capture a screenshot",
+            skills,
+        )
+        assert selected
+        assert selected[0]["name"] == "uipath-interact"
+
     def test_generic_workflow_request(self):
         skills = _skills_fixture()
         selected = _select_relevant_skills(
@@ -201,6 +215,12 @@ class TestIntegrationServiceSkillPicking:
         )
         assert selected
         assert any("platform" in s["name"].lower() for s in selected)
+
+    def test_deploy_request_prefers_platform(self):
+        skills = _skills_fixture()
+        selected = _select_relevant_skills("Deploy this package to Orchestrator", skills)
+        assert selected
+        assert selected[0]["name"] == "uipath-platform"
 
 
 class TestDocumentationSkillPicking:
@@ -313,6 +333,12 @@ class TestSkillPickingEdgeCases:
         skills = _skills_fixture()
         selected = _select_relevant_skills("", skills)
         assert selected == []
+
+    def test_debug_prompt_prefers_diagnostics(self):
+        skills = _skills_fixture()
+        selected = _select_relevant_skills("Debug this selector error", skills)
+        assert selected
+        assert selected[0]["name"] == "uipath-diagnostics"
 
 
 class TestPlannerOverridesSelection:

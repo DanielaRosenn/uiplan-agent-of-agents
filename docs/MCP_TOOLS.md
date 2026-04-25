@@ -1743,7 +1743,7 @@ flowchart LR
     "skill_name": {
       "type": "string",
       "description": "Skill to load as the agent's system prompt.",
-      "default": "uipath-automation"
+      "default": "uipath-rpa"
     },
     "max_iterations": {
       "type": "integer",

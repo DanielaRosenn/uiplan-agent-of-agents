@@ -18,6 +18,28 @@ Use this document after a **fresh clone** (or any time you need a wide pass) to 
 
 ---
 
+## Cursor Auto (agent handoff)
+
+Use this block when **handing work to Cursor Auto** (or another agent session) so the next run does not lose context.
+
+**Entry files the next agent should open first**
+
+- [CLAUDE.md](../CLAUDE.md) — hard gates and CLI routing.
+- [docs/SKILL_LAYOUT.md](SKILL_LAYOUT.md) — where skills live (`skills/`, `extensions/skills/`, `.cursor/skills`).
+- [docs/MCP_TOOLS.md](MCP_TOOLS.md) — tool names and one-line purposes (regenerate from code if schemas drift).
+
+**Stop conditions**
+
+- Stop before `uipcli package deploy`, `uipath publish`, or any deploy to non-personal feeds without explicit human confirmation ([CLAUDE.md](../CLAUDE.md) deploy rules).
+- Stop if `python -m uipath_claude.skills.submodule_guard` fails until `skills/` matches `.uipath/skills-approved.sha`.
+
+**Example prompts**
+
+- "Continue the wrap-up plan: run submodule guard, full `uv run pytest -q`, then summarize failures with file:line."
+- "Implement only the HITL schema change in `<path>`; run `uip flow validate` and paste JSON errors if any."
+
+---
+
 ## Almost zero work (onboarding)
 
 Goal: **one terminal command**, then **two clicks** in Cursor.

@@ -20,6 +20,20 @@ uipath-claude library-proposals reject <proposal_id>
 
 Approve and reject append JSON lines to the structured event log (default `~/.uipath-claude/logs/events.log`, override `UIPATH_EVENT_LOG`) with `event` equal to `library_proposal_approved` or `library_proposal_rejected`.
 
+## Operator workflow
+
+Use this loop when reviewing captured lessons:
+
+1. Run `uipath-claude doctor` to see pending proposal count, stale proposals, duplicate targets, and catalog readability.
+2. Run `uipath-claude library-proposals list` to identify pending proposals.
+3. Inspect each proposal with `uipath-claude library-proposals show <proposal_id>`.
+4. Approve durable, generally useful lessons with `uipath-claude library-proposals approve <proposal_id>`.
+5. Reject one-off, duplicate, or low-confidence lessons with `uipath-claude library-proposals reject <proposal_id>`.
+6. Check the structured event log when you need an audit trail of approval/rejection decisions.
+
+Doctor is read-only. It reports library health but never applies, rejects, or
+rewrites proposals.
+
 ## Agent tool (LangChain)
 
 - `propose_library_update(book_id, chapter_id, section_id, section_title, content, keywords, rationale)` — returns JSON with `proposal_id` and `status: pending`.

@@ -229,6 +229,10 @@ After completing the wiring:
 
 ---
 
+## Optional reference: external HITL application pattern
+
+For teams that need a **standalone HITL web app** (outside Action Center quickforms), the public [Cato Networks IT HITL_Application](https://github.com/cato-networks-IT/HITL_Application) repo is one example of a small approval UI you can fork or study. It is **not** a UiPath product; do not commit its secrets, fork URLs with credentials, or vendor paths from that repo into customer projects without SDD sign-off. Prefer UiPath Action Center / Maestro-native HITL unless the SDD documents a custom platform.
+
 ## References
 
 - **[QuickForm Node JSON](references/hitl-node-quickform.md)** — Full node JSON, definition entry, edge format, `variables.nodes` regeneration, four schema conversion examples.
