@@ -37,7 +37,7 @@ The **`extensions/`** directory groups **git-tracked, team-owned material** that
 | **`extensions/skill-insights/`** | Curated PR-reviewed insight JSON (vs raw captures under `.uipath-claude/skill-insights/`). See `extensions/skill-insights/README.md` and `framework/uipath_claude/skills/insights.py`. |
 | **`extensions/uipath-rule-bundle/`** | A **portable drop-in kit** (CLAUDE.md, `.cursor/rules`, docs, hooks, optional zip) for other UiPath repos—not consumed as Python imports by this builder. Duplicate of patterns at repo root by design. |
 
-**Should it merge into another folder?** Generally **no**. Moving overlays under `.cursor/` would mix **editor config** with **versioned team extensions**; moving them into `skills/` would violate the submodule boundary. The layout matches `sources.py` (`project_root / "extensions" / "skills"`) and migration notes that keep `skills/` + `extensions/` top-level to reduce risk (`docs/superpowers/specs/2026-04-23-framework-structure-migration-design.md`). Optional future cleanup: a short `extensions/README.md` index file if the tree grows.
+**Should it merge into another folder?** Generally **no**. Moving overlays under `.cursor/` would mix **editor config** with **versioned team extensions**; moving them into `skills/` would violate the submodule boundary. The layout matches `sources.py` (`project_root / "extensions" / "skills"`) and migration notes that keep `skills/` + `extensions/` top-level to reduce risk (`docs/superpowers/specs/2026-04-23-framework-structure-migration-design.md`). See also [extensions/README.md](../extensions/README.md) for a one-page index of the three subfolders.
 
 ## Team and local overlays
 
