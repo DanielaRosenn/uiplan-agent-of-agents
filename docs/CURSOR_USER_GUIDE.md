@@ -11,6 +11,22 @@ Use one assistant per clone. This repo supports both, but your local setup shoul
 
 The quickstart scripts persist your local selection in `.assistant-choice` and block cross-setup unless you pass `-Force` / `--force`.
 
+```mermaid
+flowchart LR
+    Clone[Clone repo] --> Quickstart[cursor-quickstart]
+    Quickstart --> Submodule[Skills submodule]
+    Quickstart --> Env[uv sync --extra mcp]
+    Quickstart --> MCP[.cursor/mcp.json]
+    Quickstart --> Skills[.cursor/skills]
+    MCP --> Cursor[Open Cursor]
+    Skills --> Cursor
+    Cursor --> Green{MCP green?}
+    Green -->|yes| Work[Chat + skills + tools]
+    Green -->|no| Doctor[uipath-claude doctor]
+    Doctor --> Fix[Fix FAIL rows]
+    Fix --> Cursor
+```
+
 ### 0. Almost zero work (one script)
 
 From repo root after clone — does submodules, `uv sync --extra mcp`, copies MCP config if missing, links skills:
@@ -131,7 +147,7 @@ The superpowers plugin adds development workflow skills:
 - **systematic-debugging** - Bug investigation
 - **code-review** - Request and receive reviews
 
-### 4. Open in Cursor
+### 6. Open in Cursor
 
 Open the `uipath-builder-agent` folder in Cursor. Skills are now available.
 
@@ -145,6 +161,23 @@ When you ask about UiPath topics, Cursor automatically uses the relevant skill. 
 - **Project structure** - `project.json`, dependencies, folder layout
 - **Best practices** - Naming conventions, error handling, validation
 - **Activity reference** - Modern vs classic, properties, examples
+
+```mermaid
+flowchart TD
+    Prompt[Cursor prompt] --> Route{Route intent}
+    Route -->|build/edit workflow| RPA[uipath-rpa]
+    Route -->|live inspection| Interact[uipath-interact]
+    Route -->|plan first| UiPlan[uiplan / uipath-planner]
+    Route -->|platform question| Specialist[Specialist skill]
+    RPA --> MCP[MCP workflow tools]
+    UiPlan --> Plan[spec / plan / tasks]
+    Specialist --> Library[Library + docs tools]
+    Interact --> Evidence[Screenshots / UI state]
+    MCP --> Validate[Validate / build / verify]
+    Validate --> Result[Working project or fix list]
+    Library --> Result
+    Evidence --> Result
+```
 
 ### Example: Create a Workflow
 

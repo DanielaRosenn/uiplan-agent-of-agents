@@ -9,6 +9,20 @@ The documentation library lives under `data/library/` in the repository (overrid
 3. An operator lists and reviews proposals, then approves or rejects.
 4. **Approve** applies the markdown into `data/library/` via `LibraryWriter` and removes the proposal from the queue. **Reject** drops the proposal only.
 
+```mermaid
+flowchart LR
+    Discovery[Agent discovers useful fact] --> Proposal[Stage proposal JSON]
+    Proposal --> Queue[Proposal queue]
+    Queue --> Doctor[uipath-claude doctor]
+    Queue --> Review[Operator review]
+    Review -->|approve| Library[data/library section]
+    Review -->|reject| Drop[Drop proposal]
+    Library --> Search[Future library search / lookup]
+    Search --> Answer[Grounded answer with citation]
+    Review --> Audit[Event log]
+    Drop --> Audit
+```
+
 ## CLI
 
 ```text
@@ -33,6 +47,31 @@ Use this loop when reviewing captured lessons:
 
 Doctor is read-only. It reports library health but never applies, rejects, or
 rewrites proposals.
+
+### Review decision map
+
+```mermaid
+flowchart TD
+    Proposal[Pending proposal] --> Durable{Reusable beyond one chat?}
+    Durable -->|no| Reject[Reject]
+    Durable -->|yes| Cited{Has source / citation metadata?}
+    Cited -->|no| FixOrReject[Ask for citation or reject]
+    Cited -->|yes| Duplicate{Duplicate target or existing section?}
+    Duplicate -->|yes| Merge[Merge manually or reject duplicate]
+    Duplicate -->|no| Safe{Safe, accurate, non-secret?}
+    Safe -->|no| Reject
+    Safe -->|yes| Approve[Approve]
+    Approve --> Audit[Audit event]
+    Reject --> Audit
+    Merge --> Audit
+    FixOrReject --> Audit
+```
+
+| Approve when... | Reject when... |
+| --- | --- |
+| The lesson is durable, cited, and useful for future UiPath work. | It is one-off, speculative, duplicated, secret-bearing, or missing source context. |
+| The target book/chapter/section is clear. | The proposed section overlaps an existing approved section without adding value. |
+| The content explains the why, not only the command. | The proposal is just raw chat transcript or temporary debugging noise. |
 
 ## Agent tool (LangChain)
 
