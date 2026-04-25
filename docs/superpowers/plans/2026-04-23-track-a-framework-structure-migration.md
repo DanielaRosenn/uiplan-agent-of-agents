@@ -215,7 +215,7 @@ Expected:
 
 **Design:** `docs/superpowers/specs/2026-04-23-framework-structure-migration-design.md` (finalized baseline).
 
-**Post-merge verification (2026-04-23):** `uv run pytest framework/tests/migration tools/uiplan/tests -q` (8 passed); full suite `uv run pytest -q` (**1396 passed**, 9 skipped); `python -m uipath_claude.skills.submodule_guard` **OK** with `skills` HEAD recorded in `.uipath/skills-approved.sha`.
+**Post-merge verification (2026-04-23):** `uv run pytest framework/tests/migration framework/tests/uiplan -q` (8 passed); full suite `uv run pytest -q` (**1396 passed**, 9 skipped); `python -m uipath_claude.skills.submodule_guard` **OK** with `skills` HEAD recorded in `.uipath/skills-approved.sha`.
 
 **Also on `main`:** Agentic executor only nudges build/verify when those tools exist; **`uip rpa close-project`** hygiene in `CLAUDE.md`, `docs/uipath-workflows.md`, `.cursor/skills/uipath-rpa/references/environment-setup.md`, `docs/Testing_Guide.md`, and executor system prompt.
 

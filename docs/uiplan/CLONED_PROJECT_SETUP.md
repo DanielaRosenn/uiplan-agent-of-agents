@@ -37,5 +37,5 @@ used by Cursor.
 Run the focused checks after moving or editing the kit:
 
 ```powershell
-uv run pytest framework/tests/uiplan framework/tests/mcp/test_uiplan_tools.py -q
+uv run pytest framework/tests/uiplan framework/tests/mcp_tests/test_uiplan_tools.py -q
 ```

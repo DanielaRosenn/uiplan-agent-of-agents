@@ -3,7 +3,7 @@
 > **Grounding:** {{GROUNDING_CITATIONS}}
 > **Input**: `./spec.md`, `./plan.md`
 
-**Format**: `[ID] [P?] [Story] Description` ΓÇö include exact file paths in descriptions.
+**Format**: `[ID] [P?] [Story] Description` - include exact file paths in descriptions.
 
 ## Architecture diagram
 

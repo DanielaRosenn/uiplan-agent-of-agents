@@ -14,7 +14,7 @@ Run both approved plans in parallel while preventing cross-track breakage:
 | Lane | Owner | Scope |
 |---|---|---|
 | A1 | Migration lead | Path contracts, structure phases, compatibility windows |
-| B1 | UiPlan lead | `tools/uiplan/`, `docs/uiplan/kit/`, command loop policy |
+| B1 | UiPlan lead | `tools/uiplan/`, `templates/uiplan/`, command loop policy |
 | Shared QA | Both | Sync-point tests and final regression suite |
 
 ## Sync checkpoints (hard gates)
@@ -22,22 +22,22 @@ Run both approved plans in parallel while preventing cross-track breakage:
 1. **Checkpoint S1 (after A-Task2 and B-Task2)**
    - Run:
      - `uv run pytest framework/tests/migration -q`
-     - `uv run pytest tools/uiplan/tests/test_template_kit.py -q`
+     - `uv run pytest framework/tests/uiplan/test_generate_docs.py -q`
    - Must pass before:
      - A moves to reference switching,
      - B wires loop runner to path-sensitive imports.
 
 2. **Checkpoint S2 (before A Phase 4 fallback removal)**
    - Run:
-     - `uv run pytest tools/uiplan/tests -q`
-     - `uv run pytest framework/tests/mcp/test_plan_tools.py -q`
+     - `uv run pytest framework/tests/uiplan -q`
+     - `uv run pytest framework/tests/mcp_tests/test_plan_tools.py -q`
      - `uv run pytest framework/tests/migration -q`
    - Must pass with no known legacy-path dependency in Track B.
 
 3. **Checkpoint S3 (pre-merge final suite)**
    - Run:
-     - `uv run pytest tools/uiplan/tests framework/tests/migration -q`
-     - `uv run pytest framework/tests/mcp/test_tool_annotations.py framework/tests/mcp/test_tool_descriptions.py framework/tests/mcp/test_plan_tools.py -q`
+     - `uv run pytest framework/tests/uiplan framework/tests/migration -q`
+     - `uv run pytest framework/tests/mcp_tests/test_tool_annotations.py framework/tests/mcp_tests/test_tool_descriptions.py framework/tests/mcp_tests/test_plan_tools.py -q`
    - Must pass before merge.
 
 ## Branching strategy
@@ -68,7 +68,7 @@ Run both approved plans in parallel while preventing cross-track breakage:
 
 ## Board closure (2026-04-23)
 
-**Outcome:** Tracks **A** and **B** were merged onto **`main`** in one fast-forward from **`feat/parallel-a-b-impl`** (2026-04-23). Post-merge: `uv run pytest -q` **1396 passed** (9 skipped); `framework/tests/migration` + `tools/uiplan/tests` green; `submodule_guard` OK.
+**Outcome:** Tracks **A** and **B** were merged onto **`main`** in one fast-forward from **`feat/parallel-a-b-impl`** (2026-04-23). Post-merge: `uv run pytest -q` **1396 passed** (9 skipped); `framework/tests/migration` + `framework/tests/uiplan` green; `submodule_guard` OK.
 
 **This board** stays the **regression contract** for further work: re-run **S1–S3** subsets when touching path resolution, UiPlan runtime, or MCP plan surfaces.
 

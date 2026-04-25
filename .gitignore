@@ -32,6 +32,22 @@ ENV/
 coverage.json
 htmlcov/
 *.cover
+# Ad-hoc local pytest / shell logs (repo root)
+/.pytest_trace_err.txt
+/.pytest_trace_out.txt
+/_pt_out.txt
+/_pytest_last.txt
+/mcp_out.txt
+/out.txt
+/pytest-not-integration.txt
+/uiplan_full.txt
+/unit_out.txt
+/unit_result.txt
+/verify_unit.txt
+/co.txt
+/co2.txt
+/mig.txt
+/full*.txt
 
 # Office lock files (often appear under docs/)
 **/~$*

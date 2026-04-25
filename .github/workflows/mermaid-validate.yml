@@ -20,7 +20,7 @@ jobs:
         run: |
           uv sync
           uv run python -m tools.uiplan validate-mermaid \
-            docs/uiplan/kit/_spec-template.md \
-            docs/uiplan/kit/_plan-template.md \
-            docs/uiplan/kit/_tasks-template.md \
-            docs/uiplan/kit/_diagram-patterns.md
+            templates/uiplan/_spec-template.md \
+            templates/uiplan/_plan-template.md \
+            templates/uiplan/_tasks-template.md \
+            templates/uiplan/_diagram-patterns.md

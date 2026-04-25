@@ -261,7 +261,7 @@ Layered, first-source-wins:
 | `uipath-human-in-the-loop` | Approval gates in Flows / Maestro / agents |
 | `uipath-platform` | Orchestrator ops: folders, assets, queues, processes |
 | `uipath-test` | Test Manager — cases, sets, reports |
-| `uipath-servo` | Live desktop/browser automation for verification |
+| `uipath-interact` | Live desktop/browser interaction for inspection and verification |
 | `uipath-diagnostics` | Debugging failed jobs, selectors, permissions |
 | `uipath-feedback` | `uip feedback send` — bug reports to UiPath |
 

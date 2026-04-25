@@ -4,8 +4,11 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Changed
+- UiPlan template kit paths are consistently **`templates/uiplan/`** in contributor docs, superpowers records, Phase 4 checklists, and the optional **Mermaid validate** GitHub workflow (`workflow_dispatch`).
+
 ### Fixed
-- Mermaid diagrams render reliably in GitHub and strict viewers: `ops/scripts/generate_mcp_tools_doc.py` no longer injects `%%{init}%%`, `classDef`, or `linkStyle` into generated `docs/MCP_TOOLS.md` charts; UiPlan kit templates (`docs/uiplan/kit/_diagram-patterns.md`, `_spec-template.md`) and `docs/uiplan/README.md` drop unsupported sequence-diagram styling. Regenerate MCP docs with `python ops/scripts/generate_mcp_tools_doc.py` after tool changes.
+- Mermaid diagrams render reliably in GitHub and strict viewers: `ops/scripts/generate_mcp_tools_doc.py` no longer injects `%%{init}%%`, `classDef`, or `linkStyle` into generated `docs/MCP_TOOLS.md` charts; UiPlan kit templates (`templates/uiplan/_diagram-patterns.md`, `_spec-template.md`) and `docs/uiplan/README.md` drop unsupported sequence-diagram styling. Regenerate MCP docs with `python ops/scripts/generate_mcp_tools_doc.py` after tool changes.
 
 ### Added
 - UiPlan docs and onboarding refresh: README now has a clear purpose section and a "how to use everything" map; `docs/USER_GUIDE.md` includes a practical UiPlan cookbook and end-to-end workflow; `docs/uiplan/README.md` adds a first-15-min path, decision tree, and leverage patterns; `docs/MANUAL_REVIEW_CURSOR_FULL_PROJECT.md` adds onboarding-comprehension checks and extra NL routing prompts; docs index links updated; new logo asset at `docs/assets/uiplan-logo.svg`.

@@ -113,9 +113,9 @@ templates/uiplan/_plan-template.md
 templates/uiplan/_tasks-template.md
 docs/plans/constitution.md                          # seeded from CLAUDE.md
 framework/uipath_claude/commands/uiplan.md        # /uiplan slash command
-framework/tests/mcp/test_uiplan_tools.py
-framework/tests/mcp/test_uiplan_review.py
-framework/tests/mcp/test_plan_grounding.py
+framework/tests/mcp_tests/test_uiplan_tools.py
+framework/tests/mcp_tests/test_uiplan_review.py
+framework/tests/mcp_tests/test_plan_grounding.py
 ```
 
 ### Modified files
@@ -123,9 +123,9 @@ framework/tests/mcp/test_plan_grounding.py
 ```
 framework/mcp_server/tools/plan_tools.py            # +6 tools, folder-plan helpers
 framework/uipath_claude/cli/app.py                  # add `plan uiplan` subcommand group
-framework/tests/mcp/test_plan_tools.py              # extend TestGetPlanTools
-framework/tests/mcp/test_tool_annotations.py        # classify new tools
-framework/tests/mcp/test_tool_descriptions.py       # descriptions for new params
+framework/tests/mcp_tests/test_plan_tools.py              # extend TestGetPlanTools
+framework/tests/mcp_tests/test_tool_annotations.py        # classify new tools
+framework/tests/mcp_tests/test_tool_descriptions.py       # descriptions for new params
 ops/scripts/mcp_tools_doc_diagrams.py                   # diagrams for new tools
 docs/PLANNING_FRAMEWORK.md                          # /uiplan section with grounding diagram
 README.md                                           # link /uiplan from SDLC section
@@ -146,11 +146,11 @@ README.md                                           # link /uiplan from SDLC sec
   file path or a directory path)
 - Modify: `framework/mcp_server/tools/plan_tools.py:_find_plan_path`
   (delegate to `plan_folder.resolve_slug`)
-- Test: `framework/tests/mcp/test_plan_folder.py`
+- Test: `framework/tests/mcp_tests/test_plan_folder.py`
 
 Steps:
 
-- [ ] **Step 1:** Write `framework/tests/mcp/test_plan_folder.py` covering:
+- [ ] **Step 1:** Write `framework/tests/mcp_tests/test_plan_folder.py` covering:
   `resolve_slug` returns file for legacy single-file plan and directory for
   folder plan; `load_meta`/`save_meta` roundtrips; `is_folder_plan` true for
   dir with `.meta.yaml`.
@@ -158,7 +158,7 @@ Steps:
 - [ ] **Step 3:** Implement `plan_folder.py`.
 - [ ] **Step 4:** Re-run; expect PASS.
 - [ ] **Step 5:** Patch `_find_plan_path` and any `uipath_plan_read` / `list`
-  / `accept` / `reject` / `publish` call sites; re-run full `framework/tests/mcp`.
+  / `accept` / `reject` / `publish` call sites; re-run full `framework/tests/mcp_tests`.
 - [ ] **Step 6:** Commit: `feat(plan): folder-plan helpers + back-compat`.
 
 ### Task 2: constitution seeding
@@ -168,7 +168,7 @@ Steps:
 - Create: `docs/plans/constitution.md` (seeded from CLAUDE.md hard gates)
 - Create: `framework/mcp_server/tools/plan_constitution.py`
   (`load_constitution(root) -> list[Gate]`)
-- Test: `framework/tests/mcp/test_plan_constitution.py`
+- Test: `framework/tests/mcp_tests/test_plan_constitution.py`
 
 Steps as above (test-first, minimal impl, commit).
 
@@ -180,8 +180,8 @@ Steps as above (test-first, minimal impl, commit).
 - New helper: `framework/mcp_server/tools/plan_grounding.py` orchestrating
   `project-context` read, `uipath-planner` skill match, `library_search`
   fan-out, `doc_get_activity` fetches, template picker.
-- Test: `framework/tests/mcp/test_plan_grounding.py` (library hits via `search_library.invoke`);
-  `framework/tests/mcp/test_uiplan_tools.py` (`test_uiplan_ground_smoke`).
+- Test: `framework/tests/mcp_tests/test_plan_grounding.py` (library hits via `search_library.invoke`);
+  `framework/tests/mcp_tests/test_uiplan_tools.py` (`test_uiplan_ground_smoke`).
 
 Tests cover: missing project-context path, skills matched by intent keywords,
 library hits returned with citations, similar-PDD detection, constitution
@@ -258,7 +258,7 @@ Regenerate `docs/MCP_TOOLS.md` and `docs/plans/README.md`.
 
 ### Task 13: full-loop test + annotations
 
-- `framework/tests/mcp/test_uiplan_tools.py` (`test_uiplan_full_scaffold`): full ground -> ... -> review green
+- `framework/tests/mcp_tests/test_uiplan_tools.py` (`test_uiplan_full_scaffold`): full ground -> ... -> review green
   roundtrip against a fixture repo.
 - Update `test_tool_annotations.py` to classify the six new tools.
 - Update `test_tool_descriptions.py` for new params.
@@ -267,7 +267,7 @@ Regenerate `docs/MCP_TOOLS.md` and `docs/plans/README.md`.
 
 ```bash
 uv run python ops/scripts/generate_mcp_tools_doc.py; uv run python ops/scripts/generate_plan_index.py
-uv run pytest framework/tests/mcp framework/tests/unit -q
+uv run pytest framework/tests/mcp_tests framework/tests/unit -q
 ```
 
 If green, commit in one logical push:

@@ -1026,7 +1026,7 @@ flowchart TD
 
 #### Audience guide
 
-**Publish project package to Orchestrator.** Pack and publish a UiPath project to Orchestrator without creating a Process. Wraps the modern uip CLI (uip solution pack/publish for RPA, uip flow pack + uip solution publish for Maestro). Returns the package path and CLI output. GATED by the MCP session gate; blocked until uipath_workflow_build_and_verify reports success.
+**Publish project package to Orchestrator.** Pack and publish a UiPath project to Orchestrator without creating a Process. Read docs/ORCHESTRATOR_DEPLOYMENT.md first; requires explicit human approval before use; target only personal workspace or a Dev target, never Production. Wraps the modern uip CLI (uip solution pack/publish for RPA, uip flow pack + uip solution publish for Maestro). Returns the package path and CLI output. GATED by the MCP session gate; blocked until uipath_workflow_build_and_verify reports success.
 
 **Required MCP arguments:**
 
@@ -1040,7 +1040,7 @@ flowchart TD
 
 #### Author registration (`Tool.description` verbatim)
 
-> Pack and publish a UiPath project to Orchestrator without creating a Process. Wraps the modern uip CLI (uip solution pack/publish for RPA, uip flow pack + uip solution publish for Maestro). Returns the package path and CLI output. GATED by the MCP session gate; blocked until uipath_workflow_build_and_verify reports success.
+> Pack and publish a UiPath project to Orchestrator without creating a Process. Read docs/ORCHESTRATOR_DEPLOYMENT.md first; requires explicit human approval before use; target only personal workspace or a Dev target, never Production. Wraps the modern uip CLI (uip solution pack/publish for RPA, uip flow pack + uip solution publish for Maestro). Returns the package path and CLI output. GATED by the MCP session gate; blocked until uipath_workflow_build_and_verify reports success.
 
 #### Input schema (JSON Schema)
 

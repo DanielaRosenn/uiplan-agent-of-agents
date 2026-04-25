@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from uipath_claude.skills.registry import SkillRegistry
+from uipath_claude.skills.registry import AGENT_SKILLS, SkillRegistry
 from uipath_claude.skills.sources import SkillOrigin
 
 
@@ -70,7 +70,7 @@ def test_skill_registry_filter_by_agent():
     registry.skills = [
         {"name": "uipath-planner", "description": "Planning"},
         {"name": "uipath-rpa", "description": "RPA"},
-        {"name": "uipath-servo", "description": "UI Automation"},
+        {"name": "uipath-interact", "description": "Live UI interaction"},
     ]
     
     # BA agent should get uipath-planner
@@ -82,6 +82,22 @@ def test_skill_registry_filter_by_agent():
     dev_skills = registry.filter_by_agent("developer")
     assert any(s["name"] == "uipath-rpa" for s in dev_skills)
     assert any(s["name"] == "uipath-planner" for s in dev_skills)
+    assert any(s["name"] == "uipath-interact" for s in dev_skills)
+
+
+def test_agent_skill_filters_reference_existing_submodule_skills():
+    """Catch runtime drift when official skills are renamed or moved."""
+    repo_root = Path(__file__).resolve().parents[4]
+    official_skills_dir = repo_root / "skills" / "skills"
+    available = {path.name for path in official_skills_dir.iterdir() if path.is_dir()}
+    referenced = {
+        skill_name
+        for skill_names in AGENT_SKILLS.values()
+        for skill_name in skill_names
+        if skill_name != "*"
+    }
+
+    assert referenced <= available
 
 
 class TestSkillOriginTracking:

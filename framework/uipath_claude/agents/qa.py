@@ -17,11 +17,11 @@ Your responsibilities:
 - Execute tests and report issues
 - Validate workflows against requirements
 
-Available skills: Code review, test generation, Servo testing, Jira integration.""",
+Available skills: Code review, test generation, live UI interaction testing, Jira integration.""",
             skills=[
                 "uipath-code-reviewer",
                 "uipath-test-generator",
-                "uipath-servo",
+                "uipath-interact",
                 "uipath-report-issue",
                 "uipath-jira-connector",
                 "uipath-platform",

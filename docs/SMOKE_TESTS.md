@@ -887,11 +887,11 @@ launched with `UIPATH_MCP_GATE_ENABLED=1`,
 | `session_status` after an out-of-band edit | status flips to `dirty` (real-time `detect_out_of_band_changes`) | PASS |
 | `query_uipath_docs` with `UIPATH_ASKAI_ENDPOINT=mock://localfixture` | answer body contains `SOURCE: askai-mock` | PASS |
 
-Reproduce locally by running `pytest tests/unit/tools/test_write_file_paths.py
-tests/unit/tools/test_session_gate_integration.py
-tests/unit/tools/test_build_and_verify_studio_gate.py
-tests/unit/tools/test_create_project_postcheck.py
-tests/unit/tools/uipath/test_askai.py`; the same checks above are encoded
+Reproduce locally by running `uv run pytest framework/tests/unit/tools/test_write_file_paths.py
+framework/tests/unit/tools/test_session_gate_integration.py
+framework/tests/unit/tools/test_build_and_verify_studio_gate.py
+framework/tests/unit/tools/test_create_project_postcheck.py
+framework/tests/unit/tools/uipath/test_askai.py`; the same checks above are encoded
 as deterministic unit tests.
 
 ## Scenario 13 - Ambiguity triage

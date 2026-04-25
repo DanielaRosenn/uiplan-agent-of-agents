@@ -1,12 +1,12 @@
 ﻿# Contributing
 
-This project is extensible along three axes: **skills**, **tools**, and **slash commands**. The official UiPath skills live in a git submodule (`skills/skills/`) and should not be edited in-place ΓÇö always override from a higher-priority layer. See [docs/SKILL_LAYOUT.md](docs/SKILL_LAYOUT.md) for the full layering model.
+This project is extensible along three axes: **skills**, **tools**, and **slash commands**. The official UiPath skills live in a git submodule (`skills/skills/`) and should not be edited in-place - always override from a higher-priority layer. See [docs/SKILL_LAYOUT.md](docs/SKILL_LAYOUT.md) for the full layering model.
 
-**Submodule vs `.cursor/skills`:** The submodule tree is the **source of truth** for full skill content (`SKILL.md`, references, assets). Files under `.cursor/skills/<name>/` are **gap-fill only** ΓÇö add missing snippets that are not upstream yet; **do not** duplicate upstream filenames (e.g. a second `SKILL.md`) or you silently override the submodule and break Task Navigation. See template policy in companion repos: `docs/ops/skills-submodule-compliance.md` (UiPath Spec Project Template).
+**Submodule vs `.cursor/skills`:** The submodule tree is the **source of truth** for full skill content (`SKILL.md`, references, assets). Files under `.cursor/skills/<name>/` are **gap-fill only** - add missing snippets that are not upstream yet; **do not** duplicate upstream filenames (e.g. a second `SKILL.md`) or you silently override the submodule and break Task Navigation. See template policy in companion repos: `docs/ops/skills-submodule-compliance.md` (UiPath Spec Project Template).
 
 ### Every UiPath build ends with a developer report
 
-For non-trivial automation work in a real `project.json` repo, close the session with **validation evidence** (`uip rpa get-errors`) and a short report under `<project>/docs/reports/<YYYY-MM-DD>-<feature>-dev-report.md`. Rules, R/Y/G status, and the report skeleton are canonical in the **UiPath Spec Project Template** submodule at `agent/skills/skills/uipath-rpa/references/validation-and-reporting.md` (also summarized in `uipath-rpa` rules 28ΓÇô32). This repo consumes that submodule ΓÇö do not fork the reporting doc into `skills/skills/` here; update upstream in the template and pull the submodule.
+For non-trivial automation work in a real `project.json` repo, close the session with **validation evidence** (`uip rpa get-errors`) and a short report under `<project>/docs/reports/<YYYY-MM-DD>-<feature>-dev-report.md`. Rules, R/Y/G status, and the report skeleton are canonical in the **UiPath Spec Project Template** submodule at `agent/skills/skills/uipath-rpa/references/validation-and-reporting.md` (also summarized in `uipath-rpa` rules 28-32). This repo consumes that submodule - do not fork the reporting doc into `skills/skills/` here; update upstream in the template and pull the submodule.
 
 ## Add a skill
 
@@ -19,7 +19,7 @@ Skills are markdown playbooks (`SKILL.md`) with YAML frontmatter. The loader mer
 | Personal experiment | `~/.cursor/skills/<skill-name>/SKILL.md` | No |
 | Per-checkout override | `.uipath-claude/skills/<skill-name>/SKILL.md` | No (gitignored) |
 | Team-shared | `extensions/skills/<skill-name>/SKILL.md` | Yes |
-| Official UiPath skill | `skills/skills/<skill-name>/SKILL.md` | Submodule ΓÇö do not edit here |
+| Official UiPath skill | `skills/skills/<skill-name>/SKILL.md` | Submodule - do not edit here |
 
 **Minimum SKILL.md**
 
@@ -37,7 +37,7 @@ triggers:
 Procedure, constraints, examples. Keep it short; the whole file is injected into the model context when the skill matches.
 ```
 
-Validate your skill registered: `uipath-claude chat` ΓåÆ `/skills`. The origin column shows the layer you added it to.
+Validate your skill registered: `uipath-claude chat` -> `/skills`. The origin column shows the layer you added it to.
 
 ## Add a tool
 
@@ -225,10 +225,10 @@ unsupported throughput, access denied).
 
 Both routing flags default to **on** as of this change:
 
-- `UIPATH_CLAUDE_ROUTING_DYNAMIC=1` (default) ΓÇö pick HEAVY/LIGHT from
+- `UIPATH_CLAUDE_ROUTING_DYNAMIC=1` (default) - pick HEAVY/LIGHT from
   caller-supplied `ComplexitySignals`. Set to `0` for the legacy static
   tier-only behavior.
-- `UIPATH_CLAUDE_FALLBACK_ENABLED=1` (default) ΓÇö retry once with the tier's
+- `UIPATH_CLAUDE_FALLBACK_ENABLED=1` (default) - retry once with the tier's
   fallback model id when a provider error is classified as model-related.
   Set to `0` to disable and surface the original error.
 

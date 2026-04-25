@@ -74,7 +74,8 @@ Follow this sequence when you want to leverage the full project stack end-to-end
 3. **Plan**: run UiPlan (`/uiplan` in chat or `uipath-claude plan uiplan ...` in terminal).
 4. **Review + accept**: verify spec/plan/tasks quality before publishing.
 5. **Build**: implement using approved plan with validator loops.
-6. **Verify**: run analyze/validate/tests/manual checks from docs.
+6. **Verify**: run analyze/validate/tests/manual checks from docs; **pytest** layout
+   and one-liners: [docs/TESTING.md](TESTING.md).
 7. **Publish/deploy only with explicit confirmation** (and never to Production from assistant flow).
 
 For deeper context, see [README.md](../README.md), [PDD_LIFECYCLE.md](PDD_LIFECYCLE.md), and [uiplan/README.md](uiplan/README.md).

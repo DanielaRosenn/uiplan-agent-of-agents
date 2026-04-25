@@ -7,6 +7,7 @@ and loss of the two cross-tool steers.
 """
 from __future__ import annotations
 
+import importlib.util
 import pytest
 
 from pathlib import Path
@@ -45,6 +46,20 @@ def test_mcp_tools_doc_lists_every_registered_tool():
     text = doc_path.read_text(encoding="utf-8")
     missing = [t.name for t in _all_tools() if f"`{t.name}`" not in text]
     assert not missing, f"MCP_TOOLS.md missing tools: {missing}"
+
+
+def test_mcp_tools_doc_is_generated_from_current_tools():
+    """Keep generated MCP docs from drifting after tool changes."""
+    root = Path(__file__).resolve().parents[3]
+    script_path = root / "ops" / "scripts" / "generate_mcp_tools_doc.py"
+    spec = importlib.util.spec_from_file_location("generate_mcp_tools_doc", script_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    expected = module.build_markdown()
+    actual = (root / "docs" / "MCP_TOOLS.md").read_text(encoding="utf-8")
+    assert actual == expected
 
 
 @pytest.mark.parametrize("tool", _all_tools(), ids=lambda t: t.name)

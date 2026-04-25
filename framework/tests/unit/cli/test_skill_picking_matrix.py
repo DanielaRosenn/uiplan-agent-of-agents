@@ -25,6 +25,11 @@ def _skills_fixture() -> list[dict]:
             "triggers": ["workflow", "xaml", "outlook email", "ui automation", "excel", "mail"],
         },
         {
+            "name": "uipath-interact",
+            "description": "Inspect and interact with live desktop/browser apps.",
+            "triggers": ["live desktop", "live browser", "click", "type", "screenshot", "inspect"],
+        },
+        {
             "name": "uipath-rpa-workflows",
             "description": "Legacy alias for RPA workflows.",
             "triggers": ["workflow", "xaml"],
@@ -103,6 +108,24 @@ class TestRPAWorkflowSkillPicking:
         skills = _skills_fixture()
         selected = _select_relevant_skills(
             "Build a workflow with UI automation to click buttons and type text",
+            skills,
+        )
+        assert selected
+        assert selected[0]["name"] == "uipath-rpa"
+
+    def test_live_browser_interaction_prefers_interact(self):
+        skills = _skills_fixture()
+        selected = _select_relevant_skills(
+            "Inspect the live browser, click the submit button, and take a screenshot",
+            skills,
+        )
+        assert selected
+        assert selected[0]["name"] == "uipath-interact"
+
+    def test_ui_authoring_does_not_route_to_interact_for_selector_work(self):
+        skills = _skills_fixture()
+        selected = _select_relevant_skills(
+            "Build a UiPath workflow that creates selectors and automates a desktop app",
             skills,
         )
         assert selected

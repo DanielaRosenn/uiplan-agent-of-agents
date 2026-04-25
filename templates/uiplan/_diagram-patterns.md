@@ -8,7 +8,7 @@ Copy one of the blocks below into `spec.md`, `plan.md`, or `tasks.md`, then **re
 | --- | --- |
 | **Flowchart TB** | Layered architecture, scope boundaries, gate pipelines |
 | **Sequence** | Actor vs system vs HITL message flow |
-| **State** | Plan lifecycle (draft ΓåÆ review ΓåÆ accepted) |
+| **State** | Plan lifecycle (draft -> review -> accepted) |
 
 ---
 

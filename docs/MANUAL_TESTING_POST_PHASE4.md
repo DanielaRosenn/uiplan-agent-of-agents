@@ -1,6 +1,6 @@
 # Manual testing after Phase 4 + UiPlan (repo layout)
 
-Use this checklist after pulling `main` to confirm **framework-only runtime**, **UiPlan kit under `docs/uiplan/`**, **MCP path**, and **tooling** behave as expected. It complements automated tests (`pytest`) and does **not** replace Orchestrator deploy smoke (not in scope for this migration).
+Use this checklist after pulling `main` to confirm **framework-only runtime**, **UiPlan human docs under `docs/uiplan/`**, **template kit under `templates/uiplan/`**, **MCP path**, and **tooling** behave as expected. It complements automated tests (`pytest`) and does **not** replace Orchestrator deploy smoke (not in scope for this migration).
 
 For a **deeper, Cursor-first pass** (natural-language prompts to test MCP intent routing, UiPlan doc/kit checks, per-tool NL examples, slash commands, and a copy-paste **results** block), use [MANUAL_REVIEW_CURSOR_FULL_PROJECT.md](MANUAL_REVIEW_CURSOR_FULL_PROJECT.md). **Minimal onboarding:** run `ops/scripts/cursor-quickstart.ps1` (Windows) or `bash ops/scripts/cursor-quickstart.sh` (Unix), then open the repo in Cursor. Scripted scenarios that overlap this checklist are detailed in [SMOKE_TESTS.md](SMOKE_TESTS.md).
 
@@ -38,7 +38,7 @@ From repo root, confirm:
 | `framework/uipath_claude/` exists | Yes |
 | `framework/mcp_server/` exists | Yes |
 | `ops/scripts/` exists | Yes |
-| `docs/uiplan/kit/_spec-template.md` exists | Yes |
+| `templates/uiplan/_spec-template.md` exists | Yes |
 | Root `uipath_claude/` (package tree) | **Absent** |
 | Root `mcp_server/` | **Absent** |
 | Root `scripts/` (legacy) | **Absent** |
@@ -46,7 +46,7 @@ From repo root, confirm:
 PowerShell one-liner:
 
 ```powershell
-@('uipath_claude','mcp_server','scripts') | % { if (Test-Path $_) { "FAIL: $_ exists" } }; Test-Path docs/uiplan/kit/_spec-template.md; Test-Path framework/mcp_server/server.py
+@('uipath_claude','mcp_server','scripts') | % { if (Test-Path $_) { "FAIL: $_ exists" } }; Test-Path templates/uiplan/_spec-template.md; Test-Path framework/mcp_server/server.py
 ```
 
 **Expect:** no `FAIL` lines; last two lines `True`.
@@ -61,8 +61,8 @@ uv run pytest -q
 **Expect:** all tests pass (exit code 0). Optional faster slices from the parallel board:
 
 ```powershell
-uv run pytest tools/uiplan/tests framework/tests/migration -q
-uv run pytest framework/tests/mcp/test_tool_annotations.py framework/tests/mcp/test_tool_descriptions.py framework/tests/mcp/test_plan_tools.py -q
+uv run pytest framework/tests/uiplan framework/tests/migration -q
+uv run pytest framework/tests/mcp_tests/test_tool_annotations.py framework/tests/mcp_tests/test_tool_descriptions.py framework/tests/mcp_tests/test_plan_tools.py -q
 ```
 
 **Last recorded full run (CI-style):** `1406 passed, 8 skipped` (warnings only).

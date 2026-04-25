@@ -511,6 +511,14 @@ _CODED_HINT_TOKENS = {"coded", "csharp", "c#", ".cs"}
 _DOC_INTENT_TOKENS = {"pdd", "sdd", "document", "architecture", "design"}
 _FLOW_HINT_TOKENS = {"flow", "maestro", "agentic"}
 _PLATFORM_HINT_TOKENS = {"orchestrator", "deploy", "connector", "integration service"}
+_LIVE_INTERACTION_PHRASES = {
+    "live desktop",
+    "live browser",
+    "running app",
+    "running application",
+    "currently active browser",
+    "active browser tab",
+}
 
 _SKILL_SELECTION_MIN_SCORE = 2
 
@@ -532,6 +540,7 @@ _SKILL_NAME_ALIASES = {
     "uipath-rpa-workflows": "uipath-rpa",
     "uipath-automation": "uipath-rpa",
     "uipath-coded-workflows": "uipath-rpa",  # Now part of uipath-rpa
+    "uipath-servo": "uipath-interact",
 }
 
 _PROJECT_FILE_HINTS = {
@@ -740,7 +749,7 @@ def _score_skill(skill: dict, user_input: str, user_tokens: set[str]) -> int:
         "uipath-data-fabric": (("entity", "entities"), ("data fabric",)),
         "uipath-maestro-flow": (("maestro", "bpmn", "flow", "flows"), (".flow",)),
         "uipath-agents": (("langgraph", "llamaindex"), ("coded agent", "coded agents", "agentic process", "agent builder", "build an agent", "build agent")),
-        "uipath-servo": (("servo",), ("live desktop", "live browser")),
+        "uipath-interact": (("interact", "servo"), ("live desktop", "live browser")),
         "uipath-test": (("tm",), ("test manager", "test execution", "test report")),
         "uipath-rpa-legacy": (("legacy", "net461"), (".net framework",)),
         "uipath-feedback": (("feedback",), ("report issue", "bug report")),
@@ -771,6 +780,10 @@ def _is_workflow_intent(user_input: str, user_tokens: set[str]) -> bool:
         or ("coded" in user_tokens and "workflow" in user_tokens)
     )
     if is_coded_intent:
+        return False
+    if any(phrase in lower for phrase in _LIVE_INTERACTION_PHRASES) and not (
+        user_tokens & {"build", "create", "generate", "project", "workflow", "workflows", "xaml"}
+    ):
         return False
     # Explicit workflow/xaml terms win even if the user also mentions PDD/SDD
     # (common in BUILD prompts that reference the project's spec files).

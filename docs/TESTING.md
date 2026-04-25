@@ -45,8 +45,23 @@ uv run pytest -m "not integration" -q
 - **MCP import failures:** a test folder named `mcp` can shadow the PyPI SDK. Keep `framework/tests/mcp_tests/` and avoid prepending `framework/tests` to `sys.path` for helper imports.
 - **Broad search-replace damage:** restore unrelated files before narrow test-layout edits; re-check with `git diff --stat` before running the suite.
 
-## Last verification (automated)
+## Last verification (2026-04-25, local)
 
-Re-run the commands above after any change to `pyproject.toml`, `conftest`, or
-`mcp_server/`. Full-suite numbers belong in CI logs, not a fixed number here.
+| Command | Result |
+| --- | --- |
+| `python -m pytest framework/tests/uiplan -q` | 16 passed (~20s) |
+| `python -m pytest framework/tests/mcp_tests/test_server.py -q` | 10 passed, 1 warning (~2.4s) |
+| `python -m pytest` (two chat integration modules + one test id) | 4 passed (~90s) |
+
+Use the repo venv: `.venv\Scripts\python.exe -m pytest ...` (or `uv run` if it
+responds; `uv run` has been observed to block with no output on some Windows runs).
+
+A full `pytest` over **~1424** collected tests can take a long time; a mid-run
+stall may mean a single test is waiting on I/O. Use `pytest -x` or
+`--maxfail=1` to find the first failure, or run in CI.
+
+**Generated cleanup:** some under `generated/test-runs/pytest/` and
+`chat-project-bundles/` could not be deleted (locked `GlobalVariables*.dll`); close
+UiPath/Studio/MSBuild using those trees, then remove manually.
+
 See also: [SMOKE_TESTS](SMOKE_TESTS.md) and the manual review docs for MCP checklists.

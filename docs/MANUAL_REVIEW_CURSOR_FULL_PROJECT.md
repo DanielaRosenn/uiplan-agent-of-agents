@@ -126,14 +126,14 @@ Verify the **human docs** and **templates** are coherent and that both **CLI** a
 
 | Id | Check | Status | Notes | Date |
 | --- | --- | --- | --- | --- |
-| UP0 | In Cursor (natural language): "Explain when to use UiPlan `generate-docs` vs MCP `uipath_plan_uiplan_new`, and where the kit lives." | Agent cites `docs/uiplan/` paths | | | |
+| UP0 | In Cursor (natural language): "Explain when to use UiPlan `generate-docs` vs MCP `uipath_plan_uiplan_new`, and where the kit lives." | Agent cites `docs/uiplan/` and `templates/uiplan/` paths | | | |
 | UP1 | Read [docs/uiplan/README.md](uiplan/README.md) — links resolve | | | |
 | UP2 | Read [docs/uiplan/HOW_TO_USE.md](uiplan/HOW_TO_USE.md) — decision table matches your mental model | | | |
-| UP3 | Confirm kit files exist: `docs/uiplan/kit/_spec-template.md`, `_plan-template.md`, `_tasks-template.md`, `_diagram-patterns.md` | | | |
+| UP3 | Confirm kit files exist: `templates/uiplan/_spec-template.md`, `_plan-template.md`, `_tasks-template.md`, `_diagram-patterns.md` | | | |
 | UP4 | `uv run python -m tools.uiplan generate-docs 2099-12-31-uiplan-review --out (Join-Path $env:TEMP 'uiplan-kit-test')` — **strict** (PowerShell) | Three files + density OK | | | |
 | UP5 | Open the three generated files; confirm placeholders and Mermaid fences present | | | |
 | UP6 | `uv run python -m tools.uiplan scaffold-code 2099-12-31-uiplan-review` at repo root | Coded-agent checks pass | | | |
-| UP7 | Optional: `uv run python -m tools.uiplan validate-mermaid docs/uiplan/kit/_diagram-patterns.md` if `mmdc` installed | | | |
+| UP7 | Optional: `uv run python -m tools.uiplan validate-mermaid templates/uiplan/_diagram-patterns.md` if `mmdc` installed | | | |
 
 ## Onboarding narrative quality (new-user comprehension)
 

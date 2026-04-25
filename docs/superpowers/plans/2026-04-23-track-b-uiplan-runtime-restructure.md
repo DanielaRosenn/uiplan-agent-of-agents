@@ -213,7 +213,7 @@ Expected: PASS.
 Run:
 ```bash
 uv run pytest framework/tests/uiplan -q
-uv run pytest framework/tests/mcp/test_plan_tools.py -q
+uv run pytest framework/tests/mcp_tests/test_plan_tools.py -q
 ```
 Expected: PASS.
 
@@ -230,7 +230,7 @@ Run:
 
 ```bash
 uv run pytest framework/tests/uiplan -q
-uv run pytest framework/tests/mcp/test_plan_tools.py framework/tests/mcp/test_tool_annotations.py -q
+uv run pytest framework/tests/mcp_tests/test_plan_tools.py framework/tests/mcp_tests/test_tool_annotations.py -q
 ```
 
 Expected:
