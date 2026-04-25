@@ -78,6 +78,13 @@ flowchart LR
   linkStyle 0,1 stroke:#3B82F6,stroke-width:2px
 ```
 
+### Tests and Orchestrator runbooks
+
+- **Fast test path:** `pytest -m "not integration"` from repo root; see [docs/TESTING.md](docs/TESTING.md) for the full matrix and markers.
+- **MCP regression tests** live under **`framework/tests/mcp_tests/`**. Do not add a `framework/tests/mcp` package: it shadows the PyPI **`mcp`** dependency (`mcp.types`, etc.) and breaks MCP server imports under pytest.
+- **Generated tool catalog:** when you add or change MCP tools, run `python ops/scripts/generate_mcp_tools_doc.py` and commit [docs/MCP_TOOLS.md](docs/MCP_TOOLS.md).
+- **Orchestrator packaging / deploy** (compatibility preflight, personal workspace vs shared folders, assistant-session boundaries): **[docs/ORCHESTRATOR_DEPLOYMENT.md](docs/ORCHESTRATOR_DEPLOYMENT.md)**. `uipath_workflow_deploy` / `uipath_workflow_publish` tool text matches that runbook.
+
 ---
 
 ## Quickstart
@@ -191,7 +198,7 @@ Adds validation, package install, and run-workflow tools to Cursor via the bundl
 - **Bootstrap end-to-end with the BA → SA → ADD → TDD → Dev → QA pipeline.** `/pdd "InvoiceBot"` turns a one-paragraph brief into a PDD, SDD, ADD, TDD, scaffolded project, validated workflow, and (optionally) a published + deployed Orchestrator process. The legacy four-stage `/bootstrap` flow is still available for quick BA → SA → Dev → QA runs. Full reference: [docs/PDD_LIFECYCLE.md](docs/PDD_LIFECYCLE.md).
 - **Works where you work.** Use the CLI (`uipath-claude chat`), drive it from Cursor (the skills register automatically after running `ops/scripts/setup-cursor.ps1`), or call slash commands like `/pdd`, `/bootstrap`, `/skills`, `/analyze`, `/recall`.
 - **Learns as you use it.** A layered skills system (user → project → team extensions → official UiPath submodule) plus a library learning loop capture gotchas and edge cases as you hit them, so the agent gets better at your codebase over time.
-- **Safe by default.** Tool profiles (`safe`, `uipath-dev`, `all`), per-operation approval gates, and session hooks keep destructive actions behind human review. Nothing touches Orchestrator unless you say so.
+- **Safe by default.** Tool profiles (`safe`, `uipath-dev`, `all`), per-operation approval gates, and session hooks keep destructive actions behind human review. Orchestrator publish/deploy follows [docs/ORCHESTRATOR_DEPLOYMENT.md](docs/ORCHESTRATOR_DEPLOYMENT.md); nothing targets shared or Production folders without explicit human confirmation.
 
 ---
 
