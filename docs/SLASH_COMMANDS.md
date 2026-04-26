@@ -1,6 +1,24 @@
-# Slash commands (in-chat / `uipath chat`)
+# Slash commands
 
-These commands are typed at the **`uipath chat`** (or equivalent) prompt when the input starts with `/`. They are **separate from MCP tools** in Cursor; see [MCP_TOOLS.md](MCP_TOOLS.md) for MCP.
+These commands are typed at the **`uipath chat`** (or equivalent) prompt when
+the input starts with `/`. Cursor-native command files live separately under
+`.cursor/commands/`; those files wrap the same UiPlan MCP-backed workflow for
+Cursor chat. MCP tools remain documented in [MCP_TOOLS.md](MCP_TOOLS.md).
+
+## Cursor-native commands
+
+Cursor discovers project commands from `.cursor/commands/*.md`. This repo ships
+the UiPlan command set there so `/uiplan` appears in Cursor as a native command:
+
+| Cursor command | Purpose |
+| --- | --- |
+| `/uiplan` | Dispatcher/help alias for the UiPlan flow. |
+| `/uiplan-ground` | Read-only grounding pack. |
+| `/uiplan-spec` | Create the draft bundle and `spec.md`. |
+| `/uiplan-plan` | Write `plan.md` for an existing draft. |
+| `/uiplan-tasks` | Write `tasks.md` for an existing draft. |
+| `/uiplan-review` | Review a draft bundle. |
+| `/uiplan-full` | Run ground -> spec -> plan -> tasks -> review. |
 
 ## Tool profile (`UIPATH_CLAUDE_TOOL_PROFILE`)
 

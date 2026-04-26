@@ -11,7 +11,7 @@
 | --- | --- |
 | Chat-native flow with grounding and review | MCP `uipath_plan_ground`, `uipath_plan_spec_new`, `uipath_plan_plan_new`, `uipath_plan_tasks_new`, `uipath_plan_review` (or `uipath_plan_uiplan_new` for the bundled path). |
 | A file-first bundle from templates with local validation | From repo root: `uv run python -m tools.uiplan generate-docs <slug>` (optional `--out`, `--kit`, `--strict`). |
-| Slash commands in Cursor | Load `.cursor/skills/uiplan/SKILL.md` and use `/uiplan-ground`, `/uiplan-spec`, `/uiplan-plan`, `/uiplan-tasks`, `/uiplan-review`, or `/uiplan-full`. |
+| Slash commands in Cursor | Project commands under `.cursor/commands/`: `/uiplan`, `/uiplan-ground`, `/uiplan-spec`, `/uiplan-plan`, `/uiplan-tasks`, `/uiplan-review`, or `/uiplan-full`. |
 | CLI parity with chat | `uipath-claude plan uiplan …` (see [USER_GUIDE.md](../USER_GUIDE.md)). |
 
 ## Paths (folder convention)
@@ -33,9 +33,11 @@ Do **not** treat `generate-docs` output as approved scope by default.
 ### A) Cursor skill / slash
 
 1. Open the repo in Cursor with skills installed ([INSTALL.md](../INSTALL.md)).
-2. Follow `.cursor/skills/uiplan/SKILL.md` for per-file slash commands:
+2. Use the project slash commands from `.cursor/commands/`:
    `/uiplan-ground`, `/uiplan-spec`, `/uiplan-plan`, `/uiplan-tasks`,
-   `/uiplan-review`, or `/uiplan-full`.
+   `/uiplan-review`, `/uiplan-full`, or the dispatcher `/uiplan`.
+3. The commands load `.cursor/skills/uiplan/SKILL.md` and map to the same
+   `uipath_plan_*` MCP tools as the CLI/chat surface.
 
 ### B) Local Typer CLI (`tools/uiplan`)
 

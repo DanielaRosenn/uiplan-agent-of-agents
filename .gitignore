@@ -94,6 +94,8 @@ Thumbs.db
 .cursor/*
 !.cursor/hooks.json
 !.cursor/hooks
+!.cursor/commands
+!.cursor/commands/**
 !.cursor/rules
 !.cursor/rules/**
 !.cursor/skills

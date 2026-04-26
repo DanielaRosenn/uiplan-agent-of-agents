@@ -116,7 +116,9 @@ flowchart LR
   linkStyle default stroke:#94A3B8,stroke-width:1.5px
 ```
 
-**Cursor:** load `.cursor/skills/uiplan/SKILL.md`.
+**Cursor:** use the project commands in `.cursor/commands/`; they load
+`.cursor/skills/uiplan/SKILL.md` and route to the matching `uipath_plan_*`
+MCP tools.
 **Chat:** `/uiplan-ground`, `/uiplan-spec`, `/uiplan-plan`, `/uiplan-tasks`,
 `/uiplan-review`, `/uiplan-full`; `/uiplan ...` remains as a dispatcher alias.
 **CLI:** `uipath-claude plan uiplan <subcommand>`.
