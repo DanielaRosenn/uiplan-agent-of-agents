@@ -2,23 +2,27 @@
 
 These commands are typed at the **`uipath chat`** (or equivalent) prompt when
 the input starts with `/`. Cursor-native command files live separately under
-`.cursor/commands/`; those files wrap the same UiPlan MCP-backed workflow for
-Cursor chat. MCP tools remain documented in [MCP_TOOLS.md](MCP_TOOLS.md).
+`.cursor/commands/`; `.cursor/commands/uiplan.md` wraps the same UiPlan
+MCP-backed workflow for Cursor chat. MCP tools remain documented in
+[MCP_TOOLS.md](MCP_TOOLS.md).
 
 ## Cursor-native commands
 
 Cursor discovers project commands from `.cursor/commands/*.md`. This repo ships
-the UiPlan command set there so `/uiplan` appears in Cursor as a native command:
+one UiPlan dispatcher there so `/uiplan` appears in Cursor as a native command:
 
 | Cursor command | Purpose |
 | --- | --- |
-| `/uiplan` | Dispatcher/help alias for the UiPlan flow. |
-| `/uiplan-ground` | Read-only grounding pack. |
-| `/uiplan-spec` | Create the draft bundle and `spec.md`. |
-| `/uiplan-plan` | Write `plan.md` for an existing draft. |
-| `/uiplan-tasks` | Write `tasks.md` for an existing draft. |
-| `/uiplan-review` | Review a draft bundle. |
-| `/uiplan-full` | Run ground -> spec -> plan -> tasks -> review. |
+| `/uiplan full <title>` | Run ground -> spec -> plan -> tasks -> review. |
+| `/uiplan ground <topic>` | Read-only grounding pack. |
+| `/uiplan spec <title> [--intent text]` | Create the draft bundle and `spec.md`. |
+| `/uiplan plan <slug>` | Write `plan.md` for an existing draft. |
+| `/uiplan tasks <slug>` | Write `tasks.md` for an existing draft. |
+| `/uiplan review <slug> [all\|spec\|plan\|tasks]` | Review a draft bundle. |
+
+The Cursor dispatcher loads `.cursor/skills/uiplan/SKILL.md`, uses
+`@docs/uiplan/` as its contract, and stops before implementation until review
+passes and the human accepts the plan.
 
 ## Tool profile (`UIPATH_CLAUDE_TOOL_PROFILE`)
 

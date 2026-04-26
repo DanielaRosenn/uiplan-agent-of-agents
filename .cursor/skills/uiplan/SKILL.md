@@ -102,7 +102,22 @@ Do **not** start implementation (workflow writes, package installs, deploy) unti
 
 After acceptance and when ready to promote: **`uipath_plan_publish`** copies the draft folder to `docs/plans/`. Use `force=true` only to intentionally overwrite a prior published version.
 
-## Slash / CLI (MCP-backed)
+## Cursor slash / CLI (MCP-backed)
+
+**Cursor native:** `.cursor/commands/uiplan.md` exposes one dispatcher command:
+
+| Command | MCP tool |
+| --- | --- |
+| `/uiplan ground <topic>` | `uipath_plan_ground` |
+| `/uiplan spec <title> [--intent ...]` | `uipath_plan_spec_new` |
+| `/uiplan plan <slug>` | `uipath_plan_plan_new` |
+| `/uiplan tasks <slug>` | `uipath_plan_tasks_new` |
+| `/uiplan review <slug> [all\|spec\|plan\|tasks]` | `uipath_plan_review` |
+| `/uiplan full <title>` | `uipath_plan_uiplan_new` |
+
+Keep implementation behind `uipath_plan_review` plus human acceptance.
+
+**UiPath chat / CLI:** staged slash aliases remain available outside Cursor.
 
 Each slash command is a thin wrapper around the corresponding `uipath_plan_*`
 MCP tool:

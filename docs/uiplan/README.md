@@ -10,7 +10,7 @@ If you are new, do this in order:
 1. Read [HOW_TO_USE.md](HOW_TO_USE.md) for the mode matrix (MCP vs CLI vs skill).
 2. Generate a bundle: `uv run python -m tools.uiplan generate-docs <slug>`.
 3. Review the three files (`spec.md`, `plan.md`, `tasks.md`) and tighten scope.
-4. Run review (`uipath_plan_review` or `/uiplan-review <slug>`) and resolve findings.
+4. Run review (`uipath_plan_review` or Cursor `/uiplan review <slug>`) and resolve findings.
 5. Move to scaffold/build only after acceptance.
 
 This flow is the fastest way to keep planning quality high and implementation predictable.
