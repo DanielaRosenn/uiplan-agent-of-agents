@@ -16,6 +16,7 @@ from mcp_server.tools.doc_tools import get_doc_tools
 from mcp_server.tools.intent_tools import get_intent_tools
 from mcp_server.tools.library_tools import get_library_tools
 from mcp_server.tools.memory_tools import get_memory_tools
+from mcp_server.tools.assistant_tools import get_assistant_tools
 from mcp_server.tools.plan_tools import get_plan_tools
 from mcp_server.tools.skill_tools import get_skill_tools
 from mcp_server.tools.workflow_tools import get_workflow_tools
@@ -41,6 +42,7 @@ def _all_mcp_tools():
         *get_intent_tools(),
         *get_plan_tools(),
         *get_answer_tools(),
+        *get_assistant_tools(),
     ]
 
 

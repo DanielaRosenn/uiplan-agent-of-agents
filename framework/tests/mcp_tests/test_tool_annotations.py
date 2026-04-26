@@ -15,6 +15,7 @@ from mcp_server.tools.doc_tools import get_doc_tools
 from mcp_server.tools.intent_tools import get_intent_tools
 from mcp_server.tools.library_tools import get_library_tools
 from mcp_server.tools.memory_tools import get_memory_tools
+from mcp_server.tools.assistant_tools import get_assistant_tools
 from mcp_server.tools.plan_tools import get_plan_tools
 from mcp_server.tools.skill_tools import get_skill_tools
 from mcp_server.tools.workflow_tools import get_workflow_tools
@@ -30,6 +31,7 @@ ALL_GETTERS = [
     get_intent_tools,
     get_plan_tools,
     get_answer_tools,
+    get_assistant_tools,
 ]
 
 READ_ONLY = {
@@ -84,6 +86,8 @@ READ_ONLY = {
     "uipath_plan_ground",
     "uipath_plan_review",
     "uipath_answer",
+    "uipath_assistant_context",
+    "uipath_assistant_route",
     # ensure_project_structure no longer hand-writes scaffolds; it returns
     # success or refuses + routes to create_project. Read-only in practice.
     "uipath_workflow_ensure_project",

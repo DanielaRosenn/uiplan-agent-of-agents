@@ -28,6 +28,7 @@ if str(_SCRIPTS) not in sys.path:
 from mcp.types import Tool
 
 from mcp_server.tools.agent_tools import get_agent_tools
+from mcp_server.tools.assistant_tools import get_assistant_tools
 from mcp_server.tools.answer_tools import get_answer_tools
 from mcp_server.tools.design_tools import get_design_tools
 from mcp_server.tools.doc_tools import get_doc_tools
@@ -51,6 +52,7 @@ MODULE_GETTERS: list[tuple[str, Any]] = [
     ("intent", get_intent_tools),
     ("plan", get_plan_tools),
     ("answer", get_answer_tools),
+    ("assistant", get_assistant_tools),
 ]
 
 

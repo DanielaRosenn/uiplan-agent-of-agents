@@ -122,8 +122,8 @@ The banner prints a **session id**. The process tells you: `Type 'exit' or 'quit
 
 ### 5. Inside chat: normal work loop
 
-1. Type a **goal** in plain language (include paths, project type, and constraints).
-2. Use **slash commands** when you want a fixed operation (`/validate`, `/uiplan-*`, `/uiplan`, `/pdd`, …). See [SLASH_COMMANDS.md](SLASH_COMMANDS.md).
+1. Type a **goal** in plain language (include paths, project type, and constraints). Unless you use a **slash command**, the session first runs an **orchestration router** (LLM) that picks answer-only, clarification, documentation, UiPlan, a planner pass, or agentic execution from your full message and grounding pack—not fixed keyword paths alone. The same read-only context and route are exposed to Cursor via MCP: `uipath_assistant_context` and `uipath_assistant_route`. You may be prompted to confirm the chosen route or high-impact writes when the model requests it. Set **`UIPATH_ORCHESTRATION_ROUTER=0`** to fall back to legacy intent heuristics.
+2. Use **slash commands** when you want a **direct** operation (`/validate`, `/uiplan-*`, `/uiplan`, `/pdd`, …); those bypass the orchestration router. See [SLASH_COMMANDS.md](SLASH_COMMANDS.md).
 3. Answer **approval prompts** when the agent proposes destructive tools (unless you disabled prompts via `UIPATH_TOOL_APPROVAL` for CI).
 4. When finished, type **`exit`** or **`quit`**, or press **Ctrl+C** to abort the current line or stop the session.
 

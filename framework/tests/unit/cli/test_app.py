@@ -759,3 +759,120 @@ def test_plan_post_questions_flag_merges_answers_into_runtime_extra(
     assert "A: north" in extra
     assert "Q: Go-live date?" in extra
     assert "A: 2026" in extra
+
+
+def test_chat_orchestration_answer_uses_simple_answer_after_orchestrator(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """NL 'answer' route should call simple_llm_answer with after_orchestrator=True."""
+    from uipath_claude.query.orchestration_types import (
+        ApprovalLevel,
+        OrchestrationDecision,
+        RouteKind,
+    )
+
+    monkeypatch.setenv("UIPATH_ORCHESTRATION_ROUTER", "1")
+    called: dict[str, bool | None] = {"after": None}
+
+    async def _fake_simple(
+        *args: object,
+        after_orchestrator: bool = False,
+        **kwargs: object,
+    ) -> str:
+        called["after"] = after_orchestrator
+        return "ok"
+
+    async def _fake_route(*args: object, **kwargs: object) -> OrchestrationDecision:
+        return OrchestrationDecision(
+            route=RouteKind.ANSWER,
+            confidence=0.9,
+            rationale="informational",
+            approval_level=ApprovalLevel.NONE,
+        )
+
+    with patch("uipath_claude.cli.app._create_engine") as create_engine:
+        create_engine.return_value = object()
+        with patch(
+            "uipath_claude.query.orchestration_router.route_user_request",
+            side_effect=_fake_route,
+        ):
+            with patch("uipath_claude.cli.app.simple_llm_answer", side_effect=_fake_simple):
+                result = runner.invoke(
+                    app,
+                    ["chat", "--no-banner", "--no-stream"],
+                    input="can we use uiplan?\nexit\n",
+                )
+    assert result.exit_code == 0
+    assert called.get("after") is True
+
+
+def test_chat_orchestration_clarify_skips_simple_answer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("UIPATH_ORCHESTRATION_ROUTER", "1")
+    from uipath_claude.query.orchestration_types import (
+        ApprovalLevel,
+        OrchestrationDecision,
+        RouteKind,
+    )
+
+    async def _fake_simple(*args: object, **kwargs: object) -> str:
+        raise AssertionError("simple_llm_answer should not run for clarify")
+
+    async def _fake_route(*args: object, **kwargs: object) -> OrchestrationDecision:
+        return OrchestrationDecision(
+            route=RouteKind.CLARIFY,
+            confidence=0.3,
+            rationale="vague",
+            approval_level=ApprovalLevel.NONE,
+            question="What is the main goal?",
+        )
+
+    with patch("uipath_claude.cli.app._create_engine") as create_engine:
+        create_engine.return_value = object()
+        with patch(
+            "uipath_claude.query.orchestration_router.route_user_request",
+            side_effect=_fake_route,
+        ):
+            with patch("uipath_claude.cli.app.simple_llm_answer", side_effect=_fake_simple):
+                result = runner.invoke(
+                    app,
+                    ["chat", "--no-banner", "--no-stream"],
+                    input="help with this\nexit\n",
+                )
+    assert result.exit_code == 0
+    out = (result.stdout or "")
+    assert "What is the main goal" in out or "main goal" in out
+
+
+def test_slash_uiplan_spec_does_not_call_orchestration_router(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Explicit /uiplan-spec stays on the command registry; no LLM route."""
+
+    async def _fail_route(*args: object, **kwargs: object) -> object:
+        raise AssertionError("route_user_request must not be called for slash commands")
+
+    async def _fake_plan_tool(
+        name: str, _arguments: dict[str, Any]
+    ) -> dict[str, Any]:
+        if name == "uipath_plan_spec_new":
+            return {"status": "ok", "relative": ".cursor/plans/slug/spec.md"}
+        return {"status": "ok"}
+
+    with patch("uipath_claude.cli.app._create_engine") as create_engine:
+        create_engine.return_value = object()
+        with patch(
+            "uipath_claude.query.orchestration_router.route_user_request",
+            side_effect=_fail_route,
+        ):
+            with patch(
+                "mcp_server.tools.plan_tools.call_plan_tool",
+                side_effect=_fake_plan_tool,
+            ):
+                result = runner.invoke(
+                    app,
+                    ["chat", "--no-banner", "--no-stream"],
+                    input="/uiplan-spec Title A\nexit\n",
+                )
+    assert result.exit_code == 0

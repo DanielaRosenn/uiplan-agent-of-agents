@@ -58,9 +58,6 @@ from uipath_claude.query.plan_block import PLAN_BLOCK_HEADING, build_plan_block
 from uipath_claude.query.planner import run_planner_agent
 from uipath_claude.query.planner_router import find_planner_skill, should_use_planner
 from uipath_claude.query.router import route_user_input
-from uipath_claude.query.orchestration_context import build_orchestration_context
-from uipath_claude.query.orchestration_router import route_user_request
-from uipath_claude.query.orchestration_types import ApprovalLevel, RouteKind
 from uipath_claude.query.simple_answer import simple_llm_answer
 from uipath_claude.skills.execution_hook import get_execution_hooks
 from uipath_claude.rendering.branding import print_welcome_banner
@@ -1593,6 +1590,17 @@ def chat(
             orchestration_for_graph: dict[str, Any] | None = None
 
             if orchestration_on:
+                from uipath_claude.query.orchestration_context import (  # noqa: PLC0415
+                    build_orchestration_context,
+                )
+                from uipath_claude.query.orchestration_router import (  # noqa: PLC0415
+                    route_user_request,
+                )
+                from uipath_claude.query.orchestration_types import (  # noqa: PLC0415
+                    ApprovalLevel,
+                    RouteKind,
+                )
+
                 command_names = sorted(registry.commands.keys())
                 octx = build_orchestration_context(
                     user_input,

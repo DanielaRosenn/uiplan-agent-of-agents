@@ -54,6 +54,7 @@ from mcp_server.tools.library_tools import (
 )
 from mcp_server.tools.answer_tools import call_answer_tool, get_answer_tools
 from mcp_server.tools.memory_tools import call_memory_tool, get_memory_tools
+from mcp_server.tools.assistant_tools import call_assistant_tool, get_assistant_tools
 from mcp_server.tools.plan_tools import call_plan_tool, get_plan_tools
 from mcp_server.tools.skill_tools import call_skill_tool, get_skill_tools
 from mcp_server.tools.workflow_tools import call_workflow_tool, get_workflow_tools
@@ -80,6 +81,7 @@ async def list_tools() -> list[Tool]:
     tools.extend(get_intent_tools())
     tools.extend(get_plan_tools())
     tools.extend(get_answer_tools())
+    tools.extend(get_assistant_tools())
     return tools
 
 
@@ -106,6 +108,8 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             result = await call_plan_tool(name, arguments)
         elif name == "uipath_answer":
             result = await call_answer_tool(name, arguments)
+        elif name.startswith("uipath_assistant_"):
+            result = await call_assistant_tool(name, arguments)
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
         return _text_result(result)

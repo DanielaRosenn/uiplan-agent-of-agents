@@ -28,7 +28,7 @@ This repo brings the main pieces of UiPath assistant work into one local workspa
 - **Workflow authoring** with `uipath-rpa` for XAML and coded RPA projects.
 - **Live UI interaction** with `uipath-interact` for screenshots, inspection, click/type actions, and post-build verification.
 - **UiPlan planning** with `spec.md`, `plan.md`, and `tasks.md` before risky changes.
-- **MCP tools for Cursor** covering workflow, skill, library, intent, doc, design, memory, answer, and plan operations.
+- **MCP tools for Cursor** covering workflow, skill, library, intent, doc, design, memory, answer, plan, and read-only **assistant** orchestration (`uipath_assistant_context` / `uipath_assistant_route`, same routing core as `uipath-claude` chat for natural language).
 - **Formal SDLC flow** through `/pdd`: BA -> SA -> ADD -> TDD -> Dev -> QA, with optional publish/deploy gates.
 - **Library learning loop** so durable lessons are proposed, reviewed, approved, and reused.
 - **Doctor checks** with `uipath-claude doctor` for skills, Cursor setup, MCP docs, `uip`, markdown encoding, and library health.

@@ -94,6 +94,8 @@ Each tool has an **audience guide** (synthesized from the registered `Tool` meta
 | `uipath_plan_review` | plan | read-only |
 | `uipath_plan_uiplan_new` | plan | destructive (idempotent where noted) |
 | `uipath_answer` | answer | read-only |
+| `uipath_assistant_context` | assistant | read-only |
+| `uipath_assistant_route` | assistant | read-only |
 
 ## How to add a new MCP tool
 
@@ -4747,5 +4749,160 @@ flowchart LR
 flowchart LR
   Q[question + optional persona]:::process --> RT[persona_router answer_question]:::service
   RT --> ANS[Markdown answer read-only tool belt]:::data
+```
+
+## Module: `assistant`
+
+### `uipath_assistant_context`
+
+#### Audience guide
+
+**Assistant context pack.** Build a compact orchestration context for the current request: grounding pack (including referenced .md paths from the request), matched skills, deterministic intent hint, and command names. Read-only. Use before uipath_assistant_route in plain Claude Code.
+
+**Required MCP arguments:**
+
+- **`request`** — User message to route or understand.
+
+**Typical return:** See dispatch implementation for the concrete return type.
+
+**Side effect (MCP `ToolAnnotations`):** read-only
+
+**Dispatch:** [`framework/mcp_server/tools/assistant_tools.py`](../framework/mcp_server/tools/assistant_tools.py) `call_assistant_tool`
+
+#### Author registration (`Tool.description` verbatim)
+
+> Build a compact orchestration context for the current request: grounding pack (including referenced .md paths from the request), matched skills, deterministic intent hint, and command names. Read-only. Use before uipath_assistant_route in plain Claude Code.
+
+#### Input schema (JSON Schema)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "request": {
+      "type": "string",
+      "description": "User message to route or understand."
+    },
+    "project_root": {
+      "type": "string",
+      "description": "Optional repo root; defaults to workspace / cwd."
+    },
+    "tool_profile": {
+      "type": "string",
+      "description": "Tool profile label for documentation (default all)."
+    },
+    "command_names": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Optional list of slash command names (no leading slash)."
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Optional recent chat turns."
+    }
+  },
+  "required": [
+    "request"
+  ]
+}
+```
+
+#### Behavior flow
+
+```mermaid
+flowchart LR
+  ARGS[MCP arguments]:::process --> T["uipath_assistant_context"]:::service
+  T --> RES[Tool-specific result]:::data
+```
+
+### `uipath_assistant_route`
+
+#### Audience guide
+
+**Assistant route decision.** LLM orchestration router: returns a structured route (answer, clarify, documentation, uiplan, plan, execute, command_hint, refuse) with confidence and rationale. Read-only. Same logic as uipath-claude chat when orchestration routing is enabled.
+
+**Required MCP arguments:**
+
+- **`request`** — User message.
+
+**Typical return:** See dispatch implementation for the concrete return type.
+
+**Side effect (MCP `ToolAnnotations`):** read-only
+
+**Dispatch:** [`framework/mcp_server/tools/assistant_tools.py`](../framework/mcp_server/tools/assistant_tools.py) `call_assistant_tool`
+
+#### Author registration (`Tool.description` verbatim)
+
+> LLM orchestration router: returns a structured route (answer, clarify, documentation, uiplan, plan, execute, command_hint, refuse) with confidence and rationale. Read-only. Same logic as uipath-claude chat when orchestration routing is enabled.
+
+#### Input schema (JSON Schema)
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "request": {
+      "type": "string",
+      "description": "User message."
+    },
+    "project_root": {
+      "type": "string"
+    },
+    "tool_profile": {
+      "type": "string"
+    },
+    "command_names": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "allowed_routes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Optional allow-list of route string values."
+    }
+  },
+  "required": [
+    "request"
+  ]
+}
+```
+
+#### Behavior flow
+
+```mermaid
+flowchart LR
+  ARGS[MCP arguments]:::process --> T["uipath_assistant_route"]:::service
+  T --> RES[Tool-specific result]:::data
 ```
 

@@ -32,6 +32,7 @@ def test_capability_contract_is_canonical():
         "uipath-claude",
         "Cursor + MCP",
         "uipath_plan_*",
+        "uipath_assistant_",
         "uipath_workflow_*",
         "Explicit Non-Goals",
         "LLM Operating Contract",

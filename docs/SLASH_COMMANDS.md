@@ -1,7 +1,12 @@
 # Slash commands
 
 These commands are typed at the **`uipath chat`** (or equivalent) prompt when
-the input starts with `/`. Cursor exposes UiPlan through separate skill-backed
+the input starts with `/`. They **bypass** the LLM orchestration router in
+`uipath-claude chat` (same behavior as explicit commands should stay direct).
+Plain-language input may be routed by the orchestration step first; see
+[CAPABILITY_CONTRACT.md](CAPABILITY_CONTRACT.md) and [CLAUDE_USER_GUIDE.md](CLAUDE_USER_GUIDE.md).
+
+Cursor exposes UiPlan through separate skill-backed
 slash commands, each wrapping the same MCP-backed workflow for Cursor chat. MCP
 tools remain documented in [MCP_TOOLS.md](MCP_TOOLS.md).
 

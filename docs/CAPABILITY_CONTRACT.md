@@ -15,6 +15,7 @@ The goal is **UiPath delivery parity across `uipath-claude` and Cursor + MCP**, 
 | Full SDLC lifecycle | `/pdd` | `uipath_agent_*`, `uipath_doc_*`, `uipath_workflow_*` | Specialist UiPath skills | BA -> SA -> ADD -> TDD -> Dev -> QA, with publish/deploy gates. |
 | Workflow build/edit/validate | `/validate`, chat execution loop | `uipath_workflow_*` | `uipath-rpa` | Destructive write/package/run/publish/deploy tools stay approval-gated. |
 | Grounded answers | chat question path, `/books` | `uipath_answer`, `uipath_library_*`, `uipath_doc_*` | Product-specific skills | Prefer reviewed library and docs before inventing answers. |
+| **Shared orchestration (NL routing)** | `uipath-claude chat` (non-slash input) | `uipath_assistant_context`, `uipath_assistant_route` | n/a | Natural language is LLM-routed (answer, clarify, docs, UiPlan, planner, execute) with the same core as the CLI. Slash commands stay deterministic. Set `UIPATH_ORCHESTRATION_ROUTER=0` to use legacy keyword intent only. |
 | Library learning | `/library-harvest`, `/library-proposals` | `uipath_library_*` proposal tools | n/a | Proposals require human approval before library mutation. |
 | Design approval | plan/design gates | `uipath_design_*` | `uiplan` | Used to separate proposal, approval, rejection, and status. |
 

@@ -38,6 +38,7 @@ MCP_TOOL_PREFIXES: tuple[str, ...] = (
     "uipath_design_",
     "uipath_intent_",
     "uipath_plan_",
+    "uipath_assistant_",
 )
 
 MCP_EXACT_TOOLS: tuple[str, ...] = (
