@@ -654,11 +654,13 @@ uip tools install @uipath/rpa-tool   # additional tooling
 uip --version
 ```
 
+Normal assistant sessions should rely on the session hook instead of manually installing `uip`.
+
 ### 3.2 Selected verbs
 
 Consult the relevant `skills/skills/<skill>/SKILL.md` for authoritative usage. Common verbs:
 
-- `uip rpa list-instances --format json` - list open Studio Desktop instances.
+- `uip rpa list-instances --output json` - list open Studio Desktop instances.
 - `uip codedapp ...` - scaffold / build / debug Coded (Web/Action) Apps.
 - `uip case ...` - Case Management preview.
 - `uip df ...` - Data Fabric entity/record operations.
@@ -666,7 +668,7 @@ Consult the relevant `skills/skills/<skill>/SKILL.md` for authoritative usage. C
 - `uip feedback send ...` - submit a feedback report to UiPath.
 - `uip tools install <pkg>` - install auxiliary tools.
 
-Use `uip <verb> --help` for exact flags.
+Use `uip <verb> --help` for exact flags. For the current Studio IPC command surface, see [uip-rpa-cli.md](uip-rpa-cli.md), which tracks the pinned `uipath-rpa` skill reference.
 
 ---
 
