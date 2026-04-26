@@ -48,7 +48,14 @@ _PLACEHOLDER_BAN = re.compile(
 _ACTIVITY_TAG_RE = re.compile(r"\[activity:([A-Za-z0-9_.]+):([A-Za-z][A-Za-z0-9_]*)\]")
 _PATH_TOKEN_RE = re.compile(r"`[^`]+\.(?:xaml|cs|py|json|md|yml|yaml|ts|tsx)`")
 _GROUNDING_TOKEN_RE = re.compile(
-    r"\[skill:|\[library:|\[askai:|\[agent:|uipath_library_lookup|query_uipath_docs",
+    r"\[skill:|\[library:|\[askai:|\[agent:|uipath_library_lookup|uipath_library_search|"
+    r"query_uipath_docs|uipath_doc_get_activity|uipath_doc_list_packages",
+    re.IGNORECASE,
+)
+_LIBRARY_TOOL_RE = re.compile(r"uipath_library_(lookup|search)", re.IGNORECASE)
+_PER_LINE_IMPL_GROUND = re.compile(
+    r"\[skill:|\[library:|\[askai:|\[agent:|uipath_library_lookup|uipath_library_search|"
+    r"query_uipath_docs|uipath_doc_get_activity|uipath_doc_list_packages",
     re.IGNORECASE,
 )
 _RESOURCE_TOKEN_RE = re.compile(r"\b(queue|asset|bucket|folder|orchestrator|binding)\b", re.IGNORECASE)
@@ -79,7 +86,7 @@ def _declared_paradigm(spec: str) -> str | None:
     return None
 
 
-def review_spec_text(spec: str) -> list[dict[str, Any]]:
+def review_spec_text(spec: str, repo: Path | None = None) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
     if "[NEEDS CLARIFICATION" in spec or "[needs clarification" in spec.lower():
         findings.append(
@@ -176,20 +183,60 @@ def review_spec_text(spec: str) -> list[dict[str, Any]]:
                 "spec.md",
             )
         )
-    if "uipath_library_lookup" not in spec or "query_uipath_docs" not in spec:
+    if not _LIBRARY_TOOL_RE.search(spec):
         findings.append(
             _finding(
                 "warn",
                 "spec",
                 "feasibility_lookup",
-                "Development Handoff should require library lookup first and AskAI/query_uipath_docs fallback.",
+                "Development Handoff should name `uipath_library_search` and/or "
+                "`uipath_library_lookup` before locking APIs.",
                 "spec.md",
             )
         )
+    if "query_uipath_docs" not in spec and "[askai:" not in spec.lower():
+        findings.append(
+            _finding(
+                "warn",
+                "spec",
+                "feasibility_lookup",
+                "Development Handoff should include AskAI-style fallback (`query_uipath_docs` or `[askai:]`).",
+                "spec.md",
+            )
+        )
+    if "uipath_doc_get_activity" not in spec.lower():
+        findings.append(
+            _finding(
+                "warn",
+                "spec",
+                "activity_doc_routing",
+                "Development Handoff should cite `uipath_doc_get_activity` (or list packages) "
+                "when activity-level detail may be needed.",
+                "spec.md",
+            )
+        )
+    if repo is not None:
+        ctx = repo / ".claude" / "rules" / "project-context.md"
+        if not ctx.is_file() and "uipath-project-discovery-agent" not in spec.lower():
+            findings.append(
+                _finding(
+                    "warn",
+                    "spec",
+                    "discovery_precheck",
+                    "project-context.md is missing; cite `[agent:uipath-project-discovery-agent]` "
+                    "in the spec until discovery completes.",
+                    "spec.md",
+                )
+            )
     return findings
 
 
-def review_plan_text(plan: str, gate_ids: list[str], paradigm: str | None) -> list[dict[str, Any]]:
+def review_plan_text(
+    plan: str,
+    gate_ids: list[str],
+    paradigm: str | None,
+    repo: Path | None = None,
+) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
     if "NEEDS CLARIFICATION" in plan:
         findings.append(
@@ -254,6 +301,57 @@ def review_plan_text(plan: str, gate_ids: list[str], paradigm: str | None) -> li
                 "plan.md",
             )
         )
+    if "## Planner Route & Specialist Handoff" not in plan:
+        findings.append(
+            _finding(
+                "error",
+                "plan",
+                "planner_route_heading",
+                "plan.md must include `## Planner Route & Specialist Handoff` (contract routing).",
+                "plan.md",
+            )
+        )
+    if "uipath-project-discovery-agent" not in plan.lower() and "project-context.md" not in plan.lower():
+        findings.append(
+            _finding(
+                "warn",
+                "plan",
+                "discovery_route",
+                "plan.md should cite `[agent:uipath-project-discovery-agent]` or `.claude/rules/project-context.md`.",
+                "plan.md",
+            )
+        )
+    if not _LIBRARY_TOOL_RE.search(plan):
+        findings.append(
+            _finding(
+                "warn",
+                "plan",
+                "library_route",
+                "plan.md should explicitly name `uipath_library_search` and/or `uipath_library_lookup`.",
+                "plan.md",
+            )
+        )
+    if "uipath_doc_get_activity" not in plan.lower():
+        findings.append(
+            _finding(
+                "warn",
+                "plan",
+                "activity_doc_route",
+                "plan.md should mention `uipath_doc_get_activity` when workflows touch activities.",
+                "plan.md",
+            )
+        )
+    skill_cites = len(_SKILL_CITE.findall(plan))
+    if skill_cites < 2:
+        findings.append(
+            _finding(
+                "warn",
+                "plan",
+                "specialist_skills",
+                "plan.md should cite at least two `[skill:...]` tokens (planner plus a specialist).",
+                "plan.md",
+            )
+        )
     if paradigm:
         required = _EXPECTED_DESCRIPTORS.get(paradigm, ())
         missing = [item for item in required if item not in plan]
@@ -285,6 +383,38 @@ _TASK_LINE = re.compile(
     r"^\s*-\s*\[\s*\]\s*(T\d+)(?:\s+\[P\])?\s+\[US(\d+)\]",
     re.MULTILINE,
 )
+
+
+def _review_implementation_task_routing(tasks: str) -> list[dict[str, Any]]:
+    """Each non-[P] checklist line under ### Implementation should cite routing evidence."""
+    findings: list[dict[str, Any]] = []
+    in_impl = False
+    for line in tasks.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("### Implementation"):
+            in_impl = True
+            continue
+        if stripped.startswith("### ") and in_impl and "Implementation" not in stripped:
+            in_impl = False
+        if not in_impl:
+            continue
+        m = re.match(r"^\s*-\s*\[\s*\]\s*(T\d+)", line)
+        if not m:
+            continue
+        if "[P]" in line:
+            continue
+        if not _PER_LINE_IMPL_GROUND.search(line):
+            findings.append(
+                _finding(
+                    "warn",
+                    "tasks",
+                    "task_implementation_grounding",
+                    f"Task {m.group(1)} should cite grounding (skill/agent/library/AskAI tokens or "
+                    f"uipath_library_search / uipath_library_lookup / query_uipath_docs / uipath_doc_*).",
+                    "tasks.md",
+                )
+            )
+    return findings
 
 
 def review_tasks_text(tasks: str, spec: str) -> list[dict[str, Any]]:
@@ -384,6 +514,7 @@ def review_tasks_text(tasks: str, spec: str) -> list[dict[str, Any]]:
                 "tasks.md",
             )
         )
+    findings.extend(_review_implementation_task_routing(tasks))
     return findings
 
 
@@ -517,9 +648,9 @@ def run_uiplan_review(
     findings: list[dict[str, Any]] = []
     paradigm = _declared_paradigm(spec)
     if stage in ("spec", "all"):
-        findings.extend(review_spec_text(spec))
+        findings.extend(review_spec_text(spec, repo))
     if stage in ("plan", "all"):
-        findings.extend(review_plan_text(plan, gate_ids, paradigm))
+        findings.extend(review_plan_text(plan, gate_ids, paradigm, repo))
     if stage in ("tasks", "all"):
         findings.extend(review_tasks_text(tasks, spec))
     if stage in ("all",):

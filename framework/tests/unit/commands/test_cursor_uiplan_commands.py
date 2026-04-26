@@ -108,6 +108,8 @@ def test_uiplan_implement_reviews_then_controls_building() -> None:
     assert "tasks.md" in content
     assert "Planner Route &" in content
     assert "Specialist Handoff" in content
+    assert ".meta.yaml" in content
+    assert "acceptance_ready" in content
     assert "uipath-planner" in content
     assert "project discovery agent" in content
     assert "specialist UiPath skills" in content
@@ -129,7 +131,9 @@ def test_uiplan_review_wrapper_requires_feasibility_checks() -> None:
     assert "implementation paradigm" in content.lower()
     assert "project structure" in content.lower()
     assert "uipath_library_lookup" in content
+    assert "uipath_library_search" in content
     assert "query_uipath_docs" in content
+    assert "uipath_doc_get_activity" in content
     assert "uipath_skill_match" in content
     assert "project discovery" in content.lower()
     assert "personal workspace" in content.lower()

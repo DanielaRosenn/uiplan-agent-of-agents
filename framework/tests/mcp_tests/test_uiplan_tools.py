@@ -28,12 +28,20 @@ async def test_uiplan_full_scaffold(repo, monkeypatch):
         "# {{TITLE}}\n{{INTENT}}\n## User Scenarios\n### User Story 1 - A (Priority: P1)\n"
         "**Given** g **When** w **Then** t\n## Requirements\n### Functional Requirements\n"
         "**FR-001**: System MUST x\n## Success Criteria\n### Measurable Outcomes\n**SC-001**: m\n"
-        "## Development Handoff\nUse tasks.md after uipath_plan_review and acceptance.\n",
+        "## Source routing & MCP contracts\n{{SOURCE_ROUTING_SNIPPET}}\n"
+        "## Development Handoff\n"
+        "**Implementation paradigm**: coded-agent\n**CLI family**: uipath\n"
+        "Use tasks.md after uipath_plan_review and acceptance.\n"
+        "Feasibility: `uipath_library_search`, `uipath_library_lookup`, `query_uipath_docs`, "
+        "`uipath_doc_get_activity`.\n",
         encoding="utf-8",
     )
     (tpl / "_plan-template.md").write_text(
-        "# {{TITLE}}\n## Technical Context\nx\n## Constitution Check\n"
-        "- [ ] **modern_experience_only**: ok\n## Project Structure\n```\nx\n```\n"
+        "# {{TITLE}}\n## Grounding Inputs\n{{GROUNDING_CONTEXT}}\n## Source routing (MCP)\n"
+        "{{SOURCE_ROUTING_SNIPPET}}\n## Planner Route & Specialist Handoff\n{{PLANNER_HANDOFF}}\n"
+        "## Technical Context\nx\n## Constitution Check\n"
+        "- [ ] **modern_experience_only**: ok\n## Project Structure\n### Source Code (repository root)\n"
+        "```\npyproject.toml\nlanggraph.json\n```\n### Paradigm build loop\nuipath run\n"
         "**Structure Decision**: {{STRUCTURE_DECISION}}\n"
         "## Development execution contract\nrestore -> analyze -> test -> pack\n"
         "## Complexity Tracking\nx\n",
@@ -42,7 +50,9 @@ async def test_uiplan_full_scaffold(repo, monkeypatch):
     (tpl / "_tasks-template.md").write_text(
         "# {{TITLE}}\n## Phase 3: User Story 1 - MVP (Priority: P1)\n"
         "### Tests for User Story 1\n- [ ] T010 [P] [US1] test `src/x.py`\n"
-        "### Implementation for User Story 1\n- [ ] T011 [US1] impl `src/y.py`\n"
+        "### Implementation for User Story 1\n"
+        "- [ ] T011 [US1] impl `src/y.py` [skill:uipath-agents] uipath_library_search "
+        "query_uipath_docs personal workspace Production\n"
         "## Phase 5: Build, Verify, and Handoff\n- [ ] T030 build\n",
         encoding="utf-8",
     )
@@ -197,6 +207,7 @@ async def test_plan_new_writes_grounding_inputs(repo, monkeypatch):
     )
     (tpl / "_plan-template.md").write_text(
         "# {{TITLE}}\n## Summary\n{{SUMMARY}}\n## Grounding Inputs\n{{GROUNDING_CONTEXT}}\n"
+        "## Source routing (MCP)\n{{SOURCE_ROUTING_SNIPPET}}\n"
         "## Planner Route & Specialist Handoff\n{{PLANNER_HANDOFF}}\n"
         "## Technical Context\n**Primary Dependencies**: {{DEPS}}\n"
         "## Constitution Check\n{{CONSTITUTION_CHECKLIST}}\n"

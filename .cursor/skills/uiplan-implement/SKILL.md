@@ -13,23 +13,29 @@ project-specific specialist skills as the implementation contract.
 
 1. Treat the user's text after `/uiplan-implement` as the UiPlan slug. If the
    slug is missing, ask for it.
-2. Read `spec.md`, `plan.md`, and `tasks.md`, including the `Planner Route &
-   Specialist Handoff` section in `plan.md`.
-3. Run or request `uipath_plan_review` with `stage=all` before any source
-   changes.
-4. If review has error-severity findings, stop and report the blockers.
-5. If review passes, ask the user before starting implementation unless the
+2. Read `.meta.yaml` in the UiPlan folder: if `status` is not `accepted`, **stop**
+   before any source edits unless the human explicitly waives acceptance risk.
+   For `--run-to-completion` / `--yes`, treat non-accepted status as a hard block
+   (the CLI adds `run_to_completion_blocked` when `acceptance_ready` is false).
+3. Read `spec.md`, `plan.md`, and `tasks.md`, including **Source routing** and
+   `Planner Route & Specialist Handoff` in `plan.md`.
+4. Run or request `uipath_plan_review` with `stage=all` before any source
+   changes. Use `acceptance_ready` / `routing_metadata` from the tool response in
+   the handoff ledger.
+5. If review has error-severity findings, stop and report the blockers.
+6. If review passes, ask the user before starting implementation unless the
    user explicitly supplied `--run-to-completion`, `--yes`, `--no-stop`, or
    clearly asked to run the accepted task plan end to end without stopping.
-6. Confirm the `uipath-planner` route, project discovery agent output, matched
-   specialist skills, MCP tools, library/AskAI-style lookup, and useful
+7. Confirm the `uipath-planner` route, project discovery agent output, matched
+   specialist skills, MCP tools (`uipath_library_search`, `uipath_library_lookup`,
+   `query_uipath_docs`, `uipath_doc_get_activity`), library/AskAI-style lookup, and useful
    subagents before source edits.
-7. Implement from `tasks.md` in order. Use every relevant project capability as
+8. Implement from `tasks.md` in order. Use every relevant project capability as
    needed: specialist UiPath skills, MCP tools, subagents, library lookup,
    AskAI-style documentation lookup, local CLI commands, tests, and build gates.
-8. Run the build loop for the detected project type: restore -> analyze -> test
+9. Run the build loop for the detected project type: restore -> analyze -> test
    -> pack. Stop on analyzer errors or failing tests.
-9. Summarize exact verification evidence, changed files, package path if
+10. Summarize exact verification evidence, changed files, package path if
    produced, and approval-required next steps.
 
 ## Per-Task UiPath Loop

@@ -76,7 +76,8 @@ def _resolved_activity_docs_markdown(spec: str, plan: str) -> str:
     if not refs:
         parts.append(
             "_No `[activity:PackageId:ActivityName]` tags in plan.md or spec.md yet — "
-            "add tags in plan for auto-inlined docs._\n"
+            "add tags in plan for auto-inlined docs. Until then, resolve activity semantics via "
+            "`uipath_doc_get_activity` / `uipath_doc_list_packages` (MCP), not guesswork._\n"
         )
     else:
         for pkg, act in refs:
@@ -214,6 +215,39 @@ def _source_doc_summary(pack: dict[str, Any]) -> tuple[str | None, str | None]:
     return name, _clip_one_line(excerpt, 260)
 
 
+def _format_source_routing_snippet(repo: Path, pack: dict[str, Any]) -> str:
+    """Explicit MCP / discovery / subagent routing for spec.md and plan.md."""
+    ctx_path = repo / ".claude" / "rules" / "project-context.md"
+    present = pack.get("project_context_present")
+    if not isinstance(present, bool):
+        present = ctx_path.is_file()
+    lines: list[str] = []
+    if present:
+        lines.append(
+            "- **Project discovery**: `.claude/rules/project-context.md` exists; refresh via "
+            "`[agent:uipath-project-discovery-agent]` when markers drift."
+        )
+    else:
+        lines.append(
+            "- **Project discovery (blocking precondition)**: `.claude/rules/project-context.md` is "
+            "**missing**. Run `[agent:uipath-project-discovery-agent]` and capture project-context "
+            "before locking scope or production edits."
+        )
+    lines.extend(
+        [
+            "- **Library MCP**: `uipath_library_search` (ranked search) and `uipath_library_lookup` "
+            "(book/section precision).",
+            "- **AskAI-style fallback**: `query_uipath_docs` (and `[askai:topic]` notes in tasks) when "
+            "library evidence is insufficient.",
+            "- **Activity docs MCP**: `uipath_doc_get_activity` / `uipath_doc_list_packages` before naming "
+            "activities or pinning package versions.",
+            "- **Specialists / subagents**: cite `[skill:...]` for build personas; split heavy work via "
+            "subagents or `Task` for isolated discovery or implementation.",
+        ]
+    )
+    return "\n".join(lines)
+
+
 def _format_grounding_context(pack: dict[str, Any]) -> str:
     """Render grounding inputs into plan.md so later task generation sees them."""
     lines: list[str] = []
@@ -315,9 +349,12 @@ def _format_planner_handoff(pack: dict[str, Any]) -> str:
 
     lines.extend(
         [
-            "- Use UiPath library and AskAI-style lookup before adding packages, CLI flags, activities, SDK calls, or platform resources.",
+            "- Use `uipath_library_search` / `uipath_library_lookup` and `query_uipath_docs` before adding "
+            "packages, CLI flags, activities, SDK calls, or platform resources; use `uipath_doc_get_activity` "
+            "when activity semantics matter.",
             "- Use subagents when work can be split across discovery, implementation, testing, documentation, or review.",
-            "- `/uiplan-implement` must run review first, ask before source edits, then execute `tasks.md` with these personas and gates.",
+            "- `/uiplan-implement` must run review first, read `.meta.yaml` for `status: accepted`, ask before "
+            "source edits, then execute `tasks.md` with these personas and gates.",
         ]
     )
     return "\n".join(lines)
@@ -336,7 +373,8 @@ def _format_task_planner_handoff(pack: dict[str, Any]) -> str:
     return (
         "Run the planner handoff from `plan.md`: confirm `[skill:uipath-planner]`, "
         "`[agent:uipath-project-discovery-agent]`, "
-        f"{specialist_text}, UiPath library/AskAI-style lookup, and any useful subagents "
+        f"{specialist_text}, `uipath_library_search` / `uipath_library_lookup`, `query_uipath_docs`, "
+        "`uipath_doc_get_activity` when needed, and any useful subagents "
         "are available before source edits."
     )
 
@@ -505,6 +543,7 @@ def call_uiplan_spec_new(arguments: dict[str, Any]) -> dict[str, Any]:
         "TARGET_STACK": stack_line(paradigm),
         "CLI_FAMILY": cli_family(paradigm),
         "DEPLOY_GATE": deploy_gate(paradigm),
+        "SOURCE_ROUTING_SNIPPET": _format_source_routing_snippet(repo, pack),
     }
     spec_body = _insert_source_documents(_fill(tpl, mapping), pack)
 
@@ -585,6 +624,7 @@ def call_uiplan_plan_new(arguments: dict[str, Any]) -> dict[str, Any]:
             "skills, library/AskAI-style lookups, project context, and constitution gates."
         ),
         "GROUNDING_CONTEXT": _format_grounding_context(pack),
+        "SOURCE_ROUTING_SNIPPET": _format_source_routing_snippet(repo, pack),
         "PLANNER_HANDOFF": _format_planner_handoff(pack),
         "LANG_VERSION": "C# 12 / .NET 8 (Modern) or Python 3.11+ for coded agents — adjust per project-context.",
         "DEPS": _dependency_hint(pack),
@@ -640,6 +680,13 @@ def call_uiplan_tasks_new(arguments: dict[str, Any]) -> dict[str, Any]:
     meta = load_folder_meta(folder)
     title = str(meta.get("title", slug))
     cites = " ".join(pack.get("suggested_citations") or [])
+    matched = pack.get("matched_skills") or []
+    first_skill = ""
+    for skill in matched:
+        if isinstance(skill, dict) and skill.get("name"):
+            first_skill = str(skill["name"])
+            break
+    skill_tag = f"[skill:{first_skill}]" if first_skill else "[skill:uipath-planner]"
     tpl = _load_tpl(repo, "_tasks-template.md")
     mapping = {
         "TITLE": title,
@@ -650,8 +697,15 @@ def call_uiplan_tasks_new(arguments: dict[str, Any]) -> dict[str, Any]:
         "US1_TITLE": "MVP slice",
         "US1_GOAL": "Deliver first usable increment from spec User Story 1.",
         "US1_IND_TEST": "Run the Independent Test from spec for US1.",
-        "T010_TEST": "Write failing automated test covering US1 happy path (exact test file path from plan).",
-        "T011_IMPL": "Minimal implementation to satisfy US1 (exact source paths from plan).",
+        "T010_TEST": (
+            "Write failing automated test covering US1 happy path (exact test file path from plan); "
+            "ground package/API choices with `uipath_library_search` or `uipath_library_lookup`."
+        ),
+        "T011_IMPL": (
+            f"Minimal implementation to satisfy US1 (exact source paths from plan) using {skill_tag}; "
+            "confirm activity/SDK details with `uipath_library_search` / `uipath_library_lookup` and "
+            "`uipath_doc_get_activity` when activities are involved."
+        ),
         "T020": "Documentation + README updates for operators.",
         "DEPENDENCIES_TEXT": "Phase 1 -> Phase 2 -> US1 -> Polish. Tests before implementation within each story.",
     }
@@ -688,7 +742,8 @@ def call_uiplan_review(arguments: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("uipath_plan_review for UiPlan requires a folder-shaped draft")
     files = read_uiplan_files(resolved)
     gate_ids = _gate_ids(repo)
-    return run_uiplan_review(
+    meta = load_folder_meta(resolved.path)
+    out = run_uiplan_review(
         spec=files.get("spec.md", ""),
         plan=files.get("plan.md", ""),
         tasks=files.get("tasks.md", ""),
@@ -697,6 +752,20 @@ def call_uiplan_review(arguments: dict[str, Any]) -> dict[str, Any]:
         repo=repo,
         slug=slug,
     )
+    status = str(meta.get("status", "") or "").strip().lower()
+    out["meta_status"] = str(meta.get("status", "") or "draft")
+    out["acceptance_ready"] = status == "accepted"
+    try:
+        folder_rel = str(resolved.path.relative_to(repo))
+    except ValueError:
+        folder_rel = str(resolved.path)
+    out["routing_metadata"] = {
+        "slug": slug,
+        "folder": folder_rel,
+        "meta_status": out["meta_status"],
+        "acceptance_ready": out["acceptance_ready"],
+    }
+    return out
 
 
 def call_uiplan_new(arguments: dict[str, Any]) -> dict[str, Any]:

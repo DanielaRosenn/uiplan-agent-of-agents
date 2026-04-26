@@ -258,6 +258,7 @@ def build_grounding_pack(repo: Path, topic: str) -> dict[str, Any]:
 
     constitution = load_constitution(repo)
     unanswered: list[str] = []
+    project_context_present = bool(project_context)
     if not project_context:
         unanswered.append(
             "Missing .claude/rules/project-context.md — run the "
@@ -274,6 +275,7 @@ def build_grounding_pack(repo: Path, topic: str) -> dict[str, Any]:
         "status": "ok",
         "topic": topic,
         "source_documents": source_docs,
+        "project_context_present": project_context_present,
         "project_context_path": str(ctx_path.relative_to(repo)) if ctx_path.is_file() else None,
         "project_context_excerpt": project_context,
         "claude_md_excerpt": claude,

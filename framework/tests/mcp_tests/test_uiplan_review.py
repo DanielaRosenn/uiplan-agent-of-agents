@@ -43,13 +43,23 @@ def test_run_uiplan_review_all_includes_citations():
     spec = "### User Story 1 - A (Priority: P1)\n**Given** a **When** b **Then** c\n"
     spec += "## Requirements\n### Functional Requirements\n**FR-001**: System MUST x\n"
     spec += "## Success Criteria\n### Measurable Outcomes\n**SC-001**: y\n"
-    spec += "## Development Handoff\nUse tasks.md after uipath_plan_review and acceptance.\n"
+    spec += "## Source routing\nuipath_library_search uipath_library_lookup query_uipath_docs "
+    spec += "uipath_doc_get_activity uipath-project-discovery-agent\n"
+    spec += "## Development Handoff\n**Implementation paradigm**: modern-rpa\n**CLI family**: uipcli\n"
+    spec += "Use tasks.md after uipath_plan_review and acceptance.\n"
     plan = "## Technical Context\nok\n## Constitution Check\n- [ ] **modern_experience_only**: ok\n"
-    plan += "## Project Structure\n```\nx\n```\n**Structure Decision**: use templates/long-running/ for layout.\n"
+    plan += "## Planner Route & Specialist Handoff\n"
+    plan += "[skill:uipath-planner] [skill:uipath-rpa] uipath-project-discovery-agent "
+    "project-context.md uipath_library_search uipath_doc_get_activity\n"
+    plan += "## Project Structure\n### Source Code (repository root)\nproject.json\nMain.xaml\n"
+    plan += "### Paradigm build loop\nuipcli analyze\n```\nx\n```\n"
+    plan += "**Structure Decision**: use templates/long-running/ for layout.\n"
     plan += "## Development execution contract\nrestore -> analyze -> test -> pack\n"
     plan += "## Complexity Tracking\nnone\n"
     tasks = "## Phase 3: User Story 1 - A (Priority: P1)\n### Tests for User Story 1\n"
-    tasks += "- [ ] T010 [US1] test\n### Implementation for User Story 1\n- [ ] T011 [US1] impl\n"
+    tasks += "- [ ] T010 [US1] test `t.py` uipath_library_search\n"
+    tasks += "### Implementation for User Story 1\n"
+    tasks += "- [ ] T011 [US1] impl `m.py` [skill:uipath-rpa] uipath_library_lookup personal workspace Production\n"
     tasks += "## Phase 5: Build, Verify, and Handoff\n- [ ] T030 build\n"
     out = run_uiplan_review(
         spec=spec,
@@ -78,9 +88,13 @@ def test_review_requires_development_handoff_in_spec():
 def test_review_requires_development_execution_contract_in_plan():
     findings = review_plan_text(
         "## Technical Context\nok\n"
+        "## Planner Route & Specialist Handoff\n"
+        "[skill:uipath-planner] [skill:uipath-rpa] uipath-project-discovery-agent "
+        "project-context.md uipath_library_search uipath_doc_get_activity\n"
         "## Project Structure\n```\nx\n```\n"
         "**Structure Decision**: concrete paths and rationale\n",
         [],
+        None,
         None,
     )
 
@@ -109,14 +123,33 @@ def test_review_requires_paradigm_declaration_in_spec():
 
 
 def test_review_requires_code_structure_and_build_loop_for_declared_paradigm():
+    # Declared coded-agent but omit langgraph.json hint -> code_structure_present error.
     findings = review_plan_text(
         "## Technical Context\nok\n"
-        "## Development execution contract\nrestore -> analyze -> test -> pack\n",
+        "## Planner Route & Specialist Handoff\n"
+        "[skill:uipath-planner] [skill:uipath-agents] [agent:uipath-project-discovery-agent] "
+        "project-context.md uipath_library_search uipath_doc_get_activity\n"
+        "## Development execution contract\nrestore -> analyze -> test -> pack\n"
+        "### Source Code (repository root)\npyproject.toml\n"
+        "### Paradigm build loop\nuipath run\n",
         [],
         "coded-agent",
+        None,
     )
     assert any(f.get("rule") == "code_structure_present" for f in findings)
-    assert any(f.get("rule") == "build_loop_present" for f in findings)
+    # Missing ### Paradigm build loop heading -> build_loop_present error
+    findings2 = review_plan_text(
+        "## Technical Context\nok\n"
+        "## Planner Route & Specialist Handoff\n"
+        "[skill:uipath-planner] [skill:uipath-agents] uipath-project-discovery-agent "
+        "project-context.md uipath_library_search uipath_doc_get_activity\n"
+        "## Development execution contract\nrestore -> analyze -> test -> pack\n"
+        "### Source Code (repository root)\npyproject.toml\nlanggraph.json\n",
+        [],
+        "coded-agent",
+        None,
+    )
+    assert any(f.get("rule") == "build_loop_present" for f in findings2)
 
 
 def test_review_requires_artifacts_and_grounding_in_tasks():
@@ -141,9 +174,13 @@ def test_review_warns_on_unknown_activity_tag():
         "**Implementation paradigm**: coded-agent\n"
         "**CLI family**: uipath\n"
         "Use tasks.md after uipath_plan_review and acceptance.\n"
+        "`uipath_library_search` `uipath_library_lookup` `query_uipath_docs` `uipath_doc_get_activity`\n"
     )
     plan = (
         "## Technical Context\nok\n## Constitution Check\n- [ ] **modern_experience_only**: ok\n"
+        "## Planner Route & Specialist Handoff\n"
+        "[skill:uipath-planner] [skill:uipath-agents] uipath-project-discovery-agent "
+        "project-context.md uipath_library_search uipath_doc_get_activity\n"
         "## Project Structure\n### Source Code (repository root)\npyproject.toml\nlanggraph.json\n"
         "### Paradigm build loop\nuipath run\n"
         "## Development execution contract\nrestore -> analyze -> test -> pack\n"
@@ -166,3 +203,15 @@ def test_review_warns_on_unknown_activity_tag():
         slug="activity-tag-test",
     )
     assert any(f.get("rule") == "no_invented_activities" for f in out["findings"])
+
+
+def test_tasks_document_grounding_accepts_uipath_library_search_only():
+    findings = review_tasks_text(
+        "## Phase 3: User Story 1 - A (Priority: P1)\n"
+        "### Tests for User Story 1\n- [ ] T010 [US1] test `tests/t.py` uipath_library_search\n"
+        "### Implementation for User Story 1\n"
+        "- [ ] T011 [US1] impl `main.py` uipath_library_search personal workspace Production\n"
+        "## Phase 5: Build, Verify, and Handoff\n- [ ] T030 build `x.py` uipcli queue\n",
+        "### User Story 1 - A (Priority: P1)\n",
+    )
+    assert not any(f.get("rule") == "feasibility_grounding" for f in findings)

@@ -14,6 +14,10 @@
 
 {{GROUNDING_CONTEXT}}
 
+## Source routing (MCP)
+
+{{SOURCE_ROUTING_SNIPPET}}
+
 ## Planner Route & Specialist Handoff
 
 {{PLANNER_HANDOFF}}

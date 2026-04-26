@@ -115,6 +115,10 @@ sequenceDiagram
 
 - {{ASSUMPTION_1}}
 
+## Source routing & MCP contracts
+
+{{SOURCE_ROUTING_SNIPPET}}
+
 ## Development Handoff
 
 This section turns the accepted design into build-ready work.
@@ -127,8 +131,9 @@ This section turns the accepted design into build-ready work.
 - **Deploy gate**: {{DEPLOY_GATE}}
 - **Execution command**: {{BUILD_COMMAND}}
 - **Quality gates**: {{QUALITY_GATES}}
-- **Feasibility evidence**: Use `uipath_library_lookup` first, then `query_uipath_docs`
-  / AskAI-style lookup for uncertain UiPath APIs, activities, or CLI flags; do
+- **Feasibility evidence**: Use `uipath_library_search` and/or `uipath_library_lookup` first, then
+  `query_uipath_docs` / `[askai:...]` for uncertain UiPath APIs or CLI flags; use
+  `uipath_doc_get_activity` / `uipath_doc_list_packages` before naming activities; do
   not invent activity names or SDK methods.
 - **Handoff rule**: Do not start source changes until `uipath_plan_review` passes
   and the human accepts the bundle. After acceptance, execute `tasks.md` in

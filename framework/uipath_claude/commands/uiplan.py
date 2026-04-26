@@ -117,6 +117,14 @@ def _format_implement_handoff(
             f"Fix error-severity findings, then re-run `/uiplan-implement {slug}`."
         )
     if run_to_completion:
+        acc = review.get("acceptance_ready")
+        rtc_note = ""
+        if acc is False:
+            rtc_note = (
+                "\n\n**Run-to-completion blocked:** `.meta.yaml` status is not `accepted`. "
+                "Run `uipath_plan_accept` / `uipath-claude plan uiplan accept` before executing "
+                "the full task loop without pauses."
+            )
         mode = (
             "Run-to-completion mode is enabled: execute accepted local tasks in order without "
             "asking for confirmation between tasks. For each task, run the UiPath implementation "
@@ -127,6 +135,7 @@ def _format_implement_handoff(
             "failing tests, incomplete runtime artifacts, scaffold-only progress, status mismatch, "
             "missing required credentials/tooling, destructive actions, publish, deploy, or "
             "Production."
+            + rtc_note
         )
     else:
         mode = (

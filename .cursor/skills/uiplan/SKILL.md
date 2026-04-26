@@ -16,6 +16,10 @@ accepted plan (UiPlan folder by default) that specialist skills and agent mode
 then execute. The bundle must include an explicit build handoff so accepted
 designs can be developed from `tasks.md` without guessing.
 
+**Paradigm preference (repo rule):** Default to **UiPath XAML / RPA** for orchestration (queues,
+schedules, long-running workflows). Prefer **coded agents** only when XAML is not a practical fit;
+see `CLAUDE.md` section 9.
+
 ## Canonical layout (no duplicate kits)
 
 | Role | Path |
@@ -62,7 +66,7 @@ Then ground the work:
 1. **`uipath_plan_ground`** — read-only pack: project-context, `CLAUDE.md` excerpt, matched skills, library hits, PDD candidates, constitution gates. Prefer this for UiPlan.
 2. **Optional `uipath_plan_brainstorm`** — read-only hint pack (library query suggestions, `pdd_candidates`, clarifying questions). Use as extra signal, or when preparing a **legacy single-file** draft only.
 
-Follow-ups (read-only): `uipath_library_search` / `uipath_library_lookup`, `uipath_skill_match`, read PDD paths from disk. If `UIPATH_PLAN_WEB=1` and web is noted as needed, use the host agent web skill — MCP does not browse the web itself.
+Follow-ups (read-only): `uipath_library_search` / `uipath_library_lookup`, `query_uipath_docs`, `uipath_doc_get_activity` / `uipath_doc_list_packages`, `uipath_skill_match`, read PDD paths from disk. If `UIPATH_PLAN_WEB=1` and web is noted as needed, use the host agent web skill — MCP does not browse the web itself.
 
 ## Default flow — complete UiPlan (three files)
 
@@ -101,7 +105,9 @@ flowchart TD
 Do **not** start implementation (workflow writes, package installs, deploy) until:
 
 1. `uipath_plan_review` with `stage=all` returns `"ok": true` (no error-severity findings), and
-2. The human accepts via `uipath_plan_accept` (or explicitly waives risk).
+2. The human accepts via `uipath_plan_accept` (or explicitly waives risk). The tool response includes
+   `acceptance_ready` / `meta_status` from `.meta.yaml` — treat `acceptance_ready: false` as a blocker
+   for run-to-completion or autonomous implement loops.
 
 ### Publish
 
@@ -116,11 +122,11 @@ wrapper. This file remains the canonical contract.
 | --- | --- |
 | `/uiplan` | Overview/help/router for the UiPlan flow |
 | `/uiplan-ground <topic>` | `uipath_plan_ground` |
-| `/uiplan-spec <title> [--intent ...]` | `uipath_plan_spec_new` |
-| `/uiplan-plan <slug>` | `uipath_plan_plan_new` |
-| `/uiplan-tasks <slug>` | `uipath_plan_tasks_new` |
+| `/uiplan-spec <title> [--intent ...] [--paradigm ...]` | `uipath_plan_spec_new` |
+| `/uiplan-plan <slug> [--paradigm ...]` | `uipath_plan_plan_new` |
+| `/uiplan-tasks <slug> [--paradigm ...]` | `uipath_plan_tasks_new` |
 | `/uiplan-review <slug> [all\|spec\|plan\|tasks]` | `uipath_plan_review` |
-| `/uiplan-full <title>` | `uipath_plan_uiplan_new` |
+| `/uiplan-full <title> [--paradigm ...]` | `uipath_plan_uiplan_new` |
 | `/uiplan-implement <slug>` | Review-first implementation from `tasks.md` |
 
 Keep implementation behind `uipath_plan_review` plus human acceptance.
@@ -130,9 +136,10 @@ Keep implementation behind `uipath_plan_review` plus human acceptance.
 This is the build handoff command. It must:
 
 1. Resolve the UiPlan slug and read `spec.md`, `plan.md`, and `tasks.md`.
-2. Use the `Planner Route & Specialist Handoff` section in `plan.md` to confirm
-   the `uipath-planner` route, project discovery agent, matched specialist
-   skills, library/AskAI lookups, MCP tools, and useful subagents.
+2. Use the `Planner Route & Specialist Handoff` section and **Source routing** blocks in `plan.md` /
+   `spec.md` to confirm the `uipath-planner` route, `[agent:uipath-project-discovery-agent]`,
+   matched specialist `[skill:...]` tokens, `uipath_library_search` / `uipath_library_lookup`,
+   `query_uipath_docs`, `uipath_doc_get_activity`, other MCP tools, and useful subagents.
 3. Run `uipath_plan_review(stage=all)` before any source changes.
 4. Stop on error-severity findings and report blockers.
 5. If review passes, ask the user before implementation unless the user
@@ -160,7 +167,7 @@ Run-to-completion option:
 
 - `/uiplan-implement <slug> --run-to-completion` or `--yes` means the user has
   approved continuing through accepted local tasks without pausing between each
-  task.
+  task. The host injects `acceptance_ready` from `.meta.yaml`; if false, run-to-completion is blocked until `uipath_plan_accept`.
 - It must still stop on hard gates: review errors, missing acceptance,
   submodule guard failure, dependency drift, restore/analyze errors, failing
   tests, incomplete runtime artifacts, scaffold-only progress, status mismatch
@@ -176,16 +183,16 @@ MCP tool:
 | Command | MCP tool |
 | --- | --- |
 | `/uiplan-ground <topic>` | `uipath_plan_ground` |
-| `/uiplan-spec <title> [--intent ...]` | `uipath_plan_spec_new` |
-| `/uiplan-plan <slug>` | `uipath_plan_plan_new` |
-| `/uiplan-tasks <slug>` | `uipath_plan_tasks_new` |
+| `/uiplan-spec <title> [--intent ...] [--paradigm ...]` | `uipath_plan_spec_new` |
+| `/uiplan-plan <slug> [--paradigm ...]` | `uipath_plan_plan_new` |
+| `/uiplan-tasks <slug> [--paradigm ...]` | `uipath_plan_tasks_new` |
 | `/uiplan-review <slug> [all\|spec\|plan\|tasks]` | `uipath_plan_review` |
-| `/uiplan-full <title>` | `uipath_plan_uiplan_new` |
+| `/uiplan-full <title> [--paradigm ...]` | `uipath_plan_uiplan_new` |
 
 `/uiplan` remains as a backwards-compatible dispatcher/help alias.
 
-**Terminal:** `uipath-claude plan uiplan full "<title>"` or
-`plan uiplan ground|spec|plan|tasks|review ...`.
+**Terminal:** `uipath-claude plan uiplan full "<title>" [--paradigm ...]` or
+`plan uiplan ground|spec|plan|tasks|review ...` (use `--paradigm` on spec/plan/tasks/full for mixed repos).
 
 ## Lightweight fallback — legacy single-file plan
 

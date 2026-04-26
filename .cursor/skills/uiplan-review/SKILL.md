@@ -27,8 +27,9 @@ explicitly asks for the next step after seeing review output.
     `library`, `tests`);
   - target stack and CLI family (`uipcli` / `uipath` / `uip`);
   - deploy gate (`personal workspace` default, `Production` approval-required);
-  - no invented activities or SDK methods clause with
-    `uipath_library_lookup` first and `query_uipath_docs` / AskAI fallback.
+  - no invented activities or SDK methods clause with `uipath_library_search` /
+    `uipath_library_lookup` first, `query_uipath_docs` / AskAI fallback, and
+    `uipath_doc_get_activity` when activity-level detail is needed.
 
 ### Plan checks
 
@@ -50,7 +51,8 @@ explicitly asks for the next step after seeing review output.
   - artifact path in backticks,
   - concrete UiPath construct (activity, SDK call, CLI verb, or platform resource),
   - feasibility grounding citation (`[skill:]`, `[agent:]`, `[library:]`, `[askai:]`,
-    or explicit `uipath_library_lookup`/`query_uipath_docs`),
+    or explicit `uipath_library_search` / `uipath_library_lookup` / `query_uipath_docs` /
+    `uipath_doc_get_activity`),
   - verification step.
 - Phase 5 (`Build, Verify, and Handoff`) must exist and include analyzer/test/pack gates.
 - Deploy tasks must keep personal workspace default and explicit Production block.

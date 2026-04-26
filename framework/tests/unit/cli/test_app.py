@@ -117,7 +117,13 @@ def test_cli_plan_uiplan_implement_run_to_completion(
 
     def _fake_run_plan_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
         calls.append((name, dict(arguments)))
-        return {"ok": True, "findings": [], "next_action": "accept"}
+        return {
+            "ok": True,
+            "findings": [],
+            "next_action": "accept",
+            "acceptance_ready": True,
+            "meta_status": "accepted",
+        }
 
     monkeypatch.setattr("uipath_claude.cli.app._run_plan_tool", _fake_run_plan_tool)
 
@@ -144,6 +150,33 @@ def test_cli_plan_uiplan_implement_run_to_completion(
     assert "self_certifying_test" in result.stdout
     assert "task_status_mismatch" in result.stdout
     assert "deploy" in result.stdout
+
+
+def test_cli_plan_uiplan_implement_run_to_completion_blocked_when_not_accepted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, dict[str, Any]]] = []
+
+    def _fake_run_plan_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        calls.append((name, dict(arguments)))
+        return {
+            "ok": True,
+            "findings": [],
+            "next_action": "accept",
+            "acceptance_ready": False,
+            "meta_status": "draft",
+        }
+
+    monkeypatch.setattr("uipath_claude.cli.app._run_plan_tool", _fake_run_plan_tool)
+
+    result = runner.invoke(
+        app,
+        ["plan", "uiplan", "implement", "zipauto", "--run-to-completion"],
+    )
+
+    assert result.exit_code == 0
+    assert '"run_to_completion_blocked": true' in result.stdout
+    assert "uipath_plan_accept" in result.stdout
 
 
 def test_cli_start_project_command():

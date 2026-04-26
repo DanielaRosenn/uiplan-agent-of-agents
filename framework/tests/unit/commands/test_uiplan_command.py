@@ -30,7 +30,15 @@ def registry(monkeypatch: pytest.MonkeyPatch) -> tuple[CommandRegistry, list[tup
         if name == "uipath_plan_tasks_new":
             return {"status": "ok", "slug": arguments["slug"], "path": "tasks.md"}
         if name == "uipath_plan_review":
-            return {"status": "ok", "ok": True, "findings": [], "next_action": "accept"}
+            return {
+                "status": "ok",
+                "ok": True,
+                "findings": [],
+                "next_action": "accept",
+                "acceptance_ready": True,
+                "meta_status": "accepted",
+                "routing_metadata": {"slug": arguments.get("slug", ""), "acceptance_ready": True},
+            }
         if name == "uipath_plan_uiplan_new":
             return {
                 "status": "ok",
@@ -216,3 +224,29 @@ def test_uiplan_implement_run_to_completion_handoff(registry: tuple) -> None:
     assert "completion ledger" in out
     assert "scaffold-only progress" in out
     assert "Do not deploy or publish without explicit user approval" in out
+
+
+def test_uiplan_implement_run_to_completion_warns_when_not_accepted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, dict]] = []
+
+    def fake_run_plan_tool(name: str, arguments: dict) -> dict:
+        calls.append((name, arguments))
+        return {
+            "ok": True,
+            "findings": [],
+            "next_action": "accept",
+            "acceptance_ready": False,
+            "meta_status": "draft",
+        }
+
+    monkeypatch.setattr(
+        "uipath_claude.commands.uiplan._run_plan_tool",
+        fake_run_plan_tool,
+    )
+    reg = CommandRegistry()
+    register_uiplan_command(reg)
+    out = reg.execute("uiplan-implement", "draft-slug", "--yes")
+    assert "Run-to-completion blocked" in out
+    assert "uipath_plan_accept" in out

@@ -50,7 +50,7 @@ flowchart TD
 **Purpose**: Core infrastructure that MUST be complete before user stories.
 
 - [ ] T002 [US1] {{T002}}
-- [ ] T002A [US1] Record feasibility grounding links for this story using `uipath_library_lookup`, `uipath_skill_match`, and `query_uipath_docs` when library evidence is insufficient.
+- [ ] T002A [US1] Record feasibility grounding links for this story using `uipath_library_search`, `uipath_library_lookup`, `uipath_skill_match`, `query_uipath_docs`, and `uipath_doc_get_activity` when activities or packages are in scope.
 
 **Checkpoint**: Foundation ready.
 

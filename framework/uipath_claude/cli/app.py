@@ -337,6 +337,11 @@ def plan_uiplan_spec_cmd(
     slug: str | None = typer.Option(None, "--slug"),
     owner: str | None = typer.Option(None, "--owner"),
     project_type: str = typer.Option("mixed", "--project-type"),
+    paradigm: str | None = typer.Option(
+        None,
+        "--paradigm",
+        help="Override implementation paradigm (same values as /uiplan-spec --paradigm).",
+    ),
     project_root: str | None = typer.Option(None, "--project-root"),
 ) -> None:
     """Create UiPlan draft folder with spec.md."""
@@ -349,6 +354,8 @@ def plan_uiplan_spec_cmd(
         args["slug"] = slug
     if owner:
         args["owner"] = owner
+    if paradigm:
+        args["paradigm"] = paradigm
     if project_root:
         args["project_root"] = project_root
     _print_plan_result(_run_plan_tool("uipath_plan_spec_new", args))
@@ -357,10 +364,17 @@ def plan_uiplan_spec_cmd(
 @uiplan_app.command("plan")
 def plan_uiplan_plan_cmd(
     slug: str = typer.Argument(..., help="UiPlan slug from .meta.yaml."),
+    paradigm: str | None = typer.Option(
+        None,
+        "--paradigm",
+        help="Override detected paradigm for plan.md / build-loop hints.",
+    ),
     project_root: str | None = typer.Option(None, "--project-root"),
 ) -> None:
     """Write plan.md for an existing UiPlan folder."""
     args: dict[str, Any] = {"slug": slug}
+    if paradigm:
+        args["paradigm"] = paradigm
     if project_root:
         args["project_root"] = project_root
     _print_plan_result(_run_plan_tool("uipath_plan_plan_new", args))
@@ -369,10 +383,17 @@ def plan_uiplan_plan_cmd(
 @uiplan_app.command("tasks")
 def plan_uiplan_tasks_cmd(
     slug: str = typer.Argument(...),
+    paradigm: str | None = typer.Option(
+        None,
+        "--paradigm",
+        help="Override detected paradigm for tasks.md paradigm blocks.",
+    ),
     project_root: str | None = typer.Option(None, "--project-root"),
 ) -> None:
     """Write tasks.md after plan.md exists."""
     args: dict[str, Any] = {"slug": slug}
+    if paradigm:
+        args["paradigm"] = paradigm
     if project_root:
         args["project_root"] = project_root
     _print_plan_result(_run_plan_tool("uipath_plan_tasks_new", args))
@@ -413,6 +434,12 @@ def plan_uiplan_implement_cmd(
         args["project_root"] = project_root
     result = _run_plan_tool("uipath_plan_review", args)
     if run_to_completion:
+        if not result.get("acceptance_ready"):
+            result["run_to_completion_blocked"] = True
+            result["run_to_completion_blocker"] = (
+                ".meta.yaml status is not 'accepted'. Run `uipath-claude plan uiplan accept <slug>` "
+                "(or `uipath_plan_accept`) before using --run-to-completion."
+            )
         result["run_to_completion"] = True
         result["handoff_mode"] = "execute_accepted_local_tasks_without_intermediate_confirmation"
         result["task_loop"] = [
@@ -490,6 +517,11 @@ def plan_uiplan_full_cmd(
     slug: str | None = typer.Option(None, "--slug"),
     owner: str | None = typer.Option(None, "--owner"),
     project_type: str = typer.Option("mixed", "--project-type"),
+    paradigm: str | None = typer.Option(
+        None,
+        "--paradigm",
+        help="Override implementation paradigm for the generated bundle.",
+    ),
     project_root: str | None = typer.Option(None, "--project-root"),
 ) -> None:
     """Ground + spec + plan + tasks + review in one shot."""
@@ -502,6 +534,8 @@ def plan_uiplan_full_cmd(
         args["slug"] = slug
     if owner:
         args["owner"] = owner
+    if paradigm:
+        args["paradigm"] = paradigm
     if project_root:
         args["project_root"] = project_root
     _print_plan_result(_run_plan_tool("uipath_plan_uiplan_new", args))
