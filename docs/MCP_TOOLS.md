@@ -938,6 +938,7 @@ flowchart TD
 - **`project_path`** — Path to the UiPath project to pack and publish.
 - **`orchestrator_url`** — Base URL of the Orchestrator instance.
 - **`tenant_name`** — Orchestrator tenant name.
+- **`folder_path`** — Orchestrator folder path. Required; no default Shared folder is allowed. Production is blocked.
 
 **Typical return:** Usually a **string** (sometimes JSON text) returned from the underlying helper.
 
@@ -969,8 +970,16 @@ flowchart TD
     },
     "folder_path": {
       "type": "string",
-      "description": "Orchestrator folder path to publish into.",
-      "default": "Shared"
+      "description": "Orchestrator folder path. Required; no default Shared folder is allowed. Production is blocked."
+    },
+    "human_confirmed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Required true for shared or non-personal/non-Dev targets after explicit human approval."
+    },
+    "approved_by": {
+      "type": "string",
+      "description": "Human approver identity for shared/non-Dev targets."
     },
     "account_name": {
       "type": "string",
@@ -1007,7 +1016,8 @@ flowchart TD
   "required": [
     "project_path",
     "orchestrator_url",
-    "tenant_name"
+    "tenant_name",
+    "folder_path"
   ]
 }
 ```
@@ -1059,6 +1069,17 @@ flowchart TD
         "maestro"
       ],
       "default": "process"
+    },
+    "folder_path": {
+      "type": "string",
+      "description": "Intended Orchestrator target folder for approval policy. Production is blocked; shared/non-Dev requires approval metadata."
+    },
+    "human_confirmed": {
+      "type": "boolean",
+      "default": false
+    },
+    "approved_by": {
+      "type": "string"
     },
     "allow_unverified": {
       "type": "boolean",
@@ -4163,6 +4184,10 @@ _No required parameters (all optional)._
     "note": {
       "type": "string",
       "description": "Optional short acceptance note."
+    },
+    "project_dir": {
+      "type": "string",
+      "description": "Project directory this accepted plan authorizes when UIPATH_PLAN_GATE=1. Defaults to project_root."
     },
     "project_root": {
       "type": "string"

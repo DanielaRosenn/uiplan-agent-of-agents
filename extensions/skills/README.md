@@ -7,6 +7,7 @@ Skills in this folder are **team/project extensions** (not from UiPath/skills su
 - Hermes-inspired operational controls (tool policies, approval workflows)
 - Project-specific playbooks (Cato templates, internal conventions)
 - Overrides for UiPath skills (use same name to replace)
+- Shared Cursor/CLI overlays such as UiPlan, Mermaid guidance, and compatibility redirects
 
 ## What Does NOT Go Here
 
@@ -28,6 +29,10 @@ When skill names collide, first source wins (see `uipath_claude.skills.sources` 
 4. **Extensions (this folder)** - team-shared extensions
 5. UiPath Submodule (`skills/skills`) - official baseline
 6. Templates (opt-in) - template-bundled skills
+
+Cursor setup (`ops/scripts/setup-cursor.*`) generates `.cursor/skills` from the
+official UiPath submodule plus this folder, so team overlays are available in
+both Cursor and the Python CLI skill loader.
 
 ## Creating a New Skill
 

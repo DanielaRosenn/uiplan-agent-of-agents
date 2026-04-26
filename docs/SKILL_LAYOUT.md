@@ -7,15 +7,17 @@ This repository exposes the same skill catalog to **Cursor** and to the **Python
 - **`skills/`** — Root of the [UiPath/skills](https://github.com/UiPath/skills) submodule. Do not treat it as “our” Python package; it ships plugin metadata (`.claude-plugin/`), hooks, agents, and the nested catalog.
 - **`skills/skills/<name>/`** — Actual `SKILL.md` trees for each UiPath skill. This is the **single copy** of upstream skills in the repo.
 
-## Cursor discovery (not a second copy)
+## Cursor discovery (generated view, not source of truth)
 
-- **`.cursor/skills`** — On Windows this is typically a **junction** pointing at `skills/skills/`. Cursor indexes skills here; it does not duplicate disk usage beyond one directory tree.
-- If `ops/scripts/setup-cursor.ps1` fell back to a **recursive copy** (junction creation failed), `.cursor/skills` is a **separate tree**. After every `git pull` or submodule advance, re-run **`ops/scripts/setup-cursor.ps1 -Force`** so Cursor sees new upstream `SKILL.md` files. Junction mode does not need this.
+- **`.cursor/skills`** — Cursor indexes skills here. It should be treated as a generated Cursor view of `skills/skills/` plus approved Cursor-only overlays, not as the authoritative catalog.
+- In this repo `ops/scripts/setup-cursor.*` builds a physical view from `skills/skills/` plus `extensions/skills/`. That keeps Cursor and the Python loader aligned while preserving approved overlays such as `uiplan`, `writing-uipath-plans`, `mermaid-diagram-builder`, `brainstorming-plan`, and the legacy `uipath-servo` redirect.
+- After every `git pull` or submodule advance, run **`uipath-claude doctor`**. It warns when `.cursor/skills` is missing upstream skills or contains unmanaged extras.
 
 ## Monitoring upstream (already wired)
 
 - **Canonical content** lives only in the **`skills/` git submodule** (`skills/skills/<name>/`). Commit hash is pinned for reproducibility; see `.uipath/skills-approved.sha` and `python -m uipath_claude.skills.submodule_guard`.
 - **SessionStart hook** (repo root `.cursor/hooks.json`) runs **`.cursor/hooks/check-skills-update.ps1`**: at most every few days it checks whether the submodule is behind `origin/main` and prints a **banner** suggesting `/update-skills` or `ops/scripts/update-skills.ps1`. It does not auto-pull (that would be unsafe without review).
+- **`uipath-claude doctor`** checks Cursor skill alignment against `skills/skills/` and the approved overlay list in `uipath_claude.capabilities`.
 - **Claude Code / `uip` session** uses the submodule’s **`skills/hooks/hooks.json`** (e.g. `ensure-uip.sh`) for npm-based tooling, not for copying skill markdown into `.cursor/`.
 
 ## Knowledge library (not under `.cursor/`)

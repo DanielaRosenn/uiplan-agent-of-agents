@@ -62,7 +62,11 @@ if (-not (Test-Path $mcpLocal)) {
     Write-Host ".cursor/mcp.json already exists (left unchanged)." -ForegroundColor DarkYellow
 }
 
-& (Join-Path $ScriptDir "setup-cursor.ps1")
+if ($Force) {
+    & (Join-Path $ScriptDir "setup-cursor.ps1") -Force
+} else {
+    & (Join-Path $ScriptDir "setup-cursor.ps1")
+}
 
 Write-Host ""
 Write-Host "Next (human, ~30 seconds):" -ForegroundColor Cyan

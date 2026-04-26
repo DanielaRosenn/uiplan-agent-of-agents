@@ -6,7 +6,6 @@ import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-import pytest
 from typer.testing import CliRunner
 
 from uipath_claude.cli.app import app
@@ -17,6 +16,11 @@ from uipath_claude.library.proposals import PROPOSALS_ENV_VAR
 def _minimal_repo(root: Path) -> None:
     (root / "skills" / "skills" / "uipath-rpa").mkdir(parents=True)
     (root / "skills" / "skills" / "uipath-interact").mkdir(parents=True)
+    (root / ".cursor" / "skills" / "uipath-rpa").mkdir(parents=True)
+    (root / ".cursor" / "skills" / "uipath-rpa" / "SKILL.md").write_text(
+        "---\nname: uipath-rpa\n---\n",
+        encoding="utf-8",
+    )
     (root / ".cursor" / "skills" / "uipath-interact").mkdir(parents=True)
     (root / ".cursor" / "skills" / "uipath-interact" / "SKILL.md").write_text(
         "---\nname: uipath-interact\n---\n",
@@ -44,6 +48,7 @@ def test_run_doctor_reports_core_health(tmp_path, monkeypatch):
     by_name = {(check.group, check.name): check for check in checks}
 
     assert by_name[("Skills", "submodule")].status == "ok"
+    assert by_name[("Cursor", "skills alignment")].status == "ok"
     assert by_name[("Cursor", "uipath-interact")].status == "ok"
     assert by_name[("Cursor", "servo redirect")].status == "ok"
     assert by_name[("Tools", "uip")].status == "ok"
@@ -89,6 +94,46 @@ def test_doctor_warns_on_stale_duplicate_library_proposals(tmp_path, monkeypatch
     assert proposal_check.status == "warn"
     assert "duplicate pending target" in proposal_check.detail
     assert "stale" in proposal_check.detail
+
+
+def test_doctor_warns_on_cursor_skill_drift(tmp_path, monkeypatch):
+    _minimal_repo(tmp_path)
+    (tmp_path / "skills" / "skills" / "uipath-gov-aops-policy").mkdir(parents=True)
+    (tmp_path / ".cursor" / "skills" / "unknown-local-skill").mkdir(parents=True)
+    monkeypatch.setenv("UIPATH_CLAUDE_LIBRARY", str(tmp_path / "data" / "library"))
+    monkeypatch.setenv(PROPOSALS_ENV_VAR, str(tmp_path / "missing-proposals"))
+
+    checks = run_doctor(tmp_path, which=lambda _name: None)
+    alignment = next(c for c in checks if c.group == "Cursor" and c.name == "skills alignment")
+
+    assert alignment.status == "warn"
+    assert "missing upstream skills" in alignment.detail
+    assert "unmanaged Cursor-only skills" in alignment.detail
+
+
+def test_doctor_warns_on_non_uv_mcp_launch(tmp_path, monkeypatch):
+    _minimal_repo(tmp_path)
+    (tmp_path / ".cursor" / "mcp.json").write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "uipath-builder-agent": {
+                        "command": "python",
+                        "args": ["-m", "mcp_server.server"],
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("UIPATH_CLAUDE_LIBRARY", str(tmp_path / "data" / "library"))
+    monkeypatch.setenv(PROPOSALS_ENV_VAR, str(tmp_path / "missing-proposals"))
+
+    checks = run_doctor(tmp_path, which=lambda _name: None)
+    launch = next(c for c in checks if c.group == "Cursor" and c.name == "MCP launch")
+
+    assert launch.status == "warn"
+    assert "uv run python -m mcp_server.server" in launch.detail
 
 
 def test_doctor_cli_json(monkeypatch):

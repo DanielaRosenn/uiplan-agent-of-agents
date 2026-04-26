@@ -27,6 +27,7 @@ Commands are registered in [`framework/uipath_claude/cli/app.py`](../framework/u
 | Command | Purpose | `safe` / `uipath-dev` |
 | --- | --- | --- |
 | `/help` | List commands and short descriptions | yes |
+| `/doctor` | Run read-only workspace health checks | yes |
 | `/status` | Session / engine status | yes |
 | `/skills` | List skills | yes |
 | `/analyze` | Analyze UiPath project | yes |
@@ -35,6 +36,7 @@ Commands are registered in [`framework/uipath_claude/cli/app.py`](../framework/u
 | `/bootstrap` | Legacy BA → SA → Dev → QA bootstrap | yes |
 | `/pdd` | Full PDD → … → deploy lifecycle ([PDD_LIFECYCLE.md](PDD_LIFECYCLE.md)) | yes |
 | `/recall` | Search session history | yes |
+| `/resume` | List or inspect prior chat sessions | yes |
 | `/update-skills` | Update `skills/` submodule from upstream | yes |
 | `/scan-upstream-skills` | Diff skills submodule vs last scan | yes |
 | `/library-harvest` | Enqueue library proposals from skills | yes |
@@ -53,6 +55,6 @@ Use `/help` in a live session for the exact list your build registers.
 | Lighter four-stage flow | `/bootstrap` |
 | Static validation | `/validate`, `/analyze` |
 | Planning / three-file bundles | `/uiplan`, `/plan` (if enabled) |
-| Skills + library hygiene | `/update-skills`, `/scan-upstream-skills`, `/library-harvest`, `/library-proposals`, `/books` |
+| Skills + library hygiene | `/doctor`, `/update-skills`, `/scan-upstream-skills`, `/library-harvest`, `/library-proposals`, `/books` |
 
-Related: [USER_GUIDE.md](USER_GUIDE.md), [SMOKE_TESTS.md](SMOKE_TESTS.md) (env vars), [MANUAL_REVIEW_CURSOR_FULL_PROJECT.md](MANUAL_REVIEW_CURSOR_FULL_PROJECT.md) (manual matrix).
+Related: [USER_GUIDE.md](USER_GUIDE.md), [CAPABILITY_CONTRACT.md](CAPABILITY_CONTRACT.md), and [SMOKE_TESTS.md](SMOKE_TESTS.md) (env vars and scenarios).

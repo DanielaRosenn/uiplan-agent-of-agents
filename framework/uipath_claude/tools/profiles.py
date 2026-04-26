@@ -15,12 +15,14 @@ class ToolProfile:
 # being a finite allow-list (unlike ``all`` which permits any string).
 _SAFE_COMMANDS = (
     "help",
+    "doctor",
     "status",
     "skills",
     "analyze",
     "validate",
     "bootstrap",
     "recall",
+    "resume",
     "update-skills",
     "books",
     "scan-upstream-skills",

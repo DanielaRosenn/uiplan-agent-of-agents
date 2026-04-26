@@ -50,7 +50,7 @@ High-level view of what each specialist owns. **Do not describe internal flows o
 | `uipath-coded-apps` | Web apps (`.uipath/` dir): build, sync, package, publish, deploy | Yes (`uip login`) | **Yes** — end-to-end |
 | `uipath-maestro-flow` | `.flow` files orchestrating RPA, agents, apps | Yes (`uip login`) | **Partial** — Studio Web by default; `uipath-platform` for Orchestrator |
 | `uipath-platform` | Auth, Orchestrator resources, solution lifecycle (pack/publish/deploy), Integration Service, Test Manager | Yes (auth hub) | **Yes** — the deploy destination |
-| `uipath-servo` | Interact with live desktop/browser UI: click, type, screenshot, inspect. For app launching, ad-hoc exploration, post-build verification. Does NOT author workflows or generate selectors — that's `uipath-rpa`. | No auth | **No** |
+| `uipath-interact` | Interact with live desktop/browser UI: click, type, screenshot, inspect. For app launching, ad-hoc exploration, post-build verification. Does NOT author workflows or generate selectors — that's `uipath-rpa`. | No auth | **No** |
 
 ## RPA skill routing
 
@@ -62,13 +62,12 @@ Two RPA skills exist. Pick the right one:
 | `project.json` has any other `targetFramework` (e.g., `"Portable"`, `"Windows"`) | `uipath-rpa` |
 | No existing project + user explicitly asks for legacy | `uipath-rpa-legacy` |
 | No existing project + no legacy request | `uipath-rpa` (default for all new projects) |
-| macOS host | `uipath-rpa` — cross-platform target only (Windows target not available on macOS) |
-| Windows host | `uipath-rpa` — user can choose Windows or cross-platform target |
+| Any host | `uipath-rpa` — C# only, Modern experience, Windows target. Do not route new work to cross-platform or Classic. |
 
 **Rules:**
 1. Never suggest `uipath-rpa-legacy` for new projects unless the user explicitly requests legacy.
-2. On macOS, only cross-platform automation is supported — always route to `uipath-rpa`.
-3. On Windows, `uipath-rpa` supports both Windows and cross-platform targets.
+2. New authoring is C# only, Modern experience, Windows target.
+3. Do not offer VB.NET, Classic, or cross-platform targets for new automations.
 
 ## Step 1 — Upfront elicitation (batched)
 
@@ -123,7 +122,7 @@ If the user provides a path, read the document and use it to inform the plan.
 > 1. **Standard coverage** *(recommended)* — automated tests for the primary flow plus the main edge cases and error paths I can infer from the request or PDD.
 > 2. **Happy path only** — automated tests for the primary success flow; edge-case coverage is deferred.
 
-Record the answer in the plan header as `Test coverage: standard | happy-path`. The `Testing (MANDATORY)` task in the plan body references this field so the specialist knows the scope. If the plan contains **no generation skill** (pure `uipath-servo` interaction, pure `uipath-platform` ops, pure read-only diagnostics) record `Test coverage: N/A`.
+Record the answer in the plan header as `Test coverage: standard | happy-path`. The `Testing (MANDATORY)` task in the plan body references this field so the specialist knows the scope. If the plan contains **no generation skill** (pure `uipath-interact` interaction, pure `uipath-platform` ops, pure read-only diagnostics) record `Test coverage: N/A`.
 
 ### Project type: infer first, ask only if vague
 
@@ -150,7 +149,7 @@ If the user picks **RPA workflow**, record `Project type: XAML` and move on. **N
 
 ### Default: Expression language
 
-Always use **VB.NET** for XAML workflows. Note this in the plan. Do not ask.
+Always use **C#** for new workflows. Note this in the plan. Do not ask.
 
 ## Step 1.5 — Residue question (project shape)
 
@@ -215,14 +214,14 @@ User wants to build a UI automation AND observe it running on the live app.
 
 ```
 1. uipath-rpa   → build the workflow end-to-end
-2. uipath-servo → observe the live app, capture screenshots/snapshots to diagnose issues
+2. uipath-interact → observe the live app, capture screenshots/snapshots to diagnose issues
 3. uipath-rpa   → apply fixes from findings; repeat 2–3 as needed
 ```
 
 ### Verify or fix existing automation against a running app
 
 ```
-1. uipath-servo → interact with the live app, identify the UI issue
+1. uipath-interact → interact with the live app, identify the UI issue
 2. uipath-rpa   → fix the automation based on servo findings
 ```
 
@@ -423,12 +422,12 @@ When the workspace is this **uipath-builder-agent** git checkout, persist plans 
 ## Anti-patterns
 
 1. **Do not skip Step 1** for non-trivial automations.
-2. **Do not write automation code or modify the project.** Plans only. In explore-first mode, non-mutating `uip`/`servo` discovery is allowed.
+2. **Do not write automation code or modify the project.** Plans only. In explore-first mode, non-mutating `uip`/`uipath-interact` discovery is allowed.
 3. **Do not ask more than 5 questions total** across Steps 1, 1.5, and 4. If still undetermined, plan with best available info and record defaulted items in `## Resolutions`.
 4. **Do not recommend a skill that contradicts the filesystem signals.** `.flow` files → `uipath-maestro-flow`, not `uipath-rpa`.
 5. **Do not skip Step 2.** Check multi-skill patterns before filesystem detection.
-6. **Do not ask the UI-targeting question (Step 4) unless the plan includes a UI automation workflow.** Gate on the presence of UI element targeting, NOT on whether `uipath-servo` is loaded — most UI plans are single-skill `uipath-rpa`.
-7. **Do not route UI automation through `uipath-servo` for element discovery or selector work.** `uipath-rpa` is the sole workflow authoring skill. Servo is only for live-app interaction and post-build verification.
+6. **Do not ask the UI-targeting question (Step 4) unless the plan includes a UI automation workflow.** Gate on the presence of UI element targeting, NOT on whether `uipath-interact` is loaded — most UI plans are single-skill `uipath-rpa`.
+7. **Do not route UI automation through `uipath-interact` for element discovery or selector work.** `uipath-rpa` is the sole workflow authoring skill. `uipath-interact` is only for live-app interaction and post-build verification.
 8. **Do not describe specialist-internal flows in the plan** (target-configuration procedures, OR registration, scaffolding/write-agent pipelines, auth steps, pack/publish details). Route to the skill and let it follow its own documentation — inlining those flows creates drift.
 9. **Do not save a plan with placeholders** (TBD, TODO, as needed, similar to Task N).
 10. **Do not ask the user to choose between XAML and C#.** Project type is inferred from the request (see "Project type: infer first, ask only if vague" in Step 1). RPA workflows are XAML by default. Coded mode is only set when the user explicitly says "coded workflow", "C# workflow", or "create a .cs file" — record the choice directly, no question needed.
@@ -439,5 +438,5 @@ When the workspace is this **uipath-builder-agent** git checkout, persist plans 
 15. **Do not omit `Execution autonomy` from the plan header, and do not leave `Stop conditions` empty when autonomy is `autonomous`.** Downstream specialists rely on both to decide whether to interrupt. If the user did not answer the autonomy question, default to `autonomous` for simultaneous mode and note that choice in Decisions & Trade-offs. Populate Stop conditions with the hard blockers realistic for this specific plan (auth, app state, element-capture limits, missing resources) — do not leave a generic placeholder.
 16. **Do not route new projects to `uipath-rpa-legacy`.** Legacy is for existing .NET Framework 4.6.1 projects only. New projects always go to `uipath-rpa` unless the user explicitly asks for legacy.
 17. **Do not omit the mandatory Testing task, and do not inline testing procedures.** Every generation skill in the plan gets its own `Testing (MANDATORY)` task that routes to that skill's testing references. Never replace it with a `Validate:` sub-step, never describe test-case authoring / data-driven testing / mock testing / assertion patterns in the plan — those live in each specialist's own testing guide and will drift if duplicated here.
-18. **Do not ask a question the planner, library, or filesystem can answer.** Before any `AskUserQuestion` call, check: (a) is there a safe default (expression language, project-name casing, cross-platform vs Windows on macOS)? (b) can `uipath_library_search` / `lookup_uipath_knowledge` answer it (e.g., "is REFramework right for a queue processor?")? (c) does the filesystem probe (Step 3) already tell me? Only the residue that survives all three gates goes in the batched card. Asking about defaulted or library-answerable decisions is noise and burns the 5-question budget.
+18. **Do not ask a question the planner, library, or filesystem can answer.** Before any `AskUserQuestion` call, check: (a) is there a safe default (expression language is C#, target is Windows, project-name casing)? (b) can `uipath_library_search` / `lookup_uipath_knowledge` answer it (e.g., "is REFramework right for a queue processor?")? (c) does the filesystem probe (Step 3) already tell me? Only the residue that survives all three gates goes in the batched card. Asking about defaulted or library-answerable decisions is noise and burns the 5-question budget.
 19. **Do not ask questions one-at-a-time.** Step 1, Step 1.5, and Step 4 each batch their questions into a single `AskUserQuestion` call. Never ask one question, wait for the answer, then ask the next. If two steps each have residue, they still fire in one turn each — two batched cards total, not five sequential questions.

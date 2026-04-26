@@ -344,6 +344,7 @@ def run_uip_rpa_get_errors(
 def run_uip_rpa_analyze(
     project_path: str | Path,
     *,
+    rule_profile: str | Path | None = None,
     timeout: int = 120,
 ) -> dict:
     """Run `uip rpa analyze --project-path <project> --output json`.
@@ -361,9 +362,12 @@ def run_uip_rpa_analyze(
     """
     path = str(Path(project_path).resolve())
     uip_cli = _find_uip_cli()
+    cmd = [uip_cli, "rpa", "analyze", "--project-path", path, "--output", "json"]
+    if rule_profile is not None:
+        cmd.extend(["--rules-profile", str(Path(rule_profile).resolve())])
     try:
         proc = subprocess.run(
-            [uip_cli, "rpa", "analyze", "--project-path", path, "--output", "json"],
+            cmd,
             capture_output=True,
             text=True,
             timeout=timeout,

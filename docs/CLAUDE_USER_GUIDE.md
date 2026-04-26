@@ -446,7 +446,8 @@ Re-run the opposite quickstart with **`-Force`** so `.assistant-choice` and expe
 ## Further reading
 
 - [USER_GUIDE.md](USER_GUIDE.md) — day-to-day CLI reference, env vars, cookbook
-- [CURSOR_USER_GUIDE.md](CURSOR_USER_GUIDE.md) — Cursor + MCP tool surface (parity reference)
+- [CAPABILITY_CONTRACT.md](CAPABILITY_CONTRACT.md) — canonical CLI/Cursor/MCP parity contract and explicit Claude Code non-goals
+- [CURSOR_USER_GUIDE.md](CURSOR_USER_GUIDE.md) — Cursor + MCP tool surface
 - [SLASH_COMMANDS.md](SLASH_COMMANDS.md) — slash command matrix and tool profiles
 - [PDD_LIFECYCLE.md](PDD_LIFECYCLE.md) — `/pdd` stages and outputs
 - [README.md](../README.md) — project pitch, setup paths, skills update policy

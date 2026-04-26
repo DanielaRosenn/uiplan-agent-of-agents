@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
 
 from uipath_claude.tools import skill_execution_tools as set_mod
 
@@ -30,6 +29,11 @@ def _stub_validate(monkeypatch, tmp_path: Path) -> None:
         set_mod,
         "run_uip_rpa_get_errors",
         lambda *a, **kw: {"success": True, "errors": [], "warnings": []},
+    )
+    monkeypatch.setattr(
+        set_mod,
+        "run_uip_rpa_analyze",
+        lambda *a, **kw: {"success": True, "errors": [], "warnings": [], "raw_output": ""},
     )
 
 
@@ -69,3 +73,34 @@ def test_require_studio_debug_false_allows_pass_when_run_skipped(tmp_path, monke
     assert payload["success"] is True
     assert payload["verdict"] == "pass"
     assert payload["next_action"] == "none"
+
+
+def test_analyzer_failure_blocks_verify(tmp_path, monkeypatch):
+    _stub_validate(monkeypatch, tmp_path)
+    monkeypatch.setattr(
+        set_mod,
+        "run_uip_rpa_analyze",
+        lambda *a, **kw: {
+            "success": False,
+            "errors": ["AN-ERR"],
+            "warnings": [],
+            "raw_output": "raw analyzer output",
+        },
+    )
+
+    payload = set_mod._run_one_verify_attempt(
+        project_dir=str(tmp_path / "proj"),
+        file_path=None,
+        run_after_validate=False,
+        input_arguments=None,
+        timeout_seconds=10,
+        auto_install_packages=False,
+        studio_debug_after_run=False,
+        attempt_index=1,
+        max_attempts=1,
+        require_studio_debug=False,
+    )
+
+    assert payload["success"] is False
+    assert payload["phase"] == "analyze"
+    assert payload["errors"] == ["AN-ERR"]

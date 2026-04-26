@@ -50,7 +50,7 @@ flowchart LR
     Tools --> Validate{Validate / review}:::decision
     Validate -->|fix needed| Skill
     Validate -->|approved| Output[Project, docs, package, or answer]:::success
-    Output --> Doctor[doctor + manual review]:::process
+    Output --> Doctor[doctor + tests]:::process
 
     classDef process  fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
     classDef service  fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
@@ -71,11 +71,11 @@ flowchart LR
 | --- | --- | --- |
 | **Assistant runtime** | Intent routing, personas, slash commands, tool profiles, validation loop | [framework/uipath_claude/](framework/uipath_claude/) |
 | **Cursor MCP server** | UiPath workflow, plan, library, skill, answer, doc, and memory tools | [framework/mcp_server/](framework/mcp_server/), [docs/MCP_TOOLS.md](docs/MCP_TOOLS.md) |
-| **Cursor skills** | IDE-native playbooks and routing hints | [.cursor/skills/](.cursor/skills/), [skills/skills/](skills/skills/) |
+| **Cursor skills** | IDE-native playbooks and routing hints generated from upstream plus overlays | [.cursor/skills/](.cursor/skills/), [skills/skills/](skills/skills/), [extensions/skills/](extensions/skills/) |
 | **UiPlan** | `spec.md` + `plan.md` + `tasks.md` planning contract | [docs/uiplan/](docs/uiplan/), [templates/uiplan/](templates/uiplan/) |
 | **Library learning** | Reviewed lessons, citations, proposals, audit trail | [docs/LIBRARY_LEARNING.md](docs/LIBRARY_LEARNING.md), [data/library/](data/library/) |
 | **Operations scripts** | Cursor setup, Claude setup, MCP docs generation, skill updates | [ops/scripts/](ops/scripts/) |
-| **Manual review** | Human QA checklists for Cursor, Phase 4, smoke tests | [docs/MANUAL_REVIEW_CURSOR_FULL_PROJECT.md](docs/MANUAL_REVIEW_CURSOR_FULL_PROJECT.md), [docs/MANUAL_TESTING_POST_PHASE4.md](docs/MANUAL_TESTING_POST_PHASE4.md) |
+| **Capability contract** | Canonical CLI/Cursor/MCP surface and explicit Claude Code non-goals | [docs/CAPABILITY_CONTRACT.md](docs/CAPABILITY_CONTRACT.md) |
 
 ## Current Skill Routing
 
@@ -107,7 +107,7 @@ flowchart TD
 
 ## Repository Layout (Runtime Code)
 
-After the **Phase 4** migration, Python packages and the MCP server live only under **`framework/`**. Operations scripts are under **`ops/scripts/`**. UiPlan **template kit** ships under **`templates/uiplan/`**; human guidance lives under **`docs/uiplan/`**.
+Python packages and the MCP server live under **`framework/`**. Operations scripts are under **`ops/scripts/`**. UiPlan **template kit** ships under **`templates/uiplan/`**; human guidance lives under **`docs/uiplan/`**.
 
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
@@ -178,7 +178,7 @@ Then run:
 uipath-claude doctor
 ```
 
-`doctor` is read-only. It checks the skills submodule, Cursor skill redirects, `uipath-interact`, legacy Servo aliasing, MCP config/docs, `uip` on PATH, markdown mojibake, runtime imports, and library proposal health.
+`doctor` is read-only. It checks the skills submodule, Cursor skill alignment, `uipath-interact`, legacy Servo aliasing, MCP config/launch/docs, `uip` on PATH, markdown mojibake, runtime imports, and library proposal health.
 
 ### 1. Clone the repo (fresh setup)
 
@@ -243,9 +243,10 @@ Full setup (UiPath CLI, Studio 26.2+, Orchestrator auth, AWS region overrides) l
 | Understand how every skill works visually | [docs/SKILL_VISUAL_GUIDE.md](docs/SKILL_VISUAL_GUIDE.md) | Skill families, routing, Cursor flow, Claude flow, MCP families |
 | Learn the recommended day-to-day usage patterns | [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md#mcp-tools-advanced) + [docs/CLAUDE_USER_GUIDE.md](docs/CLAUDE_USER_GUIDE.md#best-practices-for-claude--terminal-work) | Cursor MCP playbooks, prompt shape, safety rules, CLI preflight, plans, validation |
 | CLI reference (commands, env, cookbook) | [docs/USER_GUIDE.md](docs/USER_GUIDE.md) | Deeper command and env documentation |
+| Understand supported Claude-Code-style parity | [docs/CAPABILITY_CONTRACT.md](docs/CAPABILITY_CONTRACT.md) | Canonical CLI/Cursor/MCP contract and non-goals |
 | Learn from accepted fixes and proposals | [docs/LIBRARY_LEARNING.md](docs/LIBRARY_LEARNING.md) | Operator workflow for proposal review and audit logs |
 | Inspect available MCP tools | [docs/MCP_TOOLS.md](docs/MCP_TOOLS.md) | Generated catalog of Cursor-callable tools |
-| Validate broad functionality manually | [docs/MANUAL_REVIEW_CURSOR_FULL_PROJECT.md](docs/MANUAL_REVIEW_CURSOR_FULL_PROJECT.md) | End-to-end test matrix and report template |
+| Validate functionality | [docs/TESTING.md](docs/TESTING.md) + [docs/SMOKE_TESTS.md](docs/SMOKE_TESTS.md) | Automated gates plus scenario smoke tests |
 
 ---
 

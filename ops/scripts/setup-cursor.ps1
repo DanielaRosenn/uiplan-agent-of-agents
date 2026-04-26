@@ -10,8 +10,22 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $CursorSkillsDir = Join-Path $RepoRoot ".cursor\skills"
 $SourceSkillsDir = Join-Path $RepoRoot "skills\skills"
+$OverlaySkillsDir = Join-Path $RepoRoot "extensions\skills"
 
 Write-Host "Setting up Cursor skills..." -ForegroundColor Cyan
+
+$choiceFile = Join-Path $RepoRoot ".assistant-choice"
+$choice = "cursor"
+if (Test-Path $choiceFile) {
+    $existing = (Get-Content $choiceFile -Raw).Trim().ToLowerInvariant()
+    if ($existing -and $existing -ne $choice -and -not $Force) {
+        Write-Host "This clone is currently configured for '$existing'." -ForegroundColor Yellow
+        Write-Host "To switch to Cursor, re-run with -Force." -ForegroundColor Yellow
+        exit 1
+    }
+}
+Set-Content -Path $choiceFile -Value $choice -NoNewline
+Write-Host "Assistant choice for this clone: $choice" -ForegroundColor Green
 
 # Check if source skills exist
 if (-not (Test-Path $SourceSkillsDir)) {
@@ -37,21 +51,18 @@ if (Test-Path $CursorSkillsDir) {
     }
 }
 
-# Try to create a junction (works without admin on Windows 10+)
-try {
-    cmd /c "mklink /J `"$CursorSkillsDir`" `"$SourceSkillsDir`""
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "Created junction: .cursor/skills -> skills/skills" -ForegroundColor Green
-    } else {
-        throw "Junction creation failed"
+# Build a generated physical view. This preserves local Cursor overlays
+# (uiplan, mermaid guidance, legacy redirects) while keeping skills/skills
+# as the official upstream source of truth.
+New-Item -ItemType Directory -Path $CursorSkillsDir | Out-Null
+Copy-Item -Recurse -Force (Join-Path $SourceSkillsDir "*") $CursorSkillsDir
+if (Test-Path $OverlaySkillsDir) {
+    Get-ChildItem -Path $OverlaySkillsDir -Directory | ForEach-Object {
+        Copy-Item -Recurse -Force $_.FullName $CursorSkillsDir
     }
-} catch {
-    # Fallback: copy the skills
-    Write-Host "Junction failed, copying skills instead..." -ForegroundColor Yellow
-    Copy-Item -Recurse $SourceSkillsDir $CursorSkillsDir
-    Write-Host "Copied skills to .cursor/skills" -ForegroundColor Green
-    Write-Host "Note: Skills won't auto-update. Re-run this script after pulling changes." -ForegroundColor Yellow
 }
+Write-Host "Generated .cursor/skills from skills/skills plus extensions/skills overlays" -ForegroundColor Green
+Write-Host "Re-run this script after pulling changes or advancing the skills submodule." -ForegroundColor Yellow
 
 Write-Host ""
 Write-Host "Cursor setup complete!" -ForegroundColor Green

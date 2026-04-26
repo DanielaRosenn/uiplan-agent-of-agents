@@ -1,10 +1,6 @@
 """Tests for skill execution tools."""
 import json
-import os
-from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from uipath_claude.tools.skill_execution_tools import (
     read_file,
@@ -13,7 +9,6 @@ from uipath_claude.tools.skill_execution_tools import (
     read_project_json,
     install_package,
     validate_file,
-    run_uip_command,
     find_activity_info,
     ensure_project_structure,
     get_skill_execution_tools,
@@ -160,7 +155,7 @@ class TestWriteFile:
         assert "Successfully wrote" in result
         assert (tmp_path / "Second.cs").exists()
 
-    def test_xaml_write_not_blocked_by_activities_guard(
+    def test_xaml_write_blocked_by_raw_xaml_guard(
         self, tmp_path, monkeypatch
     ):
         (tmp_path / "project.json").write_text("{}")
@@ -176,9 +171,9 @@ class TestWriteFile:
             "content": xaml,
         })
 
-        assert "Successfully wrote" in result
-        assert "Activities-first" not in result
-        assert (tmp_path / "Main.xaml").exists()
+        assert result.startswith("[ERROR]")
+        assert "Direct raw .xaml writes are blocked" in result
+        assert not (tmp_path / "Main.xaml").exists()
 
 
 class TestListDirectory:

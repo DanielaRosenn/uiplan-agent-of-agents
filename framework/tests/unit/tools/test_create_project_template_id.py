@@ -30,6 +30,14 @@ def _capture_cmd(captured):
     return _runner
 
 
+def _capture_then_run(captured, runner):
+    def _runner(cmd, *args, **kwargs):
+        captured.setdefault("cmd", list(cmd))
+        return runner(cmd, *args, **kwargs)
+
+    return _runner
+
+
 def _set_chat_env(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("UIPATH_CHAT_OUTPUT_DIR", str(tmp_path / "chat"))
@@ -42,7 +50,7 @@ def test_process_uses_blank_template(tmp_path, monkeypatch):
     captured: dict = {}
 
     runner = _writes_project_json(parent, "Proc")
-    real_runner = lambda cmd, *a, **kw: (captured.setdefault("cmd", list(cmd)), runner(cmd, *a, **kw))[1]
+    real_runner = _capture_then_run(captured, runner)
 
     with (
         patch.object(set_mod, "_find_uip_cli", return_value="uip"),
@@ -63,7 +71,8 @@ def test_process_uses_blank_template(tmp_path, monkeypatch):
     assert "--template-id" in cmd
     assert cmd[cmd.index("--template-id") + 1] == "BlankTemplate"
     assert "--type" not in cmd
-    assert "--expression-language" not in cmd
+    assert cmd[cmd.index("--expression-language") + 1] == "CSharp"
+    assert cmd[cmd.index("--target-framework") + 1] == "Windows"
 
 
 def test_library_uses_library_template(tmp_path, monkeypatch):
@@ -72,7 +81,7 @@ def test_library_uses_library_template(tmp_path, monkeypatch):
     captured: dict = {}
 
     runner = _writes_project_json(parent, "Lib")
-    real_runner = lambda cmd, *a, **kw: (captured.setdefault("cmd", list(cmd)), runner(cmd, *a, **kw))[1]
+    real_runner = _capture_then_run(captured, runner)
 
     with (
         patch.object(set_mod, "_find_uip_cli", return_value="uip"),
@@ -98,7 +107,7 @@ def test_coded_uses_blank_template_and_csharp(tmp_path, monkeypatch):
     captured: dict = {}
 
     runner = _writes_project_json(parent, "Coded")
-    real_runner = lambda cmd, *a, **kw: (captured.setdefault("cmd", list(cmd)), runner(cmd, *a, **kw))[1]
+    real_runner = _capture_then_run(captured, runner)
 
     with (
         patch.object(set_mod, "_find_uip_cli", return_value="uip"),
@@ -128,7 +137,7 @@ def test_studio_dir_injected_before_subcommand_when_resolved(tmp_path, monkeypat
     captured: dict = {}
 
     runner = _writes_project_json(parent, "Proj")
-    real_runner = lambda cmd, *a, **kw: (captured.setdefault("cmd", list(cmd)), runner(cmd, *a, **kw))[1]
+    real_runner = _capture_then_run(captured, runner)
 
     with (
         patch.object(set_mod, "_find_uip_cli", return_value="uip"),
@@ -157,7 +166,7 @@ def test_studio_dir_omitted_when_none_resolved(tmp_path, monkeypatch):
     captured: dict = {}
 
     runner = _writes_project_json(parent, "Proj")
-    real_runner = lambda cmd, *a, **kw: (captured.setdefault("cmd", list(cmd)), runner(cmd, *a, **kw))[1]
+    real_runner = _capture_then_run(captured, runner)
 
     with (
         patch.object(set_mod, "_find_uip_cli", return_value="uip"),

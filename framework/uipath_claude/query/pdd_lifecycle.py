@@ -11,7 +11,6 @@ Each stage short-circuits on failure: the result dictionary always contains
 """
 from __future__ import annotations
 
-import json
 import shutil
 import subprocess
 from pathlib import Path
@@ -64,7 +63,7 @@ async def run_pdd_lifecycle(
     *,
     project_type: str = "process",
     deploy: bool = False,
-    folder: str = "Shared",
+    folder: str = "Personal Workspace",
     engine: ConversationEngine | None = None,
     output_root: Path | None = None,
     process_name: str | None = None,
@@ -97,6 +96,9 @@ async def run_pdd_lifecycle(
     try:
         ba = BAAgent()
         pdd = await invoke_agent_llm(eng, ba.get_system_prompt(), user_request)
+        design_error = _validate_design_artifact("pdd", pdd)
+        if design_error:
+            return _fail("pdd", design_error, {"stages": stages, "paths": paths})
         pdd_path = writer.write_pdd(pdd)
         paths["pdd"] = str(pdd_path)
         stages["pdd"] = _ok({"length": len(pdd or "")})
@@ -108,6 +110,9 @@ async def run_pdd_lifecycle(
         sdd = await invoke_agent_llm(
             eng, sa.get_system_prompt(), f"Create SDD based on this PDD:\n\n{pdd}"
         )
+        design_error = _validate_design_artifact("sdd", sdd)
+        if design_error:
+            return _fail("sdd", design_error, {"stages": stages, "paths": paths})
         sdd_path = writer.write_sdd(sdd)
         paths["sdd"] = str(sdd_path)
         stages["sdd"] = _ok({"length": len(sdd or "")})
@@ -121,6 +126,9 @@ async def run_pdd_lifecycle(
             add_agent.get_system_prompt(),
             f"Create ADD based on this SDD:\n\n{sdd}",
         )
+        design_error = _validate_design_artifact("add", add_doc)
+        if design_error:
+            return _fail("add", design_error, {"stages": stages, "paths": paths})
         add_path = writer.write_add(add_doc)
         paths["add"] = str(add_path)
         stages["add"] = _ok({"length": len(add_doc or "")})
@@ -134,6 +142,9 @@ async def run_pdd_lifecycle(
             tdd_agent.get_system_prompt(),
             f"Create TDD based on this ADD:\n\n{add_doc}",
         )
+        design_error = _validate_design_artifact("tdd", tdd_doc)
+        if design_error:
+            return _fail("tdd", design_error, {"stages": stages, "paths": paths})
         tdd_path = writer.write_tdd(tdd_doc)
         paths["tdd"] = str(tdd_path)
         stages["tdd"] = _ok({"length": len(tdd_doc or "")})
@@ -184,8 +195,15 @@ async def run_pdd_lifecycle(
     if validate_result.get("status") == "failed":
         return _fail("validate", validate_result.get("error", ""), {"stages": stages, "paths": paths})
 
+    if project_type == "maestro":
+        run_result = _run_maestro(project_dir)
+    else:
+        run_result = _run_process(project_dir)
+    stages["run"] = run_result
+    if run_result.get("status") == "failed":
+        return _fail("run", run_result.get("error", ""), {"stages": stages, "paths": paths})
+
     if not deploy:
-        stages["run"] = {"status": "skipped", "reason": "deploy=False"}
         stages["publish"] = {"status": "skipped", "reason": "deploy=False"}
         stages["deploy"] = {"status": "skipped", "reason": "deploy=False"}
         try:
@@ -200,14 +218,6 @@ async def run_pdd_lifecycle(
         except Exception:
             pass
         return {"status": "ok", "stages": stages, "paths": paths}
-
-    if project_type == "maestro":
-        run_result = _run_maestro(project_dir)
-    else:
-        run_result = _run_process(project_dir)
-    stages["run"] = run_result
-    if run_result.get("status") == "failed":
-        return _fail("run", run_result.get("error", ""), {"stages": stages, "paths": paths})
 
     publish = publish_fn or deploy_tool.publish_project
     try:
@@ -241,6 +251,18 @@ def _slug_from_request(text: str) -> str:
 
     s = re.sub(r"[^a-zA-Z0-9]+", "", (text or "").title())
     return s or "GeneratedProcess"
+
+
+def _validate_design_artifact(stage: str, text: str | None) -> str | None:
+    """Reject empty/error/placeholder design artifacts before downstream stages."""
+    body = (text or "").strip()
+    if len(body) < 20:
+        return f"{stage.upper()} artifact is too short to validate ({len(body)} chars)"
+    lowered = body.lower()
+    placeholders = ("todo", "tbd", "lorem ipsum", "[insert", "<insert")
+    if _is_error_payload(body) or any(marker in lowered for marker in placeholders):
+        return f"{stage.upper()} artifact contains an error marker or unresolved placeholder"
+    return None
 
 
 def _scaffold_process(parent_dir: Path, project_name: str) -> dict[str, Any]:

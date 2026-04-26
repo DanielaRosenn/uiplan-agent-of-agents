@@ -459,6 +459,13 @@ def get_plan_tools() -> list[Tool]:
                         "type": "string",
                         "description": "Optional short acceptance note.",
                     },
+                    "project_dir": {
+                        "type": "string",
+                        "description": (
+                            "Project directory this accepted plan authorizes "
+                            "when UIPATH_PLAN_GATE=1. Defaults to project_root."
+                        ),
+                    },
                     "project_root": {"type": "string"},
                 },
             },
@@ -1472,12 +1479,19 @@ def _call_plan_accept(arguments: dict[str, Any]) -> dict[str, Any]:
     sl = slug if isinstance(slug, str) and slug.strip() else None
     actor = arguments.get("actor") or _default_actor()
     note = arguments.get("note")
+    project_dir_arg = arguments.get("project_dir")
+    project_dir = (
+        Path(project_dir_arg).expanduser().resolve()
+        if isinstance(project_dir_arg, str) and project_dir_arg.strip()
+        else repo.resolve()
+    )
     path = _find_plan_path(drafts_dir, fn, sl, extra_dirs=[plans_dir])
     if is_folder_plan(path):
         meta = load_folder_meta(path)
         meta["status"] = "accepted"
         meta["accepted_at"] = _utc_iso()
         meta["accepted_by"] = str(actor)
+        meta["project_dir"] = str(project_dir)
         if isinstance(note, str) and note.strip():
             meta["acceptance_note"] = note.strip()
         meta["rejection_reason"] = None
@@ -1493,6 +1507,7 @@ def _call_plan_accept(arguments: dict[str, Any]) -> dict[str, Any]:
     meta["status"] = "accepted"
     meta["accepted_at"] = _utc_iso()
     meta["accepted_by"] = str(actor)
+    meta["project_dir"] = str(project_dir)
     if isinstance(note, str) and note.strip():
         meta["acceptance_note"] = note.strip()
     meta["rejection_reason"] = None
@@ -1596,6 +1611,31 @@ def _call_plan_publish(arguments: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _accepted_plan_matches_project(meta: dict[str, Any], target: Path) -> tuple[bool, str]:
+    bound = meta.get("project_dir")
+    if not isinstance(bound, str) or not bound.strip():
+        return False, "missing_project_dir"
+    try:
+        bound_path = Path(bound).expanduser().resolve()
+        target_path = target.expanduser().resolve()
+    except OSError:
+        return False, "unresolvable_project_dir"
+    if bound_path == target_path:
+        return True, "exact"
+    return False, "project_dir_mismatch"
+
+
+def _resolve_gate_repo_root(project_dir: str | os.PathLike[str] | None) -> Path:
+    if project_dir is None:
+        return _resolve_repo_root(None)
+    start = Path(project_dir).expanduser().resolve()
+    candidates = [start, *start.parents]
+    for candidate in candidates:
+        if (candidate / ".cursor" / "plans").exists() or (candidate / "docs" / "plans").exists():
+            return candidate
+    return _resolve_repo_root(str(project_dir))
+
+
 def require_accepted_plan(project_dir: str | os.PathLike[str] | None = None) -> dict[str, Any]:
     """Return ``{allowed, reason, plan}`` for the optional ``UIPATH_PLAN_GATE``.
 
@@ -1606,7 +1646,9 @@ def require_accepted_plan(project_dir: str | os.PathLike[str] | None = None) -> 
     enabled = os.environ.get("UIPATH_PLAN_GATE", "0") == "1"
     if not enabled:
         return {"allowed": True, "enforced": False, "reason": "gate_disabled"}
-    repo = _resolve_repo_root(str(project_dir) if project_dir else None)
+    repo = _resolve_gate_repo_root(project_dir)
+    target = Path(project_dir).expanduser().resolve() if project_dir else repo.resolve()
+    skipped: list[dict[str, str]] = []
     for directory in (_drafts_dir(repo), _plans_dir(repo)):
         if not directory.is_dir():
             continue
@@ -1619,11 +1661,16 @@ def require_accepted_plan(project_dir: str | os.PathLike[str] | None = None) -> 
             except Exception:
                 continue
             if str(meta.get("status")) == "accepted":
+                matches, reason = _accepted_plan_matches_project(meta, target)
+                if not matches:
+                    skipped.append({"plan": str(p), "reason": reason})
+                    continue
                 return {
                     "allowed": True,
                     "enforced": True,
                     "plan": str(p),
                     "slug": meta.get("slug"),
+                    "project_dir": meta.get("project_dir"),
                 }
         for sub in directory.iterdir():
             if not sub.is_dir() or sub.name.startswith("."):
@@ -1635,20 +1682,28 @@ def require_accepted_plan(project_dir: str | os.PathLike[str] | None = None) -> 
             except Exception:
                 continue
             if str(meta.get("status")) == "accepted":
+                matches, reason = _accepted_plan_matches_project(meta, target)
+                if not matches:
+                    skipped.append({"plan": str(sub), "reason": reason})
+                    continue
                 return {
                     "allowed": True,
                     "enforced": True,
                     "plan": str(sub),
                     "slug": meta.get("slug"),
+                    "project_dir": meta.get("project_dir"),
                 }
     return {
         "allowed": False,
         "enforced": True,
         "reason": "no_accepted_plan",
         "message": (
-            "UIPATH_PLAN_GATE=1 and no accepted plan exists under .cursor/plans/ "
-            "or docs/plans/. Accept one via uipath_plan_accept."
+            "UIPATH_PLAN_GATE=1 and no accepted plan bound to this project_dir "
+            "exists under .cursor/plans/ or docs/plans/. Accept one via "
+            "uipath_plan_accept with project_dir set to the target project."
         ),
+        "target_project_dir": str(target),
+        "skipped": skipped,
     }
 
 

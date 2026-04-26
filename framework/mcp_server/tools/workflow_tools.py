@@ -2,26 +2,11 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
 from mcp.types import Tool, ToolAnnotations
-
-def _ro(title: str) -> ToolAnnotations:
-    return ToolAnnotations(title=title, readOnlyHint=True)
-
-
-def _ro_idempotent(title: str) -> ToolAnnotations:
-    return ToolAnnotations(title=title, readOnlyHint=True, idempotentHint=True)
-
-
-def _destructive(title: str, idempotent: bool = False) -> ToolAnnotations:
-    return ToolAnnotations(
-        title=title,
-        readOnlyHint=False,
-        destructiveHint=True,
-        idempotentHint=idempotent,
-    )
 
 from uipath_claude.tools import session_gate
 from uipath_claude.tools.deploy_tool import (
@@ -45,6 +30,23 @@ from uipath_claude.tools.skill_execution_tools import (
     validate_file as _validate_file,
     write_file as _write_file,
 )
+
+
+def _ro(title: str) -> ToolAnnotations:
+    return ToolAnnotations(title=title, readOnlyHint=True)
+
+
+def _ro_idempotent(title: str) -> ToolAnnotations:
+    return ToolAnnotations(title=title, readOnlyHint=True, idempotentHint=True)
+
+
+def _destructive(title: str, idempotent: bool = False) -> ToolAnnotations:
+    return ToolAnnotations(
+        title=title,
+        readOnlyHint=False,
+        destructiveHint=True,
+        idempotentHint=idempotent,
+    )
 
 
 def _resolved_write_path(file_path: str) -> str:
@@ -114,20 +116,45 @@ def _plan_gate_block_or_text(
     calling_tool: str,
 ) -> str | None:
     """Opt-in plan-acceptance gate (UIPATH_PLAN_GATE=1)."""
+    if os.environ.get("UIPATH_PLAN_GATE", "0") != "1":
+        return None
     try:
         from mcp_server.tools.plan_tools import require_accepted_plan
-    except Exception:
-        return None
+    except Exception as exc:
+        return f"[BLOCKED] {calling_tool}: UIPATH_PLAN_GATE=1 plan gate unavailable: {exc}"
     try:
         verdict = require_accepted_plan(project_dir)
-    except Exception:
-        return None
+    except Exception as exc:
+        return f"[BLOCKED] {calling_tool}: UIPATH_PLAN_GATE=1 plan gate check failed: {exc}"
     if verdict.get("allowed"):
         return None
     return (
-        f"[BLOCKED] {calling_tool}: UIPATH_PLAN_GATE=1 and no accepted plan "
-        "was found. Accept a plan via uipath_plan_accept (or disable the gate)."
+        f"[BLOCKED] {calling_tool}: {verdict.get('message') or 'UIPATH_PLAN_GATE=1 requires an accepted plan bound to this project_dir.'}"
     )
+
+
+def _orchestrator_folder_block_or_text(
+    folder_path: str | None,
+    human_confirmed: bool,
+    approved_by: str | None,
+    calling_tool: str,
+) -> str | None:
+    folder = (folder_path or "").strip()
+    if not folder:
+        return f"[BLOCKED] {calling_tool}: folder_path is required; no default Shared folder is allowed."
+    lowered = folder.lower()
+    if "prod" in lowered or "production" in lowered:
+        return f"[BLOCKED] {calling_tool}: Production targets are blocked from assistant sessions."
+    safe = "personal" in lowered or "dev" in lowered
+    if safe:
+        return None
+    if not human_confirmed or not (approved_by or "").strip():
+        return (
+            f"[BLOCKED] {calling_tool}: folder_path={folder!r} is not a personal "
+            "workspace or Dev folder. Pass human_confirmed=true and a non-empty "
+            "approved_by only after explicit human approval."
+        )
+    return None
 
 
 def _maybe_mark_dirty_after_write(file_path: str, write_result: Any) -> None:
@@ -732,8 +759,22 @@ def get_workflow_tools() -> list[Tool]:
                     },
                     "folder_path": {
                         "type": "string",
-                        "description": "Orchestrator folder path to publish into.",
-                        "default": "Shared",
+                        "description": (
+                            "Orchestrator folder path. Required; no default Shared "
+                            "folder is allowed. Production is blocked."
+                        ),
+                    },
+                    "human_confirmed": {
+                        "type": "boolean",
+                        "default": False,
+                        "description": (
+                            "Required true for shared or non-personal/non-Dev targets "
+                            "after explicit human approval."
+                        ),
+                    },
+                    "approved_by": {
+                        "type": "string",
+                        "description": "Human approver identity for shared/non-Dev targets.",
                     },
                     "account_name": {
                         "type": "string",
@@ -771,7 +812,7 @@ def get_workflow_tools() -> list[Tool]:
                         ),
                     },
                 },
-                "required": ["project_path", "orchestrator_url", "tenant_name"],
+                "required": ["project_path", "orchestrator_url", "tenant_name", "folder_path"],
             },
             annotations=_destructive("Deploy project to Orchestrator"),
         ),
@@ -799,6 +840,15 @@ def get_workflow_tools() -> list[Tool]:
                         "enum": ["process", "maestro"],
                         "default": "process",
                     },
+                    "folder_path": {
+                        "type": "string",
+                        "description": (
+                            "Intended Orchestrator target folder for approval policy. "
+                            "Production is blocked; shared/non-Dev requires approval metadata."
+                        ),
+                    },
+                    "human_confirmed": {"type": "boolean", "default": False},
+                    "approved_by": {"type": "string"},
                     "allow_unverified": {
                         "type": "boolean",
                         "default": False,
@@ -1032,16 +1082,26 @@ async def call_workflow_tool(name: str, arguments: dict[str, Any]) -> Any:
         )
         if blocked:
             return blocked
+        blocked = _orchestrator_folder_block_or_text(
+            arguments.get("folder_path"),
+            bool(arguments.get("human_confirmed", False)),
+            arguments.get("approved_by"),
+            "uipath_workflow_deploy",
+        )
+        if blocked:
+            return blocked
         result = _deploy(
             project_path=arguments["project_path"],
             orchestrator_url=arguments["orchestrator_url"],
             tenant_name=arguments["tenant_name"],
-            folder_path=arguments.get("folder_path", "Shared"),
+            folder_path=arguments["folder_path"],
             account_name=arguments.get("account_name"),
             process_name=arguments.get("process_name"),
             create_process=bool(arguments.get("create_process", True)),
             environment=arguments.get("environment"),
             project_type=arguments.get("project_type", "process"),
+            human_confirmed=bool(arguments.get("human_confirmed", False)),
+            approved_by=arguments.get("approved_by"),
         )
         return json.dumps(result, indent=2, default=str)
 
@@ -1058,9 +1118,20 @@ async def call_workflow_tool(name: str, arguments: dict[str, Any]) -> Any:
         )
         if blocked:
             return blocked
+        blocked = _orchestrator_folder_block_or_text(
+            arguments.get("folder_path") or "Personal Workspace",
+            bool(arguments.get("human_confirmed", False)),
+            arguments.get("approved_by"),
+            "uipath_workflow_publish",
+        )
+        if blocked:
+            return blocked
         result = _publish_project(
             project_dir=arguments["project_dir"],
             project_type=arguments.get("project_type", "process"),
+            folder_path=arguments.get("folder_path"),
+            human_confirmed=bool(arguments.get("human_confirmed", False)),
+            approved_by=arguments.get("approved_by"),
         )
         return json.dumps(result, indent=2, default=str)
 

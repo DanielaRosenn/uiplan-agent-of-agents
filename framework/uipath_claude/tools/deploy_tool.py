@@ -2,12 +2,11 @@
 Tool for deploying UiPath workflows to Orchestrator/Studio Web
 """
 import json
-import os
 import re
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Any, Literal, Optional
+from typing import Any, Optional
 
 
 def _uip_bin() -> str:
@@ -44,6 +43,29 @@ def _run_uip(args: list[str], cwd: Optional[str | Path] = None, timeout: int = 6
 _NUPKG_PATTERN = re.compile(r"([^\s\"']+\.nupkg)", re.IGNORECASE)
 
 
+def _folder_policy_error(
+    folder_path: Optional[str],
+    *,
+    human_confirmed: bool = False,
+    approved_by: Optional[str] = None,
+) -> Optional[str]:
+    folder = (folder_path or "").strip()
+    if not folder:
+        return "folder_path is required; no default Shared folder is allowed"
+    lowered = folder.lower()
+    if "prod" in lowered or "production" in lowered:
+        return "Production targets are blocked from assistant sessions"
+    safe = "personal" in lowered or "dev" in lowered
+    if safe:
+        return None
+    if not human_confirmed or not (approved_by or "").strip():
+        return (
+            f"folder_path={folder!r} requires explicit human approval metadata "
+            "(human_confirmed=true and approved_by)"
+        )
+    return None
+
+
 def _extract_nupkg(text: str, search_dir: Optional[Path] = None) -> Optional[str]:
     """Best-effort: pull a .nupkg path out of CLI stdout, falling back to a fs scan."""
     for line in (text or "").splitlines():
@@ -57,7 +79,35 @@ def _extract_nupkg(text: str, search_dir: Optional[Path] = None) -> Optional[str
     return None
 
 
-def publish_project(project_dir: str, project_type: str = "process") -> dict[str, Any]:
+def preflight_project(project_dir: str, project_type: str = "process") -> dict[str, Any]:
+    """Run the local restore/analyze gate before pack/publish/deploy."""
+    pdir = Path(project_dir).resolve()
+    if project_type == "maestro":
+        flow = next(pdir.glob("*.flow"), None)
+        if flow is None:
+            return {"status": "failed", "stage": "preflight", "error": f"no .flow file in {pdir}"}
+        validate = _run_uip(["flow", "validate", str(flow), "--output", "json"], cwd=pdir)
+        if validate["status"] != "ok":
+            return {"status": "failed", "stage": "preflight_validate", "validate": validate, "error": validate.get("error", "flow validate failed")}
+        return {"status": "ok", "validate": validate}
+
+    restore = _run_uip(["solution", "restore", str(pdir), "--output-format", "json"], cwd=pdir)
+    if restore["status"] != "ok":
+        return {"status": "failed", "stage": "preflight_restore", "restore": restore, "error": restore.get("error", "restore failed")}
+
+    analyze = _run_uip(["rpa", "analyze", "--project-path", str(pdir), "--output", "json"], cwd=pdir)
+    if analyze["status"] != "ok":
+        return {"status": "failed", "stage": "preflight_analyze", "restore": restore, "analyze": analyze, "error": analyze.get("error", "analyze failed")}
+    return {"status": "ok", "restore": restore, "analyze": analyze}
+
+
+def publish_project(
+    project_dir: str,
+    project_type: str = "process",
+    folder_path: Optional[str] = None,
+    human_confirmed: bool = False,
+    approved_by: Optional[str] = None,
+) -> dict[str, Any]:
     """Pack and publish a UiPath project to Orchestrator using the modern ``uip`` CLI.
 
     For ``project_type="process"`` (default RPA): runs ``uip solution pack`` then
@@ -76,6 +126,18 @@ def publish_project(project_dir: str, project_type: str = "process") -> dict[str
     pdir = Path(project_dir).resolve()
     if not pdir.exists():
         return {"status": "failed", "error": f"project dir not found: {pdir}"}
+
+    if folder_path:
+        folder_error = _folder_policy_error(
+            folder_path, human_confirmed=human_confirmed, approved_by=approved_by
+        )
+        if folder_error:
+            return {"status": "failed", "stage": "policy", "error": folder_error}
+
+    preflight = preflight_project(str(pdir), project_type=project_type)
+    if preflight.get("status") != "ok":
+        return {"status": "failed", "stage": "preflight", "error": preflight.get("error", "preflight failed"), "preflight": preflight}
+
     out_dir = pdir.parent / "_packages"
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -110,6 +172,7 @@ def publish_project(project_dir: str, project_type: str = "process") -> dict[str
     return {
         "status": "ok",
         "package_path": nupkg,
+        "preflight": preflight,
         "pack": pack,
         "publish": publish,
     }
@@ -118,10 +181,12 @@ def publish_project(project_dir: str, project_type: str = "process") -> dict[str
 def deploy_to_orchestrator_v2(
     project_dir: str,
     project_type: str = "process",
-    folder: str = "Shared",
+    folder: str = "",
     process_name: Optional[str] = None,
     publish_payload: Optional[dict[str, Any]] = None,
     environment: Optional[str] = None,
+    human_confirmed: bool = False,
+    approved_by: Optional[str] = None,
 ) -> dict[str, Any]:
     """Modern deploy: publish (if needed) then create the Orchestrator process.
 
@@ -144,10 +209,21 @@ def deploy_to_orchestrator_v2(
     """
     pdir = Path(project_dir).resolve()
     name = process_name or pdir.name
+    folder_error = _folder_policy_error(
+        folder, human_confirmed=human_confirmed, approved_by=approved_by
+    )
+    if folder_error:
+        return {"status": "failed", "stage": "policy", "error": folder_error}
 
     publish = publish_payload
     if publish is None:
-        publish = publish_project(project_dir=str(pdir), project_type=project_type)
+        publish = publish_project(
+            project_dir=str(pdir),
+            project_type=project_type,
+            folder_path=folder,
+            human_confirmed=human_confirmed,
+            approved_by=approved_by,
+        )
     if publish.get("status") != "ok":
         return {"status": "failed", "stage": "publish", "publish": publish}
 
@@ -190,12 +266,14 @@ def deploy_to_orchestrator(
     project_path: str,
     orchestrator_url: str = "",
     tenant_name: str = "",
-    folder_path: str = "Shared",
+    folder_path: str = "",
     account_name: Optional[str] = None,
     process_name: Optional[str] = None,
     create_process: bool = True,
     environment: Optional[str] = None,
     project_type: str = "process",
+    human_confirmed: bool = False,
+    approved_by: Optional[str] = None,
 ) -> dict:
     """
     Deploy a UiPath project to Orchestrator or Studio Web.
@@ -209,7 +287,8 @@ def deploy_to_orchestrator(
         project_path: Path to the UiPath project directory containing project.json
         orchestrator_url: Orchestrator URL (e.g., https://cloud.uipath.com/yourorg/yourservice)
         tenant_name: Tenant name in Orchestrator
-        folder_path: Folder path in Orchestrator (default: "Shared")
+        folder_path: Folder path in Orchestrator. Required; no default Shared
+            folder is allowed, and Production is blocked.
         account_name: Account name (for authentication, optional if using API key from env)
         process_name: Name for the process (defaults to project name)
         create_process: Whether to create/update process after deployment
@@ -223,7 +302,7 @@ def deploy_to_orchestrator(
             project_path="./MyProject",
             orchestrator_url="https://cloud.uipath.com/myorg/myservice",
             tenant_name="MyTenant",
-            folder_path="Shared",
+            folder_path="Dev",
             process_name="MyProcess"
         )
     """
@@ -240,6 +319,8 @@ def deploy_to_orchestrator(
         folder=folder_path,
         process_name=process_name,
         environment=environment,
+        human_confirmed=human_confirmed,
+        approved_by=approved_by,
     )
 
     legacy = {
@@ -283,7 +364,7 @@ def deploy_to_studio_web(
         project_path=project_path,
         orchestrator_url=cloud_url,
         tenant_name=tenant_name,
-        folder_path=folder_name
+        folder_path=folder_name,
     )
 
 
@@ -317,7 +398,7 @@ def get_deployment_config_from_env() -> dict:
 Set environment variables:
   $env:UIPATH_ORCHESTRATOR_URL = "https://cloud.uipath.com/yourorg/yourservice"
   $env:UIPATH_TENANT_NAME = "YourTenant"
-  $env:UIPATH_FOLDER_PATH = "Shared"  # Optional
+  $env:UIPATH_FOLDER_PATH = "Dev"  # Required for deploy/publish
   $env:UIPATH_API_KEY = "your-api-key"  # Optional, for authentication
 """
         }
@@ -327,7 +408,7 @@ Set environment variables:
     config["folder_path"] = (
         os.getenv("UIPATH_FOLDER_PATH")
         or os.getenv("UIPATH_DEFAULT_FOLDER")
-        or "Shared"
+        or ""
     )
     config["account_name"] = os.getenv("UIPATH_ACCOUNT_NAME")
     config["success"] = True
@@ -371,8 +452,7 @@ The tool will:
             },
             "folder_path": {
                 "type": "string",
-                "description": "Folder path in Orchestrator (default: Shared)",
-                "default": "Shared"
+                "description": "Folder path in Orchestrator. Required; no default Shared folder is allowed."
             },
             "process_name": {
                 "type": "string",

@@ -25,6 +25,7 @@ from uipath_claude.tools.uipath.askai import query_uipath_documentation
 from uipath_claude.tools.uipath.cli_runner import (
     _find_uip_cli,
     _parse_first_json_payload,
+    run_uip_rpa_analyze,
     run_uip_rpa_get_errors,
 )
 
@@ -52,6 +53,12 @@ def _project_dir_for_audit(path_or_dest: Path) -> Path | None:
 
 # Maximum file size to read (50KB)
 MAX_FILE_SIZE = 50 * 1024
+_ANALYZER_PROFILE = (
+    Path(__file__).resolve().parents[3]
+    / "config"
+    / "uipath"
+    / "workflow-analyzer-profile.json"
+)
 
 
 def _get_output_root() -> Path:
@@ -386,11 +393,12 @@ def write_file(
 ) -> str:
     """Write content to a file.
     
-    Use this to create or update XAML workflows, .cs files, etc.
+    Use this to create or update non-XAML files, .cs files, docs, etc.
     Parent directories will be created if they don't exist.
     
-    IMPORTANT: For XAML files, the content must be valid XML.
-    Do NOT escape < and > characters - use them directly.
+    IMPORTANT: Direct raw .xaml writes are blocked. Create or modify XAML via
+    XML-aware XAML tools (``get_xaml_tools``) or template-scaffolded project
+    generation, not by passing raw XAML text to this generic writer.
 
     SCAFFOLD GUARD: This tool refuses to overwrite ``project.json`` /
     ``project.uiproj`` unless ``allow_scaffold_overwrite=True`` is passed
@@ -443,21 +451,19 @@ def write_file(
     dest = resolve_write_destination(file_path)
     if dest is None:
         return _tool(False, f"Error: Invalid file path: {file_path}")
-    
-    # For XAML files, validate XML structure and fix common issues
-    if file_path.lower().endswith(".xaml"):
-        # Try to fix common XAML issues
-        fixed_content = _fix_xaml_content(content)
-        
-        # Validate XML structure
-        xml_error = _validate_xml_structure(fixed_content)
-        if xml_error:
-            return _tool(
-                False,
-                f"Error: Invalid XAML - {xml_error}. Make sure all XML tags use < and > directly, not &lt; and &gt;.",
-            )
-        
-        content = fixed_content
+
+    if dest.suffix.lower() == ".xaml":
+        return _tool(
+            False,
+            (
+                "Direct raw .xaml writes are blocked. Use the XML-aware XAML "
+                "tool family returned by get_xaml_tools(), or create the "
+                "project from a UiPath template and extend it through "
+                "structured XAML operations. Generic write_file is limited to "
+                "non-XAML files so workflow XML is never synthesized or "
+                "mutated as plain text."
+            ),
+        )
 
     just_text = (justification or "").strip()
     activities_first_block = _is_first_coded_workflow_in_xaml_project(dest, content)
@@ -594,7 +600,7 @@ def read_project_json(project_dir: str = ".") -> str:
             "entryPoints": [
                 ep.get("filePath") for ep in data.get("entryPoints", [])
             ],
-            "expressionLanguage": data.get("expressionLanguage", "VisualBasic"),
+            "expressionLanguage": data.get("expressionLanguage", "CSharp"),
             "targetFramework": data.get("targetFramework", "Windows"),
             "schemaVersion": data.get("schemaVersion", "unknown"),
         }
@@ -922,8 +928,6 @@ def find_activity_info(query: str, project_dir: str | None = None) -> str:
     Returns:
         Activity documentation including package, properties, XAML example
     """
-    import re
-    
     # First, check bundled activity docs (most detailed)
     skills_root = Path(__file__).resolve().parent.parent.parent / "skills"
     activity_docs = skills_root / "skills" / "uipath-rpa" / "references" / "activity-docs"
@@ -1305,9 +1309,7 @@ def _cli_fallback_scaffold(target: Path, project_name: str, project_type: str) -
     """
     target.mkdir(parents=True, exist_ok=True)
     proj_type_camel = "Library" if project_type == "library" else "Process"
-    expression_language = (
-        "CSharp" if project_type == "coded" else "VisualBasic"
-    )
+    expression_language = "CSharp"
     project_json = {
         "name": project_name,
         "projectId": "",
@@ -1408,8 +1410,7 @@ def create_project(
             "json",
         ]
     )
-    if project_type == "coded":
-        cmd.extend(["--expression-language", "CSharp"])
+    cmd.extend(["--expression-language", "CSharp", "--target-framework", "Windows"])
 
     try:
         timeout_s = int(os.environ.get("UIPATH_CREATE_PROJECT_TIMEOUT", "300"))
@@ -1631,6 +1632,7 @@ def _run_one_verify_attempt(
         "studio_debug_skipped_reason": "",
         "auto_installed_packages": [],
         "max_attempts": max_attempts,
+        "analyzer_profile": str(_ANALYZER_PROFILE),
     }
 
     probe = _probe_environment(project_dir)
@@ -1720,6 +1722,19 @@ def _run_one_verify_attempt(
         return payload
 
     payload["warnings"] = aggregated_warnings
+
+    payload["phase"] = "analyze"
+    analyzer = run_uip_rpa_analyze(
+        str(path.resolve()),
+        rule_profile=str(_ANALYZER_PROFILE),
+    )
+    payload["warnings"].extend(analyzer.get("warnings") or [])
+    if not analyzer.get("success"):
+        payload["errors"] = list(analyzer.get("errors") or ["Workflow Analyzer failed"])
+        payload["next_action"] = "fix_and_recall"
+        payload["verdict"] = "needs_llm_fix"
+        payload["log_excerpt"] = (analyzer.get("raw_output") or "")[:1500]
+        return payload
 
     if not run_after_validate:
         if require_studio_debug:

@@ -71,7 +71,7 @@ Overrides, in precedence order: `UIPATH_CLAUDE_MODEL_HEAVY` /
 | `uipath_library_*`           | `mcp_server/tools/library_tools.py`                   | list, toc, read_section, search, lookup, propose_section, propose_chapter, list_proposals, approve_proposal, reject_proposal |
 | `uipath_design_*`            | `mcp_server/tools/design_tools.py`                    | propose, approve, reject, list, status |
 
-The full per-tool table (with parameters and examples) lives in [CURSOR_USER_GUIDE.md](CURSOR_USER_GUIDE.md). The cross-surface CLI/MCP/skill matrix is [`CAPABILITY_PARITY.md`](CAPABILITY_PARITY.md). Orchestrator publish/deploy policy lives in [ORCHESTRATOR_DEPLOYMENT.md](ORCHESTRATOR_DEPLOYMENT.md).
+The full per-tool table (with parameters and examples) lives in [CURSOR_USER_GUIDE.md](CURSOR_USER_GUIDE.md). The cross-surface CLI/MCP/skill matrix is [`CAPABILITY_CONTRACT.md`](CAPABILITY_CONTRACT.md). Orchestrator publish/deploy policy lives in [ORCHESTRATOR_DEPLOYMENT.md](ORCHESTRATOR_DEPLOYMENT.md).
 
 ## Tests (where to look for regressions)
 

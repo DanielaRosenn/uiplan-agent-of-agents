@@ -37,7 +37,7 @@ from uipath_claude.commands.library_proposals import (
     register_library_proposals_chat_command,
     register_library_proposals_command,
 )
-from uipath_claude.commands.doctor import register_doctor_command
+from uipath_claude.commands.doctor import register_doctor_chat_command, register_doctor_command
 from uipath_claude.cli.capability_hint import maybe_print_capability_build_hint
 from uipath_claude.cli.input import read_user_message
 from uipath_claude.context.project import detect_uipath_project
@@ -50,7 +50,7 @@ from uipath_claude.artifacts.materialize import (
 from uipath_claude.query.bootstrap import run_bootstrap_flow
 from uipath_claude.query.conversation import ConversationEngine
 from uipath_claude.graph.builder import compile_chat_graph
-from uipath_claude.llm.router import heavy_model, model_for_task
+from uipath_claude.llm.router import model_for_task
 from uipath_claude.cli.documentation_flow import run_documentation_flow
 from uipath_claude.query.doc_need_detector import DocNeedLevel, detect_documentation_need
 from uipath_claude.query.intent_classifier import IntentType, classify_intent
@@ -66,7 +66,6 @@ from uipath_claude.skills.loader import load_skill_content
 from uipath_claude.skills.registry import SkillRegistry
 from uipath_claude.skills.updater import (
     check_for_updates,
-    ensure_fresh,
     ensure_fresh_for_session,
 )
 from uipath_claude.sessions.store import SessionEvent, SessionStore
@@ -1005,6 +1004,7 @@ def _build_command_registry(
     """Create and register built-in slash commands."""
     registry = CommandRegistry()
     register_help_command(registry)
+    register_doctor_chat_command(registry)
     register_status_command(registry, get_status=get_status)
     register_skills_command(
         registry,
@@ -1023,6 +1023,7 @@ def _build_command_registry(
     register_library_proposals_chat_command(registry)
     register_books_command(registry)
     register_recall_command(registry, get_history=get_history)
+    register_resume_command(registry)
     if run_planner:
         register_plan_command(registry, run_planner=run_planner)
     register_uiplan_command(registry)
@@ -1356,7 +1357,6 @@ def chat(
         return result.final_response
 
     registry = _build_command_registry(skill_registry, _status, _history, run_planner=_run_planner)
-    register_resume_command(registry)
     register_knowledge_command(registry, Path.cwd().resolve())
 
     try:

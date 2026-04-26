@@ -10,7 +10,7 @@ from uipath_claude.rendering.progress import AgenticProgressReporter
 @pytest.fixture
 def string_console() -> tuple[AgenticProgressReporter, StringIO]:
     buf = StringIO()
-    console = Console(file=buf, force_terminal=True, width=120)
+    console = Console(file=buf, force_terminal=False, width=120)
     return AgenticProgressReporter(console), buf
 
 

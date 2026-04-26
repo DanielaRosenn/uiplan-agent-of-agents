@@ -7,10 +7,6 @@ import re
 import uuid
 import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from uipath_claude.tools.uipath.cli_runner import run_uip_rpa_get_errors
 
 _BLOCK = re.compile(
     r"<<<UIPATH_FILE path=(?P<q>[\"'])(?P<rel>.+?)(?P=q)>>>(?P<body>.*?)<<<END_UIPATH_FILE>>>",
@@ -358,7 +354,7 @@ def ensure_project_json(output_root: Path) -> bool:
             "fileInfoCollection": [],
             "modernBehavior": True
         },
-        "expressionLanguage": "VisualBasic",
+        "expressionLanguage": "CSharp",
         "isTemplate": False,
         "templateProjectData": {},
         "publishData": {},

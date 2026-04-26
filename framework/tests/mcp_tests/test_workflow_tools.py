@@ -312,6 +312,7 @@ async def test_deploy_json(monkeypatch):
             "project_path": "/proj",
             "orchestrator_url": "https://orch/",
             "tenant_name": "t",
+            "folder_path": "Dev",
         },
     )
     data = json.loads(str(out))
@@ -328,10 +329,48 @@ async def test_publish_json(monkeypatch):
     monkeypatch.setattr(wt, "_publish_project", fake_publish)
     out = await call_workflow_tool(
         "uipath_workflow_publish",
-        {"project_dir": "/proj"},
+        {"project_dir": "/proj", "folder_path": "Dev"},
     )
     data = json.loads(str(out))
     assert data["published"] is True
+
+
+@pytest.mark.asyncio
+async def test_deploy_blocks_shared_without_human_approval(monkeypatch):
+    monkeypatch.setattr(wt, "_gate_block_or_text", lambda *a, **k: None)
+    monkeypatch.setattr(wt, "_plan_gate_block_or_text", lambda *a, **k: None)
+
+    out = await call_workflow_tool(
+        "uipath_workflow_deploy",
+        {
+            "project_path": "/proj",
+            "orchestrator_url": "https://orch/",
+            "tenant_name": "t",
+            "folder_path": "Shared",
+        },
+    )
+
+    assert str(out).startswith("[BLOCKED]")
+    assert "human_confirmed" in str(out)
+
+
+@pytest.mark.asyncio
+async def test_publish_blocks_production(monkeypatch):
+    monkeypatch.setattr(wt, "_gate_block_or_text", lambda *a, **k: None)
+    monkeypatch.setattr(wt, "_plan_gate_block_or_text", lambda *a, **k: None)
+
+    out = await call_workflow_tool(
+        "uipath_workflow_publish",
+        {
+            "project_dir": "/proj",
+            "folder_path": "Production",
+            "human_confirmed": True,
+            "approved_by": "ops",
+        },
+    )
+
+    assert str(out).startswith("[BLOCKED]")
+    assert "Production" in str(out)
 
 
 @pytest.mark.asyncio

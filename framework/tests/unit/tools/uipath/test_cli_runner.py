@@ -1,5 +1,4 @@
 """Tests for UiPath CLI runner functions."""
-import pytest
 from unittest.mock import patch, MagicMock
 import json
 
@@ -167,3 +166,21 @@ def test_analyze_falls_back_when_missing_project_message_on_stderr(
 
     assert result["success"] is True
     mock_get_errors.assert_called_once()
+
+
+@patch("uipath_claude.tools.uipath.cli_runner.subprocess.run")
+def test_analyze_passes_repo_pinned_rule_profile(mock_run, tmp_path):
+    mock_proc = MagicMock()
+    mock_proc.stdout = json.dumps({"Result": "Success", "Data": {"Issues": []}})
+    mock_proc.stderr = ""
+    mock_proc.returncode = 0
+    mock_run.return_value = mock_proc
+    profile = tmp_path / "profile.json"
+    profile.write_text("{}", encoding="utf-8")
+
+    result = run_uip_rpa_analyze("C:/tmp/x", rule_profile=profile)
+
+    assert result["success"] is True
+    cmd = mock_run.call_args[0][0]
+    assert "--rules-profile" in cmd
+    assert str(profile.resolve()) in cmd

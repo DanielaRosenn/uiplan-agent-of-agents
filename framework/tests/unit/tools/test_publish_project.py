@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import subprocess
-from unittest.mock import patch
 
 from uipath_claude.tools import deploy_tool
 
@@ -29,6 +28,8 @@ def test_publish_project_process_runs_solution_pack_then_publish(tmp_path, monke
 
     def fake_run(cmd, capture_output, text, timeout, cwd=None):
         calls.append(cmd)
+        if "restore" in cmd or "analyze" in cmd:
+            return _run(0, stdout='{"ok":true}')
         if "pack" in cmd:
             return _run(0, stdout=str(nupkg))
         if "publish" in cmd:
@@ -42,12 +43,15 @@ def test_publish_project_process_runs_solution_pack_then_publish(tmp_path, monke
 
     assert result["status"] == "ok", result
     assert result["package_path"] == str(nupkg)
-    assert calls[0][1:3] == ["solution", "pack"]
-    assert calls[1][1:3] == ["solution", "publish"]
+    assert calls[0][1:3] == ["solution", "restore"]
+    assert calls[1][1:3] == ["rpa", "analyze"]
+    assert calls[2][1:3] == ["solution", "pack"]
+    assert calls[3][1:3] == ["solution", "publish"]
 
 
 def test_publish_project_maestro_runs_flow_pack_then_solution_publish(tmp_path, monkeypatch):
     pdir = _mk_project(tmp_path, "FlowProj")
+    (pdir / "main.flow").write_text("{}", encoding="utf-8")
     out_dir = tmp_path / "_packages"
     out_dir.mkdir(parents=True, exist_ok=True)
     nupkg = out_dir / "FlowProj.1.0.0.nupkg"
@@ -57,6 +61,8 @@ def test_publish_project_maestro_runs_flow_pack_then_solution_publish(tmp_path, 
 
     def fake_run(cmd, capture_output, text, timeout, cwd=None):
         calls.append(cmd)
+        if cmd[1:3] == ["flow", "validate"]:
+            return _run(0, stdout='{"ok":true}')
         if cmd[1:3] == ["flow", "pack"]:
             return _run(0, stdout=f"Packed -> {nupkg}")
         if cmd[1:3] == ["solution", "publish"]:
@@ -70,14 +76,17 @@ def test_publish_project_maestro_runs_flow_pack_then_solution_publish(tmp_path, 
 
     assert result["status"] == "ok", result
     assert result["package_path"] == str(nupkg)
-    assert calls[0][1:3] == ["flow", "pack"]
-    assert calls[1][1:3] == ["solution", "publish"]
+    assert calls[0][1:3] == ["flow", "validate"]
+    assert calls[1][1:3] == ["flow", "pack"]
+    assert calls[2][1:3] == ["solution", "publish"]
 
 
-def test_publish_project_pack_failure_short_circuits(tmp_path, monkeypatch):
+def test_publish_project_pack_failure_short_circuits_after_preflight(tmp_path, monkeypatch):
     pdir = _mk_project(tmp_path)
 
     def fake_run(cmd, capture_output, text, timeout, cwd=None):
+        if "restore" in cmd or "analyze" in cmd:
+            return _run(0, stdout='{"ok":true}')
         return _run(1, stderr="pack boom")
 
     monkeypatch.setattr(deploy_tool.subprocess, "run", fake_run)
@@ -86,3 +95,17 @@ def test_publish_project_pack_failure_short_circuits(tmp_path, monkeypatch):
     result = deploy_tool.publish_project(str(pdir), project_type="process")
     assert result["status"] == "failed"
     assert result.get("stage") == "pack"
+
+
+def test_publish_project_preflight_failure_short_circuits(tmp_path, monkeypatch):
+    pdir = _mk_project(tmp_path)
+
+    def fake_run(cmd, capture_output, text, timeout, cwd=None):
+        return _run(1, stderr="restore boom")
+
+    monkeypatch.setattr(deploy_tool.subprocess, "run", fake_run)
+    monkeypatch.setattr(deploy_tool.shutil, "which", lambda _: "uip")
+
+    result = deploy_tool.publish_project(str(pdir), project_type="process")
+    assert result["status"] == "failed"
+    assert result.get("stage") == "preflight"

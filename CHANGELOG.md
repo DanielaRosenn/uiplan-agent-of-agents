@@ -4,7 +4,13 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+- Canonical UiPath assistant capability contract in `docs/CAPABILITY_CONTRACT.md`, backed by runtime constants and tests, documenting pragmatic Claude-Code-style parity across CLI, Cursor MCP, and approved skill overlays.
+- Doctor checks for Cursor skill drift and reproducible MCP launch configuration, plus `/doctor` and `/resume` coverage in the in-chat slash command surface.
+- Library book `MANIFEST.yaml` metadata for UiPath CLI, Agents, Maestro, Data Fabric, and Diagnostics books so `uipath-claude doctor` can validate the catalog cleanly.
+
 ### Changed
+- Cursor skill setup now generates `.cursor/skills` from the official UiPath skills submodule plus team overlays from `extensions/skills`.
 - [docs/CLAUDE_USER_GUIDE.md](docs/CLAUDE_USER_GUIDE.md) and [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md) now include clearer visual flow coverage for the Claude terminal loop and current `framework/` runtime/MCP paths.
 - [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md) and [docs/CLAUDE_USER_GUIDE.md](docs/CLAUDE_USER_GUIDE.md) now include practical best practices for Cursor MCP usage, prompt shape, tool selection by risk, context hygiene, safety rules, CLI preflight, slash-command selection, validation, and library learning.
 - [README.md](README.md) — refreshed as the project front door with a stronger visual overview, Cursor/CLI/library entry points, current skill routing (`uipath-rpa` vs `uipath-interact`), doctor preflight instructions, library learning links, and corrected `framework/` contribution paths.

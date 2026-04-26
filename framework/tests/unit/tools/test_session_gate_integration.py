@@ -40,10 +40,10 @@ def test_write_file_marks_owning_project_dirty_via_absolute_path(tmp_path, monke
     monkeypatch.setenv("UIPATH_CHAT_SESSION_ID", "")
     monkeypatch.chdir(tmp_path)
 
-    target = proj / "Main.xaml"
+    target = proj / "Helper.cs"
     result = _call(
         "uipath_workflow_write_file",
-        {"file_path": str(target), "content": "<Activity/>"},
+        {"file_path": str(target), "content": "// helper"},
     )
     assert isinstance(result, str) and result.startswith("[OK]"), result
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 import subprocess
-from unittest.mock import patch
 
 from uipath_claude.tools import deploy_tool
 
@@ -34,7 +33,7 @@ def test_deploy_v2_calls_publish_then_processes_create(tmp_path, monkeypatch):
     out = deploy_tool.deploy_to_orchestrator_v2(
         project_dir=str(pdir),
         project_type="process",
-        folder="Shared",
+        folder="Dev",
         process_name="MyProc",
     )
 
@@ -42,7 +41,7 @@ def test_deploy_v2_calls_publish_then_processes_create(tmp_path, monkeypatch):
     assert out["process_key"] == "PROC-XYZ"
     assert captured[0][1:4] == ["or", "processes", "create"]
     assert "MyProc" in captured[0]
-    assert "--folder" in captured[0] and "Shared" in captured[0]
+    assert "--folder" in captured[0] and "Dev" in captured[0]
 
 
 def test_deploy_v2_maestro_uses_flow_process_create(tmp_path, monkeypatch):
@@ -62,7 +61,7 @@ def test_deploy_v2_maestro_uses_flow_process_create(tmp_path, monkeypatch):
     out = deploy_tool.deploy_to_orchestrator_v2(
         project_dir=str(pdir),
         project_type="maestro",
-        folder="Shared",
+        folder="Dev",
         process_name="FlowProc",
     )
 
@@ -85,10 +84,63 @@ def test_deploy_v2_failure_in_publish_short_circuits(tmp_path, monkeypatch):
 
     monkeypatch.setattr(deploy_tool.subprocess, "run", fake_run)
 
-    out = deploy_tool.deploy_to_orchestrator_v2(project_dir=str(pdir))
+    out = deploy_tool.deploy_to_orchestrator_v2(project_dir=str(pdir), folder="Dev")
     assert out["status"] == "failed"
     assert out["stage"] == "publish"
     assert called["run"] is False
+
+
+def test_deploy_v2_blocks_shared_without_human_approval(tmp_path):
+    pdir = tmp_path / "P"
+    pdir.mkdir()
+
+    out = deploy_tool.deploy_to_orchestrator_v2(project_dir=str(pdir), folder="Shared")
+
+    assert out["status"] == "failed"
+    assert out["stage"] == "policy"
+    assert "human approval" in out["error"]
+
+
+def test_deploy_v2_blocks_production_even_with_approval(tmp_path):
+    pdir = tmp_path / "P"
+    pdir.mkdir()
+
+    out = deploy_tool.deploy_to_orchestrator_v2(
+        project_dir=str(pdir),
+        folder="Production",
+        human_confirmed=True,
+        approved_by="ops",
+    )
+
+    assert out["status"] == "failed"
+    assert out["stage"] == "policy"
+    assert "Production" in out["error"]
+
+
+def test_publish_runs_preflight_before_pack(tmp_path, monkeypatch):
+    pdir = tmp_path / "Proj"
+    pdir.mkdir()
+    (pdir / "project.json").write_text("{}", encoding="utf-8")
+
+    calls: list[list[str]] = []
+
+    def fake_run(args, cwd=None, timeout=600):
+        calls.append(args)
+        if args[:2] == ["solution", "pack"]:
+            out_dir = pdir.parent / "_packages"
+            out_dir.mkdir(exist_ok=True)
+            (out_dir / "Proj.1.0.0.nupkg").write_text("pkg", encoding="utf-8")
+        return {"status": "ok", "stdout": "", "stderr": "", "cmd": ["uip", *args]}
+
+    monkeypatch.setattr(deploy_tool, "_run_uip", fake_run)
+
+    out = deploy_tool.publish_project(str(pdir), folder_path="Dev")
+
+    assert out["status"] == "ok"
+    assert calls[0][:2] == ["solution", "restore"]
+    assert calls[1][:2] == ["rpa", "analyze"]
+    assert calls[2][:2] == ["solution", "pack"]
+    assert calls[3][:2] == ["solution", "publish"]
 
 
 def test_get_deployment_config_uses_default_folder_fallback(monkeypatch):

@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "description": "Repo-pinned Workflow Analyzer profile for UiPath Builder Agent verification gates.",
+  "rules": {
+    "failOnErrorSeverity": true,
+    "treatWarningsAsErrors": false
+  }
+}

@@ -44,13 +44,12 @@ Two RPA skills exist. Pick the right one:
 | `project.json` has any other `targetFramework` (e.g., `"Portable"`, `"Windows"`) | `uipath-rpa` |
 | No existing project + user explicitly asks for legacy | `uipath-rpa-legacy` |
 | No existing project + no legacy request | `uipath-rpa` (default for all new projects) |
-| macOS host | `uipath-rpa` — cross-platform target only (Windows target not available on macOS) |
-| Windows host | `uipath-rpa` — user can choose Windows or cross-platform target |
+| Any host | `uipath-rpa` — C# only, Modern experience, Windows target. Do not route new work to cross-platform or Classic. |
 
 **Rules:**
 1. Never suggest `uipath-rpa-legacy` for new projects unless the user explicitly requests legacy.
-2. On macOS, only cross-platform automation is supported — always route to `uipath-rpa`.
-3. On Windows, `uipath-rpa` supports both Windows and cross-platform targets.
+2. New authoring is C# only, Modern experience, Windows target.
+3. Do not offer VB.NET, Classic, or cross-platform targets for new automations.
 
 ## Step 1 — Upfront elicitation
 

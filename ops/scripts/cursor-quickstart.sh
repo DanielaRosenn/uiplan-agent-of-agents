@@ -52,7 +52,11 @@ else
   echo ".cursor/mcp.json already exists (left unchanged)."
 fi
 
-bash "$SCRIPT_DIR/setup-cursor.sh"
+if [[ $FORCE -eq 1 ]]; then
+  bash "$SCRIPT_DIR/setup-cursor.sh" --force
+else
+  bash "$SCRIPT_DIR/setup-cursor.sh"
+fi
 
 echo ""
 echo "Next (human, ~30 seconds):"

@@ -1,7 +1,7 @@
 """Unit tests for the /pdd lifecycle orchestrator."""
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -33,13 +33,9 @@ async def test_pdd_lifecycle_invokes_all_stages_in_order(tmp_path):
     engine = MagicMock()
     call_order: list[str] = []
 
-    llm = AsyncMock(
-        side_effect=lambda *_a, **_kw: "stub-doc"  # pragma: no cover - not used
-    )
-
     async def llm_side(_engine, _prompt, _user):
         call_order.append("llm")
-        return "doc"
+        return "validated design artifact content"
 
     publish_fn = MagicMock(return_value={"status": "ok", "package_url": "pkg://x"})
     deploy_fn = MagicMock(return_value={"status": "ok", "process_key": "PROC-1"})
@@ -99,7 +95,7 @@ async def test_pdd_lifecycle_short_circuits_on_validate_failure(tmp_path):
     deploy_fn = MagicMock()
 
     async def llm_side(*_a, **_kw):
-        return "doc"
+        return "validated design artifact content"
 
     with patch.object(pdd_lifecycle, "invoke_agent_llm", side_effect=llm_side), \
          patch.object(pdd_lifecycle, "_scaffold_process", side_effect=_scaffold_ok), \
@@ -133,12 +129,16 @@ async def test_pdd_lifecycle_skips_publish_deploy_when_no_deploy(tmp_path):
     deploy_fn = MagicMock()
 
     async def llm_side(*_a, **_kw):
-        return "doc"
+        return "validated design artifact content"
 
     with patch.object(pdd_lifecycle, "invoke_agent_llm", side_effect=llm_side), \
          patch.object(pdd_lifecycle, "_scaffold_process", side_effect=_scaffold_ok), \
          patch.object(pdd_lifecycle, "_validate_process", return_value={"status": "ok", "result": "ok"}), \
-         patch.object(pdd_lifecycle, "_run_process") as run_p:
+         patch.object(
+             pdd_lifecycle,
+             "_run_process",
+             return_value={"status": "ok", "result": "ok"},
+         ) as run_p:
         result = await pdd_lifecycle.run_pdd_lifecycle(
             "x",
             project_type="process",
@@ -153,8 +153,8 @@ async def test_pdd_lifecycle_skips_publish_deploy_when_no_deploy(tmp_path):
     stages = result["stages"]
     assert stages["publish"]["status"] == "skipped"
     assert stages["deploy"]["status"] == "skipped"
-    assert stages["run"]["status"] == "skipped"
-    run_p.assert_not_called()
+    assert stages["run"]["status"] == "ok"
+    run_p.assert_called_once()
     publish_fn.assert_not_called()
     deploy_fn.assert_not_called()
 
@@ -164,7 +164,7 @@ async def test_pdd_lifecycle_routes_maestro_to_flow_commands(tmp_path):
     engine = MagicMock()
 
     async def llm_side(*_a, **_kw):
-        return "doc"
+        return "validated design artifact content"
 
     seen: dict[str, bool] = {}
 
@@ -193,3 +193,25 @@ async def test_pdd_lifecycle_routes_maestro_to_flow_commands(tmp_path):
     assert seen == {"maestro_scaffold": True, "maestro_validate": True}
     scp.assert_not_called()
     vap.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_pdd_lifecycle_blocks_invalid_design_artifact_before_scaffold(tmp_path):
+    engine = MagicMock()
+
+    async def llm_side(*_a, **_kw):
+        return "TBD"
+
+    with patch.object(pdd_lifecycle, "invoke_agent_llm", side_effect=llm_side), \
+         patch.object(pdd_lifecycle, "_scaffold_process") as scp:
+        result = await pdd_lifecycle.run_pdd_lifecycle(
+            "x",
+            project_type="process",
+            deploy=False,
+            engine=engine,
+            output_root=tmp_path,
+        )
+
+    assert result["status"] == "failed"
+    assert result["failed_at"] == "pdd"
+    scp.assert_not_called()

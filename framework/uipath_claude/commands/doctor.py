@@ -14,6 +14,8 @@ from typing import Callable
 import typer
 import yaml
 
+from uipath_claude.capabilities import CURSOR_APPROVED_SKILL_OVERLAYS
+from uipath_claude.commands.registry import CommandRegistry
 from uipath_claude.library.catalog import LibraryCatalog
 from uipath_claude.library.proposals import PROPOSALS_ENV_VAR, ProposalStore
 
@@ -142,6 +144,61 @@ def _library_proposal_issues(stale_days: int) -> tuple[int, list[str]]:
     return len(pending), issues
 
 
+def _cursor_skill_alignment_issues(root: Path) -> tuple[str, list[str]]:
+    skills_root = root / "skills" / "skills"
+    cursor_skills = root / ".cursor" / "skills"
+    if not cursor_skills.exists():
+        return "missing", ["missing .cursor/skills"]
+    if not skills_root.is_dir():
+        return "unknown", ["cannot compare because skills/skills is missing"]
+
+    official = {path.name for path in skills_root.iterdir() if path.is_dir()}
+    cursor = {path.name for path in cursor_skills.iterdir() if path.is_dir()}
+    approved = set(CURSOR_APPROVED_SKILL_OVERLAYS)
+    servo = cursor_skills / "uipath-servo" / "SKILL.md"
+    if servo.is_file():
+        try:
+            text = servo.read_text(encoding="utf-8", errors="replace").lower()
+        except OSError:
+            text = ""
+        if "uipath-interact" in text and "compatibility" in text:
+            approved.add("uipath-servo")
+
+    missing = sorted(official - cursor)
+    unmanaged = sorted(cursor - official - approved)
+    issues: list[str] = []
+    if missing:
+        issues.append("missing upstream skills: " + ", ".join(missing[:8]))
+    if unmanaged:
+        issues.append("unmanaged Cursor-only skills: " + ", ".join(unmanaged[:8]))
+
+    kind = "linked"
+    try:
+        if not (cursor_skills.is_symlink() or cursor_skills.is_junction()):
+            kind = "physical"
+    except AttributeError:
+        if not cursor_skills.is_symlink():
+            kind = "physical"
+    return kind, issues
+
+
+def _mcp_config_issues(root: Path) -> list[str]:
+    config = root / ".cursor" / "mcp.json"
+    if not config.is_file():
+        return []
+    try:
+        payload = json.loads(config.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return [f"cannot parse .cursor/mcp.json: {exc}"]
+    server = (payload.get("mcpServers") or {}).get("uipath-builder-agent") or {}
+    command = server.get("command")
+    args = server.get("args") or []
+    expected_args = ["run", "python", "-m", "mcp_server.server"]
+    if command != "uv" or args != expected_args:
+        return ["use uv run python -m mcp_server.server for reproducible Cursor MCP startup"]
+    return []
+
+
 def run_doctor(
     root: Path | None = None,
     *,
@@ -159,6 +216,17 @@ def run_doctor(
         checks.append(_fail("Skills", "submodule", "missing skills/skills/uipath-rpa or uipath-interact"))
 
     cursor_skills = root / ".cursor" / "skills"
+    cursor_skill_kind, cursor_skill_issues = _cursor_skill_alignment_issues(root)
+    if cursor_skill_issues:
+        checks.append(_warn("Cursor", "skills alignment", "; ".join(cursor_skill_issues)))
+    else:
+        checks.append(
+            _ok(
+                "Cursor",
+                "skills alignment",
+                f".cursor/skills {cursor_skill_kind} view matches upstream plus approved overlays",
+            )
+        )
     if (cursor_skills / "uipath-interact" / "SKILL.md").is_file():
         checks.append(_ok("Cursor", "uipath-interact", "canonical Cursor skill exists"))
     else:
@@ -175,6 +243,11 @@ def run_doctor(
     mcp_example = root / ".cursor" / "mcp.json.example"
     if mcp_config.is_file():
         checks.append(_ok("Cursor", "MCP config", ".cursor/mcp.json exists"))
+        mcp_issues = _mcp_config_issues(root)
+        if mcp_issues:
+            checks.append(_warn("Cursor", "MCP launch", "; ".join(mcp_issues)))
+        else:
+            checks.append(_ok("Cursor", "MCP launch", "uses uv run python -m mcp_server.server"))
     elif mcp_example.is_file():
         checks.append(_warn("Cursor", "MCP config", "copy .cursor/mcp.json.example to .cursor/mcp.json"))
     else:
@@ -256,3 +329,12 @@ def register_doctor_command(app: typer.Typer) -> None:
             typer.echo(_format_checks(checks))
         if any(check.status == "fail" for check in checks):
             raise typer.Exit(code=1)
+
+
+def register_doctor_chat_command(registry: CommandRegistry) -> None:
+    """Register the in-chat ``/doctor`` command."""
+
+    def doctor_chat_command(*_args: str) -> str:
+        return _format_checks(run_doctor())
+
+    registry.register("doctor", "Run read-only workspace health checks", doctor_chat_command)
