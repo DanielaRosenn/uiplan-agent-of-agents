@@ -103,7 +103,7 @@ def stack_line(paradigm: str) -> str:
 def deploy_gate(paradigm: str) -> str:
     if paradigm == "solution":
         return (
-            "Automation Cloud only; deploy to personal/dev workspace first. "
+            "Automation Cloud only; deploy to personal workspace or dev workspace first. "
             "Never deploy to Production without explicit human approval."
         )
     return (
@@ -258,7 +258,8 @@ def build_loop_block(paradigm: str) -> str:
         return (
             "- CLI family: `uipcli`\n"
             "- Build loop: `uipcli package restore` -> `uipcli package analyze` -> "
-            "`uipcli test run` -> `uipcli package pack` -> optional `uipcli package deploy`\n"
+            "`uipcli test run` -> `uipcli package pack` -> documented **smoke run** "
+            "(job / `uip rpa run-file`) -> **log assertions** -> optional `uipcli package deploy`\n"
             "- Analyzer gate: stop on any `analyze` errors.\n"
         )
     if paradigm == "solution":
@@ -266,6 +267,7 @@ def build_loop_block(paradigm: str) -> str:
             "- CLI family: `uipcli` (`solution` verbs)\n"
             "- Build loop: `uipcli solution restore` -> `uipcli solution analyze` -> "
             "`uipcli solution pack` -> `uipcli solution upload-package` -> "
+            "documented **smoke run** per sub-project -> **log assertions** -> "
             "optional `uipcli solution deploy` / `deploy-activate`\n"
             "- Analyzer gate: stop on any `analyze` errors.\n"
         )
@@ -321,8 +323,10 @@ def paradigm_task_blocks(paradigm: str) -> str:
             "- [ ] T010 [P] [US1] Add failing test in `Tests/InvoiceFlowTests.xaml`; "
             "verify with `uipcli test run`.\n"
             "- [ ] T011 [US1] Implement `Workflows/ProcessInvoice.xaml` using "
-            "`[activity:UiPath.System.Activities:LogMessage]` and required package activities; "
-            "verify analyze + tests are green.\n"
+            "`[activity:UiPath.System.Activities:LogMessage]` (correlation id in message), "
+            "queue/mail activities per `uipath_doc_get_activity` / library lookup; record "
+            "workflow type (Sequence / Flowchart / State Machine / Long Running) per `.xaml` in "
+            "plan; verify analyze + tests + smoke logs.\n"
         )
     if paradigm == "coded-agent":
         return base + (
@@ -335,7 +339,10 @@ def paradigm_task_blocks(paradigm: str) -> str:
             "- [ ] T010 [P] [US1] Add binding validation test for `bindings/dev.json`; "
             "verify with `uipcli solution download-config` checks.\n"
             "- [ ] T011 [US1] Implement project changes under `projects/` and update binding keys; "
-            "verify with `uipcli solution analyze` and `uipcli solution pack`.\n"
+            "list each `projects/*` XAML entry with workflow type (Sequence / Flowchart / "
+            "State Machine / Long Running); use `uipath_doc_get_activity` for queue/mail/human "
+            "activities; `LogMessage` + correlation id; verify `uipcli solution analyze`, pack, "
+            "smoke run, and robot log assertions.\n"
         )
     if paradigm == "coded-app":
         return base + (

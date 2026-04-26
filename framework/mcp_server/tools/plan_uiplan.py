@@ -326,11 +326,79 @@ def _format_grounding_context(pack: dict[str, Any]) -> str:
     return "\n".join(lines) if lines else "_No grounding context available._"
 
 
+def _format_workflow_shape_block(paradigm: str) -> str:
+    """XAML-first workflow typing table for plan.md (replace row labels per feature)."""
+    intro = (
+        "**XAML-first default:** Prefer `.xaml` workflows for Orchestrator-driven orchestration; "
+        "add a coded-agent sub-project only when semantic LLM / tooling clearly requires it "
+        "(state that justification in the Structure Decision).\n"
+    )
+    table_header = (
+        "\n| Process / project (rename to match repo) | Workflow type | One-line rationale |\n"
+        "| --- | --- | --- |\n"
+    )
+    if paradigm == "solution":
+        rows = (
+            "| Dispatcher / intake RPA | Sequence or Flowchart | linear dequeue + routing |\n"
+            "| Analyzer host / queue consumer | Sequence or Flowchart | transactional steps |\n"
+            "| Human wait / suspend-resume | Long Running Workflow | waits on Action Center / human |\n"
+            "| Analyzer agent (Python) | N/A (coded agent) | semantic reasoning / tools only |\n"
+        )
+    elif paradigm in ("modern-rpa", "library", "tests"):
+        rows = (
+            "| Main automation | Sequence or Flowchart | (fill from SDD) |\n"
+            "| Human or external wait | Long Running Workflow | only if suspend/resume is required |\n"
+        )
+    elif paradigm == "coded-automation":
+        rows = "| Coded workflow entry | C# workflow (see project) | (fill) |\n"
+    else:
+        rows = (
+            "| If this paradigm still ships XAML sub-processes | Sequence / Flowchart / LRW | "
+            "document each file |\n"
+        )
+    footer = (
+        "\nPick **one** of Sequence, Flowchart, State Machine, or Long Running Workflow per "
+        "top-level `.xaml` file; use **Long Running** only when the design truly waits across "
+        "human or external events."
+    )
+    return intro + table_header + rows + footer
+
+
+def _format_logging_verification_block(paradigm: str) -> str:
+    """Shared logging + smoke + log-assertion contract for plan.md."""
+    cli_bits = (
+        "`uipcli solution restore` -> `uipcli solution analyze` -> `uipcli solution pack`"
+        if paradigm == "solution"
+        else "`uipcli package restore` -> `uipcli package analyze` -> `uipcli test run` -> "
+        "`uipcli package pack`"
+    )
+    return "\n".join(
+        [
+            "**Logging contract** (orchestration workflows):",
+            "- `LogMessage` (Info/Warn/Error) at: run start, non-PII input summary, branch decisions, "
+            "status transitions, exceptions, final summary.",
+            "- Propagate a **correlation id** (queue item id, transaction id, or GUID) across "
+            "`Invoke Workflow File` boundaries where applicable.",
+            "",
+            "**Verification contract:**",
+            f"- Build gates: {cli_bits}; stop on analyzer errors.",
+            "- **Smoke run:** after pack, run a safe local/unattended job, `uipcli job run`, or "
+            "`uip rpa run-file` (document exact command in tasks) — never Production.",
+            "- **Log assertions:** capture robot/job logs; assert expected substrings (correlation id, "
+            "phase markers, terminal status) for happy path and at least one failure path.",
+            "",
+            "**Expression language:** C# (`CSharp`) for new modern XAML; VisualBasic only when "
+            "the plan explicitly records a legacy VisualBasic project.",
+        ]
+    )
+
+
 def _format_planner_handoff(pack: dict[str, Any]) -> str:
     route = pack.get("planner_route") or []
     lines = [
         "- Start with `[skill:uipath-planner]` to confirm project type, implementation paradigm, and execution sequence.",
         "- Ensure `.claude/rules/project-context.md` exists; if missing, run `[agent:uipath-project-discovery-agent]` before locking scope or tasks.",
+        "- For RPA or Solution scopes, name **workflow types** (Sequence / Flowchart / State Machine / Long Running) per `.xaml` process before implementation.",
     ]
     if isinstance(route, list) and route:
         lines.append("- Planned capability route:")
@@ -538,7 +606,10 @@ def call_uiplan_spec_new(arguments: dict[str, Any]) -> dict[str, Any]:
             f"`uv run python -m tools.uiplan scaffold-code {folder_name} --max-loops 5` "
             "or specialist skill execution from `tasks.md`."
         ),
-        "QUALITY_GATES": "restore -> analyze -> test -> pack; deploy only with explicit approval.",
+        "QUALITY_GATES": (
+            "restore -> analyze -> test -> pack; add smoke run + robot log assertions (correlation id, "
+            "phases, terminal status); deploy only with explicit approval."
+        ),
         "PARADIGM": paradigm,
         "TARGET_STACK": stack_line(paradigm),
         "CLI_FAMILY": cli_family(paradigm),
@@ -642,6 +713,8 @@ def call_uiplan_plan_new(arguments: dict[str, Any]) -> dict[str, Any]:
         "COMPLEXITY_TABLE": "_None — add rows only if a constitution gate is violated._",
     }
     paradigm = _detect_paradigm(repo, meta, arguments)
+    mapping["WORKFLOW_SHAPE_BLOCK"] = _format_workflow_shape_block(paradigm)
+    mapping["LOGGING_VERIFICATION_BLOCK"] = _format_logging_verification_block(paradigm)
     mapping.update(
         {
             "PARADIGM": paradigm,

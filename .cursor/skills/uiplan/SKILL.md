@@ -20,6 +20,19 @@ designs can be developed from `tasks.md` without guessing.
 schedules, long-running workflows). Prefer **coded agents** only when XAML is not a practical fit;
 see `CLAUDE.md` section 9.
 
+**Workflow shape:** In `plan.md`, name the **workflow type per process** (Sequence, Flowchart,
+State Machine, Long Running Workflow) with one line of rationale. Use **Long Running Workflow**
+only when the process truly waits across human or external events; otherwise prefer Sequence or
+Flowchart.
+
+**Logging and verification:** `tasks.md` must call out **LogMessage** (or equivalent) with
+**correlation IDs**, plus **analyze / test / pack** and a **smoke run** or job log check that proves
+the happy path and at least one failure path.
+
+**Missing SME inputs:** When PDD/SDD/user intent leaves production-critical facts unset (mailbox
+lists, credentials, Zip mode, audit store, trigger mode), record them as **`[SME REVIEW]`** or
+`[NEEDS CLARIFICATION: …]` in the bundle — do not silently invent values.
+
 ## Canonical layout (no duplicate kits)
 
 | Role | Path |

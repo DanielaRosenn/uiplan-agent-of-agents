@@ -42,7 +42,7 @@ def _finding(
 
 
 _PLACEHOLDER_BAN = re.compile(
-    r"\b(TBD|TODO|implement later|fill in|FIXME|NEEDS CLARIFICATION)\b",
+    r"\b(TBD|TODO|implement later|fill in|FIXME)\b",
     re.IGNORECASE,
 )
 _ACTIVITY_TAG_RE = re.compile(r"\[activity:([A-Za-z0-9_.]+):([A-Za-z][A-Za-z0-9_]*)\]")
@@ -91,10 +91,21 @@ def review_spec_text(spec: str, repo: Path | None = None) -> list[dict[str, Any]
     if "[NEEDS CLARIFICATION" in spec or "[needs clarification" in spec.lower():
         findings.append(
             _finding(
-                "error",
+                "warn",
                 "spec",
-                "no_needs_clarification",
-                "Unresolved NEEDS CLARIFICATION markers remain in spec.md.",
+                "sme_open_items",
+                "Spec lists NEEDS CLARIFICATION markers — resolve before Production; "
+                "acceptable while drafting.",
+                "spec.md",
+            )
+        )
+    if "[SME REVIEW]" in spec or "[sme review]" in spec.lower():
+        findings.append(
+            _finding(
+                "warn",
+                "spec",
+                "sme_open_items",
+                "Spec lists [SME REVIEW] items — confirm facts before Production.",
                 "spec.md",
             )
         )
@@ -376,6 +387,66 @@ def review_plan_text(
                     "plan.md",
                 )
             )
+    _xaml_paradigms = {
+        "modern-rpa",
+        "coded-automation",
+        "solution",
+        "library",
+        "tests",
+    }
+    if paradigm in _xaml_paradigms:
+        if not re.search(
+            r"\b(Sequence|Flowchart|State\s*Machine|Long\s*Running|Long\s+Running)\b",
+            plan,
+            re.IGNORECASE,
+        ):
+            findings.append(
+                _finding(
+                    "warn",
+                    "plan",
+                    "plan_workflow_types",
+                    "plan.md should name XAML workflow types (Sequence, Flowchart, State Machine, "
+                    "or Long Running Workflow) with rationale for each process.",
+                    "plan.md",
+                )
+            )
+        if not re.search(r"\bXAML|\.xaml\b", plan, re.IGNORECASE):
+            findings.append(
+                _finding(
+                    "warn",
+                    "plan",
+                    "plan_xaml_first",
+                    "plan.md should explicitly anchor XAML / Studio workflows when paradigm is "
+                    "RPA or Solution (state coded-agent scope only where justified).",
+                    "plan.md",
+                )
+            )
+        vb_hit = re.search(r"\bVB\.NET\b", plan, re.IGNORECASE) or re.search(
+            r"\bVisualBasic\b", plan, re.IGNORECASE
+        )
+        if vb_hit and not re.search(r"\blegacy\b", plan[:4000], re.IGNORECASE):
+            findings.append(
+                _finding(
+                    "warn",
+                    "plan",
+                    "plan_vbnet_modern",
+                    "plan.md mentions VB.NET / VisualBasic without an explicit legacy carve-out — "
+                    "modern repo default is C# expressions for XAML.",
+                    "plan.md",
+                )
+            )
+    if paradigm == "solution":
+        if "solution.uipx" not in plan or "bindings" not in plan.lower():
+            findings.append(
+                _finding(
+                    "warn",
+                    "plan",
+                    "plan_solution_descriptors",
+                    "Solution paradigm plans should name `solution.uipx` and `bindings/` "
+                    "so project boundaries stay explicit.",
+                    "plan.md",
+                )
+            )
     return findings
 
 
@@ -419,6 +490,14 @@ def _review_implementation_task_routing(tasks: str) -> list[dict[str, Any]]:
 
 def review_tasks_text(tasks: str, spec: str) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
+    paradigm = _declared_paradigm(spec)
+    _xaml_paradigms = {
+        "modern-rpa",
+        "coded-automation",
+        "solution",
+        "library",
+        "tests",
+    }
     for m in _PLACEHOLDER_BAN.finditer(tasks):
         findings.append(
             _finding(
@@ -515,6 +594,55 @@ def review_tasks_text(tasks: str, spec: str) -> list[dict[str, Any]]:
             )
         )
     findings.extend(_review_implementation_task_routing(tasks))
+    if paradigm in _xaml_paradigms:
+        if not re.search(r"LogMessage|log message", tasks, re.IGNORECASE):
+            findings.append(
+                _finding(
+                    "warn",
+                    "tasks",
+                    "tasks_logging_contract",
+                    "tasks.md should require LogMessage (or equivalent) with structured phases.",
+                    "tasks.md",
+                )
+            )
+        if not re.search(r"correlation", tasks, re.IGNORECASE):
+            findings.append(
+                _finding(
+                    "warn",
+                    "tasks",
+                    "tasks_correlation_id",
+                    "tasks.md should require a correlation id propagated across workflows/queue items.",
+                    "tasks.md",
+                )
+            )
+        if not re.search(
+            r"\b(smoke|job\s+run|run-file|robot\s+log|execution\s+log)\b",
+            tasks,
+            re.IGNORECASE,
+        ):
+            findings.append(
+                _finding(
+                    "warn",
+                    "tasks",
+                    "tasks_smoke_run",
+                    "tasks.md should include a smoke run or job/run-file step after pack.",
+                    "tasks.md",
+                )
+            )
+        if not re.search(
+            r"(log\s+assert|assert.*log|expected.*log|robot\s+log|job\s+log)",
+            tasks,
+            re.IGNORECASE,
+        ):
+            findings.append(
+                _finding(
+                    "warn",
+                    "tasks",
+                    "tasks_log_validation",
+                    "tasks.md should capture expected log substrings or assertions after smoke run.",
+                    "tasks.md",
+                )
+            )
     return findings
 
 

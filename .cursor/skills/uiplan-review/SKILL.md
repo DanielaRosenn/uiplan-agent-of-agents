@@ -38,6 +38,12 @@ explicitly asks for the next step after seeing review output.
   - explicit `Project Structure` coverage for repository artifacts;
   - `### Source Code (repository root)` with paradigm-appropriate descriptors;
   - `### Paradigm build loop` matching the declared paradigm CLI family.
+- For **modern-rpa / coded-automation / solution / library / tests** paradigms, `plan.md` should
+  anchor **XAML-first** orchestration, name **workflow types** (Sequence, Flowchart, State Machine,
+  Long Running Workflow) per process, and document **C#** expressions unless legacy VisualBasic is
+  explicit.
+- **Solution** plans must call out `solution.uipx`, `projects/*`, and `bindings/` together with
+  queue/status contracts across sub-projects.
 - Verify structure feasibility:
   - `project.json` + `.xaml` for modern-rpa,
   - `pyproject.toml` + graph/framework descriptor for coded-agent,
@@ -54,7 +60,10 @@ explicitly asks for the next step after seeing review output.
     or explicit `uipath_library_search` / `uipath_library_lookup` / `query_uipath_docs` /
     `uipath_doc_get_activity`),
   - verification step.
-- Phase 5 (`Build, Verify, and Handoff`) must exist and include analyzer/test/pack gates.
+- Phase 5 (`Build, Verify, and Handoff`) must exist and include analyzer/test/pack gates plus
+  **smoke run** and **robot/job log assertions** (correlation id, phase markers, terminal status).
+- RPA-style tasks must require **LogMessage** (or equivalent), **correlation ids**, and
+  `uipath_doc_get_activity` / activity tags before implementation work.
 - Deploy tasks must keep personal workspace default and explicit Production block.
 
 ### Grounding checks

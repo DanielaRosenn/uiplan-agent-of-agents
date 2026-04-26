@@ -115,6 +115,13 @@ sequenceDiagram
 
 - {{ASSUMPTION_1}}
 
+## SME inputs (do not invent)
+
+Until the human confirms facts, record gaps with `[SME REVIEW]` or
+`[NEEDS CLARIFICATION: topic]` (examples: mailbox allow-lists, credential scope,
+Zip handling mode, audit log sink, trigger cadence, human review channel). Do not
+silently invent production values.
+
 ## Source routing & MCP contracts
 
 {{SOURCE_ROUTING_SNIPPET}}

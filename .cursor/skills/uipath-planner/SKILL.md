@@ -127,9 +127,14 @@ Record the answer in the plan header as `Test coverage: standard | happy-path`. 
 - The plan contains **no generation skill** (pure `uipath-interact` interaction, pure `uipath-platform` ops, pure read-only diagnostics) → record `Test coverage: N/A`.
 - The request is a small modification to an existing automation and the user has not asked for new tests — default to `standard` for touched paths and note the assumption in Decisions & Trade-offs.
 
-### Default: Expression language
+### Default: Expression language (modern XAML)
 
-Always use **VB.NET** for XAML workflows. Note this in the plan. Do not ask.
+For **new** modern RPA / XAML work in this repo, default to **C# expressions** in `project.json`
+(`expressionLanguage: CSharp`) and Windows / .NET 8 targets. Note this in the plan header. Do not ask.
+
+**Legacy-only exception:** If the plan routes to `uipath-rpa-legacy` or the user explicitly owns a
+VisualBasic legacy project, record **VB.NET** in the plan header instead and never mix expression
+styles inside one project.
 
 ## Step 2 — Detect multi-skill tasks
 
@@ -269,7 +274,7 @@ Record the answers in the plan header. **The handoff is informational** — `uip
 **Goal:** <one sentence summarizing what the automation does>
 **Source document:** <path to PDD/SDD, or "None — planned from user request">
 **Project type:** <XAML (default for RPA workflows) / C# coded (only if user explicitly asked) / AI Agent / Flow / Application>
-**Expression language:** VB.NET (XAML only; N/A for coded / AI Agent / Flow / Application)
+**Expression language:** CSharp for modern XAML (default); VisualBasic only for explicit legacy; N/A for coded / AI Agent / Flow / Application
 **Approach:** <explore first / simultaneous>
 **Execution autonomy:** <autonomous / interactive>
 **App type:** <web / desktop / citrix / N/A>

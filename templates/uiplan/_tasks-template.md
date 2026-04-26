@@ -96,6 +96,10 @@ flowchart TD
   cited in `plan.md` for project-specific source changes.
 - [ ] T032 Run the build loop for the detected project type: restore -> analyze
   -> test -> pack. Stop on analyzer errors or failing tests.
+- [ ] T032A [P] [US1] Smoke run and log validation: run a documented local smoke (`uipcli job run`,
+  `uip rpa run-file`, or tenant-safe fixture per plan) after pack; capture robot/job logs and assert
+  expected substrings (correlation id, phase markers, terminal status) for the happy path and at
+  least one failure path. Use `LogMessage` with correlation id in workflows per plan.
 - [ ] T033 Summarize exact verification evidence, changed files, package path
   if produced, and any approval-required deploy follow-up.
 - [ ] T034 Verify deploy gate: `{{DEPLOY_GATE}}`

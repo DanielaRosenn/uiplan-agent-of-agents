@@ -36,6 +36,14 @@
 **Constraints**: {{CONSTRAINTS}}
 **Scale/Scope**: {{SCALE}}
 
+## XAML workflow shape (RPA / Solution)
+
+{{WORKFLOW_SHAPE_BLOCK}}
+
+## Logging and verification contract
+
+{{LOGGING_VERIFICATION_BLOCK}}
+
 ## Constitution Check
 
 Gates re-checked after Phase 1 design:

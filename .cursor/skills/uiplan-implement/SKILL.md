@@ -34,7 +34,8 @@ project-specific specialist skills as the implementation contract.
    needed: specialist UiPath skills, MCP tools, subagents, library lookup,
    AskAI-style documentation lookup, local CLI commands, tests, and build gates.
 9. Run the build loop for the detected project type: restore -> analyze -> test
-   -> pack. Stop on analyzer errors or failing tests.
+   -> pack, then the **smoke run** and **log validation** steps written in `tasks.md` (correlation
+   id, expected log substrings). Stop on analyzer errors or failing tests.
 10. Summarize exact verification evidence, changed files, package path if
    produced, and approval-required next steps.
 

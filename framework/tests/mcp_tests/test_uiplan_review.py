@@ -48,6 +48,8 @@ def test_run_uiplan_review_all_includes_citations():
     spec += "## Development Handoff\n**Implementation paradigm**: modern-rpa\n**CLI family**: uipcli\n"
     spec += "Use tasks.md after uipath_plan_review and acceptance.\n"
     plan = "## Technical Context\nok\n## Constitution Check\n- [ ] **modern_experience_only**: ok\n"
+    plan += "## XAML workflow shape\nSequence Flowchart Long Running for `.xaml` entry.\n"
+    plan += "## Logging contract\nLogMessage correlation smoke job run robot log assert.\n"
     plan += "## Planner Route & Specialist Handoff\n"
     plan += "[skill:uipath-planner] [skill:uipath-rpa] uipath-project-discovery-agent "
     "project-context.md uipath_library_search uipath_doc_get_activity\n"
@@ -59,7 +61,8 @@ def test_run_uiplan_review_all_includes_citations():
     tasks = "## Phase 3: User Story 1 - A (Priority: P1)\n### Tests for User Story 1\n"
     tasks += "- [ ] T010 [US1] test `t.py` uipath_library_search\n"
     tasks += "### Implementation for User Story 1\n"
-    tasks += "- [ ] T011 [US1] impl `m.py` [skill:uipath-rpa] uipath_library_lookup personal workspace Production\n"
+    tasks += "- [ ] T011 [US1] impl `m.py` [skill:uipath-rpa] uipath_library_lookup LogMessage "
+    tasks += "correlation id smoke job run robot log assert personal workspace Production\n"
     tasks += "## Phase 5: Build, Verify, and Handoff\n- [ ] T030 build\n"
     out = run_uiplan_review(
         spec=spec,

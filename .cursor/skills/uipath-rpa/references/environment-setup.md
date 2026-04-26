@@ -76,12 +76,15 @@ uip rpa new \
   --name "MyAutomation" \
   --location "/path/to/parent/directory" \
   --template-id "BlankTemplate" \
-  --expression-language "VisualBasic" \
+  --expression-language "CSharp" \
   --target-framework "Windows" \
   --description "Automates invoice processing" \
   --output json```
 
-**Expression language for XAML projects:** Prefer `VisualBasic` for Windows target framework projects.
+**Expression language for XAML projects:** Prefer **`CSharp`** for new Windows / modern experience
+projects in this repo (matches `CLAUDE.md` hard gates). Use **`VisualBasic`** only when explicitly
+authoring against an existing legacy VisualBasic project or when the user requests legacy expression
+syntax.
 
 ### For Coded Projects
 
