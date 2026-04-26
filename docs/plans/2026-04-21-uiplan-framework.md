@@ -64,7 +64,7 @@ filesystem shape.
 - `uipath-claude plan uiplan <topic>` (full loop) /
   `... plan uiplan {ground|spec|plan|tasks|review} [args]` (staged)
 - First-class slash: `/uiplan-ground`, `/uiplan-spec`, `/uiplan-plan`,
-  `/uiplan-tasks`, `/uiplan-review`, `/uiplan-full`
+  `/uiplan-tasks`, `/uiplan-review`, `/uiplan-full`, `/uiplan-implement`
 - Back-compat: `/uiplan` dispatcher (`/uiplan full …`, `/uiplan spec …`, …)
 
 ### Grounding strategy (the key differentiator)

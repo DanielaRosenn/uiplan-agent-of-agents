@@ -123,7 +123,8 @@ flowchart LR
 `.cursor/skills/uiplan/SKILL.md` as the canonical contract and map to the
 matching `uipath_plan_*` MCP tools or the accepted-plan implementation flow.
 **Chat:** `/uiplan-ground`, `/uiplan-spec`, `/uiplan-plan`, `/uiplan-tasks`,
-`/uiplan-review`, `/uiplan-full`; `/uiplan ...` remains as a dispatcher alias.
+`/uiplan-review`, `/uiplan-full`; use `/uiplan-implement` only after review and
+acceptance. `/uiplan ...` remains as a dispatcher alias.
 **CLI:** `uipath-claude plan uiplan <subcommand>`.
 
 Grounding is not just metadata. `uipath_plan_ground` returns the `uipath-planner`

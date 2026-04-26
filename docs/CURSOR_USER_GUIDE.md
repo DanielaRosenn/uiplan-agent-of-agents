@@ -261,6 +261,34 @@ This triggers:
 2. **Writing-plans skill** - Create detailed implementation plan
 3. **Executing-plans skill** - Build task-by-task with verification
 
+### Pattern 2A: UiPlan to Build Handoff
+
+For multi-file or risky UiPath work, use the Cursor-native UiPlan commands:
+
+```text
+/uiplan-full "Invoice exception handling"
+```
+
+Or run the staged flow:
+
+```text
+/uiplan-ground invoice exception handling
+/uiplan-spec "Invoice exception handling"
+/uiplan-plan <slug>
+/uiplan-tasks <slug>
+/uiplan-review <slug>
+```
+
+After review passes and you accept the bundle, use:
+
+```text
+/uiplan-implement <slug>
+```
+
+`/uiplan-implement` reads `spec.md`, `plan.md`, and `tasks.md`, confirms the
+planner/discovery/specialist handoff, asks before source edits, then runs the
+project build gates. It does not publish or deploy without explicit approval.
+
 ### Pattern 3: Fix and Debug
 
 When something doesn't work:
@@ -289,7 +317,10 @@ include the relevant files or project path.
 
 ## MCP Tools (Advanced)
 
-When the MCP server is enabled, Cursor can call the same Python entry points the CLI uses: workflow tools, skill registry, planner/bootstrap agents, bundled activity-docs, and memory.
+When the MCP server is enabled, Cursor can call the same Python entry points the
+CLI uses: workflow tools, skill registry, planner/bootstrap agents, bundled
+activity-docs, memory, and the read-only assistant orchestration tools
+(`uipath_assistant_context`, `uipath_assistant_route`).
 
 **Project root:** set `UIPATH_MCP_PROJECT_ROOT` to your UiPath project or repo root so skill discovery and paths resolve consistently (defaults to the process current working directory).
 
