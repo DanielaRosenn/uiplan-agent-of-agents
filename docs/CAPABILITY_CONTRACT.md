@@ -11,7 +11,7 @@ The goal is **UiPath delivery parity across `uipath-claude` and Cursor + MCP**, 
 | Workspace health | `/doctor`, `uipath-claude doctor` | n/a | n/a | Read-only checks for skills, MCP config, docs, runtime, `uip`, and library health. |
 | Status and session context | `/status`, `/resume`, `/recall` | `uipath_memory_*` | n/a | CLI owns chat transcripts; MCP exposes durable memory operations. |
 | Skill discovery and routing | `/skills`, `/update-skills` | `uipath_skill_*` | `skills/skills/*`, approved Cursor overlays | `skills/skills` is the upstream source of truth. |
-| Structured planning | `/plan`, `/uiplan`, `uipath-claude plan ...` | `uipath_plan_*` | `uiplan`, `writing-uipath-plans` | UiPlan is the preferred plan contract for non-trivial work. |
+| Structured planning | `/plan`, `/uiplan`, `/uiplan-*`, `uipath-claude plan ...` | `uipath_plan_*` | `uiplan`, `uiplan-*`, `writing-uipath-plans` | UiPlan is the preferred plan-to-build contract for non-trivial work. |
 | Full SDLC lifecycle | `/pdd` | `uipath_agent_*`, `uipath_doc_*`, `uipath_workflow_*` | Specialist UiPath skills | BA -> SA -> ADD -> TDD -> Dev -> QA, with publish/deploy gates. |
 | Workflow build/edit/validate | `/validate`, chat execution loop | `uipath_workflow_*` | `uipath-rpa` | Destructive write/package/run/publish/deploy tools stay approval-gated. |
 | Grounded answers | chat question path, `/books` | `uipath_answer`, `uipath_library_*`, `uipath_doc_*` | Product-specific skills | Prefer reviewed library and docs before inventing answers. |

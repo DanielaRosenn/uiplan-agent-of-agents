@@ -1,20 +1,21 @@
-﻿# UiPlan template kit (`templates/uiplan`)
+# UiPlan template kit (`templates/uiplan`)
 
 **Canonical only:** this directory is the single template source for UiPlan.
 MCP (`uipath_plan_spec_new`, etc.) and
 `uv run python -m tools.uiplan generate-docs` both read from here.
 
 Normalized copies of the UiPlan document templates used with the
-**generate-docs -> review -> scaffold** flow.
+**generate-docs -> review -> accept -> scaffold/build** flow.
 
 ## How To Use
 
 1. Run **`uv run python -m tools.uiplan generate-docs <slug>`** (or your
    project's equivalent) to materialize `spec.md`, `plan.md`, and `tasks.md`
    from these templates.
-2. **Human approval**: review the generated docs for accuracy, scope, and
-   constitution checks before any implementation work.
-3. Run **`uv run python -m tools.uiplan scaffold-code <slug> --max-loops N`**
+2. **Human approval**: review the generated docs for accuracy, scope,
+   development handoff, and constitution checks before any implementation work.
+3. Accept the bundle, then run
+   **`uv run python -m tools.uiplan scaffold-code <slug> --max-loops N`**
    to drive implementation against the approved plan.
 
 ## Framework Reference

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 from typing import Any
 
 from uipath_claude.commands.registry import CommandRegistry, register_command
@@ -17,10 +16,6 @@ def _run_plan_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
 _SUBCOMMANDS = frozenset({"ground", "spec", "plan", "tasks", "review", "full"})
 
 
-def _json_result(out: dict[str, Any]) -> str:
-    return json.dumps(out, indent=2, default=str)
-
-
 def _parse_title_intent(tail: str) -> tuple[str, str]:
     """Parse ``<title> [--intent ...]`` while allowing multi-word titles."""
     marker = " --intent "
@@ -30,6 +25,141 @@ def _parse_title_intent(tail: str) -> tuple[str, str]:
         intent = intent.strip() or title
         return title, intent
     return tail.strip(), tail.strip()
+
+
+def _maybe_split_natural_spec_request(tail: str) -> tuple[str, str]:
+    """Support ``/uiplan-spec Title can you base...`` without making title huge."""
+    text = tail.strip()
+    if " --intent " in text:
+        return _parse_title_intent(text)
+    parts = text.split(maxsplit=1)
+    if len(parts) == 2:
+        rest_lower = parts[1].lower()
+        looks_like_context = (
+            " pdd" in f" {rest_lower}"
+            or " sdd" in f" {rest_lower}"
+            or ".md" in rest_lower
+            or ":\\" in parts[1]
+            or rest_lower.startswith(("can ", "could ", "please ", "base ", "from "))
+        )
+        if looks_like_context:
+            return parts[0], text
+    return text, text
+
+
+def _files_line(folder: str | None) -> str:
+    if not folder:
+        return ""
+    return (
+        "\nFiles:\n"
+        f"- `{folder}\\spec.md`\n"
+        f"- `{folder}\\plan.md`\n"
+        f"- `{folder}\\tasks.md`"
+    )
+
+
+def _format_review(review: dict[str, Any]) -> str:
+    ok = review.get("ok")
+    next_action = review.get("next_action")
+    findings = review.get("findings") or []
+    lines = [f"Review: {'pass' if ok else 'needs edits'}"]
+    if next_action:
+        lines.append(f"Next action: `{next_action}`")
+    if findings:
+        lines.append("Findings:")
+        for item in findings[:8]:
+            if isinstance(item, dict):
+                severity = item.get("severity", "info")
+                message = item.get("message") or item.get("text") or str(item)
+                location = item.get("location") or item.get("path")
+                suffix = f" ({location})" if location else ""
+                lines.append(f"- {severity}: {message}{suffix}")
+            else:
+                lines.append(f"- {item}")
+        if len(findings) > 8:
+            lines.append(f"- ... {len(findings) - 8} more")
+    return "\n".join(lines)
+
+
+def _format_result(sub: str, out: dict[str, Any]) -> str:
+    """Return chat-friendly UiPlan output instead of raw MCP JSON."""
+    status = out.get("status", "unknown")
+    if status != "ok":
+        message = out.get("message") or out.get("reason") or str(out)
+        return f"UiPlan {sub} returned `{status}`: {message}"
+
+    if sub == "ground":
+        topic = out.get("topic", "")
+        skills = out.get("matched_skills") or []
+        lines = [f"UiPlan grounding complete for: {topic}"]
+        if skills:
+            lines.append("Matched skills:")
+            for skill in skills[:5]:
+                if isinstance(skill, dict) and skill.get("name"):
+                    lines.append(f"- `{skill['name']}`")
+        lines.append("Next: `/uiplan-spec <title> --intent <grounded goal>`")
+        return "\n".join(lines)
+
+    if sub == "spec":
+        folder = out.get("relative") or out.get("path")
+        slug = out.get("slug")
+        return (
+            "UiPlan spec created.\n"
+            f"Slug: `{slug}`\n"
+            f"Folder: `{folder}`"
+            f"{_files_line(str(folder) if folder else None)}\n\n"
+            "Review/edit next:\n"
+            "1. Open `spec.md` and edit requirements/user stories.\n"
+            f"2. Run `/uiplan-plan {slug}` when the spec looks right.\n"
+            f"3. Run `/uiplan-review {slug} spec` to check the spec."
+        )
+
+    if sub == "plan":
+        slug = out.get("slug")
+        path = out.get("path")
+        return (
+            "UiPlan plan created.\n"
+            f"Slug: `{slug}`\n"
+            f"Path: `{path}`\n\n"
+            "Next:\n"
+            "1. Review/edit `plan.md`.\n"
+            f"2. Run `/uiplan-tasks {slug}`.\n"
+            f"3. Run `/uiplan-review {slug} plan`."
+        )
+
+    if sub == "tasks":
+        slug = out.get("slug")
+        path = out.get("path")
+        return (
+            "UiPlan tasks created.\n"
+            f"Slug: `{slug}`\n"
+            f"Path: `{path}`\n\n"
+            "Next:\n"
+            "1. Review/edit `tasks.md`.\n"
+            f"2. Run `/uiplan-review {slug} all`.\n"
+            "3. Accept only after review passes and you approve the bundle."
+        )
+
+    if sub == "review":
+        return _format_review(out)
+
+    if sub == "full":
+        slug = out.get("slug")
+        folder = out.get("folder")
+        review = out.get("review") if isinstance(out.get("review"), dict) else {}
+        return (
+            "UiPlan bundle created.\n"
+            f"Slug: `{slug}`\n"
+            f"Folder: `{folder}`"
+            f"{_files_line(str(folder) if folder else None)}\n\n"
+            f"{_format_review(review)}\n\n"
+            "Review/edit next:\n"
+            "1. Open `spec.md`, `plan.md`, and `tasks.md`.\n"
+            f"2. Re-run `/uiplan-review {slug} all` after edits.\n"
+            "3. Accept/publish only after review passes and you approve it."
+        )
+
+    return str(out)
 
 
 def _dispatch_uiplan(sub: str, tail: str, *, command_name: str = "uiplan") -> str:
@@ -49,7 +179,7 @@ def _dispatch_uiplan(sub: str, tail: str, *, command_name: str = "uiplan") -> st
         elif sub == "spec":
             if not tail:
                 return f"Usage: /{command_name} <title> [--intent text]"
-            title, intent = _parse_title_intent(tail)
+            title, intent = _maybe_split_natural_spec_request(tail)
             out = _run_plan_tool(
                 "uipath_plan_spec_new",
                 {"title": title, "intent": intent},
@@ -76,7 +206,7 @@ def _dispatch_uiplan(sub: str, tail: str, *, command_name: str = "uiplan") -> st
             return f"Unknown subcommand: {sub}"
     except Exception as exc:  # noqa: BLE001
         return f"UiPlan command failed: {exc}"
-    return _json_result(out)
+    return _format_result(sub, out)
 
 
 def _usage() -> str:

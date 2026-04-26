@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from mcp_server.tools import plan_tools, plan_uiplan
+from mcp_server.tools import plan_grounding, plan_tools, plan_uiplan
 
 
 @pytest.fixture
@@ -27,19 +27,23 @@ async def test_uiplan_full_scaffold(repo, monkeypatch):
     (tpl / "_spec-template.md").write_text(
         "# {{TITLE}}\n{{INTENT}}\n## User Scenarios\n### User Story 1 - A (Priority: P1)\n"
         "**Given** g **When** w **Then** t\n## Requirements\n### Functional Requirements\n"
-        "**FR-001**: System MUST x\n## Success Criteria\n### Measurable Outcomes\n**SC-001**: m\n",
+        "**FR-001**: System MUST x\n## Success Criteria\n### Measurable Outcomes\n**SC-001**: m\n"
+        "## Development Handoff\nUse tasks.md after uipath_plan_review and acceptance.\n",
         encoding="utf-8",
     )
     (tpl / "_plan-template.md").write_text(
         "# {{TITLE}}\n## Technical Context\nx\n## Constitution Check\n"
         "- [ ] **modern_experience_only**: ok\n## Project Structure\n```\nx\n```\n"
-        "**Structure Decision**: {{STRUCTURE_DECISION}}\n## Complexity Tracking\nx\n",
+        "**Structure Decision**: {{STRUCTURE_DECISION}}\n"
+        "## Development execution contract\nrestore -> analyze -> test -> pack\n"
+        "## Complexity Tracking\nx\n",
         encoding="utf-8",
     )
     (tpl / "_tasks-template.md").write_text(
         "# {{TITLE}}\n## Phase 3: User Story 1 - MVP (Priority: P1)\n"
         "### Tests for User Story 1\n- [ ] T010 [P] [US1] test `src/x.py`\n"
-        "### Implementation for User Story 1\n- [ ] T011 [US1] impl `src/y.py`\n",
+        "### Implementation for User Story 1\n- [ ] T011 [US1] impl `src/y.py`\n"
+        "## Phase 5: Build, Verify, and Handoff\n- [ ] T030 build\n",
         encoding="utf-8",
     )
     out = await plan_tools.call_plan_tool(
@@ -55,6 +59,13 @@ async def test_uiplan_full_scaffold(repo, monkeypatch):
     assert (folder / "spec.md").is_file()
     assert (folder / "plan.md").is_file()
     assert (folder / "tasks.md").is_file()
+    assert "## Development Handoff" in (folder / "spec.md").read_text(encoding="utf-8")
+    assert "## Development execution contract" in (folder / "plan.md").read_text(
+        encoding="utf-8"
+    )
+    assert "## Phase 5: Build, Verify, and Handoff" in (folder / "tasks.md").read_text(
+        encoding="utf-8"
+    )
     rev = out.get("review") or {}
     assert "ok" in rev
 
@@ -67,6 +78,45 @@ async def test_uiplan_ground_smoke(repo):
     )
     assert out.get("status") == "ok"
     assert "matched_skills" in out
+
+
+@pytest.mark.asyncio
+async def test_uiplan_spec_reads_referenced_pdd(repo, monkeypatch):
+    monkeypatch.setattr(plan_grounding, "_library_hits", lambda topic: [])
+    monkeypatch.setattr(plan_grounding, "_knowledge_lookups", lambda topic: [])
+    pdd = repo / "docs" / "design" / "pdd.md"
+    pdd.parent.mkdir(parents=True)
+    pdd.write_text(
+        "# Zip mailbox automation PDD\n\n"
+        "The robot monitors a finance mailbox, downloads zip attachments, "
+        "validates payment files, and routes exceptions for manual review.\n",
+        encoding="utf-8",
+    )
+    (repo / "templates" / "uiplan" / "_spec-template.md").write_text(
+        "# {{TITLE}}\n\n{{GROUNDING_CITATIONS}}\n\n{{INTENT}}\n"
+        "## User Scenarios & Testing\n{{US1_BODY}}\n",
+        encoding="utf-8",
+    )
+
+    out = await plan_tools.call_plan_tool(
+        "uipath_plan_spec_new",
+        {
+            "project_root": str(repo),
+            "title": "Zip Mailbox",
+            "intent": f"Create the spec based on this PDD: {pdd}",
+            "slug": "zip-mailbox",
+        },
+    )
+
+    folder = repo / ".cursor" / "plans" / out["folder_name"]
+    spec_text = (folder / "spec.md").read_text(encoding="utf-8")
+    meta_text = (folder / ".meta.yaml").read_text(encoding="utf-8")
+
+    assert "## Source documents" in spec_text
+    assert "Zip mailbox automation PDD" in spec_text
+    assert "finance mailbox" in spec_text
+    assert "[source:pdd.md]" in spec_text
+    assert "linked_pdd: docs\\design\\pdd.md" in meta_text or "linked_pdd: docs/design/pdd.md" in meta_text
 
 
 @pytest.mark.asyncio
@@ -147,6 +197,7 @@ async def test_plan_new_writes_grounding_inputs(repo, monkeypatch):
     )
     (tpl / "_plan-template.md").write_text(
         "# {{TITLE}}\n## Summary\n{{SUMMARY}}\n## Grounding Inputs\n{{GROUNDING_CONTEXT}}\n"
+        "## Planner Route & Specialist Handoff\n{{PLANNER_HANDOFF}}\n"
         "## Technical Context\n**Primary Dependencies**: {{DEPS}}\n"
         "## Constitution Check\n{{CONSTITUTION_CHECKLIST}}\n"
         "## Project Structure\n```text\n{{SOURCE_TREE}}\n```\n"
@@ -160,6 +211,15 @@ async def test_plan_new_writes_grounding_inputs(repo, monkeypatch):
             "name": "uipath-planner",
             "excerpt": "Planner guidance should be visible in generated plan.",
         },
+        "project_discovery_agent": {
+            "name": "uipath-project-discovery-agent",
+            "excerpt": "Discovery should identify project shape before build.",
+        },
+        "planner_route": [
+            "uipath-planner",
+            "uipath-project-discovery-agent",
+            "matched specialist skills",
+        ],
         "matched_skills": [
             {
                 "name": "uipath-rpa",
@@ -177,7 +237,11 @@ async def test_plan_new_writes_grounding_inputs(repo, monkeypatch):
         "library_hits": [{"query": "queues", "excerpt": "Queue section excerpt."}],
         "candidate_project_template": "templates/long-running/",
         "constitution": {"gates": [{"id": "modern", "text": "Modern only"}]},
-        "suggested_citations": ["[skill:uipath-planner]", "[skill:uipath-rpa]"],
+        "suggested_citations": [
+            "[skill:uipath-planner]",
+            "[agent:uipath-project-discovery-agent]",
+            "[skill:uipath-rpa]",
+        ],
         "unanswered": [],
     }
 
@@ -206,7 +270,11 @@ async def test_plan_new_writes_grounding_inputs(repo, monkeypatch):
         encoding="utf-8"
     )
     assert "## Grounding Inputs" in plan_text
+    assert "## Planner Route & Specialist Handoff" in plan_text
     assert "[skill:uipath-planner]" in plan_text
+    assert "[agent:uipath-project-discovery-agent]" in plan_text
+    assert "Discovery should identify project shape before build" in plan_text
+    assert "Planned capability route" in plan_text
     assert "[skill:uipath-rpa]" in plan_text
     assert "SOURCE: library:uipath-docs/orchestrator/queues" in plan_text
     assert "Queue guidance excerpt" in plan_text

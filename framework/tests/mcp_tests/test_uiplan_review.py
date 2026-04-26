@@ -8,6 +8,9 @@ import pytest
 from mcp_server.tools.plan_uiplan_review import (
     review_citations,
     review_duplicate_uiplan_slug,
+    review_spec_text,
+    review_plan_text,
+    review_tasks_text,
     run_uiplan_review,
 )
 
@@ -40,11 +43,14 @@ def test_run_uiplan_review_all_includes_citations():
     spec = "### User Story 1 - A (Priority: P1)\n**Given** a **When** b **Then** c\n"
     spec += "## Requirements\n### Functional Requirements\n**FR-001**: System MUST x\n"
     spec += "## Success Criteria\n### Measurable Outcomes\n**SC-001**: y\n"
+    spec += "## Development Handoff\nUse tasks.md after uipath_plan_review and acceptance.\n"
     plan = "## Technical Context\nok\n## Constitution Check\n- [ ] **modern_experience_only**: ok\n"
     plan += "## Project Structure\n```\nx\n```\n**Structure Decision**: use templates/long-running/ for layout.\n"
+    plan += "## Development execution contract\nrestore -> analyze -> test -> pack\n"
     plan += "## Complexity Tracking\nnone\n"
     tasks = "## Phase 3: User Story 1 - A (Priority: P1)\n### Tests for User Story 1\n"
     tasks += "- [ ] T010 [US1] test\n### Implementation for User Story 1\n- [ ] T011 [US1] impl\n"
+    tasks += "## Phase 5: Build, Verify, and Handoff\n- [ ] T030 build\n"
     out = run_uiplan_review(
         spec=spec,
         plan=plan,
@@ -56,3 +62,35 @@ def test_run_uiplan_review_all_includes_citations():
     )
     assert "findings" in out
     assert "ok" in out
+
+
+def test_review_requires_development_handoff_in_spec():
+    findings = review_spec_text(
+        "### User Story 1 - A (Priority: P1)\n"
+        "**Given** a **When** b **Then** c\n"
+        "## Requirements\n### Functional Requirements\n**FR-001**: System MUST x\n"
+        "## Success Criteria\n### Measurable Outcomes\n**SC-001**: y\n"
+    )
+
+    assert any(f.get("rule") == "development_handoff" for f in findings)
+
+
+def test_review_requires_development_execution_contract_in_plan():
+    findings = review_plan_text(
+        "## Technical Context\nok\n"
+        "## Project Structure\n```\nx\n```\n"
+        "**Structure Decision**: concrete paths and rationale\n",
+        [],
+    )
+
+    assert any(f.get("rule") == "development_execution_contract" for f in findings)
+
+
+def test_review_requires_build_verify_handoff_phase_in_tasks():
+    findings = review_tasks_text(
+        "### Tests for User Story 1\n- [ ] T010 [US1] test\n"
+        "### Implementation for User Story 1\n- [ ] T011 [US1] impl\n",
+        "### User Story 1 - A (Priority: P1)\n",
+    )
+
+    assert any(f.get("rule") == "build_verify_handoff_phase" for f in findings)

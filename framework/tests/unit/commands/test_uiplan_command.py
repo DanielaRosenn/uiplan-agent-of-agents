@@ -1,8 +1,6 @@
 """Tests for /uiplan-* slash commands and MCP tool dispatch."""
 from __future__ import annotations
 
-import json
-
 import pytest
 
 from uipath_claude.commands.registry import CommandRegistry
@@ -15,7 +13,32 @@ def registry(monkeypatch: pytest.MonkeyPatch) -> tuple[CommandRegistry, list[tup
 
     def fake_run_plan_tool(name: str, arguments: dict) -> dict:
         calls.append((name, arguments))
-        return {"ok": True, "tool": name}
+        if name == "uipath_plan_ground":
+            return {
+                "status": "ok",
+                "topic": arguments.get("topic", ""),
+                "matched_skills": [{"name": "uiplan"}],
+            }
+        if name == "uipath_plan_spec_new":
+            return {
+                "status": "ok",
+                "slug": "my-feature",
+                "relative": ".cursor\\plans\\2026-04-26-my-feature",
+            }
+        if name == "uipath_plan_plan_new":
+            return {"status": "ok", "slug": arguments["slug"], "path": "plan.md"}
+        if name == "uipath_plan_tasks_new":
+            return {"status": "ok", "slug": arguments["slug"], "path": "tasks.md"}
+        if name == "uipath_plan_review":
+            return {"status": "ok", "ok": True, "findings": [], "next_action": "accept"}
+        if name == "uipath_plan_uiplan_new":
+            return {
+                "status": "ok",
+                "slug": "one-shot-title",
+                "folder": ".cursor\\plans\\2026-04-26-one-shot-title",
+                "review": {"status": "ok", "ok": True, "findings": []},
+            }
+        return {"status": "ok"}
 
     monkeypatch.setattr(
         "uipath_claude.commands.uiplan._run_plan_tool",
@@ -45,12 +68,13 @@ def test_uiplan_ground_dispatches(registry: tuple) -> None:
     reg, calls = registry
     out = reg.execute("uiplan-ground", "queues", "and", "assets")
     assert calls == [("uipath_plan_ground", {"topic": "queues and assets"})]
-    assert json.loads(out)["tool"] == "uipath_plan_ground"
+    assert "UiPlan grounding complete" in out
+    assert "`uiplan`" in out
 
 
 def test_uiplan_spec_title_and_intent(registry: tuple) -> None:
     reg, calls = registry
-    reg.execute(
+    out = reg.execute(
         "uiplan-spec",
         "My",
         "Feature",
@@ -64,6 +88,36 @@ def test_uiplan_spec_title_and_intent(registry: tuple) -> None:
             {"title": "My Feature", "intent": "harden retries"},
         ),
     ]
+    assert "UiPlan spec created" in out
+    assert "/uiplan-plan my-feature" in out
+
+
+def test_uiplan_spec_natural_pdd_request_uses_short_title(registry: tuple) -> None:
+    reg, calls = registry
+    out = reg.execute(
+        "uiplan-spec",
+        "zipMailBox",
+        "can",
+        "you",
+        "base",
+        "the",
+        "spec",
+        "on",
+        "this",
+        "pdd?",
+        r"C:\work\pdd.md",
+    )
+    assert calls == [
+        (
+            "uipath_plan_spec_new",
+            {
+                "title": "zipMailBox",
+                "intent": r"zipMailBox can you base the spec on this pdd? C:\work\pdd.md",
+            },
+        ),
+    ]
+    assert "UiPlan spec created" in out
+    assert "grounding_pack" not in out
 
 
 def test_uiplan_plan_tasks_review_full(registry: tuple) -> None:
@@ -71,7 +125,7 @@ def test_uiplan_plan_tasks_review_full(registry: tuple) -> None:
     reg.execute("uiplan-plan", "2026-04-26-my-slug")
     reg.execute("uiplan-tasks", "2026-04-26-my-slug")
     reg.execute("uiplan-review", "2026-04-26-my-slug", "plan")
-    reg.execute("uiplan-full", "One shot title")
+    out = reg.execute("uiplan-full", "One shot title")
     assert calls == [
         ("uipath_plan_plan_new", {"slug": "2026-04-26-my-slug"}),
         ("uipath_plan_tasks_new", {"slug": "2026-04-26-my-slug"}),
@@ -84,6 +138,8 @@ def test_uiplan_plan_tasks_review_full(registry: tuple) -> None:
             {"title": "One shot title", "intent": "One shot title"},
         ),
     ]
+    assert "UiPlan bundle created" in out
+    assert "Review/edit next" in out
 
 
 def test_uiplan_review_defaults_stage_all(registry: tuple) -> None:

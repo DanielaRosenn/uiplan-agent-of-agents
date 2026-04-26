@@ -14,6 +14,10 @@
 
 {{GROUNDING_CONTEXT}}
 
+## Planner Route & Specialist Handoff
+
+{{PLANNER_HANDOFF}}
+
 ## Technical Context
 
 **Language/Version**: {{LANG_VERSION}}
@@ -76,6 +80,25 @@ flowchart LR
   linkStyle default stroke:#94A3B8,stroke-width:1.5px
   linkStyle 0 stroke:#3B82F6,stroke-width:2px
   linkStyle 1 stroke:#10B981,stroke-width:2px
+```
+
+## Development execution contract
+
+The accepted bundle is the build contract. After review and human acceptance:
+
+1. Execute `tasks.md` in order, keeping tests before implementation within each
+   user-story slice.
+2. Use the matched specialist skill(s) from **Grounding Inputs** for source
+   changes; do not invent UiPath APIs, activities, or CLI verbs.
+3. Run the local build loop for the detected project type:
+   restore -> analyze -> test -> pack.
+4. Stop on analyzer errors or failing tests. Deployment remains approval-required
+   and follows the deployment policy below.
+
+Recommended local handoff command when using the file-first runtime:
+
+```bash
+uv run python -m tools.uiplan scaffold-code {{FOLDER_NAME}} --max-loops 5
 ```
 
 ## Build and verify gates

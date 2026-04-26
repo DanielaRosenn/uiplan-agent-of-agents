@@ -89,6 +89,26 @@ def review_spec_text(spec: str) -> list[dict[str, Any]]:
                 "spec.md",
             )
         )
+    if "## Development Handoff" not in spec:
+        findings.append(
+            _finding(
+                "error",
+                "spec",
+                "development_handoff",
+                "Add a Development Handoff section so accepted designs can become build-ready work.",
+                "spec.md",
+            )
+        )
+    if "tasks.md" not in spec or "uipath_plan_review" not in spec:
+        findings.append(
+            _finding(
+                "error",
+                "spec",
+                "build_handoff_gate",
+                "Development Handoff must name tasks.md and the review/acceptance gate before source changes.",
+                "spec.md",
+            )
+        )
     return findings
 
 
@@ -127,6 +147,16 @@ def review_plan_text(plan: str, gate_ids: list[str]) -> list[dict[str, Any]]:
                     "plan.md",
                 )
             )
+    if "## Development execution contract" not in plan:
+        findings.append(
+            _finding(
+                "error",
+                "plan",
+                "development_execution_contract",
+                "Add a Development execution contract that defines how accepted plans become implementation work.",
+                "plan.md",
+            )
+        )
     return findings
 
 
@@ -180,6 +210,16 @@ def review_tasks_text(tasks: str, spec: str) -> list[dict[str, Any]]:
                 "tasks",
                 "tdd_sections",
                 "Add explicit 'Tests for User Story' section before implementation tasks.",
+                "tasks.md",
+            )
+        )
+    if "## Phase 5: Build, Verify, and Handoff" not in tasks:
+        findings.append(
+            _finding(
+                "error",
+                "tasks",
+                "build_verify_handoff_phase",
+                "Add a final Build, Verify, and Handoff phase so implementation continues after planning.",
                 "tasks.md",
             )
         )

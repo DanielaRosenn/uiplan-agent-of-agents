@@ -249,7 +249,7 @@ do not write files unless I explicitly approve a fix plan.
 | Need | Prefer |
 | --- | --- |
 | Full delivery lifecycle | `/pdd` |
-| Structured spec/plan/tasks | `/uiplan-full` or staged `/uiplan-spec` … `/uiplan-review` (see [SLASH_COMMANDS.md](SLASH_COMMANDS.md)) |
+| Structured spec/plan/tasks | `/uiplan-full` or staged `/uiplan-spec` … `/uiplan-review`; build with `/uiplan-implement` (see [SLASH_COMMANDS.md](SLASH_COMMANDS.md)) |
 | Existing workflow validation | `/validate` or `/analyze` |
 | Skill refresh/checks | `/update-skills`, `/scan-upstream-skills` |
 | Library proposal review | `/library-proposals` |
@@ -258,7 +258,7 @@ Plain chat is good for exploration; slash commands are better for repeatable ope
 
 ### 4. Keep writes behind plans when risk is non-trivial
 
-Use `/uiplan-full "<title>"` when the change touches multiple files, changes architecture, adds Orchestrator behavior, affects credentials/assets/queues, or changes production-facing deployment. Let the plan reach review/acceptance before asking for implementation.
+Use `/uiplan-full "<title>"` when the change touches multiple files, changes architecture, adds Orchestrator behavior, affects credentials/assets/queues, or changes production-facing deployment. Let the plan reach review/acceptance before asking for implementation via `/uiplan-implement <slug>`.
 
 For stricter local enforcement:
 
@@ -352,7 +352,7 @@ Describe the automation in plain language; include project path and constraints.
 
 ### Pattern 2: Plan before build
 
-For multi-file or risky work, run **`/uiplan-full "<title>"`** (or staged `/uiplan-ground` … `/uiplan-review`), get human acceptance, then implement from `tasks.md`.
+For multi-file or risky work, run **`/uiplan-full "<title>"`** (or staged `/uiplan-ground` … `/uiplan-review`), get human acceptance, then implement from `tasks.md` with `/uiplan-implement <slug>`.
 
 ### Pattern 3: Full SDLC artifact trail
 

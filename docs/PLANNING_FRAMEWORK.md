@@ -3,7 +3,8 @@
 A superpowers-style loop for UiPath work in Cursor. **Default:** the **UiPlan**
 three-file bundle under `.cursor/plans/<slug>/`, grounded with `uipath_plan_ground`,
 reviewed with `uipath_plan_review`, accepted with `uipath_plan_accept`, then
-published to `docs/plans/` so destructive MCP tools can optionally gate on it.
+used as the build contract for `tasks.md` / `scaffold-code` before it is
+published to `docs/plans/` for shared review or optional destructive-tool gates.
 
 The canonical Cursor skill is **`uiplan`** (`.cursor/skills/uiplan/SKILL.md`).
 There is no separate brainstorming skill; discovery is part of UiPlan.
@@ -116,24 +117,30 @@ flowchart LR
   linkStyle default stroke:#94A3B8,stroke-width:1.5px
 ```
 
-**Cursor:** use `/uiplan` from `.cursor/commands/uiplan.md`; it loads
-`.cursor/skills/uiplan/SKILL.md` and dispatches `full`, `ground`, `spec`,
-`plan`, `tasks`, and `review` to the matching `uipath_plan_*` MCP tools.
+**Cursor:** use separate skill-backed slash commands:
+`/uiplan-full`, `/uiplan-ground`, `/uiplan-spec`, `/uiplan-plan`,
+`/uiplan-tasks`, `/uiplan-review`, and `/uiplan-implement`. They all point to
+`.cursor/skills/uiplan/SKILL.md` as the canonical contract and map to the
+matching `uipath_plan_*` MCP tools or the accepted-plan implementation flow.
 **Chat:** `/uiplan-ground`, `/uiplan-spec`, `/uiplan-plan`, `/uiplan-tasks`,
 `/uiplan-review`, `/uiplan-full`; `/uiplan ...` remains as a dispatcher alias.
 **CLI:** `uipath-claude plan uiplan <subcommand>`.
 
 Grounding is not just metadata. `uipath_plan_ground` returns the `uipath-planner`
-route, matched specialist skill excerpts, local library hits, and
-`uipath_library_lookup` / AskAI-style knowledge snippets. `uipath_plan_plan_new`
-writes those inputs into `plan.md` under **Grounding Inputs** so tasks and review
-can trace implementation decisions back to skills, library, and project context.
+route, the `uipath-project-discovery-agent` handoff, matched specialist skill
+excerpts, local library hits, and `uipath_library_lookup` / AskAI-style
+knowledge snippets. `uipath_plan_plan_new` writes those inputs into `plan.md`
+under **Grounding Inputs** and **Planner Route & Specialist Handoff** so tasks,
+implementation, and review can trace decisions back to skills, library, and
+project context.
 
 Legacy **single-file** drafts (`uipath_plan_new`, refine, diff) are unchanged. UiPlan folders skip `uipath_plan_refine` / `uipath_plan_diff` (edit markdown directly or regenerate stages).
 
 ### UiPlan template kit and two-step runtime (local `tools/uiplan`)
 
-For normalized templates and the **generate-docs → human approval → scaffold-code** flow, see [docs/uiplan/README.md](uiplan/README.md) and [docs/uiplan/HOW_TO_USE.md](uiplan/HOW_TO_USE.md). From the repo root, the local runtime is:
+For normalized templates and the **generate-docs → review → accept → scaffold-code**
+flow, see [docs/uiplan/README.md](uiplan/README.md) and
+[docs/uiplan/HOW_TO_USE.md](uiplan/HOW_TO_USE.md). From the repo root, the local runtime is:
 
 1. `uv run python -m tools.uiplan generate-docs <slug>` — materialize or refresh the doc bundle (drafts under `.cursor/plans/`, published copies under `docs/plans/`, per storage rules above).
 2. Human approval on that bundle before implementation.

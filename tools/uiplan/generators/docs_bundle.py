@@ -65,6 +65,13 @@ def _default_mapping(plan_slug: str) -> dict[str, str]:
         "ENTITY_1_DESC": "_Description._",
         "SC_001": "_Measurable outcome._",
         "ASSUMPTION_1": "_Assumption._",
+        "BUILD_ENTRYPOINT": "`tasks.md` after review passes and the bundle is accepted.",
+        "IMPLEMENTATION_SCOPE": "_Files/projects/services the build may change._",
+        "BUILD_COMMAND": (
+            f"`uv run python -m tools.uiplan scaffold-code {plan_slug} --max-loops 5` "
+            "or specialist skill execution from `tasks.md`."
+        ),
+        "QUALITY_GATES": "restore -> analyze -> test -> pack; deploy only with explicit approval.",
         "T001": "_Confirm project type and compatibility envelope before scaffolding._",
         "T002": "_Set up source structure after preflight is recorded._",
         "US1_GOAL": "_Story goal._",

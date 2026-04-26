@@ -14,3 +14,10 @@ def test_generate_docs_bundle_passes_visual_density(tmp_path: Path) -> None:
     )
     issues = validate_uiplan_docs(out, strict=True)
     assert not issues, issues
+    assert "## Development Handoff" in (out / "spec.md").read_text(encoding="utf-8")
+    assert "## Development execution contract" in (out / "plan.md").read_text(
+        encoding="utf-8"
+    )
+    assert "## Phase 5: Build, Verify, and Handoff" in (out / "tasks.md").read_text(
+        encoding="utf-8"
+    )
