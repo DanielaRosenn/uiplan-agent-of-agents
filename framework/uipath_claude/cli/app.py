@@ -58,6 +58,9 @@ from uipath_claude.query.plan_block import PLAN_BLOCK_HEADING, build_plan_block
 from uipath_claude.query.planner import run_planner_agent
 from uipath_claude.query.planner_router import find_planner_skill, should_use_planner
 from uipath_claude.query.router import route_user_input
+from uipath_claude.query.orchestration_context import build_orchestration_context
+from uipath_claude.query.orchestration_router import route_user_request
+from uipath_claude.query.orchestration_types import ApprovalLevel, RouteKind
 from uipath_claude.query.simple_answer import simple_llm_answer
 from uipath_claude.skills.execution_hook import get_execution_hooks
 from uipath_claude.rendering.branding import print_welcome_banner
@@ -1581,17 +1584,209 @@ def chat(
                 console.print(f"[magenta]Assistant:[/magenta] {result}\n")
                 continue
 
-            intent, intent_reason = classify_intent(user_input)
-            if os.environ.get("UIPATH_CONFIRM_BUILD", "0").strip().lower() in (
+            orchestration_on = os.environ.get(
+                "UIPATH_ORCHESTRATION_ROUTER", "1"
+            ).strip().lower() in ("1", "true", "yes")
+            orch_dec = None
+            skip_pre_doc = False
+            skip_plan_mode = False
+            orchestration_for_graph: dict[str, Any] | None = None
+
+            if orchestration_on:
+                command_names = sorted(registry.commands.keys())
+                octx = build_orchestration_context(
+                    user_input,
+                    project_root=Path.cwd(),
+                    tool_profile=tool_profile.name,
+                    command_names=command_names,
+                    history=history,
+                )
+                orch_dec = asyncio.run(
+                    route_user_request(
+                        octx,
+                        model_name=model_name,
+                        region=region,
+                        allowed_routes=None,
+                    )
+                )
+                orchestration_for_graph = {
+                    "route": orch_dec.route.value,
+                    "rationale": orch_dec.rationale,
+                    "confidence": orch_dec.confidence,
+                }
+                if (
+                    sys.stdin.isatty()
+                    and not auto_approve_plan
+                    and orch_dec.approval_level == ApprovalLevel.CONFIRM_ROUTE
+                    and orch_dec.route
+                    in (RouteKind.DOCUMENTATION, RouteKind.PLAN, RouteKind.UIPLAN)
+                ):
+                    c0 = (
+                        Prompt.ask(
+                            f"Orchestrator chose [{orch_dec.route.value}]. Proceed? [y/n]",
+                            default="y",
+                        )
+                        .strip()
+                        .lower()
+                    )
+                    if c0 in ("n", "no"):
+                        progress.info("Cancelled.")
+                        continue
+                if (
+                    sys.stdin.isatty()
+                    and not auto_approve_plan
+                    and orch_dec.approval_level
+                    in (ApprovalLevel.CONFIRM_WRITE, ApprovalLevel.CONFIRM_DEPLOY)
+                    and orch_dec.route in (RouteKind.UIPLAN, RouteKind.EXECUTE)
+                ):
+                    c1 = (
+                        Prompt.ask(
+                            f"Confirm [{orch_dec.approval_level.value}] for "
+                            f"[{orch_dec.route.value}]? [y/n]",
+                            default="y",
+                        )
+                        .strip()
+                        .lower()
+                    )
+                    if c1 in ("n", "no"):
+                        continue
+
+                if orch_dec.route == RouteKind.CLARIFY:
+                    q = orch_dec.question or "What would you like to do next?"
+                    console.print(f"[magenta]Assistant:[/magenta] {_console_safe_text(q)}\n")
+                    history.append({"role": "user", "content": user_input})
+                    history.append({"role": "assistant", "content": q})
+                    continue
+                if orch_dec.route == RouteKind.REFUSE:
+                    msg = f"Cannot proceed. {orch_dec.rationale}"
+                    console.print(
+                        f"[magenta]Assistant:[/magenta] {_console_safe_text(msg)}\n"
+                    )
+                    history.append({"role": "user", "content": user_input})
+                    history.append({"role": "assistant", "content": msg})
+                    continue
+                if orch_dec.route == RouteKind.COMMAND_HINT:
+                    hint = orch_dec.suggested_command or "Use /help for a list of commands."
+                    body = f"{orch_dec.rationale}\nSuggested: {hint}"
+                    console.print(
+                        f"[magenta]Assistant:[/magenta] {_console_safe_text(body)}\n"
+                    )
+                    history.append({"role": "user", "content": user_input})
+                    history.append({"role": "assistant", "content": body})
+                    continue
+                if orch_dec.route == RouteKind.ANSWER:
+                    console.print("[bold cyan][ANSWERING][/bold cyan]")
+                    _flush_stdio()
+
+                    def _print_delta_o(delta: str) -> None:
+                        console.print(_console_safe_text(delta), end="")
+
+                    stream_callback_o = _print_delta_o if stream_enabled else None
+                    console.print("[magenta]Assistant:[/magenta] ", end="")
+                    try:
+                        answer = asyncio.run(
+                            simple_llm_answer(
+                                user_input=user_input,
+                                history=history,
+                                model_name=model_name,
+                                region=region,
+                                stream=stream_enabled,
+                                on_delta=stream_callback_o,
+                                capabilities_context=_build_answer_capabilities_context(
+                                    skills, registry
+                                ),
+                                after_orchestrator=True,
+                            )
+                        )
+                        if not stream_enabled:
+                            console.print(_console_safe_text(answer), end="")
+                        console.print("")
+                        maybe_print_capability_build_hint(console, user_input)
+                        history.append({"role": "user", "content": user_input})
+                        history.append({"role": "assistant", "content": answer})
+                    except Exception as exc:
+                        progress.error("Simple answer failed")
+                        console.print(f"Error: {exc}")
+                    continue
+                if orch_dec.route == RouteKind.DOCUMENTATION:
+                    console.print("[bold cyan][DOCUMENTATION][/bold cyan]")
+                    _flush_stdio()
+                    project_path = (
+                        project_context["project_path"]
+                        if project_context
+                        else str(Path.cwd())
+                    )
+                    _created, reply = asyncio.run(
+                        run_documentation_flow(
+                            user_input=user_input,
+                            history=history,
+                            project_path=project_path,
+                            session_id=chat_session_id,
+                            model_name=model_name,
+                            region=region,
+                            progress=progress,
+                        )
+                    )
+                    console.print(f"[magenta]Assistant:[/magenta] {reply}\n")
+                    history.append({"role": "user", "content": user_input})
+                    history.append({"role": "assistant", "content": reply})
+                    continue
+                if orch_dec.route == RouteKind.UIPLAN:
+                    if orch_dec.suggested_command and "uiplan" in orch_dec.suggested_command:
+                        u_body = f"{orch_dec.rationale}\n{orch_dec.suggested_command}"
+                        console.print(
+                            f"[magenta]Assistant:[/magenta] {_console_safe_text(u_body)}\n"
+                        )
+                    else:
+                        u_title = (user_input.split("\n")[0] or "Feature")[:120].strip() or "Feature"
+                        spec_out = _run_plan_tool(
+                            "uipath_plan_spec_new",
+                            {
+                                "project_root": str(Path.cwd().resolve()),
+                                "title": u_title,
+                                "intent": user_input,
+                            },
+                        )
+                        rel = spec_out.get("relative") or spec_out.get("path", "")
+                        u_msg = f"{orch_dec.rationale}\nSpec draft: {rel}"
+                        console.print(
+                            f"[magenta]Assistant:[/magenta] {_console_safe_text(str(u_msg))}\n"
+                        )
+                    history.append({"role": "user", "content": user_input})
+                    history.append(
+                        {
+                            "role": "assistant",
+                            "content": "[uiplan] See output above; edit spec.md then /uiplan-plan",
+                        }
+                    )
+                    continue
+                if orch_dec.route == RouteKind.PLAN:
+                    skip_pre_doc = True
+                if orch_dec.route == RouteKind.EXECUTE:
+                    skip_pre_doc = True
+                    skip_plan_mode = True
+
+            intent, intent_reason = (
+                (IntentType.BUILD, "orchestration")
+                if orchestration_on
+                else classify_intent(user_input)
+            )
+            if not orchestration_on and os.environ.get(
+                "UIPATH_CONFIRM_BUILD", "0"
+            ).strip().lower() in (
                 "1",
                 "true",
                 "yes",
             ):
                 if intent in (IntentType.BUILD, IntentType.AMBIGUOUS):
                     preview = _select_relevant_skills(user_input, skills)
-                    preview_names = ", ".join(str(s.get("name", "")) for s in preview) or "(none)"
+                    preview_names = (
+                        ", ".join(str(s.get("name", "")) for s in preview) or "(none)"
+                    )
                     console.print(f"[yellow]Planned skills:[/yellow] {preview_names}")
-                    console.print(f"[yellow]Intent:[/yellow] {intent.value} ({intent_reason})")
+                    console.print(
+                        f"[yellow]Intent:[/yellow] {intent.value} ({intent_reason})"
+                    )
                     confirm = Prompt.ask(
                         "Proceed? [y/n or type details]",
                         default="y",
@@ -1603,7 +1798,7 @@ def chat(
                     if cl not in ("", "y", "yes"):
                         user_input = f"{user_input}\n\nAdditional details from user: {confirm}"
 
-            if intent == IntentType.DOCUMENTATION:
+            if (not orchestration_on) and intent == IntentType.DOCUMENTATION:
                 console.print("[bold cyan][DOCUMENTATION][/bold cyan]")
                 _flush_stdio()
                 project_path = (
@@ -1627,17 +1822,16 @@ def chat(
                 history.append({"role": "assistant", "content": reply})
                 continue
 
-            # QUESTION intents bypass planning and agentic graph
-            if intent == IntentType.QUESTION:
+            if (not orchestration_on) and intent == IntentType.QUESTION:
                 console.print("[bold cyan][ANSWERING][/bold cyan]")
                 _flush_stdio()
-                
+
                 def _print_delta(delta: str) -> None:
                     console.print(_console_safe_text(delta), end="")
-                
+
                 stream_callback = _print_delta if stream_enabled else None
                 console.print("[magenta]Assistant:[/magenta] ", end="")
-                
+
                 try:
                     answer = asyncio.run(
                         simple_llm_answer(
@@ -1669,7 +1863,11 @@ def chat(
 
             _skip_docs_env = os.environ.get("UIPATH_SKIP_DOCS", "").strip().lower()
             _skip_docs = _skip_docs_env in ("1", "true", "yes", "y", "on")
-            if intent in (IntentType.BUILD, IntentType.AMBIGUOUS) and not _skip_docs:
+            if (
+                (not skip_pre_doc)
+                and intent in (IntentType.BUILD, IntentType.AMBIGUOUS)
+                and not _skip_docs
+            ):
                 doc_need = detect_documentation_need(user_input)
                 if (
                     doc_need.recommended_docs
@@ -1734,8 +1932,15 @@ def chat(
             # Plan Mode logic
             approved_plan = ""
             plan_mode_enabled = os.environ.get("UIPATH_PLAN_MODE", "1").strip().lower() in ("1", "true", "yes")
-            if plan_mode_enabled and not no_plan:
-                if intent in (IntentType.BUILD, IntentType.AMBIGUOUS):
+            _orch_plan = bool(
+                orchestration_on and orch_dec and orch_dec.route == RouteKind.PLAN
+            )
+            _legacy_plan = (not orchestration_on) and intent in (
+                IntentType.BUILD,
+                IntentType.AMBIGUOUS,
+            )
+            if plan_mode_enabled and not no_plan and (not skip_plan_mode):
+                if _orch_plan or _legacy_plan:
                     while True:
                         console.print("[bold cyan][PLANNING][/bold cyan]")
                         _flush_stdio()

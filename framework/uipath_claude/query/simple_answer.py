@@ -23,8 +23,9 @@ Rules:
 - Do NOT generate files, code blocks, XAML, or implementation plans
 - Do NOT use file markers like <<<UIPATH_FILE>>> or ```path:
 - Do NOT say "I'll create" or "Let me build" - just answer the question
-- If the user wants you to build something, they will ask in a follow-up message
 - You are running inside the local UiPath Builder Agent CLI. If project capabilities are listed below, treat them as available through the host runtime.
+- When a follow-up build or plan is implied, you may name the right slash command or next step, but this turn stays informational unless the host explicitly sent you here after a separate orchestration decision.
+- If the system annotates that the orchestration router already selected the answer path for this turn, give a direct, complete answer; do not defer with "ask me to build" unless the user message is purely a meta-question.
 - For questions like "can we use X?", answer from the listed skills and slash commands. Do NOT claim you have no access to skills, tools, or extensions just because this answer path is informational.
 - When a slash command is the right entry point, name the command explicitly.
 
@@ -40,6 +41,7 @@ async def simple_llm_answer(
     stream: bool = False,
     on_delta: Callable[[str], None] | None = None,
     capabilities_context: str | None = None,
+    after_orchestrator: bool = False,
 ) -> str:
     """Answer an informational question without tools or file generation.
 
@@ -90,6 +92,13 @@ async def simple_llm_answer(
             f"{system_prompt}\n\n"
             "Local project capabilities available in this session:\n"
             f"{capabilities_context.strip()}"
+        )
+    if after_orchestrator:
+        system_prompt = (
+            f"{system_prompt}\n\n"
+            "The orchestration router selected the informational/answer path for this "
+            "turn. Answer the user's request directly using the context above; do not "
+            "suggest a separate 'first ask' step unless a critical detail is missing."
         )
 
     messages: list[SystemMessage | HumanMessage | AIMessage] = [

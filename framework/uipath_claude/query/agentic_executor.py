@@ -1323,6 +1323,19 @@ class AgenticExecutor:
             parts.append(f"Project path: {context['project_path']}")
         if context.get("session_id"):
             parts.append(f"Session ID: {context['session_id']}")
+        if context.get("orchestration_route"):
+            parts.append(f"Orchestration route: {context['orchestration_route']}")
+        if context.get("orchestration_rationale"):
+            r = str(context["orchestration_rationale"])
+            if len(r) > 2000:
+                r = r[:2000] + "..."
+            parts.append("Orchestration rationale (from chat router):")
+            parts.append(r)
+            parts.append(
+                "The chat orchestration step already selected this path; execute the "
+                "user request with tools. Do not substitute a canned documentation or "
+                "UiPlan-only flow unless the user request explicitly requires it."
+            )
         
         parts.extend([
             "",

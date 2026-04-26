@@ -53,6 +53,15 @@ def make_execute_node(
         extra = str(state.get("runtime_extra") or "").strip()
         if extra:
             runtime = f"{runtime}\n\n{extra}".strip() if runtime else extra
+
+        orch = state.get("orchestration")
+        if isinstance(orch, dict) and orch.get("route"):
+            extra_orch = (
+                f"[Orchestration] route={orch.get('route')} "
+                f"confidence={orch.get('confidence', '')} "
+                f"rationale={str(orch.get('rationale', ''))[:800]}"
+            )
+            runtime = f"{extra_orch}\n\n{runtime}".strip() if runtime else extra_orch
         
         # Check if agentic mode is enabled
         use_agentic = (
@@ -91,6 +100,9 @@ def make_execute_node(
                 "session_id": os.environ.get("UIPATH_CHAT_SESSION_ID", ""),
                 "selected_skill_names": list(names),
             }
+            if isinstance(orch, dict) and orch.get("route") == "execute":
+                project_context["orchestration_route"] = str(orch.get("route", ""))
+                project_context["orchestration_rationale"] = str(orch.get("rationale", ""))[:2000]
             
             primary_skill = names[0] if names else "unknown"
             result = await executor.execute(
