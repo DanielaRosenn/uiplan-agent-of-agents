@@ -417,13 +417,17 @@ def plan_uiplan_implement_cmd(
         result["handoff_mode"] = "execute_accepted_local_tasks_without_intermediate_confirmation"
         result["task_loop"] = [
             "plan_alignment",
+            "source_reality_snapshot",
             "dependency_and_tooling_check",
             "development",
+            "artifact_completeness_gate",
             "task_verification",
+            "behavior_tests",
             "analyze_gate",
             "spec_compliance_review",
             "code_quality_review",
             "record_progress",
+            "completion_ledger",
         ]
         result["stop_conditions"] = [
             "review_errors",
@@ -433,6 +437,10 @@ def plan_uiplan_implement_cmd(
             "restore_failure",
             "analyze_errors",
             "failing_tests",
+            "incomplete_runtime_artifact",
+            "scaffold_only_progress",
+            "self_certifying_test",
+            "task_status_mismatch",
             "unfixable_spec_compliance_issue",
             "unfixable_code_quality_issue",
             "missing_required_credentials_or_tooling",

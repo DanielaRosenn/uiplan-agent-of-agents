@@ -306,7 +306,10 @@ dependency drift, restore/analyze failures, failing tests, missing
 credentials/tooling, publish, deploy, or Production. Between those hard gates,
 the agent loops over each task with plan alignment, dependency/tooling check,
 implementation, task verification, analyze gate, spec compliance review, and
-code quality review.
+code quality review. It also performs a source reality snapshot and artifact
+completeness gate, so scaffold-only files, log-only XAML, empty sequences,
+no-op LangGraph nodes, placeholder code, or existence-only tests do not count
+as completed business implementation.
 
 ### Pattern 3: Fix and Debug
 

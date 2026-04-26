@@ -120,11 +120,13 @@ def _format_implement_handoff(
         mode = (
             "Run-to-completion mode is enabled: execute accepted local tasks in order without "
             "asking for confirmation between tasks. For each task, run the UiPath implementation "
-            "loop: plan alignment, dependency/tooling check, development, task verification, "
-            "analyze gate, spec compliance review, and code quality review. Stop only on hard "
-            "gates: review errors, missing acceptance, submodule guard failure, dependency drift, "
-            "restore/analyze errors, failing tests, missing required credentials/tooling, "
-            "destructive actions, publish, deploy, or Production."
+            "loop: plan alignment, source reality snapshot, dependency/tooling check, development, "
+            "artifact completeness gate, behavior tests, analyze gate, spec compliance review, "
+            "code quality review, and completion ledger. Stop only on hard gates: review errors, "
+            "missing acceptance, submodule guard failure, dependency drift, restore/analyze errors, "
+            "failing tests, incomplete runtime artifacts, scaffold-only progress, status mismatch, "
+            "missing required credentials/tooling, destructive actions, publish, deploy, or "
+            "Production."
         )
     else:
         mode = (

@@ -31,9 +31,12 @@ They expose separate native Cursor entries:
 Each wrapper points back to `.cursor/skills/uiplan/SKILL.md` as the canonical
 contract and stops before implementation until review passes and the human
 approves the build. In run-to-completion mode, `/uiplan-implement` runs a
-per-task UiPath loop: plan alignment, dependency/tooling check, development,
-task verification, analyze gate, spec compliance review, and code quality
-review before moving to the next task.
+per-task UiPath loop: plan alignment, source reality snapshot,
+dependency/tooling check, development, artifact completeness gate, behavior
+tests, analyze gate, spec compliance review, code quality review, and
+completion ledger before moving to the next task. Scaffold-only, log-only,
+empty, no-op, or placeholder runtime artifacts cannot complete business
+implementation tasks.
 
 `/uiplan-review` now enforces feasibility checks (paradigm declaration,
 descriptor coverage, CLI-family alignment, artifact-rich tasks, grounding

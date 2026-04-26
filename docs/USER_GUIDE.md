@@ -140,9 +140,12 @@ When the bundle is ready to build:
 Use `/uiplan-implement <slug> --run-to-completion` when the bundle is already
 accepted and you want local implementation to continue through `tasks.md`
 without stopping between tasks. For every task, the agent checks plan
-alignment, dependencies/tooling, implementation, task verification, analyze,
-spec compliance, and code quality before continuing. It still stops on hard
-gates such as review errors, missing acceptance, submodule guard failure,
+alignment, source reality, dependencies/tooling, implementation, artifact
+completeness, behavior tests, analyze, spec compliance, code quality, and a
+completion ledger before continuing. It cannot count scaffolds, empty
+workflows, log-only XAML, no-op LangGraph nodes, placeholder code, or
+existence-only tests as completed business implementation. It still stops on
+hard gates such as review errors, missing acceptance, submodule guard failure,
 dependency drift, restore/analyze failures, failing tests, missing credentials
 or tooling, publish, deploy, or Production.
 

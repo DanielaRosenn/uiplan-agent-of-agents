@@ -144,10 +144,17 @@ This is the build handoff command. It must:
 8. Summarize verification evidence and any approval-required follow-up.
 
 In run-to-completion mode, execute `tasks.md` as a constant UiPath loop. For
-each task, check plan alignment, dependencies/tooling, implementation, task
-tests, analyze/lint gate, spec compliance review, and code quality review
-before moving to the next task. Continue until all tasks are complete or a hard
-gate blocks progress.
+each task, check plan alignment, source reality, dependencies/tooling,
+implementation, artifact completeness, behavior tests, analyze/lint gate, spec
+compliance review, code quality review, and completion ledger before moving to
+the next task. Continue until all tasks are complete or a hard gate blocks
+progress.
+
+Run-to-completion must validate runtime substance, not just scaffolds. A task is
+not complete when its artifacts are empty, no-op, placeholder-only, log-only, or
+disconnected from the runtime entry point. Scaffolding can complete scaffold
+tasks only; behavioral user-story tasks require task-relevant runtime artifacts
+and behavioral tests or a documented external-gated smoke test.
 
 Run-to-completion option:
 
@@ -156,8 +163,10 @@ Run-to-completion option:
   task.
 - It must still stop on hard gates: review errors, missing acceptance,
   submodule guard failure, dependency drift, restore/analyze errors, failing
-  tests, missing required credentials/tooling, unfixable spec/quality review
-  issues, destructive actions, publish, deploy, or Production.
+  tests, incomplete runtime artifacts, scaffold-only progress, status mismatch
+  between `tasks.md` and source reality, missing required credentials/tooling,
+  unfixable spec/quality review issues, destructive actions, publish, deploy,
+  or Production.
 
 **UiPath chat / CLI:** staged slash aliases remain available outside Cursor.
 

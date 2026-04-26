@@ -131,10 +131,18 @@ def test_cli_plan_uiplan_implement_run_to_completion(
     assert '"run_to_completion": true' in result.stdout
     assert "execute_accepted_local_tasks_without_intermediate_confirmation" in result.stdout
     assert "plan_alignment" in result.stdout
+    assert "source_reality_snapshot" in result.stdout
     assert "dependency_and_tooling_check" in result.stdout
+    assert "artifact_completeness_gate" in result.stdout
+    assert "behavior_tests" in result.stdout
     assert "spec_compliance_review" in result.stdout
     assert "code_quality_review" in result.stdout
+    assert "completion_ledger" in result.stdout
     assert "dependency_drift" in result.stdout
+    assert "incomplete_runtime_artifact" in result.stdout
+    assert "scaffold_only_progress" in result.stdout
+    assert "self_certifying_test" in result.stdout
+    assert "task_status_mismatch" in result.stdout
     assert "deploy" in result.stdout
 
 

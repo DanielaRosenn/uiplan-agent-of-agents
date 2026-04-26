@@ -93,9 +93,17 @@ def test_uiplan_implement_reviews_then_controls_building() -> None:
     assert "asking again between tasks" in content
     assert "Per-Task UiPath Loop" in content
     assert "Plan alignment" in content
+    assert "Source reality snapshot" in content
     assert "Dependency and tooling check" in content
+    assert "Artifact completeness gate" in content
     assert "Spec compliance review" in content
     assert "Code quality review" in content
+    assert "Completion ledger" in content
+    assert "No scaffold completion rule" in content
+    assert "XAML runtime rule" in content
+    assert "LangGraph runtime rule" in content
+    assert "Behavior test rule" in content
+    assert "Mismatch stop rule" in content
     assert "Still stop and report before" in content
     assert "tasks.md" in content
     assert "Planner Route &" in content

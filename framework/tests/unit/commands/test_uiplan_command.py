@@ -208,7 +208,11 @@ def test_uiplan_implement_run_to_completion_handoff(registry: tuple) -> None:
     ]
     assert "Run-to-completion mode is enabled" in out
     assert "without asking for confirmation between tasks" in out
-    assert "plan alignment, dependency/tooling check" in out
+    assert "plan alignment, source reality snapshot" in out
+    assert "artifact completeness gate" in out
+    assert "behavior tests" in out
     assert "spec compliance review" in out
     assert "code quality review" in out
+    assert "completion ledger" in out
+    assert "scaffold-only progress" in out
     assert "Do not deploy or publish without explicit user approval" in out

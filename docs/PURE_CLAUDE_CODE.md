@@ -82,8 +82,11 @@ accepted. `uipath-claude plan uiplan implement <plan-id>` runs
 through accepted local tasks without intermediate confirmations while still
 stopping on hard gates. The agent should run each task through plan alignment,
 dependency/tooling checks, implementation, task verification, analyze, spec
-compliance review, and code quality review before continuing. Chat uses a
-friendly handoff; see [SLASH_COMMANDS.md](SLASH_COMMANDS.md).
+compliance review, and code quality review before continuing. It should also
+check source reality and artifact completeness so scaffold-only files, log-only
+XAML, empty/no-op workflows, placeholder code, and existence-only tests cannot
+complete business tasks. Chat uses a friendly handoff; see
+[SLASH_COMMANDS.md](SLASH_COMMANDS.md).
 
 Use `uipath-claude chat` only if you want this project’s custom Bedrock+LangGraph REPL, slash command registry, session store, and orchestration router. Otherwise stay in `claude` and use skills + optional MCP/CLI as above.
 

@@ -40,24 +40,57 @@ before moving to the next task:
 1. **Plan alignment** - restate the task ID, artifact path, UiPath construct,
    grounding citations, and verification command from `tasks.md`; confirm the
    intended edit is inside the accepted plan.
-2. **Dependency and tooling check** - verify required project markers,
+2. **Source reality snapshot** - before and after the task, list changed source
+   files and classify each as `scaffold`, `runtime`, `test`, `docs`, or
+   `config`. If the source reality contradicts a status note in `tasks.md`
+   (for example, "implementation executed" while task checkboxes or artifacts
+   remain incomplete), stop and report the mismatch before continuing.
+3. **Dependency and tooling check** - verify required project markers,
    dependencies, CLI family, package files, and credentials/environment
    assumptions for that task. Restore/sync dependencies when the task requires
    it. Stop on dependency drift that cannot be resolved locally.
-3. **Development** - implement only the current task scope. Prefer official
+4. **Development** - implement only the current task scope. Prefer official
    UiPath tooling for scaffolds and package metadata; do not hand-author
    generated Solution descriptors.
-4. **Task verification** - run the task-specific verification from `tasks.md`
+5. **Artifact completeness gate** - verify that each task artifact path exists
+   and contains task-relevant runtime substance. An artifact is not complete if
+   it is empty, a no-op, only logging, a placeholder, disconnected from the
+   runtime entry point, or only a generated scaffold.
+6. **Task verification** - run the task-specific verification from `tasks.md`
    or the closest safe local equivalent if external credentials are unavailable.
-5. **Analyze gate** - for UiPath projects touched by the task, run the
+   Tests must assert behavior tied to the task; existence/layout tests alone
+   cannot satisfy business implementation tasks.
+7. **Analyze gate** - for UiPath projects touched by the task, run the
    applicable analyze/lint gate before continuing. Any analyzer error blocks
    the loop.
-6. **Spec compliance review** - compare the changed files against `spec.md`,
+8. **Spec compliance review** - compare the changed files against `spec.md`,
    `plan.md`, and the exact task text. Fix gaps before continuing.
-7. **Code quality review** - review maintainability, security, secret handling,
+9. **Code quality review** - review maintainability, security, secret handling,
    generated-file boundaries, and tests. Fix issues before continuing.
-8. **Record progress** - mark the task complete only after the task passes all
-   applicable checks, then continue to the next unchecked task.
+10. **Completion ledger** - record completed task IDs, changed runtime
+   artifacts, verification commands/results, and remaining unchecked or blocked
+   task IDs. Mark the task complete only after all applicable checks pass, then
+   continue to the next unchecked task.
+
+## Artifact Completeness Rules
+
+- **No scaffold completion rule**: scaffolding can complete scaffold/layout
+  tasks only. It cannot complete business implementation tasks such as mailbox
+  reads, queue creation, duplicate suppression, analyzer graph flow, document
+  evidence extraction, or human review handling.
+- **XAML runtime rule**: XAML with only `LogMessage`, an empty `Sequence`, or no
+  invoked workflow/business activity is incomplete unless the task is explicitly
+  a scaffold/logging task.
+- **LangGraph runtime rule**: Python graphs containing `noop`, `pass`,
+  placeholder comments, or disconnected pipeline functions are incomplete for
+  graph-flow tasks.
+- **Behavior test rule**: tests that only check files, folders, schemas, or
+  project markers cannot satisfy user-story behavior tasks. A behavioral test
+  should fail before the implementation or be documented as an external-gated
+  smoke test.
+- **Mismatch stop rule**: if plan status notes, task checkboxes, and runtime
+  artifacts disagree, stop and report the inconsistency instead of summarizing
+  the plan as complete.
 
 Use a fresh focused subagent for implementation or review when the task is
 large, independent, or benefits from isolated context. Do not dispatch multiple
@@ -83,6 +116,8 @@ Still stop and report before:
 - `skills/` submodule guard failure,
 - analyzer errors, failing tests, or failed restore/pack commands,
 - dependency drift or failed restore/sync,
+- incomplete runtime artifacts, scaffold-only progress, or self-certifying tests,
+- task status mismatches between `tasks.md` and source reality,
 - spec compliance or code quality review issues that cannot be fixed locally,
 - missing required credentials or tooling,
 - destructive actions outside the accepted task list,
