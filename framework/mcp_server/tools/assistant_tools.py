@@ -1,7 +1,6 @@
 """MCP tools: shared LLM orchestration context and route (read-only)."""
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 
 from mcp.types import Tool, ToolAnnotations
@@ -101,11 +100,11 @@ def get_assistant_tools() -> list[Tool]:
     ]
 
 
-def call_assistant_tool(name: str, arguments: dict[str, Any]) -> Any:
+async def call_assistant_tool(name: str, arguments: dict[str, Any]) -> Any:
     if name == "uipath_assistant_context":
         return _call_context(arguments)
     if name == "uipath_assistant_route":
-        return _call_route(arguments)
+        return await _call_route_async(arguments)
     raise ValueError(f"Unknown assistant tool: {name}")
 
 
@@ -124,7 +123,7 @@ def _call_context(arguments: dict[str, Any]) -> dict[str, Any]:
     return {"status": "ok", "context": context_to_public_dict(ctx)}
 
 
-def _call_route(arguments: dict[str, Any]) -> dict[str, Any]:
+async def _call_route_async(arguments: dict[str, Any]) -> dict[str, Any]:
     request = str(arguments.get("request", "")).strip()
     if not request:
         raise ValueError("request is required")
@@ -143,8 +142,8 @@ def _call_route(arguments: dict[str, Any]) -> dict[str, Any]:
         command_names=list(arguments.get("command_names") or []),
         history=arguments.get("history"),
     )
-    dec = asyncio.run(
-        route_user_request(ctx, model_name=None, region=None, allowed_routes=alist)
+    dec = await route_user_request(
+        ctx, model_name=None, region=None, allowed_routes=alist
     )
     return {
         "status": "ok",
