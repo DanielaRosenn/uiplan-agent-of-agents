@@ -79,6 +79,22 @@ flowchart TD
 
 ---
 
+## Phase 5: Build, Verify, and Handoff
+
+**Purpose**: Convert the accepted plan into a verified build artifact.
+
+- [ ] T030 Run the accepted-plan handoff: confirm `spec.md`, `plan.md`, and
+  `tasks.md` are reviewed and accepted before source edits.
+- [ ] T030A {{PLANNER_TASKS}}
+- [ ] T031 Execute implementation tasks in order, using the specialist skill(s)
+  cited in `plan.md` for project-specific source changes.
+- [ ] T032 Run the build loop for the detected project type: restore -> analyze
+  -> test -> pack. Stop on analyzer errors or failing tests.
+- [ ] T033 Summarize exact verification evidence, changed files, package path
+  if produced, and any approval-required deploy follow-up.
+
+---
+
 ## Dependencies & Execution Order
 
 {{DEPENDENCIES_TEXT}}

@@ -1,6 +1,7 @@
 ---
 name: uiplan
 description: UiPath planning — the single planning skill for discovery, grounding, and the three-file UiPlan bundle (spec + plan + tasks) under .cursor/plans/. Use for multi-step or ambiguous work before implementation.
+disable-model-invocation: true
 ---
 
 # UiPlan (spec + plan + tasks)
@@ -12,7 +13,8 @@ description: UiPath planning — the single planning skill for discovery, ground
 You are a **planning collaborator**. You do not write production code, run
 `uipath_workflow_*` destructive tools, or deploy from this skill. You produce an
 accepted plan (UiPlan folder by default) that specialist skills and agent mode
-then execute.
+then execute. The bundle must include an explicit build handoff so accepted
+designs can be developed from `tasks.md` without guessing.
 
 ## Canonical layout (no duplicate kits)
 
@@ -45,6 +47,9 @@ Load this skill when any of these apply:
 - **Never** write to `docs/plans/` directly — use `uipath_plan_publish` after accept.
 - **Never** execute destructive workflow tools from inside this skill; hand off after acceptance.
 - **UiPlan folders** (`spec.md`, `plan.md`, `tasks.md`, `.meta.yaml`): do not use `uipath_plan_refine` / `uipath_plan_diff` — edit markdown in the bundle or re-run stages (`uipath_plan_spec_new` / `plan_new` / `tasks_new` as appropriate).
+- **Build handoff is required**: `spec.md` needs **Development Handoff**,
+  `plan.md` needs **Development execution contract**, and `tasks.md` needs
+  **Build, Verify, and Handoff** before implementation starts.
 - **Mermaid:** include at least one Pro Standard diagram in the bundle for non-trivial work (see [`mermaid-diagram-builder`](../mermaid-diagram-builder/SKILL.md)).
 - **Reject reasons are mandatory** — `uipath_plan_reject` refuses empty reasons on purpose.
 
@@ -104,18 +109,38 @@ After acceptance and when ready to promote: **`uipath_plan_publish`** copies the
 
 ## Cursor slash / CLI (MCP-backed)
 
-**Cursor native:** `.cursor/commands/uiplan.md` exposes one dispatcher command:
+**Cursor native:** each visible UiPlan slash command is a thin Cursor skill
+wrapper. This file remains the canonical contract.
 
 | Command | MCP tool |
 | --- | --- |
-| `/uiplan ground <topic>` | `uipath_plan_ground` |
-| `/uiplan spec <title> [--intent ...]` | `uipath_plan_spec_new` |
-| `/uiplan plan <slug>` | `uipath_plan_plan_new` |
-| `/uiplan tasks <slug>` | `uipath_plan_tasks_new` |
-| `/uiplan review <slug> [all\|spec\|plan\|tasks]` | `uipath_plan_review` |
-| `/uiplan full <title>` | `uipath_plan_uiplan_new` |
+| `/uiplan` | Overview/help/router for the UiPlan flow |
+| `/uiplan-ground <topic>` | `uipath_plan_ground` |
+| `/uiplan-spec <title> [--intent ...]` | `uipath_plan_spec_new` |
+| `/uiplan-plan <slug>` | `uipath_plan_plan_new` |
+| `/uiplan-tasks <slug>` | `uipath_plan_tasks_new` |
+| `/uiplan-review <slug> [all\|spec\|plan\|tasks]` | `uipath_plan_review` |
+| `/uiplan-full <title>` | `uipath_plan_uiplan_new` |
+| `/uiplan-implement <slug>` | Review-first implementation from `tasks.md` |
 
 Keep implementation behind `uipath_plan_review` plus human acceptance.
+
+### `/uiplan-implement`
+
+This is the build handoff command. It must:
+
+1. Resolve the UiPlan slug and read `spec.md`, `plan.md`, and `tasks.md`.
+2. Use the `Planner Route & Specialist Handoff` section in `plan.md` to confirm
+   the `uipath-planner` route, project discovery agent, matched specialist
+   skills, library/AskAI lookups, MCP tools, and useful subagents.
+3. Run `uipath_plan_review(stage=all)` before any source changes.
+4. Stop on error-severity findings and report blockers.
+5. If review passes, ask the user before implementation.
+6. Execute from `tasks.md` in order, using the full project capability surface as
+   needed: specialist skills, MCP tools, subagents, library lookup, AskAI-style
+   docs lookup, local CLI commands, tests, and build gates.
+7. Run restore -> analyze -> test -> pack for the detected project type.
+8. Summarize verification evidence and any approval-required follow-up.
 
 **UiPath chat / CLI:** staged slash aliases remain available outside Cursor.
 

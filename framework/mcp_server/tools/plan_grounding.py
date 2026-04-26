@@ -24,6 +24,21 @@ def _read_text(path: Path, limit: int | None = None) -> str | None:
     return text
 
 
+def _read_text_safe(path: Path, limit: int | None = None) -> tuple[str | None, str | None]:
+    try:
+        return _read_text(path, limit=limit), None
+    except UnicodeDecodeError:
+        try:
+            text = path.read_text(encoding="utf-8-sig")
+            if limit is not None:
+                text = "\n".join(text.splitlines()[:limit])
+            return text, None
+        except Exception as exc:  # noqa: BLE001
+            return None, str(exc)
+    except Exception as exc:  # noqa: BLE001
+        return None, str(exc)
+
+
 def _clip(text: str, limit: int) -> str:
     text = " ".join((text or "").split())
     if len(text) <= limit:
@@ -81,6 +96,22 @@ def _skill_record(skill: dict[str, Any], *, include_excerpt: bool = True) -> dic
     return record
 
 
+def _agent_record(repo: Path, rel_path: str, *, limit: int = 1800) -> dict[str, Any] | None:
+    path = repo / rel_path
+    text = _read_text(path, limit=80)
+    if not text:
+        return None
+    return {
+        "name": path.stem,
+        "path": rel_path,
+        "description": (
+            "Project discovery persona that identifies project type, entry points, "
+            "dependencies, and build gates."
+        ),
+        "excerpt": _clip(_strip_frontmatter(text), limit),
+    }
+
+
 def _pdd_candidates(repo: Path, limit: int = 12) -> list[dict[str, str]]:
     docs = repo / "docs"
     if not docs.is_dir():
@@ -100,6 +131,50 @@ def _pdd_candidates(repo: Path, limit: int = 12) -> list[dict[str, str]]:
         if len(hits) >= limit:
             break
     return hits
+
+
+def _referenced_markdown_paths(repo: Path, topic: str, limit: int = 5) -> list[Path]:
+    """Extract user-provided markdown paths from a UiPlan topic string."""
+    candidates: list[Path] = []
+    patterns = [
+        r"[A-Za-z]:\\[^\n\r\"'<>|]+?\.md",
+        r"(?:\.{1,2}[\\/])?[A-Za-z0-9_. \-\\/]+?\.md",
+    ]
+    for pattern in patterns:
+        for match in re.finditer(pattern, topic):
+            raw = match.group(0).strip().rstrip(".,;)")
+            if not raw:
+                continue
+            path = Path(raw).expanduser()
+            if not path.is_absolute():
+                path = repo / path
+            try:
+                resolved = path.resolve()
+            except OSError:
+                resolved = path
+            if resolved not in candidates:
+                candidates.append(resolved)
+            if len(candidates) >= limit:
+                return candidates
+    return candidates
+
+
+def _source_documents(repo: Path, topic: str) -> list[dict[str, str]]:
+    docs: list[dict[str, str]] = []
+    for path in _referenced_markdown_paths(repo, topic):
+        text, error = _read_text_safe(path, limit=220)
+        kind = "PDD" if "pdd" in path.name.lower() else "markdown"
+        try:
+            display = str(path.relative_to(repo))
+        except ValueError:
+            display = str(path)
+        item = {"path": display, "name": path.name, "kind": kind}
+        if text:
+            item["excerpt"] = _clip(_strip_frontmatter(text), 5000)
+        if error:
+            item["error"] = error
+        docs.append(item)
+    return docs
 
 
 def _library_hits(topic: str, max_queries: int = 3) -> list[dict[str, str]]:
@@ -176,22 +251,41 @@ def build_grounding_pack(repo: Path, topic: str) -> dict[str, Any]:
     skills_out = [_skill_record(s) for s in matched]
     planner = reg.get_skill("uipath-planner")
     planner_context = _skill_record(planner) if planner else None
+    discovery_agent = _agent_record(
+        repo,
+        "skills/agents/uipath-project-discovery-agent.md",
+    )
 
     constitution = load_constitution(repo)
     unanswered: list[str] = []
     if not project_context:
         unanswered.append(
-            "Missing .claude/rules/project-context.md — run discovery / "
-            "uipath_plan_build before locking scope."
+            "Missing .claude/rules/project-context.md — run the "
+            "uipath-project-discovery-agent before locking scope or build tasks."
         )
 
+    source_docs = _source_documents(repo, topic)
+    citations = _build_citations(skills_out, repo, source_docs)
+    if planner_context and planner_context.get("name"):
+        citations.insert(0, f"[skill:{planner_context['name']}]")
+    if discovery_agent:
+        citations.insert(1, f"[agent:{discovery_agent['name']}]")
     return {
         "status": "ok",
         "topic": topic,
+        "source_documents": source_docs,
         "project_context_path": str(ctx_path.relative_to(repo)) if ctx_path.is_file() else None,
         "project_context_excerpt": project_context,
         "claude_md_excerpt": claude,
         "planning_skill": planner_context,
+        "project_discovery_agent": discovery_agent,
+        "planner_route": [
+            "uipath-planner",
+            "uipath-project-discovery-agent",
+            "matched specialist skills",
+            "UiPath library / AskAI-style lookup",
+            "implementation skill or subagent execution",
+        ],
         "matched_skills": skills_out,
         "library_hits": _library_hits(topic),
         "knowledge_lookups": _knowledge_lookups(topic),
@@ -199,16 +293,22 @@ def build_grounding_pack(repo: Path, topic: str) -> dict[str, Any]:
         "candidate_project_template": _pick_project_template(topic),
         "constitution": constitution,
         "unanswered": unanswered,
-        "suggested_citations": _build_citations(skills_out, repo),
+        "suggested_citations": citations,
     }
 
 
-def _build_citations(skills: list[dict[str, Any]], repo: Path) -> list[str]:
+def _build_citations(
+    skills: list[dict[str, Any]], repo: Path, source_docs: list[dict[str, str]] | None = None
+) -> list[str]:
     cites: list[str] = []
     for s in skills:
         name = s.get("name")
         if name:
             cites.append(f"[skill:{name}]")
+    for doc in source_docs or []:
+        name = doc.get("name")
+        if name:
+            cites.append(f"[source:{name}]")
     cites.append(f"[repo:{repo.name}/CLAUDE.md]")
     tpl = _pick_project_template(" ".join(str(s.get("name", "")) for s in skills))
     cites.append(f"[template:{tpl}]")

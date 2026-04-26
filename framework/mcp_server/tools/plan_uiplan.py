@@ -126,6 +126,55 @@ def _clip_one_line(text: str, limit: int = 220) -> str:
     return text[: limit - 14].rstrip() + " ... (truncated)"
 
 
+def _source_documents_markdown(pack: dict[str, Any]) -> str:
+    docs = pack.get("source_documents") or []
+    if not isinstance(docs, list) or not docs:
+        return ""
+    lines = ["## Source documents", ""]
+    for doc in docs[:5]:
+        if not isinstance(doc, dict):
+            continue
+        name = str(doc.get("name") or doc.get("path") or "source document")
+        path = str(doc.get("path") or "")
+        kind = str(doc.get("kind") or "markdown")
+        lines.append(f"### {name}")
+        if path:
+            lines.append(f"- **Path**: `{path}`")
+        lines.append(f"- **Kind**: {kind}")
+        if doc.get("error"):
+            lines.append(f"- **Read error**: {doc['error']}")
+        excerpt = str(doc.get("excerpt") or "").strip()
+        if excerpt:
+            lines.append("")
+            lines.append("Excerpt used for this draft:")
+            lines.append("")
+            lines.append("> " + excerpt[:2500].replace("\n", "\n> "))
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n\n"
+
+
+def _insert_source_documents(spec_body: str, pack: dict[str, Any]) -> str:
+    section = _source_documents_markdown(pack)
+    if not section:
+        return spec_body
+    marker = "\n## User Scenarios & Testing"
+    if marker in spec_body:
+        return spec_body.replace(marker, "\n" + section + marker, 1)
+    return spec_body.rstrip() + "\n\n" + section
+
+
+def _source_doc_summary(pack: dict[str, Any]) -> tuple[str | None, str | None]:
+    docs = pack.get("source_documents") or []
+    if not isinstance(docs, list) or not docs:
+        return None, None
+    first = docs[0] if isinstance(docs[0], dict) else {}
+    name = str(first.get("name") or "source document")
+    excerpt = str(first.get("excerpt") or "").strip()
+    if not excerpt:
+        return name, None
+    return name, _clip_one_line(excerpt, 260)
+
+
 def _format_grounding_context(pack: dict[str, Any]) -> str:
     """Render grounding inputs into plan.md so later task generation sees them."""
     lines: list[str] = []
@@ -149,6 +198,19 @@ def _format_grounding_context(pack: dict[str, Any]) -> str:
             excerpt = skill.get("excerpt")
             if excerpt:
                 lines.append(f"    - Excerpt: {_clip_one_line(str(excerpt), 260)}")
+
+    source_docs = pack.get("source_documents") or []
+    if isinstance(source_docs, list) and source_docs:
+        lines.append("- Source documents read:")
+        for doc in source_docs[:5]:
+            if not isinstance(doc, dict):
+                continue
+            name = str(doc.get("name") or doc.get("path") or "source document")
+            path = str(doc.get("path") or "")
+            lines.append(f"  - `{name}`: `{path}`")
+            excerpt = doc.get("excerpt") or doc.get("error")
+            if excerpt:
+                lines.append(f"    - Excerpt: {_clip_one_line(str(excerpt), 300)}")
 
     lookups = pack.get("knowledge_lookups") or []
     if isinstance(lookups, list) and lookups:
@@ -176,12 +238,68 @@ def _format_grounding_context(pack: dict[str, Any]) -> str:
             excerpt = hit.get("excerpt") or hit.get("error")
             lines.append(f"  - `{query}`: {_clip_one_line(str(excerpt or ''), 260)}")
 
+    discovery = pack.get("project_discovery_agent")
+    if isinstance(discovery, dict) and discovery.get("name"):
+        lines.append(f"- Project discovery persona: `[agent:{discovery['name']}]`")
+        excerpt = discovery.get("excerpt")
+        if excerpt:
+            lines.append(f"  - Excerpt: {_clip_one_line(str(excerpt), 300)}")
+
     unanswered = pack.get("unanswered") or []
     if isinstance(unanswered, list) and unanswered:
         lines.append("- Open grounding questions:")
         lines.extend(f"  - {item}" for item in unanswered[:5])
 
     return "\n".join(lines) if lines else "_No grounding context available._"
+
+
+def _format_planner_handoff(pack: dict[str, Any]) -> str:
+    route = pack.get("planner_route") or []
+    lines = [
+        "- Start with `[skill:uipath-planner]` to confirm project type, implementation paradigm, and execution sequence.",
+        "- Ensure `.claude/rules/project-context.md` exists; if missing, run `[agent:uipath-project-discovery-agent]` before locking scope or tasks.",
+    ]
+    if isinstance(route, list) and route:
+        lines.append("- Planned capability route:")
+        for index, step in enumerate(route, start=1):
+            lines.append(f"  {index}. {step}")
+
+    matched = pack.get("matched_skills") or []
+    if isinstance(matched, list) and matched:
+        lines.append("- Specialist build personas:")
+        for skill in matched[:5]:
+            if not isinstance(skill, dict) or not skill.get("name"):
+                continue
+            name = str(skill["name"])
+            desc = _clip_one_line(str(skill.get("description") or ""), 180)
+            lines.append(f"  - `[skill:{name}]`: {desc}")
+
+    lines.extend(
+        [
+            "- Use UiPath library and AskAI-style lookup before adding packages, CLI flags, activities, SDK calls, or platform resources.",
+            "- Use subagents when work can be split across discovery, implementation, testing, documentation, or review.",
+            "- `/uiplan-implement` must run review first, ask before source edits, then execute `tasks.md` with these personas and gates.",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _format_task_planner_handoff(pack: dict[str, Any]) -> str:
+    matched = pack.get("matched_skills") or []
+    skill_names = [
+        str(skill.get("name"))
+        for skill in matched
+        if isinstance(skill, dict) and skill.get("name")
+    ]
+    specialist_text = ", ".join(f"`[skill:{name}]`" for name in skill_names[:5])
+    if not specialist_text:
+        specialist_text = "the specialist skill(s) selected in `plan.md`"
+    return (
+        "Run the planner handoff from `plan.md`: confirm `[skill:uipath-planner]`, "
+        "`[agent:uipath-project-discovery-agent]`, "
+        f"{specialist_text}, UiPath library/AskAI-style lookup, and any useful subagents "
+        "are available before source edits."
+    )
 
 
 def _dependency_hint(pack: dict[str, Any]) -> str:
@@ -264,6 +382,24 @@ def call_uiplan_spec_new(arguments: dict[str, Any]) -> dict[str, Any]:
         raise FileExistsError(f"UiPlan folder already exists: {folder}")
 
     cites = " ".join(pack.get("suggested_citations") or [])
+    source_name, source_summary = _source_doc_summary(pack)
+    if source_name and source_summary:
+        us1_body = (
+            f"Translate `{source_name}` into a build-ready UiPath specification. "
+            f"Source summary: {source_summary}"
+        )
+        fr_001 = f"implement the process requirements captured in `{source_name}`"
+        entity_1 = "SourceProcess"
+        entity_1_desc = f"Business process described by `{source_name}`."
+        sc_001 = f"Spec, SDD, and tasks trace back to `{source_name}` without generic placeholders."
+        assumption_1 = f"`{source_name}` is the authoritative input until the human edits this spec."
+    else:
+        us1_body = f"Deliver the core outcome for: {intent}"
+        fr_001 = f"support the outcome described in intent ({intent[:120]})"
+        entity_1 = "PrimaryEntity"
+        entity_1_desc = "Core business object for this feature."
+        sc_001 = "Measurable outcome tied to intent (latency, accuracy, volume)."
+        assumption_1 = "List environment assumptions (Orchestrator folder, assets, etc.)."
 
     tpl = _load_tpl(repo, "_spec-template.md")
     mapping = {
@@ -272,7 +408,7 @@ def call_uiplan_spec_new(arguments: dict[str, Any]) -> dict[str, Any]:
         "INTENT": intent,
         "GROUNDING_CITATIONS": cites or "[skill:uipath-planner]",
         "US1_TITLE": "MVP slice",
-        "US1_BODY": f"Deliver the core outcome for: {intent}",
+        "US1_BODY": us1_body,
         "US1_PRIORITY": "Highest user value first.",
         "US1_TEST": "Describe how to verify independently (command + fixture).",
         "US1_GIVEN_1": "initial state",
@@ -286,15 +422,22 @@ def call_uiplan_spec_new(arguments: dict[str, Any]) -> dict[str, Any]:
         "US2_WHEN_1": "action",
         "US2_THEN_1": "expected outcome",
         "EDGE_1": "Describe primary edge case.",
-        "FR_001": f"support the outcome described in intent ({intent[:120]})",
+        "FR_001": fr_001,
         "FR_002": "log decisions for auditability",
         "FR_003": "operate within tenant security constraints",
-        "ENTITY_1": "PrimaryEntity",
-        "ENTITY_1_DESC": "Core business object for this feature.",
-        "SC_001": "Measurable outcome tied to intent (latency, accuracy, volume).",
-        "ASSUMPTION_1": "List environment assumptions (Orchestrator folder, assets, etc.).",
+        "ENTITY_1": entity_1,
+        "ENTITY_1_DESC": entity_1_desc,
+        "SC_001": sc_001,
+        "ASSUMPTION_1": assumption_1,
+        "BUILD_ENTRYPOINT": "`tasks.md` after review passes and the bundle is accepted.",
+        "IMPLEMENTATION_SCOPE": "Only files, projects, assets, queues, and docs named in plan.md/tasks.md.",
+        "BUILD_COMMAND": (
+            f"`uv run python -m tools.uiplan scaffold-code {folder_name} --max-loops 5` "
+            "or specialist skill execution from `tasks.md`."
+        ),
+        "QUALITY_GATES": "restore -> analyze -> test -> pack; deploy only with explicit approval.",
     }
-    spec_body = _fill(tpl, mapping)
+    spec_body = _insert_source_documents(_fill(tpl, mapping), pack)
 
     folder.mkdir(parents=True)
     meta = {
@@ -305,7 +448,11 @@ def call_uiplan_spec_new(arguments: dict[str, Any]) -> dict[str, Any]:
         "owner": str(owner),
         "project_type": project_type,
         "plan_kind": "uiplan",
-        "linked_pdd": "",
+        "linked_pdd": (
+            str((pack.get("source_documents") or [{}])[0].get("path", ""))
+            if pack.get("source_documents")
+            else ""
+        ),
         "accepted_at": None,
         "accepted_by": None,
         "rejection_reason": None,
@@ -369,6 +516,7 @@ def call_uiplan_plan_new(arguments: dict[str, Any]) -> dict[str, Any]:
             "skills, library/AskAI-style lookups, project context, and constitution gates."
         ),
         "GROUNDING_CONTEXT": _format_grounding_context(pack),
+        "PLANNER_HANDOFF": _format_planner_handoff(pack),
         "LANG_VERSION": "C# 12 / .NET 8 (Modern) or Python 3.11+ for coded agents — adjust per project-context.",
         "DEPS": _dependency_hint(pack),
         "STORAGE": "Orchestrator queues, assets, or Data Fabric — specify in Structure Decision.",
@@ -419,6 +567,7 @@ def call_uiplan_tasks_new(arguments: dict[str, Any]) -> dict[str, Any]:
         "GROUNDING_CITATIONS": cites,
         "T001": "Scaffold project directories per plan.md Project Structure (list concrete mkdir paths).",
         "T002": "Restore/analyze pipeline green for the touched projects.",
+        "PLANNER_TASKS": _format_task_planner_handoff(pack),
         "US1_TITLE": "MVP slice",
         "US1_GOAL": "Deliver first usable increment from spec User Story 1.",
         "US1_IND_TEST": "Run the Independent Test from spec for US1.",

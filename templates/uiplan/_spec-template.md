@@ -1,4 +1,4 @@
-﻿# Feature Specification: {{TITLE}}
+# Feature Specification: {{TITLE}}
 
 > **Grounding:** {{GROUNDING_CITATIONS}}
 
@@ -112,3 +112,15 @@ sequenceDiagram
 ## Assumptions
 
 - {{ASSUMPTION_1}}
+
+## Development Handoff
+
+This section turns the accepted design into build-ready work.
+
+- **Build entry point**: {{BUILD_ENTRYPOINT}}
+- **Implementation scope**: {{IMPLEMENTATION_SCOPE}}
+- **Execution command**: {{BUILD_COMMAND}}
+- **Quality gates**: {{QUALITY_GATES}}
+- **Handoff rule**: Do not start source changes until `uipath_plan_review` passes
+  and the human accepts the bundle. After acceptance, execute `tasks.md` in
+  order and keep implementation aligned to `plan.md`.

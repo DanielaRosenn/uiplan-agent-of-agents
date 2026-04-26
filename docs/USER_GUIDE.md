@@ -89,7 +89,7 @@ Follow this sequence when you want to leverage the full project stack end-to-end
    - small obvious edit -> direct implementation + validation
    - medium/large change -> UiPlan first
    - formal initiative with stakeholder artifacts -> `/pdd`
-3. **Plan**: run UiPlan (Cursor: `/uiplan full <title>` or staged `/uiplan ground|spec|plan|tasks|review`; CLI/chat: `uipath-claude plan uiplan ...`).
+3. **Plan**: run UiPlan (Cursor: `/uiplan-full <title>` or staged `/uiplan-ground` -> `/uiplan-spec` -> `/uiplan-plan` -> `/uiplan-tasks` -> `/uiplan-review`; CLI/chat: `uipath-claude plan uiplan ...`).
 4. **Review + accept**: verify spec/plan/tasks quality before publishing.
 5. **Build**: implement using approved plan with validator loops.
 6. **Verify**: run analyze/validate/tests/manual checks from docs; **pytest** layout
@@ -115,16 +115,22 @@ UiPlan is best when you need clear separation between **what to build**, **how t
 In Cursor chat:
 
 ```text
-/uiplan full "Invoice exception handling hardening"
+/uiplan-full "Invoice exception handling hardening"
 ```
 
 Then iterate (replace `<slug>` with your `.cursor/plans/<slug>/` folder name):
 
 ```text
-/uiplan review <slug>
+/uiplan-review <slug>
 ```
 
 Refine `tasks.md` via MCP (`uipath_plan_tasks_new` with intent) or edit the file, then re-run review.
+
+When the bundle is ready to build:
+
+```text
+/uiplan-implement <slug>
+```
 
 Use natural language with MCP tools as needed:
 

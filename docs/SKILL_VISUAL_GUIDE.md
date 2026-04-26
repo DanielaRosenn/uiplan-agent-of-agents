@@ -148,7 +148,7 @@ Claude best practice:
 | Session Moment | Best Move |
 | --- | --- |
 | Before work | `uv run uipath-claude doctor`. |
-| Before risky edits | Cursor `/uiplan full "<title>"` or `/pdd`. |
+| Before risky edits | Cursor `/uiplan-full "<title>"` or `/pdd`. |
 | During implementation | Keep the prompt scoped to one project or feature slice. |
 | Before handoff | Ask which command/tool proved validation. |
 | After a durable fix | Stage a library proposal. |

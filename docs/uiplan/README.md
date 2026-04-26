@@ -1,6 +1,9 @@
 # UiPlan (spec + plan + tasks)
 
-UiPlan is the **three-file planning bundle** used before implementation: `spec.md` (what), `plan.md` (how), and `tasks.md` (executable steps). It pairs with MCP plan tools and the local **`tools/uiplan`** CLI for generate → review → scaffold workflows.
+UiPlan is the **three-file planning-to-build bundle** used before implementation:
+`spec.md` (what), `plan.md` (how), and `tasks.md` (executable build steps).
+It pairs with MCP plan tools and the local **`tools/uiplan`** CLI for
+generate -> review -> accept -> scaffold/build workflows.
 ![UiPlan logo](../assets/uiplan-logo.svg)
 
 ## First 15 minutes
@@ -10,8 +13,11 @@ If you are new, do this in order:
 1. Read [HOW_TO_USE.md](HOW_TO_USE.md) for the mode matrix (MCP vs CLI vs skill).
 2. Generate a bundle: `uv run python -m tools.uiplan generate-docs <slug>`.
 3. Review the three files (`spec.md`, `plan.md`, `tasks.md`) and tighten scope.
-4. Run review (`uipath_plan_review` or Cursor `/uiplan review <slug>`) and resolve findings.
-5. Move to scaffold/build only after acceptance.
+4. Run review (`uipath_plan_review` or Cursor `/uiplan-review <slug>`) and resolve findings.
+5. Move to scaffold/build only after acceptance; use `/uiplan-implement <slug>`
+   or `scaffold-code` with the Development Handoff in `spec.md`, the
+   Development execution contract in `plan.md`, and the final
+   Build/Verify/Handoff phase in `tasks.md`.
 
 This flow is the fastest way to keep planning quality high and implementation predictable.
 
@@ -25,7 +31,8 @@ flowchart TD
   formalNode -->|yes| pddNode["Use /pdd lifecycle"]
   formalNode -->|no| uiplanNode["Use UiPlan bundle"]
   uiplanNode --> reviewNode["Review and accept"]
-  reviewNode --> buildNode["Scaffold/build"]
+  reviewNode --> acceptNode["Accept bundle"]
+  acceptNode --> buildNode["Scaffold/build from tasks"]
 ```
 
 ## Audience
@@ -73,7 +80,7 @@ flowchart TB
   F --> C
 ```
 
-## Generate → review → scaffold (sequence)
+## Generate → review → accept → scaffold (sequence)
 
 ```mermaid
 sequenceDiagram
@@ -86,7 +93,7 @@ sequenceDiagram
   CLI->>FS: spec.md plan.md tasks.md
   Dev->>Rev: Human + uipath_plan_review
   Rev-->>Dev: ok / findings
-  Dev->>CLI: scaffold-code <slug>
+  Dev->>CLI: accept + /uiplan-implement <slug> or scaffold-code
   CLI-->>Dev: implementation loop (capped)
 ```
 

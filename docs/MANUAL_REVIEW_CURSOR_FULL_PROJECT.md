@@ -214,7 +214,7 @@ exit
 | S12 | `/library-harvest` | | | |
 | S13 | `/books` | | | |
 | S14 | `/repair-restore` | | | |
-| S15 | `/uiplan full` (or staged `/uiplan spec`, `/uiplan plan`, …) | | | |
+| S15 | `/uiplan-full` (or staged `/uiplan-spec`, `/uiplan-plan`, …; build with `/uiplan-implement`) | | | |
 | S16 | `/plan` (if planner enabled) | | | |
 
 ---

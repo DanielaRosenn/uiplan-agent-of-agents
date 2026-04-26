@@ -1,28 +1,29 @@
 # Slash commands
 
 These commands are typed at the **`uipath chat`** (or equivalent) prompt when
-the input starts with `/`. Cursor-native command files live separately under
-`.cursor/commands/`; `.cursor/commands/uiplan.md` wraps the same UiPlan
-MCP-backed workflow for Cursor chat. MCP tools remain documented in
-[MCP_TOOLS.md](MCP_TOOLS.md).
+the input starts with `/`. Cursor exposes UiPlan through separate skill-backed
+slash commands, each wrapping the same MCP-backed workflow for Cursor chat. MCP
+tools remain documented in [MCP_TOOLS.md](MCP_TOOLS.md).
 
-## Cursor-native commands
+## Cursor-native skill slash
 
-Cursor discovers project commands from `.cursor/commands/*.md`. This repo ships
-one UiPlan dispatcher there so `/uiplan` appears in Cursor as a native command:
+Cursor discovers the UiPlan skill wrappers from `.cursor/skills/uiplan*/`.
+They expose separate native Cursor entries:
 
 | Cursor command | Purpose |
 | --- | --- |
-| `/uiplan full <title>` | Run ground -> spec -> plan -> tasks -> review. |
-| `/uiplan ground <topic>` | Read-only grounding pack. |
-| `/uiplan spec <title> [--intent text]` | Create the draft bundle and `spec.md`. |
-| `/uiplan plan <slug>` | Write `plan.md` for an existing draft. |
-| `/uiplan tasks <slug>` | Write `tasks.md` for an existing draft. |
-| `/uiplan review <slug> [all\|spec\|plan\|tasks]` | Review a draft bundle. |
+| `/uiplan` | Overview/help/router for the UiPlan command suite. |
+| `/uiplan-full <title>` | Run ground -> spec -> plan -> tasks -> review. |
+| `/uiplan-ground <topic>` | Read-only grounding pack. |
+| `/uiplan-spec <title> [--intent text]` | Create the draft bundle and `spec.md`. |
+| `/uiplan-plan <slug>` | Write `plan.md` for an existing draft. |
+| `/uiplan-tasks <slug>` | Write `tasks.md` for an existing draft. |
+| `/uiplan-review <slug> [all\|spec\|plan\|tasks]` | Review a draft bundle. |
+| `/uiplan-implement <slug>` | Review first, confirm planner/discovery/specialist handoff, ask before build, then implement from `tasks.md`. |
 
-The Cursor dispatcher loads `.cursor/skills/uiplan/SKILL.md`, uses
-`@docs/uiplan/` as its contract, and stops before implementation until review
-passes and the human accepts the plan.
+Each wrapper points back to `.cursor/skills/uiplan/SKILL.md` as the canonical
+contract and stops before implementation until review passes and the human
+approves the build.
 
 ## Tool profile (`UIPATH_CLAUDE_TOOL_PROFILE`)
 

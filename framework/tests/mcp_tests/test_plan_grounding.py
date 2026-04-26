@@ -28,6 +28,9 @@ def test_build_grounding_pack_library_hits_no_structured_tool_error():
 
 def test_build_grounding_pack_includes_skill_excerpts_and_knowledge_lookup(tmp_path, monkeypatch):
     (tmp_path / "CLAUDE.md").write_text("# Rules\n", encoding="utf-8")
+    agent_path = tmp_path / "skills" / "agents" / "uipath-project-discovery-agent.md"
+    agent_path.parent.mkdir(parents=True)
+    agent_path.write_text("# Discovery Agent\nFind project type and build gates.", encoding="utf-8")
 
     class FakeRegistry:
         def __init__(self, project_root):
@@ -79,7 +82,11 @@ def test_build_grounding_pack_includes_skill_excerpts_and_knowledge_lookup(tmp_p
 
     assert pack["planning_skill"]["name"] == "uipath-planner"
     assert "Skill Body" in pack["planning_skill"]["excerpt"]
+    assert pack["project_discovery_agent"]["name"] == "uipath-project-discovery-agent"
+    assert "Find project type" in pack["project_discovery_agent"]["excerpt"]
+    assert pack["planner_route"][0] == "uipath-planner"
     assert pack["matched_skills"][0]["name"] == "uipath-rpa"
     assert "Skill Body" in pack["matched_skills"][0]["excerpt"]
     assert pack["knowledge_lookups"][0]["source"] == "SOURCE: askai"
     assert "knowledge result" in pack["knowledge_lookups"][0]["excerpt"]
+    assert "[agent:uipath-project-discovery-agent]" in pack["suggested_citations"]
