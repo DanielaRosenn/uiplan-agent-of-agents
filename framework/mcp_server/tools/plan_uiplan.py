@@ -126,11 +126,22 @@ def _clip_one_line(text: str, limit: int = 220) -> str:
     return text[: limit - 14].rstrip() + " ... (truncated)"
 
 
+# Teaser only — full PDD/SDD lives on disk; the spec body above must stay structured.
+_SOURCE_TRACE_EXCERPT_CAP = 500
+
+
 def _source_documents_markdown(pack: dict[str, Any]) -> str:
+    """Appendix: path + short teaser. Avoid pasting the PDD so the spec reads as a real spec, not a copy."""
     docs = pack.get("source_documents") or []
     if not isinstance(docs, list) or not docs:
         return ""
-    lines = ["## Source documents", ""]
+    lines = [
+        "## Source traceability",
+        "",
+        "_The sections above (user stories, requirements) are the build-ready specification. "
+        "Below: paths and a short reference excerpt only. Open the files for the full PDD/SDD text._",
+        "",
+    ]
     for doc in docs[:5]:
         if not isinstance(doc, dict):
             continue
@@ -145,10 +156,13 @@ def _source_documents_markdown(pack: dict[str, Any]) -> str:
             lines.append(f"- **Read error**: {doc['error']}")
         excerpt = str(doc.get("excerpt") or "").strip()
         if excerpt:
+            clipped = excerpt[:_SOURCE_TRACE_EXCERPT_CAP]
+            if len(excerpt) > _SOURCE_TRACE_EXCERPT_CAP:
+                clipped = clipped.rstrip() + " … _(truncated; see file)_"
             lines.append("")
-            lines.append("Excerpt used for this draft:")
+            lines.append("**Reference excerpt (not a substitute for user stories):**")
             lines.append("")
-            lines.append("> " + excerpt[:2500].replace("\n", "\n> "))
+            lines.append("> " + clipped.replace("\n", "\n> "))
         lines.append("")
     return "\n".join(lines).rstrip() + "\n\n"
 
@@ -157,9 +171,7 @@ def _insert_source_documents(spec_body: str, pack: dict[str, Any]) -> str:
     section = _source_documents_markdown(pack)
     if not section:
         return spec_body
-    marker = "\n## User Scenarios & Testing"
-    if marker in spec_body:
-        return spec_body.replace(marker, "\n" + section + marker, 1)
+    # Appended at end so "User Scenarios" and "Requirements" remain the first work areas (not a wall of PDD).
     return spec_body.rstrip() + "\n\n" + section
 
 

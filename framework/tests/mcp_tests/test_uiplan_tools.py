@@ -112,7 +112,7 @@ async def test_uiplan_spec_reads_referenced_pdd(repo, monkeypatch):
     spec_text = (folder / "spec.md").read_text(encoding="utf-8")
     meta_text = (folder / ".meta.yaml").read_text(encoding="utf-8")
 
-    assert "## Source documents" in spec_text
+    assert "## Source traceability" in spec_text
     assert "Zip mailbox automation PDD" in spec_text
     assert "finance mailbox" in spec_text
     assert "[source:pdd.md]" in spec_text

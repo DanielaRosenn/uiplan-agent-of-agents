@@ -1,10 +1,12 @@
-# Feature Specification: {{TITLE}}
+﻿# Feature Specification: {{TITLE}}
 
 > **Grounding:** {{GROUNDING_CITATIONS}}
 
 **Created**: {{DATE}}
 **Status**: Draft
 **Input**: User description: "{{INTENT}}"
+
+_If a PDD/SDD path was supplied, a short excerpt may appear in **Source traceability** at the end of the file. The **User Scenarios** and **Requirements** sections below are the build-ready specification (not a paste of the PDD)._
 
 ## User Scenarios & Testing
 
