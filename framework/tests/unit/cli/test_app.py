@@ -60,6 +60,7 @@ def test_load_dotenv_from_cwd_non_uipath_does_not_override_shell(
 def _skip_uipath_auth_prompt_in_cli_tests(monkeypatch: pytest.MonkeyPatch) -> None:
     """Most chat tests mock the graph only; real auth would block on Rich Prompt."""
     monkeypatch.setenv("UIPATH_SKIP_AUTH_CHECK", "1")
+    monkeypatch.setenv("UIPATH_ORCHESTRATION_ROUTER", "0")
     # Default CLI approval is on; Rich tests run without a TTY so destructive tools
     # would always be denied. Opt out for automated CLI tests.
     monkeypatch.setenv("UIPATH_TOOL_APPROVAL", "0")
