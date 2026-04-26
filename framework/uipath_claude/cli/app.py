@@ -2092,10 +2092,20 @@ def chat(
                     runtime_extra_parts.append(build_plan_block(approved_plan).rstrip())
                 runtime_extra_merged = "\n\n".join(runtime_extra_parts)
 
+                _orch_inv = None
+                if (
+                    orchestration_on
+                    and orch_dec
+                    and orch_dec.route == RouteKind.EXECUTE
+                    and orchestration_for_graph
+                ):
+                    _orch_inv = orchestration_for_graph
+
                 invocation: dict[str, Any] = {
                     "messages": history + [{"role": "user", "content": user_input}],
                     "stream": bool(stream_enabled),
                     "runtime_extra": runtime_extra_merged,
+                    "orchestration": _orch_inv,
                 }
             
                 # Check if agentic mode is enabled (has its own progress output)
