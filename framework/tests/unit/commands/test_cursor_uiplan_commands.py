@@ -101,3 +101,37 @@ def test_uiplan_implement_reviews_then_asks_before_building() -> None:
     assert "AskAI-style documentation lookup" in content
     assert "restore -> analyze -> test" in content
     assert "Never deploy to Production" in content
+
+
+def test_uiplan_review_wrapper_requires_feasibility_checks() -> None:
+    content = (
+        REPO_ROOT / ".cursor" / "skills" / "uiplan-review" / "SKILL.md"
+    ).read_text(encoding="utf-8")
+
+    assert "uipath_plan_review" in content
+    assert "stage=all" in content or "stage=all" in content.lower()
+    assert "implementation paradigm" in content.lower()
+    assert "project structure" in content.lower()
+    assert "uipath_library_lookup" in content
+    assert "query_uipath_docs" in content
+    assert "uipath_skill_match" in content
+    assert "project discovery" in content.lower()
+    assert "personal workspace" in content.lower()
+    assert "production" in content.lower()
+    assert ".net 8" in content.lower()
+
+
+def test_uiplan_tasks_wrapper_requires_artifacts_and_handoff() -> None:
+    content = (
+        REPO_ROOT / ".cursor" / "skills" / "uiplan-tasks" / "SKILL.md"
+    ).read_text(encoding="utf-8")
+
+    assert "uipath_plan_tasks_new" in content
+    assert "artifact path" in content.lower()
+    assert "activity" in content.lower()
+    assert "cli" in content.lower()
+    assert "queue" in content.lower() or "orchestrator" in content.lower()
+    assert "tests before implementation" in content.lower()
+    assert "Build, Verify, and Handoff" in content
+    assert "TODO" in content
+    assert "NEEDS CLARIFICATION" in content

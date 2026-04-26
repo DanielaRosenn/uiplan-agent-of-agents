@@ -21,6 +21,18 @@ If you are new, do this in order:
 
 This flow is the fastest way to keep planning quality high and implementation predictable.
 
+## Paradigm-aware bundles (2026 update)
+
+UiPlan templates now emit paradigm-specific build structure by default:
+
+- `spec.md` Development Handoff declares paradigm, stack, CLI family, and deploy gate.
+- `plan.md` includes a paradigm-specific code structure block and build-loop block.
+- `tasks.md` includes paradigm task scaffolds with artifact paths, grounding citations,
+  and verification steps before implementation.
+
+Use `--paradigm` to override detection when needed (for example, forcing
+`coded-agent` or `solution` in mixed repositories).
+
 ## Decision tree (when to use UiPlan)
 
 ```mermaid

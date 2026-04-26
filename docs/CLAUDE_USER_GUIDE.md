@@ -1,6 +1,6 @@
 # UiPath Builder Agent — Claude / CLI user guide
 
-This guide is the **terminal-first** companion to [CURSOR_USER_GUIDE.md](CURSOR_USER_GUIDE.md). It covers **Claude Code-style** use of `uipath-claude` from a shell (no Cursor UI, no MCP in the IDE). For command tables, env vars, and deeper workflows, also keep [USER_GUIDE.md](USER_GUIDE.md) open.
+This guide is the **terminal-first** companion to [CURSOR_USER_GUIDE.md](CURSOR_USER_GUIDE.md). It covers **Claude Code-style** use of `uipath-claude` from a shell (no Cursor UI, no MCP in the IDE). For Anthropic's normal `claude` CLI without this repo's custom chat runtime, use [PURE_CLAUDE_CODE.md](PURE_CLAUDE_CODE.md). For command tables, env vars, and deeper workflows, also keep [USER_GUIDE.md](USER_GUIDE.md) open.
 
 For the visual map of every skill family and how Claude/CLI routes work through skills and tools, see [SKILL_VISUAL_GUIDE.md](SKILL_VISUAL_GUIDE.md).
 
@@ -147,6 +147,10 @@ uipath-claude plan uiplan full "Your feature title"
 ```
 
 Use **`uipath-claude plan uiplan --help`** for staged `ground`, `spec`, `plan`, `tasks`, `review`.
+
+For staged `spec`, `plan`, and `tasks`, you can pass `--paradigm <value>` when
+project detection is ambiguous. UiPlan review now includes feasibility checks
+for paradigm/descriptor/CLI alignment and deploy gates before implementation.
 
 ### 8. Optional: library proposal queue (CLI)
 

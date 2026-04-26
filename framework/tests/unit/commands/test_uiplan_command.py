@@ -60,6 +60,7 @@ def test_uiplan_commands_registered() -> None:
         "uiplan-tasks",
         "uiplan-review",
         "uiplan-full",
+        "uiplan-implement",
     ):
         assert name in reg.commands
 
@@ -85,10 +86,12 @@ def test_uiplan_spec_title_and_intent(registry: tuple) -> None:
     assert calls == [
         (
             "uipath_plan_spec_new",
-            {"title": "My Feature", "intent": "harden retries"},
+            {"title": "My Feature", "intent": "harden retries", "paradigm": None},
         ),
     ]
     assert "UiPlan spec created" in out
+    assert "Plan id: `my-feature`" in out
+    assert "Copy/paste next: `/uiplan-plan my-feature`" in out
     assert "/uiplan-plan my-feature" in out
 
 
@@ -113,6 +116,7 @@ def test_uiplan_spec_natural_pdd_request_uses_short_title(registry: tuple) -> No
             {
                 "title": "zipMailBox",
                 "intent": r"zipMailBox can you base the spec on this pdd? C:\work\pdd.md",
+                "paradigm": None,
             },
         ),
     ]
@@ -127,19 +131,21 @@ def test_uiplan_plan_tasks_review_full(registry: tuple) -> None:
     reg.execute("uiplan-review", "2026-04-26-my-slug", "plan")
     out = reg.execute("uiplan-full", "One shot title")
     assert calls == [
-        ("uipath_plan_plan_new", {"slug": "2026-04-26-my-slug"}),
-        ("uipath_plan_tasks_new", {"slug": "2026-04-26-my-slug"}),
+        ("uipath_plan_plan_new", {"slug": "2026-04-26-my-slug", "paradigm": None}),
+        ("uipath_plan_tasks_new", {"slug": "2026-04-26-my-slug", "paradigm": None}),
         (
             "uipath_plan_review",
             {"slug": "2026-04-26-my-slug", "stage": "plan"},
         ),
         (
             "uipath_plan_uiplan_new",
-            {"title": "One shot title", "intent": "One shot title"},
+            {"title": "One shot title", "intent": "One shot title", "paradigm": None},
         ),
     ]
     assert "UiPlan bundle created" in out
     assert "Review/edit next" in out
+    assert "Plan id:" in out
+    assert "/uiplan-implement" in out
 
 
 def test_uiplan_review_defaults_stage_all(registry: tuple) -> None:
@@ -162,7 +168,7 @@ def test_uiplan_dispatcher_defaults_to_full(registry: tuple) -> None:
     reg.execute("uiplan", "implicit", "full", "title")
     assert calls[-1] == (
         "uipath_plan_uiplan_new",
-        {"title": "implicit full title", "intent": "implicit full title"},
+        {"title": "implicit full title", "intent": "implicit full title", "paradigm": None},
     )
 
 
@@ -171,4 +177,24 @@ def test_uiplan_usage_when_empty(registry: tuple) -> None:
     out = reg.execute("uiplan")
     assert "/uiplan-spec" in out
     assert "/uiplan-full" in out
+    assert "/uiplan-implement" in out
     assert not calls
+
+
+def test_uiplan_paradigm_flag_forwarded(registry: tuple) -> None:
+    reg, calls = registry
+    reg.execute("uiplan-spec", "Invoice Bot", "--paradigm", "coded-agent")
+    assert calls[-1] == (
+        "uipath_plan_spec_new",
+        {"title": "Invoice Bot", "intent": "Invoice Bot", "paradigm": "coded-agent"},
+    )
+
+
+def test_uiplan_implement_preflight(registry: tuple) -> None:
+    reg, calls = registry
+    out = reg.execute("uiplan-implement", "my-2026-04-26-slug")
+    assert calls == [
+        ("uipath_plan_review", {"slug": "my-2026-04-26-slug", "stage": "all"}),
+    ]
+    assert "UiPlan implement (preflight)" in out
+    assert "pass" in out

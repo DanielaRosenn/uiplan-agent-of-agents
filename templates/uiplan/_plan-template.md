@@ -21,6 +21,8 @@
 ## Technical Context
 
 **Language/Version**: {{LANG_VERSION}}
+**Implementation Paradigm**: {{PARADIGM}}
+**CLI Family**: {{CLI_FAMILY}}
 **Primary Dependencies**: {{DEPS}}
 **Storage**: {{STORAGE}}
 **Testing**: {{TESTING}}
@@ -50,9 +52,11 @@ Gates re-checked after Phase 1 design:
 
 ### Source Code (repository root)
 
-```text
-{{SOURCE_TREE}}
-```
+{{CODE_STRUCTURE_BLOCK}}
+
+### Paradigm build loop
+
+{{BUILD_LOOP_BLOCK}}
 
 **Structure Decision**: {{STRUCTURE_DECISION}}
 

@@ -541,7 +541,8 @@ def get_plan_tools() -> list[Tool]:
                 "Create a UiPlan draft folder under .cursor/plans/ with spec.md "
                 "from templates/uiplan/_spec-template.md plus .meta.yaml "
                 "(plan_kind=uiplan). Optionally pass grounding_pack from "
-                "uipath_plan_ground; otherwise grounding is computed from intent."
+                "uipath_plan_ground; otherwise grounding is computed from intent. "
+                "Supports optional paradigm override for scaffold specificity."
             ),
             inputSchema={
                 "type": "object",
@@ -558,6 +559,10 @@ def get_plan_tools() -> list[Tool]:
                     "slug": {"type": "string"},
                     "owner": {"type": "string"},
                     "project_type": {"type": "string", "enum": sorted(_PROJECT_TYPES)},
+                    "paradigm": {
+                        "type": "string",
+                        "description": "Optional paradigm override (for example coded-agent, modern-rpa, solution).",
+                    },
                     "project_root": {"type": "string"},
                     "grounding_pack": {
                         "type": "object",
@@ -573,7 +578,8 @@ def get_plan_tools() -> list[Tool]:
             description=(
                 "Write plan.md into an existing UiPlan folder (run "
                 "uipath_plan_spec_new first). Fills Technical Context, "
-                "Constitution Check from repo constitution, and structure decision."
+                "Constitution Check from repo constitution, and structure decision. "
+                "Supports optional paradigm override."
             ),
             inputSchema={
                 "type": "object",
@@ -581,6 +587,7 @@ def get_plan_tools() -> list[Tool]:
                     "slug": {"type": "string", "description": "UiPlan slug (meta.slug)."},
                     "project_root": {"type": "string"},
                     "grounding_pack": {"type": "object"},
+                    "paradigm": {"type": "string"},
                 },
                 "required": ["slug"],
             },
@@ -590,7 +597,8 @@ def get_plan_tools() -> list[Tool]:
             name="uipath_plan_tasks_new",
             description=(
                 "Write tasks.md into an existing UiPlan folder after plan.md "
-                "exists. Phase-grouped tasks with [USn] markers and test-first sections."
+                "exists. Phase-grouped tasks with [USn] markers, test-first sections, "
+                "and paradigm-aware artifact tasks."
             ),
             inputSchema={
                 "type": "object",
@@ -601,6 +609,7 @@ def get_plan_tools() -> list[Tool]:
                     },
                     "project_root": {"type": "string"},
                     "grounding_pack": {"type": "object"},
+                    "paradigm": {"type": "string"},
                 },
                 "required": ["slug"],
             },
@@ -652,6 +661,7 @@ def get_plan_tools() -> list[Tool]:
                     "slug": {"type": "string"},
                     "owner": {"type": "string"},
                     "project_type": {"type": "string", "enum": sorted(_PROJECT_TYPES)},
+                    "paradigm": {"type": "string"},
                     "project_root": {"type": "string"},
                 },
                 "required": ["title"],

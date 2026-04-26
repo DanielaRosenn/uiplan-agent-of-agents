@@ -121,8 +121,15 @@ This section turns the accepted design into build-ready work.
 
 - **Build entry point**: {{BUILD_ENTRYPOINT}}
 - **Implementation scope**: {{IMPLEMENTATION_SCOPE}}
+- **Implementation paradigm**: {{PARADIGM}}
+- **Target stack**: {{TARGET_STACK}}
+- **CLI family**: {{CLI_FAMILY}}
+- **Deploy gate**: {{DEPLOY_GATE}}
 - **Execution command**: {{BUILD_COMMAND}}
 - **Quality gates**: {{QUALITY_GATES}}
+- **Feasibility evidence**: Use `uipath_library_lookup` first, then `query_uipath_docs`
+  / AskAI-style lookup for uncertain UiPath APIs, activities, or CLI flags; do
+  not invent activity names or SDK methods.
 - **Handoff rule**: Do not start source changes until `uipath_plan_review` passes
   and the human accepts the bundle. After acceptance, execute `tasks.md` in
   order and keep implementation aligned to `plan.md`.

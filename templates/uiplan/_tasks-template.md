@@ -41,6 +41,7 @@ flowchart TD
 
 - [ ] T001 [P] [US1] {{T001}}
 - [ ] T001A [US1] Run the compatibility preflight from [docs/ORCHESTRATOR_DEPLOYMENT.md](../../docs/ORCHESTRATOR_DEPLOYMENT.md) before scaffolding, package selection, pack, publish, or deploy; record Studio/CLI/package/target-folder evidence.
+- [ ] T001B [US1] Confirm paradigm `{{PARADIGM}}` and CLI family `{{CLI_FAMILY}}`; if unknown, stop and resolve project type before implementation.
 
 ---
 
@@ -49,6 +50,7 @@ flowchart TD
 **Purpose**: Core infrastructure that MUST be complete before user stories.
 
 - [ ] T002 [US1] {{T002}}
+- [ ] T002A [US1] Record feasibility grounding links for this story using `uipath_library_lookup`, `uipath_skill_match`, and `query_uipath_docs` when library evidence is insufficient.
 
 **Checkpoint**: Foundation ready.
 
@@ -67,6 +69,10 @@ flowchart TD
 ### Implementation for User Story 1
 
 - [ ] T011 [US1] {{T011_IMPL}}
+
+### Paradigm-specific tasks
+
+{{PARADIGM_TASK_BLOCKS}}
 
 **Checkpoint**: User Story 1 independently functional.
 
@@ -92,6 +98,7 @@ flowchart TD
   -> test -> pack. Stop on analyzer errors or failing tests.
 - [ ] T033 Summarize exact verification evidence, changed files, package path
   if produced, and any approval-required deploy follow-up.
+- [ ] T034 Verify deploy gate: `{{DEPLOY_GATE}}`
 
 ---
 

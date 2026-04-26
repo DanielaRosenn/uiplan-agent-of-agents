@@ -15,7 +15,8 @@ It works three ways:
 | Path | Best For | Start Here |
 | --- | --- | --- |
 | **Cursor + MCP** | Best IDE experience: skills, validation, library lookup, UiPlan, tool calls | [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md) |
-| **CLI / Claude Code-style terminal** | Headless or terminal-first agent workflow with slash commands | [docs/CLAUDE_USER_GUIDE.md](docs/CLAUDE_USER_GUIDE.md) |
+| **CLI / Claude Code-style terminal** | Headless or terminal-first `uipath-claude` with slash commands | [docs/CLAUDE_USER_GUIDE.md](docs/CLAUDE_USER_GUIDE.md) |
+| **Pure Anthropic Claude Code** | Official `claude` CLI in the repo, skills as files, optional MCP; no `uipath-claude chat` | [docs/PURE_CLAUDE_CODE.md](docs/PURE_CLAUDE_CODE.md) |
 | **Visual skill map** | See how every skill family, MCP family, Cursor flow, and Claude flow fits together | [docs/SKILL_VISUAL_GUIDE.md](docs/SKILL_VISUAL_GUIDE.md) |
 | **Library + planning stack** | Grounded answers, reusable lessons, spec/plan/tasks before execution | [docs/LIBRARY_LEARNING.md](docs/LIBRARY_LEARNING.md), [docs/uiplan/README.md](docs/uiplan/README.md) |
 
@@ -27,7 +28,7 @@ This repo brings the main pieces of UiPath assistant work into one local workspa
 
 - **Workflow authoring** with `uipath-rpa` for XAML and coded RPA projects.
 - **Live UI interaction** with `uipath-interact` for screenshots, inspection, click/type actions, and post-build verification.
-- **UiPlan planning** with `spec.md`, `plan.md`, and `tasks.md` before risky changes.
+- **UiPlan planning** with `spec.md`, `plan.md`, and `tasks.md` before risky changes, including paradigm-aware code structure and feasibility gates.
 - **MCP tools for Cursor** covering workflow, skill, library, intent, doc, design, memory, answer, plan, and read-only **assistant** orchestration (`uipath_assistant_context` / `uipath_assistant_route`, same routing core as `uipath-claude` chat for natural language).
 - **Formal SDLC flow** through `/pdd`: BA -> SA -> ADD -> TDD -> Dev -> QA, with optional publish/deploy gates.
 - **Library learning loop** so durable lessons are proposed, reviewed, approved, and reused.
@@ -252,7 +253,7 @@ Full setup (UiPath CLI, Studio 26.2+, Orchestrator auth, AWS region overrides) l
 
 ## Choose your setup path
 
-Three supported ways to use the project. Pick one per clone.
+Four supported ways to use the project. Pick one primary mode per clone.
 
 For cleaner onboarding and fewer collisions, this repo now recommends **one assistant per clone**:
 
@@ -269,7 +270,25 @@ The full agentic CLI with auto-fix loop, planner, and BA -> SA -> ADD -> TDD -> 
 - Run: `uipath-claude chat`
 - Terminal guide: [docs/CLAUDE_USER_GUIDE.md](docs/CLAUDE_USER_GUIDE.md); command reference: [docs/USER_GUIDE.md](docs/USER_GUIDE.md)
 
-### B. Cursor (skills-only)
+### B. Pure Claude Code (`claude`) — no custom chat runtime
+
+Use Anthropic's normal Claude Code CLI directly in this repo. Claude Code reads
+`CLAUDE.md`, docs, and skill files as project context, but Cursor-native slash
+commands are not shown automatically.
+
+```powershell
+git pull origin main
+git submodule update --init --recursive
+uv sync --extra dev
+claude
+```
+
+Inside Claude Code, ask it to read the relevant contract explicitly, for example:
+`Read CLAUDE.md, then use .cursor/skills/uiplan/SKILL.md for UiPlan work.`
+
+Guide: [docs/PURE_CLAUDE_CODE.md](docs/PURE_CLAUDE_CODE.md).
+
+### C. Cursor (skills-only)
 
 Use the UiPath skills directly inside Cursor without the CLI runtime. Good for quick scaffolding and design questions.
 
@@ -285,7 +304,7 @@ bash ops/scripts/cursor-quickstart.sh
 
 Open the repo in Cursor; skills auto-load. Guide: [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md).
 
-### C. Cursor + MCP (skills + UiPath tool calls)
+### D. Cursor + MCP (skills + UiPath tool calls)
 
 Adds validation, package install, and run-workflow tools to Cursor via the bundled MCP server.
 

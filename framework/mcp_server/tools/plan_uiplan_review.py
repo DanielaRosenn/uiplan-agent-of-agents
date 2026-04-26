@@ -2,8 +2,22 @@
 from __future__ import annotations
 
 import re
+import importlib.util
 from pathlib import Path
 from typing import Any, Literal
+
+try:
+    from tools.uiplan.paradigms import KNOWN_PARADIGMS, cli_family
+except ModuleNotFoundError:
+    _PARADIGM_PATH = Path(__file__).resolve().parents[3] / "tools" / "uiplan" / "paradigms.py"
+    _spec = importlib.util.spec_from_file_location("uiplan_paradigms", _PARADIGM_PATH)
+    if _spec is None or _spec.loader is None:
+        raise
+    _module = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_module)
+    KNOWN_PARADIGMS = _module.KNOWN_PARADIGMS
+    cli_family = _module.cli_family
+from uipath_claude.skills.activity_docs import get_activity_doc
 
 Stage = Literal["spec", "plan", "tasks", "all"]
 
@@ -31,6 +45,38 @@ _PLACEHOLDER_BAN = re.compile(
     r"\b(TBD|TODO|implement later|fill in|FIXME|NEEDS CLARIFICATION)\b",
     re.IGNORECASE,
 )
+_ACTIVITY_TAG_RE = re.compile(r"\[activity:([A-Za-z0-9_.]+):([A-Za-z][A-Za-z0-9_]*)\]")
+_PATH_TOKEN_RE = re.compile(r"`[^`]+\.(?:xaml|cs|py|json|md|yml|yaml|ts|tsx)`")
+_GROUNDING_TOKEN_RE = re.compile(
+    r"\[skill:|\[library:|\[askai:|\[agent:|uipath_library_lookup|query_uipath_docs",
+    re.IGNORECASE,
+)
+_RESOURCE_TOKEN_RE = re.compile(r"\b(queue|asset|bucket|folder|orchestrator|binding)\b", re.IGNORECASE)
+_CLI_TOKEN_RE = re.compile(r"\b(uipcli|uipath|uip)\b")
+
+_KNOWN_PARADIGM_SET = {p for p in KNOWN_PARADIGMS if p != "unknown"}
+_EXPECTED_DESCRIPTORS: dict[str, tuple[str, ...]] = {
+    "modern-rpa": ("project.json", "Main.xaml"),
+    "coded-automation": ("project.json", ".cs"),
+    "coded-agent": ("pyproject.toml", "langgraph.json"),
+    "solution": ("solution.uipx", "bindings"),
+    "maestro-flow": (".bpmn", ".flow"),
+    "coded-app": ("app.config.json", "action-schema.json"),
+    "api-workflow": ("api-workflow.json",),
+    "case-management": ("caseplan.json",),
+    "library": ("project.json", "Activities/"),
+    "tests": ("Tests/",),
+}
+
+
+def _declared_paradigm(spec: str) -> str | None:
+    m = re.search(r"\*\*Implementation paradigm\*\*:\s*([^\n]+)", spec, flags=re.IGNORECASE)
+    if not m:
+        return None
+    value = m.group(1).strip().strip("`").lower()
+    if value in _KNOWN_PARADIGM_SET:
+        return value
+    return None
 
 
 def review_spec_text(spec: str) -> list[dict[str, Any]]:
@@ -109,10 +155,41 @@ def review_spec_text(spec: str) -> list[dict[str, Any]]:
                 "spec.md",
             )
         )
+    paradigm = _declared_paradigm(spec)
+    if paradigm is None:
+        findings.append(
+            _finding(
+                "error",
+                "spec",
+                "paradigm_declared",
+                "Development Handoff must declare a known implementation paradigm.",
+                "spec.md",
+            )
+        )
+    if "**CLI family**" not in spec:
+        findings.append(
+            _finding(
+                "error",
+                "spec",
+                "cli_family_declared",
+                "Development Handoff must declare CLI family (uipcli, uipath, or uip).",
+                "spec.md",
+            )
+        )
+    if "uipath_library_lookup" not in spec or "query_uipath_docs" not in spec:
+        findings.append(
+            _finding(
+                "warn",
+                "spec",
+                "feasibility_lookup",
+                "Development Handoff should require library lookup first and AskAI/query_uipath_docs fallback.",
+                "spec.md",
+            )
+        )
     return findings
 
 
-def review_plan_text(plan: str, gate_ids: list[str]) -> list[dict[str, Any]]:
+def review_plan_text(plan: str, gate_ids: list[str], paradigm: str | None) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
     if "NEEDS CLARIFICATION" in plan:
         findings.append(
@@ -157,6 +234,50 @@ def review_plan_text(plan: str, gate_ids: list[str]) -> list[dict[str, Any]]:
                 "plan.md",
             )
         )
+    if "### Source Code (repository root)" not in plan:
+        findings.append(
+            _finding(
+                "error",
+                "plan",
+                "code_structure_present",
+                "Plan must include a source code structure section.",
+                "plan.md",
+            )
+        )
+    if "### Paradigm build loop" not in plan:
+        findings.append(
+            _finding(
+                "error",
+                "plan",
+                "build_loop_present",
+                "Plan must include a paradigm-specific build loop section.",
+                "plan.md",
+            )
+        )
+    if paradigm:
+        required = _EXPECTED_DESCRIPTORS.get(paradigm, ())
+        missing = [item for item in required if item not in plan]
+        if missing:
+            findings.append(
+                _finding(
+                    "error",
+                    "plan",
+                    "code_structure_present",
+                    f"Plan is missing descriptor hints for paradigm {paradigm}: {', '.join(missing)}.",
+                    "plan.md",
+                )
+            )
+        expected_cli = cli_family(paradigm).split()[0]
+        if expected_cli in ("uipcli", "uipath", "uip") and expected_cli not in plan:
+            findings.append(
+                _finding(
+                    "error",
+                    "plan",
+                    "build_loop_present",
+                    f"Plan does not mention expected CLI family `{expected_cli}` for paradigm `{paradigm}`.",
+                    "plan.md",
+                )
+            )
     return findings
 
 
@@ -220,6 +341,46 @@ def review_tasks_text(tasks: str, spec: str) -> list[dict[str, Any]]:
                 "tasks",
                 "build_verify_handoff_phase",
                 "Add a final Build, Verify, and Handoff phase so implementation continues after planning.",
+                "tasks.md",
+            )
+        )
+    if not _PATH_TOKEN_RE.search(tasks):
+        findings.append(
+            _finding(
+                "error",
+                "tasks",
+                "tasks_have_artifacts",
+                "Tasks must include explicit artifact paths in backticks.",
+                "tasks.md",
+            )
+        )
+    if not _GROUNDING_TOKEN_RE.search(tasks):
+        findings.append(
+            _finding(
+                "error",
+                "tasks",
+                "feasibility_grounding",
+                "Tasks must cite feasibility grounding ([skill:], library, askai, or lookup tools).",
+                "tasks.md",
+            )
+        )
+    if not (_RESOURCE_TOKEN_RE.search(tasks) and _CLI_TOKEN_RE.search(tasks)):
+        findings.append(
+            _finding(
+                "warn",
+                "tasks",
+                "tasks_have_artifacts",
+                "Tasks should include UiPath resources (queues/assets/folders/bindings) and concrete CLI verbs.",
+                "tasks.md",
+            )
+        )
+    if "personal workspace" not in tasks.lower() or "production" not in tasks.lower():
+        findings.append(
+            _finding(
+                "error",
+                "tasks",
+                "deploy_gate",
+                "Tasks must state personal workspace default and Production approval gate.",
                 "tasks.md",
             )
         )
@@ -354,14 +515,26 @@ def run_uiplan_review(
 ) -> dict[str, Any]:
     gate_ids = gate_ids or []
     findings: list[dict[str, Any]] = []
+    paradigm = _declared_paradigm(spec)
     if stage in ("spec", "all"):
         findings.extend(review_spec_text(spec))
     if stage in ("plan", "all"):
-        findings.extend(review_plan_text(plan, gate_ids))
+        findings.extend(review_plan_text(plan, gate_ids, paradigm))
     if stage in ("tasks", "all"):
         findings.extend(review_tasks_text(tasks, spec))
     if stage in ("all",):
         findings.extend(review_cross(spec, plan, tasks))
+        for pkg, act in _ACTIVITY_TAG_RE.findall("\n".join((spec, plan, tasks))):
+            if not get_activity_doc(pkg, act, None):
+                findings.append(
+                    _finding(
+                        "warn",
+                        "cross",
+                        "no_invented_activities",
+                        f"Activity tag [{pkg}:{act}] could not be resolved in activity docs.",
+                        "cross",
+                    )
+                )
         if repo is not None:
             findings.extend(review_citations("\n".join((spec, plan, tasks)), repo))
             if slug:

@@ -6,6 +6,17 @@ import datetime as dt
 import re
 from pathlib import Path
 
+from tools.uiplan.paradigms import (
+    build_loop_block,
+    cli_family,
+    code_structure_block,
+    deploy_gate,
+    normalize_paradigm,
+    paradigm_task_blocks,
+    stack_line,
+)
+from tools.uiplan.scaffold.project_kind import detect_paradigm
+
 _SPECS = ("_spec-template.md", "spec.md")
 _PLANS = ("_plan-template.md", "plan.md")
 _TASKS = ("_tasks-template.md", "tasks.md")
@@ -20,9 +31,10 @@ def _slug_title(slug: str) -> str:
     return cleaned.replace("-", " ").strip().title() or slug
 
 
-def _default_mapping(plan_slug: str) -> dict[str, str]:
+def _default_mapping(plan_slug: str, paradigm: str) -> dict[str, str]:
     today = dt.date.today().isoformat()
     title = _slug_title(plan_slug)
+    normalized = normalize_paradigm(paradigm)
     return {
         "TITLE": title,
         "DATE": today,
@@ -36,11 +48,17 @@ def _default_mapping(plan_slug: str) -> dict[str, str]:
         "TESTING": "_Test framework / harness._",
         "TARGET_PLATFORM": "_Windows / cloud / etc._",
         "PROJECT_TYPE": "_rpa | coded-agent | solution | …_",
+        "PARADIGM": normalized,
+        "CLI_FAMILY": cli_family(normalized),
+        "TARGET_STACK": stack_line(normalized),
+        "DEPLOY_GATE": deploy_gate(normalized),
         "PERF": "_Latency / throughput goals._",
         "CONSTRAINTS": "_Org constraints (PII, regions, …)._",
         "SCALE": "_Volumes, tenants, robots._",
         "CONSTITUTION_CHECKLIST": "_Paste constitution gate table or bullets._",
         "SOURCE_TREE": "_Key folders touched (see framework/, ops/, …)._",
+        "CODE_STRUCTURE_BLOCK": code_structure_block(normalized),
+        "BUILD_LOOP_BLOCK": build_loop_block(normalized),
         "STRUCTURE_DECISION": "_Why this layout._",
         "COMPLEXITY_TABLE": "| Item | Why needed |\n| --- | --- |\n| | |",
         "US1_TITLE": "_User story 1_",
@@ -78,6 +96,7 @@ def _default_mapping(plan_slug: str) -> dict[str, str]:
         "US1_IND_TEST": "_Independent test description._",
         "T010_TEST": "_Add failing test first._",
         "T011_IMPL": "_Implement to green._",
+        "PARADIGM_TASK_BLOCKS": paradigm_task_blocks(normalized),
         "T020": "_Polish / docs / telemetry; deploy remains approval-required via docs/ORCHESTRATOR_DEPLOYMENT.md._",
         "DEPENDENCIES_TEXT": "_Story B may start after foundation; otherwise parallel._",
     }
@@ -103,10 +122,12 @@ def generate_docs_bundle(
     output_dir: Path,
     kit_dir: Path | None = None,
     extra_mapping: dict[str, str] | None = None,
+    paradigm: str | None = None,
 ) -> None:
     """Write ``spec.md``, ``plan.md``, and ``tasks.md`` under *output_dir*."""
     kit = kit_dir or default_kit_dir(repo_root)
-    mapping = _default_mapping(plan_slug)
+    detected = normalize_paradigm(paradigm) if paradigm else detect_paradigm(repo_root)
+    mapping = _default_mapping(plan_slug, detected)
     if extra_mapping:
         mapping.update(extra_mapping)
     _copy_one(kit / _SPECS[0], output_dir / _SPECS[1], mapping)

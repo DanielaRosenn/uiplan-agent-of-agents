@@ -10,7 +10,7 @@
 | I want to… | Use |
 | --- | --- |
 | Chat-native flow with grounding and review | MCP `uipath_plan_ground`, `uipath_plan_spec_new`, `uipath_plan_plan_new`, `uipath_plan_tasks_new`, `uipath_plan_review` (or `uipath_plan_uiplan_new` for the bundled path). |
-| A file-first bundle from templates with local validation | From repo root: `uv run python -m tools.uiplan generate-docs <slug>` (optional `--out`, `--kit`, `--strict`). |
+| A file-first bundle from templates with local validation | From repo root: `uv run python -m tools.uiplan generate-docs <slug>` (optional `--out`, `--kit`, `--strict`, `--paradigm`). |
 | Slash commands in Cursor | Separate skill commands: `/uiplan-full`, `/uiplan-ground`, `/uiplan-spec`, `/uiplan-plan`, `/uiplan-tasks`, `/uiplan-review`, and `/uiplan-implement`. |
 | CLI parity with chat | `uipath-claude plan uiplan …` (see [USER_GUIDE.md](../USER_GUIDE.md)). |
 
@@ -53,7 +53,7 @@ Do **not** treat `generate-docs` output as approved scope by default.
 cd <repo-root>
 uv sync
 uv run python -m tools.uiplan generate-docs 2026-04-23-my-feature
-# optional: --out path/to/folder --kit path/to/kit --no-strict
+# optional: --out path/to/folder --kit path/to/kit --no-strict --paradigm coded-agent
 uv run python -m tools.uiplan scaffold-code 2026-04-23-my-feature --max-loops 5
 ```
 
@@ -72,3 +72,7 @@ accepted implementation loop. In Cursor, `/uiplan-implement <slug>` reads the
 planner/specialist handoff, reviews first, asks before building, executes tasks
 in order, runs restore -> analyze -> test -> pack, and stops before any
 approval-required deploy.
+
+`uipath_plan_review` now includes feasibility checks for declared paradigm,
+code-structure descriptors, CLI-family consistency, artifact-rich tasks, and
+deploy gates.

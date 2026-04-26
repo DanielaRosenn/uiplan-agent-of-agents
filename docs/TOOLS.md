@@ -78,3 +78,11 @@ The full per-tool table (with parameters and examples) lives in [CURSOR_USER_GUI
 - **MCP tool contracts and annotations:** `framework/tests/mcp_tests/`
 - **UiPlan CLI and docs bundle:** `framework/tests/uiplan/`
 - **Full map:** [TESTING.md](TESTING.md)
+
+## UiPlan paradigm-aware notes
+
+- `tools.uiplan generate-docs` supports `--paradigm` to override detection.
+- Generated `spec.md`/`plan.md`/`tasks.md` now include explicit feasibility
+  contracts (paradigm declaration, CLI family, code structure, artifact tasks,
+  grounding citations, and deploy gate language).
+- `uipath_plan_review` treats missing feasibility evidence as review findings.

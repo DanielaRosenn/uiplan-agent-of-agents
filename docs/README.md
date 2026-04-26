@@ -8,12 +8,15 @@ Landing page for everything under `docs/`. Start with [ARCHITECTURE.md](ARCHITEC
 - [CAPABILITY_CONTRACT.md](CAPABILITY_CONTRACT.md) — canonical CLI/Cursor/MCP capability contract and explicit Claude Code non-goals.
 - [USER_GUIDE.md](USER_GUIDE.md) — day-to-day CLI usage, slash commands, env vars, and Claude quickstart.
 - [CLAUDE_USER_GUIDE.md](CLAUDE_USER_GUIDE.md) — terminal / Claude Code: full **`uipath-claude`** step-by-step, flags, sessions, restart/debug, hooks-first policy, and how CLI differs from Cursor + MCP.
+- [PURE_CLAUDE_CODE.md](PURE_CLAUDE_CODE.md) — using Anthropic's normal `claude` CLI directly in this repo, without Cursor or `uipath-claude chat`.
 - [SKILL_VISUAL_GUIDE.md](SKILL_VISUAL_GUIDE.md) — visual guide to skill families, routing, Cursor flow, Claude flow, and MCP tool families.
 - [SLASH_COMMANDS.md](SLASH_COMMANDS.md) — slash command reference, SDLC mapping, `UIPATH_CLAUDE_TOOL_PROFILE`.
 - [PDD_LIFECYCLE.md](PDD_LIFECYCLE.md) — the full BA -> SA -> ADD -> TDD -> Dev -> QA -> publish -> deploy flow driven by `/pdd` (includes **Naming: SDD vs lifecycle TDD**).
 - [CURSOR_USER_GUIDE.md](CURSOR_USER_GUIDE.md) — using the UiPath skills + MCP tools from inside Cursor (clone + `uv sync --extra mcp` + `mcp.json`).
 - Local setup policy: one assistant per clone via `ops/scripts/cursor-quickstart.*` or `ops/scripts/claude-quickstart.*` (`.assistant-choice`, switch with force).
 - [uiplan/README.md](uiplan/README.md) — UiPlan quick start, decision tree, and leverage patterns for `spec.md` + `plan.md` + `tasks.md`.
+- UiPlan update: paradigm-aware template scaffolds, stricter feasibility review
+  checks, and optional `--paradigm` override on staged generation commands.
 - [INSTALL.md](INSTALL.md) — full installation: UiPath CLI, Studio 26.2+, submodules, AWS Bedrock.
 - [TOOLS.md](TOOLS.md) — reference for every tool the agent can call.
 - [MCP_TOOLS.md](MCP_TOOLS.md) — generated catalog of MCP-exposed tools (run `python ops/scripts/generate_mcp_tools_doc.py` after changes).

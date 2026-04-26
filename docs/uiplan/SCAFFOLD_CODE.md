@@ -6,9 +6,14 @@ This note is the **baseline** for per-project-type scaffold work (see
 ## CLI entry
 
 - Command: `uv run python -m tools.uiplan scaffold-code <plan_slug> [--max-loops N]`
+- Bundle generation command: `uv run python -m tools.uiplan generate-docs <slug> [--paradigm <value>]`
 - Implementation: `tools/uiplan/cli.py` (`scaffold_code`) delegates to
   `tools/uiplan/scaffold/runner.py`, which selects an adapter from
   `tools/uiplan/scaffold/registry.py` using `tools/uiplan/scaffold/project_kind.py`.
+
+`generate-docs` now writes paradigm-aware plan/task scaffolds (descriptor files,
+CLI build loop, artifact-level implementation tasks, and deploy gates) so
+`scaffold-code` receives an implementation-ready `tasks.md`.
 
 ## Loop policy
 

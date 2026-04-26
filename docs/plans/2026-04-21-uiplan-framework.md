@@ -15,6 +15,10 @@ published_at: null
 
 # /uiplan framework (spec-kit-style, grounded in workspace)
 
+> Follow-up update: paradigm-aware scaffolds and feasibility review gates were
+> added in a later implementation pass (`uiplan_skills_detail_5ad4aff8`).
+> This file remains a historical accepted plan.
+
 > For agentic workers: implement task-by-task; checkboxes below track progress.
 > Use `superpowers:subagent-driven-development` (recommended) or
 > `superpowers:executing-plans`.

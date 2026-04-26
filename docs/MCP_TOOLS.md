@@ -4372,7 +4372,7 @@ flowchart LR
 
 #### Audience guide
 
-**Create UiPlan spec.md draft folder.** Create a UiPlan draft folder under .cursor/plans/ with spec.md from templates/uiplan/_spec-template.md plus .meta.yaml (plan_kind=uiplan). Optionally pass grounding_pack from uipath_plan_ground; otherwise grounding is computed from intent.
+**Create UiPlan spec.md draft folder.** Create a UiPlan draft folder under .cursor/plans/ with spec.md from templates/uiplan/_spec-template.md plus .meta.yaml (plan_kind=uiplan). Optionally pass grounding_pack from uipath_plan_ground; otherwise grounding is computed from intent. Supports optional paradigm override for scaffold specificity.
 
 **Required MCP arguments:**
 
@@ -4386,7 +4386,7 @@ flowchart LR
 
 #### Author registration (`Tool.description` verbatim)
 
-> Create a UiPlan draft folder under .cursor/plans/ with spec.md from templates/uiplan/_spec-template.md plus .meta.yaml (plan_kind=uiplan). Optionally pass grounding_pack from uipath_plan_ground; otherwise grounding is computed from intent.
+> Create a UiPlan draft folder under .cursor/plans/ with spec.md from templates/uiplan/_spec-template.md plus .meta.yaml (plan_kind=uiplan). Optionally pass grounding_pack from uipath_plan_ground; otherwise grounding is computed from intent. Supports optional paradigm override for scaffold specificity.
 
 #### Input schema (JSON Schema)
 
@@ -4422,6 +4422,10 @@ flowchart LR
         "solution"
       ]
     },
+    "paradigm": {
+      "type": "string",
+      "description": "Optional paradigm override (for example coded-agent, modern-rpa, solution)."
+    },
     "project_root": {
       "type": "string"
     },
@@ -4451,7 +4455,7 @@ flowchart TD
 
 #### Audience guide
 
-**Write UiPlan plan.md.** Write plan.md into an existing UiPlan folder (run uipath_plan_spec_new first). Fills Technical Context, Constitution Check from repo constitution, and structure decision.
+**Write UiPlan plan.md.** Write plan.md into an existing UiPlan folder (run uipath_plan_spec_new first). Fills Technical Context, Constitution Check from repo constitution, and structure decision. Supports optional paradigm override.
 
 **Required MCP arguments:**
 
@@ -4465,7 +4469,7 @@ flowchart TD
 
 #### Author registration (`Tool.description` verbatim)
 
-> Write plan.md into an existing UiPlan folder (run uipath_plan_spec_new first). Fills Technical Context, Constitution Check from repo constitution, and structure decision.
+> Write plan.md into an existing UiPlan folder (run uipath_plan_spec_new first). Fills Technical Context, Constitution Check from repo constitution, and structure decision. Supports optional paradigm override.
 
 #### Input schema (JSON Schema)
 
@@ -4482,6 +4486,9 @@ flowchart TD
     },
     "grounding_pack": {
       "type": "object"
+    },
+    "paradigm": {
+      "type": "string"
     }
   },
   "required": [
@@ -4504,7 +4511,7 @@ flowchart LR
 
 #### Audience guide
 
-**Write UiPlan tasks.md.** Write tasks.md into an existing UiPlan folder after plan.md exists. Phase-grouped tasks with [USn] markers and test-first sections.
+**Write UiPlan tasks.md.** Write tasks.md into an existing UiPlan folder after plan.md exists. Phase-grouped tasks with [USn] markers, test-first sections, and paradigm-aware artifact tasks.
 
 **Required MCP arguments:**
 
@@ -4518,7 +4525,7 @@ flowchart LR
 
 #### Author registration (`Tool.description` verbatim)
 
-> Write tasks.md into an existing UiPlan folder after plan.md exists. Phase-grouped tasks with [USn] markers and test-first sections.
+> Write tasks.md into an existing UiPlan folder after plan.md exists. Phase-grouped tasks with [USn] markers, test-first sections, and paradigm-aware artifact tasks.
 
 #### Input schema (JSON Schema)
 
@@ -4535,6 +4542,9 @@ flowchart LR
     },
     "grounding_pack": {
       "type": "object"
+    },
+    "paradigm": {
+      "type": "string"
     }
   },
   "required": [
@@ -4669,6 +4679,9 @@ flowchart TD
         "rpa",
         "solution"
       ]
+    },
+    "paradigm": {
+      "type": "string"
     },
     "project_root": {
       "type": "string"

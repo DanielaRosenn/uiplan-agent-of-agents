@@ -18,6 +18,12 @@ def test_generate_docs_bundle_passes_visual_density(tmp_path: Path) -> None:
     assert "## Development execution contract" in (out / "plan.md").read_text(
         encoding="utf-8"
     )
+    plan_text = (out / "plan.md").read_text(encoding="utf-8")
+    assert "### Paradigm build loop" in plan_text
+    assert "Implementation Paradigm" in plan_text
     assert "## Phase 5: Build, Verify, and Handoff" in (out / "tasks.md").read_text(
         encoding="utf-8"
     )
+    tasks_text = (out / "tasks.md").read_text(encoding="utf-8")
+    assert "### Paradigm-specific tasks" in tasks_text
+    assert "personal workspace" in tasks_text.lower()

@@ -13,7 +13,9 @@ def _run_plan_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     return asyncio.run(call_plan_tool(name, arguments))
 
 
-_SUBCOMMANDS = frozenset({"ground", "spec", "plan", "tasks", "review", "full"})
+_SUBCOMMANDS = frozenset(
+    {"ground", "spec", "plan", "tasks", "review", "full", "implement"},
+)
 
 
 def _parse_title_intent(tail: str) -> tuple[str, str]:
@@ -47,6 +49,21 @@ def _maybe_split_natural_spec_request(tail: str) -> tuple[str, str]:
     return text, text
 
 
+def _extract_flag_value(text: str, flag: str) -> tuple[str, str | None]:
+    marker = f" {flag} "
+    padded = f" {text.strip()} "
+    if marker not in padded:
+        return text.strip(), None
+    left, right = padded.split(marker, 1)
+    right = right.strip()
+    if not right:
+        return left.strip(), None
+    if " --" in right:
+        value, remainder = right.split(" --", 1)
+        return f"{left.strip()} --{remainder.strip()}".strip(), value.strip()
+    return left.strip(), right.strip()
+
+
 def _files_line(folder: str | None) -> str:
     if not folder:
         return ""
@@ -66,6 +83,9 @@ def _format_review(review: dict[str, Any]) -> str:
     if next_action:
         lines.append(f"Next action: `{next_action}`")
     if findings:
+        errors = [item for item in findings if isinstance(item, dict) and item.get("severity") == "error"]
+        warns = [item for item in findings if isinstance(item, dict) and item.get("severity") == "warn"]
+        lines.append(f"Error findings: {len(errors)} | Warning findings: {len(warns)}")
         lines.append("Findings:")
         for item in findings[:8]:
             if isinstance(item, dict):
@@ -81,8 +101,32 @@ def _format_review(review: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _format_implement_handoff(slug: str, review: dict[str, Any]) -> str:
+    """Review-first preflight for build handoff (matches uiplan-implement skill)."""
+    body = _format_review(review)
+    ok = review.get("ok")
+    if not ok:
+        return (
+            f"UiPlan implement (preflight) for `{slug}`\n\n"
+            f"{body}\n\n"
+            f"Fix error-severity findings, then re-run `/uiplan-implement {slug}`."
+        )
+    return (
+        f"UiPlan implement (preflight) for `{slug}`\n\n"
+        f"{body}\n\n"
+        f"Read `spec.md`, `plan.md`, and `tasks.md` in `.cursor/plans/.../{slug}/` (draft folder). "
+        "Follow `.cursor/skills/uiplan-implement/SKILL.md`: confirm the user approves build, "
+        "then execute `tasks.md` in order using specialist skills, MCP tools, tests, and "
+        "the project build loop. Do not deploy or publish without explicit user approval."
+    )
+
+
 def _format_result(sub: str, out: dict[str, Any]) -> str:
     """Return chat-friendly UiPlan output instead of raw MCP JSON."""
+    # uipath_plan_review returns {ok, findings, ...} with no top-level status
+    if sub == "review":
+        return _format_review(out)
+
     status = out.get("status", "unknown")
     if status != "ok":
         message = out.get("message") or out.get("reason") or str(out)
@@ -105,13 +149,14 @@ def _format_result(sub: str, out: dict[str, Any]) -> str:
         slug = out.get("slug")
         return (
             "UiPlan spec created.\n"
-            f"Slug: `{slug}`\n"
+            f"Plan id: `{slug}`\n"
             f"Folder: `{folder}`"
             f"{_files_line(str(folder) if folder else None)}\n\n"
             "Review/edit next:\n"
             "1. Open `spec.md` and edit requirements/user stories.\n"
-            f"2. Run `/uiplan-plan {slug}` when the spec looks right.\n"
-            f"3. Run `/uiplan-review {slug} spec` to check the spec."
+            f"2. Copy/paste next: `/uiplan-plan {slug}`\n"
+            f"3. Optional spec check: `/uiplan-review {slug} spec`\n"
+            "\nTip: in chat, you can type `/uiplan-plan` or `please do` right after this and the CLI will reuse the plan id."
         )
 
     if sub == "plan":
@@ -119,12 +164,12 @@ def _format_result(sub: str, out: dict[str, Any]) -> str:
         path = out.get("path")
         return (
             "UiPlan plan created.\n"
-            f"Slug: `{slug}`\n"
+            f"Plan id: `{slug}`\n"
             f"Path: `{path}`\n\n"
             "Next:\n"
             "1. Review/edit `plan.md`.\n"
-            f"2. Run `/uiplan-tasks {slug}`.\n"
-            f"3. Run `/uiplan-review {slug} plan`."
+            f"2. Copy/paste next: `/uiplan-tasks {slug}`.\n"
+            f"3. Optional plan check: `/uiplan-review {slug} plan`."
         )
 
     if sub == "tasks":
@@ -132,16 +177,13 @@ def _format_result(sub: str, out: dict[str, Any]) -> str:
         path = out.get("path")
         return (
             "UiPlan tasks created.\n"
-            f"Slug: `{slug}`\n"
+            f"Plan id: `{slug}`\n"
             f"Path: `{path}`\n\n"
             "Next:\n"
             "1. Review/edit `tasks.md`.\n"
-            f"2. Run `/uiplan-review {slug} all`.\n"
-            "3. Accept only after review passes and you approve the bundle."
+            f"2. Copy/paste next: `/uiplan-review {slug} all`.\n"
+            "3. Build only after review passes and you approve the bundle."
         )
-
-    if sub == "review":
-        return _format_review(out)
 
     if sub == "full":
         slug = out.get("slug")
@@ -149,14 +191,14 @@ def _format_result(sub: str, out: dict[str, Any]) -> str:
         review = out.get("review") if isinstance(out.get("review"), dict) else {}
         return (
             "UiPlan bundle created.\n"
-            f"Slug: `{slug}`\n"
+            f"Plan id: `{slug}`\n"
             f"Folder: `{folder}`"
             f"{_files_line(str(folder) if folder else None)}\n\n"
             f"{_format_review(review)}\n\n"
             "Review/edit next:\n"
             "1. Open `spec.md`, `plan.md`, and `tasks.md`.\n"
-            f"2. Re-run `/uiplan-review {slug} all` after edits.\n"
-            "3. Accept/publish only after review passes and you approve it."
+            f"2. Copy/paste next after edits: `/uiplan-review {slug} all`.\n"
+            f"3. Build accepted work with `/uiplan-implement {slug}`."
         )
 
     return str(out)
@@ -172,26 +214,36 @@ def _dispatch_uiplan(sub: str, tail: str, *, command_name: str = "uiplan") -> st
         elif sub == "full":
             if not tail:
                 return f"Usage: /{command_name} <title>"
+            clean_tail, paradigm = _extract_flag_value(tail, "--paradigm")
             out = _run_plan_tool(
                 "uipath_plan_uiplan_new",
-                {"title": tail, "intent": tail},
+                {"title": clean_tail, "intent": clean_tail, "paradigm": paradigm},
             )
         elif sub == "spec":
             if not tail:
                 return f"Usage: /{command_name} <title> [--intent text]"
-            title, intent = _maybe_split_natural_spec_request(tail)
+            clean_tail, paradigm = _extract_flag_value(tail, "--paradigm")
+            title, intent = _maybe_split_natural_spec_request(clean_tail)
             out = _run_plan_tool(
                 "uipath_plan_spec_new",
-                {"title": title, "intent": intent},
+                {"title": title, "intent": intent, "paradigm": paradigm},
             )
         elif sub == "plan":
             if not tail:
                 return f"Usage: /{command_name} <slug>"
-            out = _run_plan_tool("uipath_plan_plan_new", {"slug": tail.split()[0]})
+            clean_tail, paradigm = _extract_flag_value(tail, "--paradigm")
+            out = _run_plan_tool(
+                "uipath_plan_plan_new",
+                {"slug": clean_tail.split()[0], "paradigm": paradigm},
+            )
         elif sub == "tasks":
             if not tail:
                 return f"Usage: /{command_name} <slug>"
-            out = _run_plan_tool("uipath_plan_tasks_new", {"slug": tail.split()[0]})
+            clean_tail, paradigm = _extract_flag_value(tail, "--paradigm")
+            out = _run_plan_tool(
+                "uipath_plan_tasks_new",
+                {"slug": clean_tail.split()[0], "paradigm": paradigm},
+            )
         elif sub == "review":
             bits = tail.split()
             if not bits:
@@ -202,6 +254,16 @@ def _dispatch_uiplan(sub: str, tail: str, *, command_name: str = "uiplan") -> st
                 "uipath_plan_review",
                 {"slug": slug, "stage": stage},
             )
+        elif sub == "implement":
+            bits = tail.split()
+            if not bits:
+                return f"Usage: /{command_name} <slug>"
+            slug = bits[0].strip()
+            out = _run_plan_tool(
+                "uipath_plan_review",
+                {"slug": slug, "stage": "all"},
+            )
+            return _format_implement_handoff(slug, out)
         else:
             return f"Unknown subcommand: {sub}"
     except Exception as exc:  # noqa: BLE001
@@ -214,11 +276,12 @@ def _usage() -> str:
         "Usage:\n"
         "  /uiplan-full <title>                 — ground + spec + plan + tasks + review\n"
         "  /uiplan-ground <topic>               — workspace grounding pack only\n"
-        "  /uiplan-spec <title> [--intent text] — create folder + spec.md\n"
-        "  /uiplan-plan <slug>                  — write plan.md (after spec)\n"
-        "  /uiplan-tasks <slug>                 — write tasks.md (after plan)\n"
-        "  /uiplan-review <slug> [all|spec|plan|tasks]\n"
-        "Backwards-compatible dispatcher: /uiplan <full|ground|spec|plan|tasks|review> ...\n"
+        "  /uiplan-spec <title> [--intent text] [--paradigm value] — create folder + spec.md\n"
+        "  /uiplan-plan <plan-id> [--paradigm value]               — write plan.md (after spec)\n"
+        "  /uiplan-tasks <plan-id> [--paradigm value]              — write tasks.md (after plan)\n"
+        "  /uiplan-review <plan-id> [all|spec|plan|tasks]\n"
+        "  /uiplan-implement <plan-id>          — build after review and approval\n"
+        "Backwards-compatible dispatcher: /uiplan <full|ground|spec|plan|tasks|review|implement> ...\n"
         "CLI: uipath-claude plan uiplan <subcommand> ..."
     )
 
@@ -274,12 +337,22 @@ def register_uiplan_command(registry: CommandRegistry) -> None:
 
     @register_command(
         registry,
+        name="uiplan-implement",
+        description="UiPlan implement: uipath_plan_review(all) preflight, then hand off to uiplan-implement skill flow.",
+    )
+    def uiplan_implement_command(*parts: str) -> str:
+        return _dispatch_uiplan(
+            "implement", " ".join(parts).strip(), command_name="uiplan-implement"
+        )
+
+    @register_command(
+        registry,
         name="uiplan",
         description=(
             "UiPlan: spec.md + plan.md + tasks.md under .cursor/plans/<date-slug>/ "
             "(ground -> spec -> plan -> tasks -> review). Prefer first-class "
             "commands: /uiplan-ground, /uiplan-spec, /uiplan-plan, "
-            "/uiplan-tasks, /uiplan-review, /uiplan-full."
+            "/uiplan-tasks, /uiplan-review, /uiplan-full, /uiplan-implement."
         ),
     )
     def uiplan_command(*parts: str) -> str:

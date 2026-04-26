@@ -81,6 +81,7 @@ def test_review_requires_development_execution_contract_in_plan():
         "## Project Structure\n```\nx\n```\n"
         "**Structure Decision**: concrete paths and rationale\n",
         [],
+        None,
     )
 
     assert any(f.get("rule") == "development_execution_contract" for f in findings)
@@ -94,3 +95,74 @@ def test_review_requires_build_verify_handoff_phase_in_tasks():
     )
 
     assert any(f.get("rule") == "build_verify_handoff_phase" for f in findings)
+
+
+def test_review_requires_paradigm_declaration_in_spec():
+    findings = review_spec_text(
+        "### User Story 1 - A (Priority: P1)\n"
+        "**Given** a **When** b **Then** c\n"
+        "## Requirements\n### Functional Requirements\n**FR-001**: System MUST x\n"
+        "## Success Criteria\n### Measurable Outcomes\n**SC-001**: y\n"
+        "## Development Handoff\nUse tasks.md after uipath_plan_review and acceptance.\n"
+    )
+    assert any(f.get("rule") == "paradigm_declared" for f in findings)
+
+
+def test_review_requires_code_structure_and_build_loop_for_declared_paradigm():
+    findings = review_plan_text(
+        "## Technical Context\nok\n"
+        "## Development execution contract\nrestore -> analyze -> test -> pack\n",
+        [],
+        "coded-agent",
+    )
+    assert any(f.get("rule") == "code_structure_present" for f in findings)
+    assert any(f.get("rule") == "build_loop_present" for f in findings)
+
+
+def test_review_requires_artifacts_and_grounding_in_tasks():
+    findings = review_tasks_text(
+        "## Phase 3: User Story 1 - A (Priority: P1)\n"
+        "### Tests for User Story 1\n- [ ] T010 [US1] test\n"
+        "### Implementation for User Story 1\n- [ ] T011 [US1] impl\n"
+        "## Phase 5: Build, Verify, and Handoff\n- [ ] T030 build\n",
+        "### User Story 1 - A (Priority: P1)\n",
+    )
+    assert any(f.get("rule") == "tasks_have_artifacts" for f in findings)
+    assert any(f.get("rule") == "feasibility_grounding" for f in findings)
+
+
+def test_review_warns_on_unknown_activity_tag():
+    repo = Path(__file__).resolve().parents[3]
+    spec = (
+        "### User Story 1 - A (Priority: P1)\n**Given** a **When** b **Then** c\n"
+        "## Requirements\n### Functional Requirements\n**FR-001**: System MUST x\n"
+        "## Success Criteria\n### Measurable Outcomes\n**SC-001**: y\n"
+        "## Development Handoff\n"
+        "**Implementation paradigm**: coded-agent\n"
+        "**CLI family**: uipath\n"
+        "Use tasks.md after uipath_plan_review and acceptance.\n"
+    )
+    plan = (
+        "## Technical Context\nok\n## Constitution Check\n- [ ] **modern_experience_only**: ok\n"
+        "## Project Structure\n### Source Code (repository root)\npyproject.toml\nlanggraph.json\n"
+        "### Paradigm build loop\nuipath run\n"
+        "## Development execution contract\nrestore -> analyze -> test -> pack\n"
+    )
+    tasks = (
+        "## Phase 3: User Story 1 - A (Priority: P1)\n### Tests for User Story 1\n"
+        "- [ ] T010 [US1] test `tests/test_us1.py`\n"
+        "### Implementation for User Story 1\n"
+        "- [ ] T011 [US1] impl `main.py` [skill:uipath-agents] uipath run personal workspace Production\n"
+        "- [ ] T012 [US1] use [activity:Fake.Package:MissingActivity]\n"
+        "## Phase 5: Build, Verify, and Handoff\n- [ ] T030 build\n"
+    )
+    out = run_uiplan_review(
+        spec=spec,
+        plan=plan,
+        tasks=tasks,
+        stage="all",
+        gate_ids=[],
+        repo=repo,
+        slug="activity-tag-test",
+    )
+    assert any(f.get("rule") == "no_invented_activities" for f in out["findings"])

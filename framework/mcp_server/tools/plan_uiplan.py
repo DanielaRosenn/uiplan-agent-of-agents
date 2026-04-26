@@ -3,9 +3,36 @@ from __future__ import annotations
 
 import re
 import shutil
+import importlib.util
 from pathlib import Path
 from typing import Any
 
+try:
+    from tools.uiplan.paradigms import (
+        build_loop_block,
+        cli_family,
+        code_structure_block,
+        deploy_gate,
+        infer_paradigm_from_files,
+        normalize_paradigm,
+        paradigm_task_blocks,
+        stack_line,
+    )
+except ModuleNotFoundError:
+    _PARADIGM_PATH = Path(__file__).resolve().parents[3] / "tools" / "uiplan" / "paradigms.py"
+    _spec = importlib.util.spec_from_file_location("uiplan_paradigms", _PARADIGM_PATH)
+    if _spec is None or _spec.loader is None:
+        raise
+    _module = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_module)
+    build_loop_block = _module.build_loop_block
+    cli_family = _module.cli_family
+    code_structure_block = _module.code_structure_block
+    deploy_gate = _module.deploy_gate
+    infer_paradigm_from_files = _module.infer_paradigm_from_files
+    normalize_paradigm = _module.normalize_paradigm
+    paradigm_task_blocks = _module.paradigm_task_blocks
+    stack_line = _module.stack_line
 from uipath_claude.context.path_contract import runtime_root
 from uipath_claude.skills.activity_docs import get_activity_doc
 
@@ -326,6 +353,30 @@ def _dependency_hint(pack: dict[str, Any]) -> str:
     return "Project dependencies should follow " + ", ".join(f"[skill:{name}]" for name in names[:5])
 
 
+def _detect_paradigm(repo: Path, meta: dict[str, Any], arguments: dict[str, Any]) -> str:
+    requested = normalize_paradigm(str(arguments.get("paradigm", "")).strip())
+    if requested != "unknown":
+        return requested
+    from_meta = normalize_paradigm(str(meta.get("project_type", "")).strip())
+    if from_meta != "unknown":
+        return from_meta
+    has_project_json = (repo / "project.json").is_file()
+    has_xaml = any(repo.rglob("*.xaml"))
+    has_pyproject = (repo / "pyproject.toml").is_file()
+    has_agent_marker = any((repo / name).is_file() for name in ("langgraph.json", "agent_framework.json", "llama_index.json"))
+    return infer_paradigm_from_files(
+        has_project_json=has_project_json,
+        has_xaml=has_xaml,
+        has_pyproject=has_pyproject,
+        has_agent_marker=has_agent_marker,
+        has_solution=(repo / "solution.uipx").is_file(),
+        has_coded_app=(repo / "app.config.json").is_file() and (repo / "action-schema.json").is_file(),
+        has_case_plan=(repo / "caseplan.json").is_file(),
+        has_api_workflow=(repo / "api-workflow.json").is_file(),
+        has_maestro_file=any(repo.rglob("*.bpmn")) or any(repo.rglob("*.flow")),
+    )
+
+
 def _load_tpl(repo: Path, name: str) -> str:
     p = _template_dir(repo) / name
     if not p.is_file():
@@ -385,6 +436,8 @@ def call_uiplan_spec_new(arguments: dict[str, Any]) -> dict[str, Any]:
         pack = pack_in
     else:
         pack = build_grounding_pack(repo, intent)
+
+    paradigm = normalize_paradigm(str(arguments.get("paradigm", project_type)))
 
     date = _today_iso()
     folder_name = f"{date}-{slug}"
@@ -448,6 +501,10 @@ def call_uiplan_spec_new(arguments: dict[str, Any]) -> dict[str, Any]:
             "or specialist skill execution from `tasks.md`."
         ),
         "QUALITY_GATES": "restore -> analyze -> test -> pack; deploy only with explicit approval.",
+        "PARADIGM": paradigm,
+        "TARGET_STACK": stack_line(paradigm),
+        "CLI_FAMILY": cli_family(paradigm),
+        "DEPLOY_GATE": deploy_gate(paradigm),
     }
     spec_body = _insert_source_documents(_fill(tpl, mapping), pack)
 
@@ -544,6 +601,16 @@ def call_uiplan_plan_new(arguments: dict[str, Any]) -> dict[str, Any]:
         "STRUCTURE_DECISION": f"Start from {tmpl_hint} and adjust paths to match repo layout.",
         "COMPLEXITY_TABLE": "_None — add rows only if a constitution gate is violated._",
     }
+    paradigm = _detect_paradigm(repo, meta, arguments)
+    mapping.update(
+        {
+            "PARADIGM": paradigm,
+            "CLI_FAMILY": cli_family(paradigm),
+            "CODE_STRUCTURE_BLOCK": code_structure_block(paradigm),
+            "BUILD_LOOP_BLOCK": build_loop_block(paradigm),
+            "LANG_VERSION": stack_line(paradigm),
+        }
+    )
     plan_body = _fill(tpl, mapping)
     (folder / "plan.md").write_text(plan_body, encoding="utf-8")
     return {"status": "ok", "path": str(folder / "plan.md"), "slug": slug}
@@ -588,6 +655,15 @@ def call_uiplan_tasks_new(arguments: dict[str, Any]) -> dict[str, Any]:
         "T020": "Documentation + README updates for operators.",
         "DEPENDENCIES_TEXT": "Phase 1 -> Phase 2 -> US1 -> Polish. Tests before implementation within each story.",
     }
+    paradigm = _detect_paradigm(repo, meta, arguments)
+    mapping.update(
+        {
+            "PARADIGM": paradigm,
+            "CLI_FAMILY": cli_family(paradigm),
+            "DEPLOY_GATE": deploy_gate(paradigm),
+            "PARADIGM_TASK_BLOCKS": paradigm_task_blocks(paradigm),
+        }
+    )
     tasks_body = _fill(tpl, mapping)
     tasks_body += _resolved_activity_docs_markdown(spec, plan)
     tasks_body += _tdd_reference_append(repo)

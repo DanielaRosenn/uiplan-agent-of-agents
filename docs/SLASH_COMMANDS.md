@@ -6,6 +6,8 @@ the input starts with `/`. They **bypass** the LLM orchestration router in
 Plain-language input may be routed by the orchestration step first; see
 [CAPABILITY_CONTRACT.md](CAPABILITY_CONTRACT.md) and [CLAUDE_USER_GUIDE.md](CLAUDE_USER_GUIDE.md).
 
+**Pure Anthropic Claude Code** (`claude` in a terminal) does not register this slash surface in the UI. Use the same flow by: opening the named `.cursor/skills/.../SKILL.md` files, using MCP tool names (see [MCP_TOOLS.md](MCP_TOOLS.md)) if the server is added to Claude Code, and/or `uv run uipath-claude <subcommand>` for deterministic CLI. See [PURE_CLAUDE_CODE.md](PURE_CLAUDE_CODE.md).
+
 Cursor exposes UiPlan through separate skill-backed
 slash commands, each wrapping the same MCP-backed workflow for Cursor chat. MCP
 tools remain documented in [MCP_TOOLS.md](MCP_TOOLS.md).
@@ -20,15 +22,20 @@ They expose separate native Cursor entries:
 | `/uiplan` | Overview/help/router for the UiPlan command suite. |
 | `/uiplan-full <title>` | Run ground -> spec -> plan -> tasks -> review. |
 | `/uiplan-ground <topic>` | Read-only grounding pack. |
-| `/uiplan-spec <title> [--intent text]` | Create the draft bundle and `spec.md`. |
-| `/uiplan-plan <slug>` | Write `plan.md` for an existing draft. |
-| `/uiplan-tasks <slug>` | Write `tasks.md` for an existing draft. |
+| `/uiplan-spec <title> [--intent text] [--paradigm value]` | Create the draft bundle and `spec.md`. |
+| `/uiplan-plan <slug> [--paradigm value]` | Write `plan.md` for an existing draft. |
+| `/uiplan-tasks <slug> [--paradigm value]` | Write `tasks.md` for an existing draft. |
 | `/uiplan-review <slug> [all\|spec\|plan\|tasks]` | Review a draft bundle. |
 | `/uiplan-implement <slug>` | Review first, confirm planner/discovery/specialist handoff, ask before build, then implement from `tasks.md`. |
 
 Each wrapper points back to `.cursor/skills/uiplan/SKILL.md` as the canonical
 contract and stops before implementation until review passes and the human
 approves the build.
+
+`/uiplan-review` now enforces feasibility checks (paradigm declaration,
+descriptor coverage, CLI-family alignment, artifact-rich tasks, grounding
+citations, and deploy gates). `/uiplan-tasks` expects concrete artifact paths,
+UiPath constructs, and verification steps per story.
 
 ## Tool profile (`UIPATH_CLAUDE_TOOL_PROFILE`)
 

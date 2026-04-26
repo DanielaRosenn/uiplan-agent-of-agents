@@ -279,6 +279,11 @@ Or run the staged flow:
 /uiplan-review <slug>
 ```
 
+`/uiplan-spec`, `/uiplan-plan`, and `/uiplan-tasks` also accept
+`--paradigm <value>` to force scaffold type when auto-detection is ambiguous.
+`/uiplan-review` now checks feasibility gates (paradigm, descriptor files,
+CLI-family consistency, artifact-level tasks, and deploy gate language).
+
 After review passes and you accept the bundle, use:
 
 ```text

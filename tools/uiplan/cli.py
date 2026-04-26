@@ -4,6 +4,7 @@ from pathlib import Path
 import typer
 
 from tools.uiplan.generators.docs_bundle import default_kit_dir, generate_docs_bundle
+from tools.uiplan.paradigms import KNOWN_PARADIGMS, normalize_paradigm
 from tools.uiplan.scaffold.loop_runner import resolve_max_loops
 from tools.uiplan.scaffold.runner import format_scaffold_stdout, run_scaffold
 from tools.uiplan.validators.mermaid_mmdc import validate_mermaid_with_mmdc
@@ -35,16 +36,32 @@ def generate_docs(
         "--strict/--no-strict",
         help="When strict (default), fail if visual-density checks do not pass.",
     ),
+    paradigm: str | None = typer.Option(
+        None,
+        "--paradigm",
+        help=(
+            "Optional project paradigm override. "
+            f"Known values: {', '.join(p for p in KNOWN_PARADIGMS if p != 'unknown')}."
+        ),
+    ),
 ) -> None:
     """Copy UiPlan kit templates into a folder with baseline placeholders filled."""
     repo = _repo_root()
     output = out or (repo / ".cursor" / "plans" / plan_slug)
     kit_dir = kit or default_kit_dir(repo)
+    if paradigm is not None and normalize_paradigm(paradigm) == "unknown":
+        typer.echo(
+            "Unknown --paradigm value. Use one of: "
+            + ", ".join(p for p in KNOWN_PARADIGMS if p != "unknown"),
+            err=True,
+        )
+        raise typer.Exit(code=2)
     generate_docs_bundle(
         repo_root=repo,
         plan_slug=plan_slug,
         output_dir=output,
         kit_dir=kit_dir,
+        paradigm=paradigm,
     )
     issues = validate_uiplan_docs(output, strict=strict)
     if issues:

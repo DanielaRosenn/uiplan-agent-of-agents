@@ -126,6 +126,11 @@ Then iterate (replace `<slug>` with your `.cursor/plans/<slug>/` folder name):
 
 Refine `tasks.md` via MCP (`uipath_plan_tasks_new` with intent) or edit the file, then re-run review.
 
+If detection is ambiguous, pass `--paradigm <value>` on `uiplan spec|plan|tasks`
+commands. Review now validates feasibility (declared paradigm, required
+descriptor files, CLI-family consistency, artifact-level tasks, and deploy
+gates) in addition to structure.
+
 When the bundle is ready to build:
 
 ```text
@@ -146,10 +151,12 @@ uipath-claude plan uiplan full "Invoice exception handling hardening"
 
 # staged flow (optional)
 uipath-claude plan uiplan ground "Invoice exception handling hardening"
-uipath-claude plan uiplan spec --slug invoice-exception-handling-hardening
-uipath-claude plan uiplan plan --slug invoice-exception-handling-hardening
-uipath-claude plan uiplan tasks --slug invoice-exception-handling-hardening
-uipath-claude plan uiplan review --slug invoice-exception-handling-hardening
+uipath-claude plan uiplan spec "Invoice exception handling" --slug invoice-exception-handling-hardening
+uipath-claude plan uiplan plan invoice-exception-handling-hardening
+uipath-claude plan uiplan tasks invoice-exception-handling-hardening
+uipath-claude plan uiplan review invoice-exception-handling-hardening
+# build preflight (stage=all review; same tool as /uiplan-implement handoff in chat)
+uipath-claude plan uiplan implement invoice-exception-handling-hardening
 ```
 
 ### Quality checklist before accept/publish
