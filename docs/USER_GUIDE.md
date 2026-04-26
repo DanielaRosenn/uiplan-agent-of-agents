@@ -155,6 +155,8 @@ uipath-claude plan uiplan spec "Invoice exception handling" --slug invoice-excep
 uipath-claude plan uiplan plan invoice-exception-handling-hardening
 uipath-claude plan uiplan tasks invoice-exception-handling-hardening
 uipath-claude plan uiplan review invoice-exception-handling-hardening
+# accept the reviewed bundle
+uipath-claude plan uiplan accept invoice-exception-handling-hardening
 # build preflight (stage=all review; same tool as /uiplan-implement handoff in chat)
 uipath-claude plan uiplan implement invoice-exception-handling-hardening
 ```

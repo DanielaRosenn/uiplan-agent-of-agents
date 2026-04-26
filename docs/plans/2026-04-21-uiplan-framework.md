@@ -66,7 +66,7 @@ filesystem shape.
 ### CLI + slash surface
 
 - `uipath-claude plan uiplan <topic>` (full loop) /
-  `... plan uiplan {ground|spec|plan|tasks|review} [args]` (staged)
+  `... plan uiplan {ground|spec|plan|tasks|review|accept|publish|implement} [args]` (staged)
 - First-class slash: `/uiplan-ground`, `/uiplan-spec`, `/uiplan-plan`,
   `/uiplan-tasks`, `/uiplan-review`, `/uiplan-full`, `/uiplan-implement`
 - Back-compat: `/uiplan` dispatcher (`/uiplan full …`, `/uiplan spec …`, …)

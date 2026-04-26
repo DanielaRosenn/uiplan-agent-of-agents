@@ -70,11 +70,15 @@ For deterministic, scriptable plan tools:
 ```powershell
 uv run uipath-claude doctor
 uv run uipath-claude plan uiplan full "Your feature title"
+uv run uipath-claude plan uiplan accept "your-plan-id"
 uv run uipath-claude plan uiplan implement "your-slug"
 uv run pytest -q
 ```
 
-`uipath-claude plan uiplan implement <slug>` runs `uipath_plan_review` with `stage=all` and prints JSON (build preflight). Chat uses a friendly handoff; see [SLASH_COMMANDS.md](SLASH_COMMANDS.md).
+`uipath-claude plan uiplan accept <plan-id>` marks the reviewed UiPlan bundle
+accepted. `uipath-claude plan uiplan implement <plan-id>` runs
+`uipath_plan_review` with `stage=all` and prints JSON (build preflight). Chat
+uses a friendly handoff; see [SLASH_COMMANDS.md](SLASH_COMMANDS.md).
 
 Use `uipath-claude chat` only if you want this project’s custom Bedrock+LangGraph REPL, slash command registry, session store, and orchestration router. Otherwise stay in `claude` and use skills + optional MCP/CLI as above.
 

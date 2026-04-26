@@ -405,6 +405,37 @@ def plan_uiplan_implement_cmd(
     _print_plan_result(_run_plan_tool("uipath_plan_review", args))
 
 
+@uiplan_app.command("accept")
+def plan_uiplan_accept_cmd(
+    slug: str = typer.Argument(..., help="UiPlan plan id / slug."),
+    actor: str | None = typer.Option(None, "--actor"),
+    note: str | None = typer.Option(None, "--note"),
+    project_root: str | None = typer.Option(None, "--project-root"),
+) -> None:
+    """Mark a UiPlan folder draft accepted."""
+    args: dict[str, Any] = {"slug": slug}
+    if actor:
+        args["actor"] = actor
+    if note:
+        args["note"] = note
+    if project_root:
+        args["project_root"] = project_root
+    _print_plan_result(_run_plan_tool("uipath_plan_accept", args))
+
+
+@uiplan_app.command("publish")
+def plan_uiplan_publish_cmd(
+    slug: str = typer.Argument(..., help="UiPlan plan id / slug."),
+    force: bool = typer.Option(False, "--force"),
+    project_root: str | None = typer.Option(None, "--project-root"),
+) -> None:
+    """Promote an accepted UiPlan folder to docs/plans/."""
+    args: dict[str, Any] = {"slug": slug, "force": force}
+    if project_root:
+        args["project_root"] = project_root
+    _print_plan_result(_run_plan_tool("uipath_plan_publish", args))
+
+
 @uiplan_app.command("full")
 def plan_uiplan_full_cmd(
     title: str = typer.Argument(..., help="Feature title."),

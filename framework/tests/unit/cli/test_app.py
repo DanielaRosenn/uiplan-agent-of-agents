@@ -73,6 +73,43 @@ def test_cli_chat_command():
     assert "chat" in result.stdout.lower()
 
 
+def test_cli_plan_uiplan_accept_and_publish(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[tuple[str, dict[str, Any]]] = []
+
+    def _fake_run_plan_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        calls.append((name, dict(arguments)))
+        return {"status": "ok", "name": name, **arguments}
+
+    monkeypatch.setattr("uipath_claude.cli.app._run_plan_tool", _fake_run_plan_tool)
+
+    accept = runner.invoke(
+        app,
+        [
+            "plan",
+            "uiplan",
+            "accept",
+            "zipauto",
+            "--actor",
+            "daniela",
+            "--note",
+            "reviewed",
+        ],
+    )
+    publish = runner.invoke(app, ["plan", "uiplan", "publish", "zipauto", "--force"])
+
+    assert accept.exit_code == 0
+    assert publish.exit_code == 0
+    assert calls == [
+        (
+            "uipath_plan_accept",
+            {"slug": "zipauto", "actor": "daniela", "note": "reviewed"},
+        ),
+        ("uipath_plan_publish", {"slug": "zipauto", "force": True}),
+    ]
+    assert "uipath_plan_accept" in accept.stdout
+    assert "uipath_plan_publish" in publish.stdout
+
+
 def test_cli_start_project_command():
     """Test start-project command exists."""
     result = runner.invoke(app, ["start-project", "--help"])

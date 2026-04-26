@@ -146,7 +146,8 @@ uipath-claude plan --help
 uipath-claude plan uiplan full "Your feature title"
 ```
 
-Use **`uipath-claude plan uiplan --help`** for staged `ground`, `spec`, `plan`, `tasks`, `review`.
+Use **`uipath-claude plan uiplan --help`** for staged `ground`, `spec`,
+`plan`, `tasks`, `review`, `accept`, `publish`, and `implement`.
 
 For staged `spec`, `plan`, and `tasks`, you can pass `--paradigm <value>` when
 project detection is ambiguous. UiPlan review now includes feasibility checks
