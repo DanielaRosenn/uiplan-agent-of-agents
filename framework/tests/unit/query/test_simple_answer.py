@@ -50,6 +50,36 @@ class TestSimpleLlmAnswer:
 
     @pytest.mark.asyncio
     @patch("uipath_claude.query.simple_answer.ChatBedrockConverse")
+    async def test_system_prompt_includes_project_capabilities(self, mock_chat_cls):
+        from uipath_claude.query.simple_answer import simple_llm_answer
+
+        mock_chat = MagicMock()
+        mock_response = MagicMock()
+        mock_response.content = "Yes, use /uiplan."
+        mock_chat.ainvoke = AsyncMock(return_value=mock_response)
+        mock_chat_cls.return_value = mock_chat
+
+        await simple_llm_answer(
+            user_input="can we use the uiplan?",
+            history=[],
+            model_name="test-model",
+            region="us-east-1",
+            capabilities_context=(
+                "Loaded skills:\n"
+                "- uiplan - UiPath planning\n"
+                "Available slash commands:\n"
+                "- /uiplan - UiPlan dispatcher"
+            ),
+        )
+
+        call_args = mock_chat.ainvoke.call_args[0][0]
+        system_msg = call_args[0]
+        assert "Local project capabilities available in this session" in system_msg.content
+        assert "- /uiplan - UiPlan dispatcher" in system_msg.content
+        assert "Do NOT claim you have no access to skills" in system_msg.content
+
+    @pytest.mark.asyncio
+    @patch("uipath_claude.query.simple_answer.ChatBedrockConverse")
     async def test_includes_history_in_messages(self, mock_chat_cls):
         from uipath_claude.query.simple_answer import simple_llm_answer
 

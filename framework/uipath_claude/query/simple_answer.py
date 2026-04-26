@@ -13,7 +13,7 @@ from uipath_claude.llm.invoke import build_chat_model
 from uipath_claude.llm.routing.complexity import ComplexitySignals
 
 
-_SIMPLE_ANSWER_SYSTEM_PROMPT = """You are UiPath Claude Code, an AI assistant that helps users understand UiPath automation concepts.
+_SIMPLE_ANSWER_SYSTEM_PROMPT = """You are UiPath Claude Code, an AI assistant that helps users understand UiPath automation concepts and this local UiPath Builder Agent project.
 
 You are answering an INFORMATIONAL QUESTION. Your job is to explain, describe, or clarify - NOT to build anything.
 
@@ -24,6 +24,9 @@ Rules:
 - Do NOT use file markers like <<<UIPATH_FILE>>> or ```path:
 - Do NOT say "I'll create" or "Let me build" - just answer the question
 - If the user wants you to build something, they will ask in a follow-up message
+- You are running inside the local UiPath Builder Agent CLI. If project capabilities are listed below, treat them as available through the host runtime.
+- For questions like "can we use X?", answer from the listed skills and slash commands. Do NOT claim you have no access to skills, tools, or extensions just because this answer path is informational.
+- When a slash command is the right entry point, name the command explicitly.
 
 Answer the user's question directly and informatively."""
 
@@ -36,6 +39,7 @@ async def simple_llm_answer(
     region: str | None = None,
     stream: bool = False,
     on_delta: Callable[[str], None] | None = None,
+    capabilities_context: str | None = None,
 ) -> str:
     """Answer an informational question without tools or file generation.
 
@@ -47,6 +51,7 @@ async def simple_llm_answer(
         region: AWS region (defaults to ``AWS_REGION`` env var).
         stream: Whether to stream the response
         on_delta: Callback for streaming deltas
+        capabilities_context: Optional local skill/command context for project-aware answers.
 
     Returns:
         String containing the answer
@@ -79,8 +84,16 @@ async def simple_llm_answer(
         chat_cls=ChatBedrockConverse,
     )
 
+    system_prompt = _SIMPLE_ANSWER_SYSTEM_PROMPT
+    if capabilities_context and capabilities_context.strip():
+        system_prompt = (
+            f"{system_prompt}\n\n"
+            "Local project capabilities available in this session:\n"
+            f"{capabilities_context.strip()}"
+        )
+
     messages: list[SystemMessage | HumanMessage | AIMessage] = [
-        SystemMessage(content=_SIMPLE_ANSWER_SYSTEM_PROMPT)
+        SystemMessage(content=system_prompt)
     ]
 
     for msg in history:

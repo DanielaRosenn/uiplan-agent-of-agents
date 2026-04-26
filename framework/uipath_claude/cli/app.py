@@ -1030,6 +1030,65 @@ def _build_command_registry(
     return registry
 
 
+def _build_answer_capabilities_context(
+    skills: list[dict], registry: CommandRegistry, *, max_skills: int = 40
+) -> str:
+    """Summarize loaded skills and slash commands for informational answers."""
+    lines = [
+        "This answer path is read-only, but it is project-aware.",
+        "Loaded skills:",
+    ]
+    for skill in sorted(skills, key=lambda s: str(s.get("name", "")))[:max_skills]:
+        name = str(skill.get("name", "")).strip()
+        if not name:
+            continue
+        description = str(skill.get("description", "")).strip()
+        origin = str(skill.get("origin", "")).strip()
+        suffix = f" - {description}" if description else ""
+        origin_suffix = f" ({origin})" if origin else ""
+        lines.append(f"- {name}{origin_suffix}{suffix}")
+
+    command_items = sorted(registry.commands.items(), key=lambda item: item[0])
+    if command_items:
+        lines.append("Available slash commands:")
+        for name, meta in command_items:
+            description = str(meta.get("description", "")).strip()
+            suffix = f" - {description}" if description else ""
+            lines.append(f"- /{name}{suffix}")
+
+    lines.append(
+        "If the user asks whether a capability can be used, answer based on these "
+        "skills and commands and suggest the exact slash command when applicable."
+    )
+    return "\n".join(lines)
+
+
+def _console_safe_text(text: object) -> str:
+    """Return text that can be printed on Windows terminals using narrow encodings."""
+    value = str(text)
+    replacements = {
+        "\u2192": "->",
+        "\u2190": "<-",
+        "\u2014": "-",
+        "\u2013": "-",
+        "\u2026": "...",
+        "\u201c": '"',
+        "\u201d": '"',
+        "\u2018": "'",
+        "\u2019": "'",
+        "\u26a0": "!",
+        "\u2705": "+",
+        "\u274c": "x",
+        "\u2713": "+",
+        "\u2717": "x",
+        "\u2022": "-",
+    }
+    for needle, replacement in replacements.items():
+        value = value.replace(needle, replacement)
+    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+    return value.encode(encoding, errors="replace").decode(encoding, errors="replace")
+
+
 def _create_engine() -> ConversationEngine:
     """Create Bedrock conversation engine from environment settings."""
     model_name = model_for_task("agentic_executor")
@@ -1487,7 +1546,7 @@ def chat(
                     )
                     continue
                 output = registry.execute(command, *args)
-                console.print(output)
+                console.print(_console_safe_text(output))
                 output_text = str(output) if output is not None else ""
                 if output_text.strip():
                     max_chars = 4000
@@ -1574,7 +1633,7 @@ def chat(
                 _flush_stdio()
                 
                 def _print_delta(delta: str) -> None:
-                    console.print(delta, end="")
+                    console.print(_console_safe_text(delta), end="")
                 
                 stream_callback = _print_delta if stream_enabled else None
                 console.print("[magenta]Assistant:[/magenta] ", end="")
@@ -1588,10 +1647,13 @@ def chat(
                             region=region,
                             stream=stream_enabled,
                             on_delta=stream_callback,
+                            capabilities_context=_build_answer_capabilities_context(
+                                skills, registry
+                            ),
                         )
                     )
                     if not stream_enabled:
-                        console.print(answer, end="")
+                        console.print(_console_safe_text(answer), end="")
                     console.print("")
 
                     maybe_print_capability_build_hint(console, user_input)

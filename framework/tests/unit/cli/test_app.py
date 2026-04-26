@@ -181,6 +181,37 @@ def test_cli_chat_auth_skip_starts_repl(monkeypatch: pytest.MonkeyPatch):
     assert "continuing without authentication" in out
 
 
+def test_answer_capabilities_context_includes_skills_and_commands():
+    """Normal question answering should know the local project command surface."""
+    from uipath_claude.cli.app import _build_answer_capabilities_context
+    from uipath_claude.commands.registry import CommandRegistry
+
+    registry = CommandRegistry()
+    registry.register("uiplan", "UiPlan dispatcher.", lambda: "ok")
+    skills = [
+        {
+            "name": "uiplan",
+            "description": "UiPath planning skill.",
+            "origin": "project",
+        }
+    ]
+
+    context = _build_answer_capabilities_context(skills, registry)
+
+    assert "project-aware" in context
+    assert "- uiplan (project) - UiPath planning skill." in context
+    assert "- /uiplan - UiPlan dispatcher." in context
+
+
+def test_console_safe_text_replaces_common_unicode():
+    """CLI output should not crash narrow Windows console encodings."""
+    from uipath_claude.cli.app import _console_safe_text
+
+    text = _console_safe_text("ground \u2192 spec \u2192 plan \u2014 done \u2026")
+
+    assert text == "ground -> spec -> plan - done ..."
+
+
 def test_cli_chat_slash_chat_message():
     """Test /chat command inside REPL gives friendly message."""
     with patch("uipath_claude.cli.app._create_engine") as create_engine:
