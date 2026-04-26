@@ -1,6 +1,6 @@
 ---
 name: uiplan
-description: UiPath planning — three-file UiPlan bundle (spec + plan + tasks) under .cursor/plans/, with discovery and grounding before build. Use for multi-step or ambiguous work before implementation; subsumes the former brainstorming-plan flow.
+description: UiPath planning — the single planning skill for discovery, grounding, and the three-file UiPlan bundle (spec + plan + tasks) under .cursor/plans/. Use for multi-step or ambiguous work before implementation.
 ---
 
 # UiPlan (spec + plan + tasks)
@@ -102,10 +102,24 @@ Do **not** start implementation (workflow writes, package installs, deploy) unti
 
 After acceptance and when ready to promote: **`uipath_plan_publish`** copies the draft folder to `docs/plans/`. Use `force=true` only to intentionally overwrite a prior published version.
 
-## Slash / CLI (same MCP tools as Cursor)
+## Slash / CLI (MCP-backed)
 
-- **`uipath chat`:** `/uiplan full <title>` or staged `/uiplan ground|spec|plan|tasks|review ...` (see `framework/uipath_claude/commands/uiplan.md`).
-- **Terminal:** `uipath-claude plan uiplan full "<title>"` or `plan uiplan ground|spec|plan|tasks|review ...`.
+Each slash command is a thin wrapper around the corresponding `uipath_plan_*`
+MCP tool:
+
+| Command | MCP tool |
+| --- | --- |
+| `/uiplan-ground <topic>` | `uipath_plan_ground` |
+| `/uiplan-spec <title> [--intent ...]` | `uipath_plan_spec_new` |
+| `/uiplan-plan <slug>` | `uipath_plan_plan_new` |
+| `/uiplan-tasks <slug>` | `uipath_plan_tasks_new` |
+| `/uiplan-review <slug> [all\|spec\|plan\|tasks]` | `uipath_plan_review` |
+| `/uiplan-full <title>` | `uipath_plan_uiplan_new` |
+
+`/uiplan` remains as a backwards-compatible dispatcher/help alias.
+
+**Terminal:** `uipath-claude plan uiplan full "<title>"` or
+`plan uiplan ground|spec|plan|tasks|review ...`.
 
 ## Lightweight fallback — legacy single-file plan
 

@@ -119,6 +119,83 @@ def _fill(tpl: str, mapping: dict[str, str]) -> str:
     return out
 
 
+def _clip_one_line(text: str, limit: int = 220) -> str:
+    text = " ".join((text or "").split())
+    if len(text) <= limit:
+        return text
+    return text[: limit - 14].rstrip() + " ... (truncated)"
+
+
+def _format_grounding_context(pack: dict[str, Any]) -> str:
+    """Render grounding inputs into plan.md so later task generation sees them."""
+    lines: list[str] = []
+
+    planner = pack.get("planning_skill")
+    if isinstance(planner, dict) and planner.get("name"):
+        lines.append(f"- Planning route: `[skill:{planner['name']}]`")
+        excerpt = planner.get("excerpt")
+        if excerpt:
+            lines.append(f"  - Excerpt: {_clip_one_line(str(excerpt), 300)}")
+
+    matched = pack.get("matched_skills") or []
+    if isinstance(matched, list) and matched:
+        lines.append("- Matched specialist skills:")
+        for skill in matched[:5]:
+            if not isinstance(skill, dict):
+                continue
+            name = str(skill.get("name") or "unknown")
+            desc = _clip_one_line(str(skill.get("description") or ""), 180)
+            lines.append(f"  - `[skill:{name}]` - {desc}")
+            excerpt = skill.get("excerpt")
+            if excerpt:
+                lines.append(f"    - Excerpt: {_clip_one_line(str(excerpt), 260)}")
+
+    lookups = pack.get("knowledge_lookups") or []
+    if isinstance(lookups, list) and lookups:
+        lines.append("- Library / AskAI-style knowledge lookups:")
+        for hit in lookups[:3]:
+            if not isinstance(hit, dict):
+                continue
+            query = str(hit.get("query") or "").strip()
+            source = str(hit.get("source") or "").strip()
+            prefix = f"  - `{query}`" if query else "  - lookup"
+            if source:
+                prefix += f" ({source})"
+            lines.append(prefix)
+            excerpt = hit.get("excerpt") or hit.get("error")
+            if excerpt:
+                lines.append(f"    - Excerpt: {_clip_one_line(str(excerpt), 300)}")
+
+    library_hits = pack.get("library_hits") or []
+    if isinstance(library_hits, list) and library_hits:
+        lines.append("- Library search hits:")
+        for hit in library_hits[:3]:
+            if not isinstance(hit, dict):
+                continue
+            query = str(hit.get("query") or "").strip()
+            excerpt = hit.get("excerpt") or hit.get("error")
+            lines.append(f"  - `{query}`: {_clip_one_line(str(excerpt or ''), 260)}")
+
+    unanswered = pack.get("unanswered") or []
+    if isinstance(unanswered, list) and unanswered:
+        lines.append("- Open grounding questions:")
+        lines.extend(f"  - {item}" for item in unanswered[:5])
+
+    return "\n".join(lines) if lines else "_No grounding context available._"
+
+
+def _dependency_hint(pack: dict[str, Any]) -> str:
+    matched = pack.get("matched_skills") or []
+    names = [
+        str(skill.get("name"))
+        for skill in matched
+        if isinstance(skill, dict) and skill.get("name")
+    ]
+    if not names:
+        return "UiPath.* activities / SDK per project-context."
+    return "Project dependencies should follow " + ", ".join(f"[skill:{name}]" for name in names[:5])
+
+
 def _load_tpl(repo: Path, name: str) -> str:
     p = _template_dir(repo) / name
     if not p.is_file():
@@ -286,9 +363,14 @@ def call_uiplan_plan_new(arguments: dict[str, Any]) -> dict[str, Any]:
         "TITLE": title,
         "DATE": date,
         "GROUNDING_CITATIONS": cites,
-        "SUMMARY": f"Implementation approach derived from spec for {title}.",
+        "SUMMARY": (
+            f"Implementation approach derived from spec for {title}. "
+            "The plan is grounded in the planning skill, matched specialist "
+            "skills, library/AskAI-style lookups, project context, and constitution gates."
+        ),
+        "GROUNDING_CONTEXT": _format_grounding_context(pack),
         "LANG_VERSION": "C# 12 / .NET 8 (Modern) or Python 3.11+ for coded agents — adjust per project-context.",
-        "DEPS": "UiPath.* activities / SDK per project-context.",
+        "DEPS": _dependency_hint(pack),
         "STORAGE": "Orchestrator queues, assets, or Data Fabric — specify in Structure Decision.",
         "TESTING": "uipcli test run / pytest per paradigm.",
         "TARGET_PLATFORM": "Automation Cloud / Windows robots — confirm in project-context.",

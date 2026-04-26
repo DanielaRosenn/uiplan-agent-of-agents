@@ -123,7 +123,7 @@ The banner prints a **session id**. The process tells you: `Type 'exit' or 'quit
 ### 5. Inside chat: normal work loop
 
 1. Type a **goal** in plain language (include paths, project type, and constraints).
-2. Use **slash commands** when you want a fixed operation (`/validate`, `/uiplan`, `/pdd`, …). See [SLASH_COMMANDS.md](SLASH_COMMANDS.md).
+2. Use **slash commands** when you want a fixed operation (`/validate`, `/uiplan-*`, `/uiplan`, `/pdd`, …). See [SLASH_COMMANDS.md](SLASH_COMMANDS.md).
 3. Answer **approval prompts** when the agent proposes destructive tools (unless you disabled prompts via `UIPATH_TOOL_APPROVAL` for CI).
 4. When finished, type **`exit`** or **`quit`**, or press **Ctrl+C** to abort the current line or stop the session.
 
@@ -206,7 +206,7 @@ The CLI is best when you want a bounded, repeatable agent run with explicit gate
 flowchart LR
     Preflight[Preflight<br/>doctor + sync] --> Scope[Scope prompt<br/>goal + constraints]
     Scope --> Risk{Risky or multi-file?}
-    Risk -->|yes| Plan[/uiplan or /pdd]
+    Risk -->|yes| Plan[/uiplan-* or /pdd]
     Risk -->|no| Chat[Plain chat]
     Plan --> Approve[Human approval]
     Approve --> Implement[Implement]
@@ -249,7 +249,7 @@ do not write files unless I explicitly approve a fix plan.
 | Need | Prefer |
 | --- | --- |
 | Full delivery lifecycle | `/pdd` |
-| Structured spec/plan/tasks | `/uiplan` |
+| Structured spec/plan/tasks | `/uiplan-full` or staged `/uiplan-spec` … `/uiplan-review` (see [SLASH_COMMANDS.md](SLASH_COMMANDS.md)) |
 | Existing workflow validation | `/validate` or `/analyze` |
 | Skill refresh/checks | `/update-skills`, `/scan-upstream-skills` |
 | Library proposal review | `/library-proposals` |
@@ -258,7 +258,7 @@ Plain chat is good for exploration; slash commands are better for repeatable ope
 
 ### 4. Keep writes behind plans when risk is non-trivial
 
-Use `/uiplan full "<title>"` when the change touches multiple files, changes architecture, adds Orchestrator behavior, affects credentials/assets/queues, or changes production-facing deployment. Let the plan reach review/acceptance before asking for implementation.
+Use `/uiplan-full "<title>"` when the change touches multiple files, changes architecture, adds Orchestrator behavior, affects credentials/assets/queues, or changes production-facing deployment. Let the plan reach review/acceptance before asking for implementation.
 
 For stricter local enforcement:
 
@@ -313,7 +313,7 @@ High-signal defaults:
 | --- | --- |
 | Full BA → SA → ADD → TDD → Dev → QA (+ optional publish/deploy) | `/pdd` |
 | Lighter legacy flow | `/bootstrap` |
-| Structured spec / plan / tasks | `/uiplan` (see [uiplan/README.md](uiplan/README.md)) |
+| Structured spec / plan / tasks | `/uiplan-*` commands (see [uiplan/README.md](uiplan/README.md), [SLASH_COMMANDS.md](SLASH_COMMANDS.md)) |
 | Static validation | `/validate`, `/analyze` |
 | Skills hygiene | `/update-skills`, `/scan-upstream-skills` |
 | Library learning | `/library-harvest`, `/library-proposals`, `/books` |
@@ -352,7 +352,7 @@ Describe the automation in plain language; include project path and constraints.
 
 ### Pattern 2: Plan before build
 
-For multi-file or risky work, run **`/uiplan full "<title>"`** (or staged `ground|spec|plan|tasks|review`), get human acceptance, then implement from `tasks.md`.
+For multi-file or risky work, run **`/uiplan-full "<title>"`** (or staged `/uiplan-ground` … `/uiplan-review`), get human acceptance, then implement from `tasks.md`.
 
 ### Pattern 3: Full SDLC artifact trail
 

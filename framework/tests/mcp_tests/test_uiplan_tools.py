@@ -134,3 +134,79 @@ async def test_tasks_new_resolved_activity_docs(repo, monkeypatch):
     assert "## Resolved activity docs" in tasks_text
     assert "SYNTHETIC_ACTIVITY_DOC" in tasks_text
     assert "`UiPath.System.Activities` / `LogMessage`" in tasks_text
+
+
+@pytest.mark.asyncio
+async def test_plan_new_writes_grounding_inputs(repo, monkeypatch):
+    tpl = repo / "templates" / "uiplan"
+    (tpl / "_spec-template.md").write_text(
+        "# {{TITLE}}\n{{INTENT}}\n## User Scenarios\n### User Story 1 - A (Priority: P1)\n"
+        "**Given** g **When** w **Then** t\n## Requirements\n### Functional Requirements\n"
+        "**FR-001**: System MUST x\n## Success Criteria\n### Measurable Outcomes\n**SC-001**: m\n",
+        encoding="utf-8",
+    )
+    (tpl / "_plan-template.md").write_text(
+        "# {{TITLE}}\n## Summary\n{{SUMMARY}}\n## Grounding Inputs\n{{GROUNDING_CONTEXT}}\n"
+        "## Technical Context\n**Primary Dependencies**: {{DEPS}}\n"
+        "## Constitution Check\n{{CONSTITUTION_CHECKLIST}}\n"
+        "## Project Structure\n```text\n{{SOURCE_TREE}}\n```\n"
+        "**Structure Decision**: {{STRUCTURE_DECISION}}\n## Complexity Tracking\nx\n",
+        encoding="utf-8",
+    )
+
+    pack = {
+        "status": "ok",
+        "planning_skill": {
+            "name": "uipath-planner",
+            "excerpt": "Planner guidance should be visible in generated plan.",
+        },
+        "matched_skills": [
+            {
+                "name": "uipath-rpa",
+                "description": "RPA guidance",
+                "excerpt": "Use modern activities and analyze before pack.",
+            }
+        ],
+        "knowledge_lookups": [
+            {
+                "query": "queues",
+                "source": "SOURCE: library:uipath-docs/orchestrator/queues",
+                "excerpt": "Queue guidance excerpt.",
+            }
+        ],
+        "library_hits": [{"query": "queues", "excerpt": "Queue section excerpt."}],
+        "candidate_project_template": "templates/long-running/",
+        "constitution": {"gates": [{"id": "modern", "text": "Modern only"}]},
+        "suggested_citations": ["[skill:uipath-planner]", "[skill:uipath-rpa]"],
+        "unanswered": [],
+    }
+
+    spec_out = await plan_tools.call_plan_tool(
+        "uipath_plan_spec_new",
+        {
+            "project_root": str(repo),
+            "title": "Grounded Plan Test",
+            "intent": "queue automation",
+            "slug": "grounded-plan-test",
+            "grounding_pack": pack,
+        },
+    )
+    assert spec_out.get("status") == "ok"
+
+    plan_out = await plan_tools.call_plan_tool(
+        "uipath_plan_plan_new",
+        {
+            "project_root": str(repo),
+            "slug": spec_out["slug"],
+            "grounding_pack": pack,
+        },
+    )
+    assert plan_out.get("status") == "ok"
+    plan_text = (repo / ".cursor" / "plans" / spec_out["folder_name"] / "plan.md").read_text(
+        encoding="utf-8"
+    )
+    assert "## Grounding Inputs" in plan_text
+    assert "[skill:uipath-planner]" in plan_text
+    assert "[skill:uipath-rpa]" in plan_text
+    assert "SOURCE: library:uipath-docs/orchestrator/queues" in plan_text
+    assert "Queue guidance excerpt" in plan_text

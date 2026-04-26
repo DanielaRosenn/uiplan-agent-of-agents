@@ -10,6 +10,10 @@
 
 {{SUMMARY}}
 
+## Grounding Inputs
+
+{{GROUNDING_CONTEXT}}
+
 ## Technical Context
 
 **Language/Version**: {{LANG_VERSION}}

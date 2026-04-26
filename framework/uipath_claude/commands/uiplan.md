@@ -1,16 +1,32 @@
-# /uiplan (UiPath spec-kit style)
+# UiPlan Slash Commands (UiPath spec-kit style)
 
-Slash command **`/uiplan`** is registered in code as `uipath_claude/commands/uiplan.py`
-(`register_uiplan_command`). It forwards to the same MCP tools as the CLI.
+UiPlan slash commands are registered in `uipath_claude/commands/uiplan.py`
+(`register_uiplan_command`). Each command forwards directly to the matching
+`uipath_plan_*` MCP tool.
 
 ## Usage (chat)
 
-- `/uiplan full My feature title` — runs `uipath_plan_uiplan_new` (ground → spec → plan → tasks → review).
-- `/uiplan ground <topic>` — `uipath_plan_ground` only.
-- `/uiplan spec <title> [intent ...]` — `uipath_plan_spec_new`.
-- `/uiplan plan <slug>` — `uipath_plan_plan_new`.
-- `/uiplan tasks <slug>` — `uipath_plan_tasks_new`.
-- `/uiplan review <slug> [all|spec|plan|tasks]` — `uipath_plan_review`.
+| Command | MCP tool | Purpose |
+| --- | --- | --- |
+| `/uiplan-ground <topic>` | `uipath_plan_ground` | Build the grounding pack only. |
+| `/uiplan-spec <title> [--intent text]` | `uipath_plan_spec_new` | Create the draft folder and `spec.md`. |
+| `/uiplan-plan <slug>` | `uipath_plan_plan_new` | Write `plan.md` after spec exists. |
+| `/uiplan-tasks <slug>` | `uipath_plan_tasks_new` | Write `tasks.md` after plan exists. |
+| `/uiplan-review <slug> [all|spec|plan|tasks]` | `uipath_plan_review` | Review the bundle. |
+| `/uiplan-full <title>` | `uipath_plan_uiplan_new` | Run ground → spec → plan → tasks → review. |
+
+`/uiplan-ground` and the generated `plan.md` grounding section include the
+planning skill route, matched specialist skill excerpts, local library hits, and
+the `uipath_library_lookup` / AskAI-style knowledge path when available.
+
+Backwards-compatible dispatcher:
+
+- `/uiplan full My feature title`
+- `/uiplan ground <topic>`
+- `/uiplan spec <title> [--intent text]`
+- `/uiplan plan <slug>`
+- `/uiplan tasks <slug>`
+- `/uiplan review <slug> [all|spec|plan|tasks]`
 
 ## CLI equivalent
 

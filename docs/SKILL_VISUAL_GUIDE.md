@@ -89,8 +89,7 @@ Some Cursor-visible skills are local helper or compatibility skills rather than 
 
 | Skill | Role | How It Should Behave |
 | --- | --- | --- |
-| `uiplan` | Canonical planning helper. | Creates and reviews `spec.md`, `plan.md`, and `tasks.md` bundles before implementation. |
-| `brainstorming-plan` | Compatibility / workflow helper. | Redirects planning energy toward UiPlan instead of creating a separate planning dialect. |
+| `uiplan` | Canonical planning helper. | Creates and reviews `spec.md`, `plan.md`, and `tasks.md` bundles before implementation (slash: `/uiplan-*`, dispatcher `/uiplan`). |
 | `writing-uipath-plans` | Plan-writing helper. | Helps structure implementation plans and review criteria. |
 | `mermaid-diagram-builder` | Diagram helper. | Produces Mermaid diagrams that are readable in GitHub and strict renderers. |
 | `uipath-servo` | Legacy redirect only. | Points users to `uipath-interact`; do not use it as a canonical skill in new docs/prompts. |
@@ -133,7 +132,7 @@ flowchart LR
     Shell[Terminal] --> Doctor[doctor]
     Doctor --> Chat[uipath-claude chat]
     Chat --> Slash{Slash command?}
-    Slash -->|/uiplan| UiPlan[spec / plan / tasks]
+    Slash -->|/uiplan-*| UiPlan[spec / plan / tasks]
     Slash -->|/pdd| Lifecycle[BA -> SA -> ADD -> TDD -> Dev -> QA]
     Slash -->|plain goal| Agent[Agentic executor]
     UiPlan --> Gate[Human accept gate]
@@ -149,7 +148,7 @@ Claude best practice:
 | Session Moment | Best Move |
 | --- | --- |
 | Before work | `uv run uipath-claude doctor`. |
-| Before risky edits | `/uiplan full "<title>"` or `/pdd`. |
+| Before risky edits | `/uiplan-full "<title>"` or `/pdd`. |
 | During implementation | Keep the prompt scoped to one project or feature slice. |
 | Before handoff | Ask which command/tool proved validation. |
 | After a durable fix | Stage a library proposal. |

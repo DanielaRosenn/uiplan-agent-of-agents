@@ -42,7 +42,13 @@ Commands are registered in [`framework/uipath_claude/cli/app.py`](../framework/u
 | `/library-harvest` | Enqueue library proposals from skills | yes |
 | `/library-proposals` | List / show / approve / reject proposals | yes |
 | `/books` | List library books | yes |
-| `/uiplan` | UiPlan CLI bridge from chat ([uiplan command README](../framework/uipath_claude/commands/uiplan.md)) | yes |
+| `/uiplan-ground` | UiPlan grounding pack (`uipath_plan_ground`) | yes |
+| `/uiplan-spec` | Create UiPlan `spec.md` (`uipath_plan_spec_new`) | yes |
+| `/uiplan-plan` | Create UiPlan `plan.md` (`uipath_plan_plan_new`) | yes |
+| `/uiplan-tasks` | Create UiPlan `tasks.md` (`uipath_plan_tasks_new`) | yes |
+| `/uiplan-review` | Review a UiPlan bundle (`uipath_plan_review`) | yes |
+| `/uiplan-full` | Full UiPlan scaffold (`uipath_plan_uiplan_new`) | yes |
+| `/uiplan` | Backwards-compatible UiPlan dispatcher/help alias ([uiplan command README](../framework/uipath_claude/commands/uiplan.md)) | yes |
 | `/plan` | Planner slash command (when planner enabled) | yes |
 
 Use `/help` in a live session for the exact list your build registers.
@@ -54,7 +60,7 @@ Use `/help` in a live session for the exact list your build registers.
 | Full lifecycle (BA → … → QA, optional deploy) | `/pdd` |
 | Lighter four-stage flow | `/bootstrap` |
 | Static validation | `/validate`, `/analyze` |
-| Planning / three-file bundles | `/uiplan`, `/plan` (if enabled) |
+| Planning / three-file bundles | `/uiplan-spec`, `/uiplan-plan`, `/uiplan-tasks`, `/uiplan-review`, `/uiplan-full`; `/uiplan` remains as a dispatcher alias |
 | Skills + library hygiene | `/doctor`, `/update-skills`, `/scan-upstream-skills`, `/library-harvest`, `/library-proposals`, `/books` |
 
 Related: [USER_GUIDE.md](USER_GUIDE.md), [CAPABILITY_CONTRACT.md](CAPABILITY_CONTRACT.md), and [SMOKE_TESTS.md](SMOKE_TESTS.md) (env vars and scenarios).

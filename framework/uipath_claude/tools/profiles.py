@@ -31,6 +31,12 @@ _SAFE_COMMANDS = (
     "pdd",
     "repair-restore",
     "uiplan",
+    "uiplan-ground",
+    "uiplan-spec",
+    "uiplan-plan",
+    "uiplan-tasks",
+    "uiplan-review",
+    "uiplan-full",
     "plan",
 )
 _UIPATH_DEV_COMMANDS = (*_SAFE_COMMANDS,)

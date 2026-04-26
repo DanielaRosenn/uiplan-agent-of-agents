@@ -10,7 +10,7 @@ This repository exposes the same skill catalog to **Cursor** and to the **Python
 ## Cursor discovery (generated view, not source of truth)
 
 - **`.cursor/skills`** — Cursor indexes skills here. It should be treated as a generated Cursor view of `skills/skills/` plus approved Cursor-only overlays, not as the authoritative catalog.
-- In this repo `ops/scripts/setup-cursor.*` builds a physical view from `skills/skills/` plus `extensions/skills/`. That keeps Cursor and the Python loader aligned while preserving approved overlays such as `uiplan`, `writing-uipath-plans`, `mermaid-diagram-builder`, `brainstorming-plan`, and the legacy `uipath-servo` redirect.
+- In this repo `ops/scripts/setup-cursor.*` builds a physical view from `skills/skills/` plus `extensions/skills/`. That keeps Cursor and the Python loader aligned while preserving approved overlays such as `uiplan`, `writing-uipath-plans`, `mermaid-diagram-builder`, and the legacy `uipath-servo` redirect.
 - After every `git pull` or submodule advance, run **`uipath-claude doctor`**. It warns when `.cursor/skills` is missing upstream skills or contains unmanaged extras.
 
 ## Monitoring upstream (already wired)

@@ -89,7 +89,7 @@ Follow this sequence when you want to leverage the full project stack end-to-end
    - small obvious edit -> direct implementation + validation
    - medium/large change -> UiPlan first
    - formal initiative with stakeholder artifacts -> `/pdd`
-3. **Plan**: run UiPlan (`/uiplan` in chat or `uipath-claude plan uiplan ...` in terminal).
+3. **Plan**: run UiPlan (prefer `/uiplan-ground`, `/uiplan-spec`, … or `/uiplan-full`; `/uiplan` remains a dispatcher; CLI: `uipath-claude plan uiplan ...`).
 4. **Review + accept**: verify spec/plan/tasks quality before publishing.
 5. **Build**: implement using approved plan with validator loops.
 6. **Verify**: run analyze/validate/tests/manual checks from docs; **pytest** layout
@@ -115,15 +115,16 @@ UiPlan is best when you need clear separation between **what to build**, **how t
 In Cursor chat:
 
 ```text
-/uiplan full "Invoice exception handling hardening"
+/uiplan-full "Invoice exception handling hardening"
 ```
 
-Then iterate:
+Then iterate (replace `<slug>` with your `.cursor/plans/<slug>/` folder name):
 
 ```text
-/uiplan review
-/uiplan tasks --refine
+/uiplan-review <slug>
 ```
+
+Refine `tasks.md` via MCP (`uipath_plan_tasks_new` with intent) or edit the file, then re-run review.
 
 Use natural language with MCP tools as needed:
 
@@ -279,7 +280,7 @@ Create a workflow that reads a CSV file, transforms the data, and uploads to Orc
 
 ## Slash Commands
 
-Use slash commands for quick actions in **`uipath chat`** (input starts with `/`). Which commands are accepted is controlled by **`UIPATH_CLAUDE_TOOL_PROFILE`** (`safe`, `uipath-dev`, or `all`); the **`safe`** profile includes the full SDLC set (`/pdd`, `/validate`, `/uiplan`, library commands, etc.). Full matrix: [SLASH_COMMANDS.md](SLASH_COMMANDS.md).
+Use slash commands for quick actions in **`uipath chat`** (input starts with `/`). Which commands are accepted is controlled by **`UIPATH_CLAUDE_TOOL_PROFILE`** (`safe`, `uipath-dev`, or `all`); the **`safe`** profile includes the full SDLC set (`/pdd`, `/validate`, `/uiplan-*`, `/uiplan`, library commands, etc.). Full matrix: [SLASH_COMMANDS.md](SLASH_COMMANDS.md).
 
 | Command | Description |
 |---------|-------------|

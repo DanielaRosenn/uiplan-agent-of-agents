@@ -1,6 +1,6 @@
 ---
 name: uiplan
-description: UiPath planning — three-file UiPlan bundle (spec + plan + tasks) under .cursor/plans/, with discovery and grounding before build. Use for multi-step or ambiguous work before implementation; subsumes the former brainstorming-plan flow.
+description: UiPath planning — three-file UiPlan bundle (spec + plan + tasks) under .cursor/plans/, with discovery and grounding before build. Use for multi-step or ambiguous work before implementation.
 ---
 
 # UiPlan (spec + plan + tasks)

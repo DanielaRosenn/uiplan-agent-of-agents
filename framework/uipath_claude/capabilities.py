@@ -14,6 +14,12 @@ CORE_SLASH_COMMANDS: tuple[str, ...] = (
     "skills",
     "plan",
     "uiplan",
+    "uiplan-ground",
+    "uiplan-spec",
+    "uiplan-plan",
+    "uiplan-tasks",
+    "uiplan-review",
+    "uiplan-full",
     "pdd",
     "validate",
     "recall",
@@ -40,7 +46,6 @@ MCP_EXACT_TOOLS: tuple[str, ...] = (
 )
 
 CURSOR_APPROVED_SKILL_OVERLAYS: tuple[str, ...] = (
-    "brainstorming-plan",
     "mermaid-diagram-builder",
     "uiplan",
     "writing-uipath-plans",

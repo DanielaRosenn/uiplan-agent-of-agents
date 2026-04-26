@@ -236,7 +236,7 @@ Full setup (UiPath CLI, Studio 26.2+, Orchestrator auth, AWS region overrides) l
 | Goal | Best entry point | Why |
 | --- | --- | --- |
 | Understand project purpose and architecture | [README.md](README.md) + [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Fast orientation + deep runtime model |
-| Plan a meaningful change before code | [docs/uiplan/README.md](docs/uiplan/README.md) + `/uiplan` | Structured spec/plan/tasks with review gates |
+| Plan a meaningful change before code | [docs/uiplan/README.md](docs/uiplan/README.md) + `/uiplan-*` (or `/uiplan` dispatcher) | Structured spec/plan/tasks with review gates |
 | Run full SDLC lifecycle | `/pdd` + [docs/PDD_LIFECYCLE.md](docs/PDD_LIFECYCLE.md) | BA -> SA -> ADD -> TDD -> Dev -> QA flow |
 | Work primarily in Cursor | [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md) | Skills + MCP tooling + quickstart path |
 | Work primarily in CLI (terminal / Claude Code) | [docs/CLAUDE_USER_GUIDE.md](docs/CLAUDE_USER_GUIDE.md) | Setup, hooks, slash-first workflow |
@@ -360,7 +360,7 @@ flowchart LR
   linkStyle default stroke:#94A3B8,stroke-width:1.5px
 ```
 
-- **Cursor:** `/uiplan full <title>` or staged `/uiplan ground|spec|plan|tasks|review ...` (slash command).
+- **Cursor:** `/uiplan-ground`, `/uiplan-spec`, `/uiplan-plan`, `/uiplan-tasks`, `/uiplan-review`, or `/uiplan-full` (slash commands; `/uiplan ...` remains as a dispatcher alias).
 - **CLI:** `uipath-claude plan uiplan full "..."` or `plan uiplan ground|spec|plan|tasks|review ...`.
 - **Skill:** [.cursor/skills/uiplan/SKILL.md](.cursor/skills/uiplan/SKILL.md).
 - **Docs:** [docs/uiplan/README.md](docs/uiplan/README.md), [docs/uiplan/HOW_TO_USE.md](docs/uiplan/HOW_TO_USE.md), and the [UiPlan framework matrix](docs/plans/2026-04-21-uiplan-framework.md).
@@ -396,7 +396,7 @@ Same seven steps either way. Cursor drives them through chat + the MCP tools; th
 
 Prereq: ran `ops/scripts/setup-cursor.ps1` / `.sh` so `.cursor/mcp.json` is wired and the `uipath-builder-agent` MCP server shows **connected** under Cursor Settings -> MCP. Load the **`uiplan`** skill ([`.cursor/skills/uiplan/SKILL.md`](.cursor/skills/uiplan/SKILL.md)) and attach **`@docs/uiplan/`** when you want the full contract in context.
 
-1. **Kick it off in chat.** Use **`/uiplan full <title>`** or staged `/uiplan ground|spec|plan|tasks|review ...`. That drives `uipath_plan_ground` → three-file bundle → `uipath_plan_review` (or `uipath_plan_uiplan_new` for the bundled path). Drafts land under `.cursor/plans/<YYYY-MM-DD-slug>/` with `spec.md`, `plan.md`, `tasks.md` (git-ignored, per-user).
+1. **Kick it off in chat.** Use **`/uiplan-full <title>`** for the bundled path, or step through `/uiplan-ground`, `/uiplan-spec`, `/uiplan-plan`, `/uiplan-tasks`, and `/uiplan-review`. Each command calls the matching `uipath_plan_*` MCP tool. Drafts land under `.cursor/plans/<YYYY-MM-DD-slug>/` with `spec.md`, `plan.md`, `tasks.md` (git-ignored, per-user).
 2. **Ground and clarify.** Answer at most a couple of batched questions in chat; `uipath_plan_ground` returns matched skills, library hits, PDD candidates, and constitution gates. Optionally call `uipath_plan_brainstorm` for extra read-only hints — it does not replace UiPlan.
 3. **Iterate on the bundle.** Fix `unanswered` items and review findings; re-run stages or edit the three markdown files directly (do **not** use `uipath_plan_refine` on UiPlan folders — that path is for legacy single-file drafts only).
 4. **Review.** `uipath_plan_review` until `"ok": true` for the stages you care about.
@@ -457,10 +457,10 @@ Unset or set to `0` to restore the default (no gate).
 | Scenario | Entry point |
 |---|---|
 | One-off change with an obvious design | Skip - just edit and validate |
-| Planning interactively in Cursor | **`/uiplan ...`** or load [`.cursor/skills/uiplan/SKILL.md`](.cursor/skills/uiplan/SKILL.md) + `@docs/uiplan/` |
+| Planning interactively in Cursor | **`/uiplan-spec`**, `/uiplan-plan`, `/uiplan-tasks`, `/uiplan-review`, or `/uiplan-full`; load [`.cursor/skills/uiplan/SKILL.md`](.cursor/skills/uiplan/SKILL.md) + `@docs/uiplan/` |
 | Planning from a terminal / CI | **`uipath-claude plan uiplan ...`** for the three-file bundle; legacy: `plan new` -> `brainstorm` -> `refine` -> `accept` -> `publish` |
 | Formal PDD/SDD/ADD lifecycle (BA -> SA -> ADD -> TDD -> Dev -> QA) | `/pdd` - see [docs/PDD_LIFECYCLE.md](docs/PDD_LIFECYCLE.md) |
-| Spec-kit-style bundle (spec + plan + tasks + review) | `/uiplan` or `uipath-claude plan uiplan` — see [docs/PLANNING_FRAMEWORK.md](docs/PLANNING_FRAMEWORK.md#uiplan-spec-kit-style) |
+| Spec-kit-style bundle (spec + plan + tasks + review) | `/uiplan-spec` → `/uiplan-plan` → `/uiplan-tasks` → `/uiplan-review`, or `/uiplan-full`; CLI: `uipath-claude plan uiplan` — see [docs/PLANNING_FRAMEWORK.md](docs/PLANNING_FRAMEWORK.md#uiplan-spec-kit-style) |
 | Quick routing question ("which skill handles X?") | `uipath-planner` skill directly |
 
 The planning framework and `/pdd` are complementary: the planning loop is for authoring the change; `/pdd` is the formal document lifecycle.
