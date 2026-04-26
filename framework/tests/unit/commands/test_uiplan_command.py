@@ -198,3 +198,17 @@ def test_uiplan_implement_preflight(registry: tuple) -> None:
     ]
     assert "UiPlan implement (preflight)" in out
     assert "pass" in out
+
+
+def test_uiplan_implement_run_to_completion_handoff(registry: tuple) -> None:
+    reg, calls = registry
+    out = reg.execute("uiplan-implement", "my-2026-04-26-slug", "--yes")
+    assert calls == [
+        ("uipath_plan_review", {"slug": "my-2026-04-26-slug", "stage": "all"}),
+    ]
+    assert "Run-to-completion mode is enabled" in out
+    assert "without asking for confirmation between tasks" in out
+    assert "plan alignment, dependency/tooling check" in out
+    assert "spec compliance review" in out
+    assert "code quality review" in out
+    assert "Do not deploy or publish without explicit user approval" in out

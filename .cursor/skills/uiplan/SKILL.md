@@ -135,12 +135,29 @@ This is the build handoff command. It must:
    skills, library/AskAI lookups, MCP tools, and useful subagents.
 3. Run `uipath_plan_review(stage=all)` before any source changes.
 4. Stop on error-severity findings and report blockers.
-5. If review passes, ask the user before implementation.
+5. If review passes, ask the user before implementation unless the user
+   explicitly invoked run-to-completion mode.
 6. Execute from `tasks.md` in order, using the full project capability surface as
    needed: specialist skills, MCP tools, subagents, library lookup, AskAI-style
    docs lookup, local CLI commands, tests, and build gates.
 7. Run restore -> analyze -> test -> pack for the detected project type.
 8. Summarize verification evidence and any approval-required follow-up.
+
+In run-to-completion mode, execute `tasks.md` as a constant UiPath loop. For
+each task, check plan alignment, dependencies/tooling, implementation, task
+tests, analyze/lint gate, spec compliance review, and code quality review
+before moving to the next task. Continue until all tasks are complete or a hard
+gate blocks progress.
+
+Run-to-completion option:
+
+- `/uiplan-implement <slug> --run-to-completion` or `--yes` means the user has
+  approved continuing through accepted local tasks without pausing between each
+  task.
+- It must still stop on hard gates: review errors, missing acceptance,
+  submodule guard failure, dependency drift, restore/analyze errors, failing
+  tests, missing required credentials/tooling, unfixable spec/quality review
+  issues, destructive actions, publish, deploy, or Production.
 
 **UiPath chat / CLI:** staged slash aliases remain available outside Cursor.
 

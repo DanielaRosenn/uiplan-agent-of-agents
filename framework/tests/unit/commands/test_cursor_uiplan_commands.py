@@ -81,7 +81,7 @@ def test_legacy_cursor_command_file_is_not_required() -> None:
     assert not (commands_dir / "uiplan.md").exists()
 
 
-def test_uiplan_implement_reviews_then_asks_before_building() -> None:
+def test_uiplan_implement_reviews_then_controls_building() -> None:
     content = (
         REPO_ROOT / ".cursor" / "skills" / "uiplan-implement" / "SKILL.md"
     ).read_text(encoding="utf-8")
@@ -89,6 +89,14 @@ def test_uiplan_implement_reviews_then_asks_before_building() -> None:
     assert "uipath_plan_review" in content
     assert "stage=all" in content
     assert "ask the user before starting implementation" in content
+    assert "--run-to-completion" in content
+    assert "asking again between tasks" in content
+    assert "Per-Task UiPath Loop" in content
+    assert "Plan alignment" in content
+    assert "Dependency and tooling check" in content
+    assert "Spec compliance review" in content
+    assert "Code quality review" in content
+    assert "Still stop and report before" in content
     assert "tasks.md" in content
     assert "Planner Route &" in content
     assert "Specialist Handoff" in content

@@ -101,7 +101,12 @@ def _format_review(review: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _format_implement_handoff(slug: str, review: dict[str, Any]) -> str:
+def _format_implement_handoff(
+    slug: str,
+    review: dict[str, Any],
+    *,
+    run_to_completion: bool = False,
+) -> str:
     """Review-first preflight for build handoff (matches uiplan-implement skill)."""
     body = _format_review(review)
     ok = review.get("ok")
@@ -111,13 +116,27 @@ def _format_implement_handoff(slug: str, review: dict[str, Any]) -> str:
             f"{body}\n\n"
             f"Fix error-severity findings, then re-run `/uiplan-implement {slug}`."
         )
+    if run_to_completion:
+        mode = (
+            "Run-to-completion mode is enabled: execute accepted local tasks in order without "
+            "asking for confirmation between tasks. For each task, run the UiPath implementation "
+            "loop: plan alignment, dependency/tooling check, development, task verification, "
+            "analyze gate, spec compliance review, and code quality review. Stop only on hard "
+            "gates: review errors, missing acceptance, submodule guard failure, dependency drift, "
+            "restore/analyze errors, failing tests, missing required credentials/tooling, "
+            "destructive actions, publish, deploy, or Production."
+        )
+    else:
+        mode = (
+            "Follow `.cursor/skills/uiplan-implement/SKILL.md`: confirm the user approves build, "
+            "then execute `tasks.md` in order using specialist skills, MCP tools, tests, and "
+            "the project build loop."
+        )
     return (
         f"UiPlan implement (preflight) for `{slug}`\n\n"
         f"{body}\n\n"
         f"Read `spec.md`, `plan.md`, and `tasks.md` in `.cursor/plans/.../{slug}/` (draft folder). "
-        "Follow `.cursor/skills/uiplan-implement/SKILL.md`: confirm the user approves build, "
-        "then execute `tasks.md` in order using specialist skills, MCP tools, tests, and "
-        "the project build loop. Do not deploy or publish without explicit user approval."
+        f"{mode} Do not deploy or publish without explicit user approval."
     )
 
 
@@ -257,13 +276,24 @@ def _dispatch_uiplan(sub: str, tail: str, *, command_name: str = "uiplan") -> st
         elif sub == "implement":
             bits = tail.split()
             if not bits:
-                return f"Usage: /{command_name} <slug>"
-            slug = bits[0].strip()
+                return f"Usage: /{command_name} <slug> [--run-to-completion|--yes]"
+            run_to_completion = any(
+                bit in {"--run-to-completion", "--yes", "--no-stop", "--auto"}
+                for bit in bits
+            )
+            slug_bits = [bit for bit in bits if not bit.startswith("--")]
+            if not slug_bits:
+                return f"Usage: /{command_name} <slug> [--run-to-completion|--yes]"
+            slug = slug_bits[0].strip()
             out = _run_plan_tool(
                 "uipath_plan_review",
                 {"slug": slug, "stage": "all"},
             )
-            return _format_implement_handoff(slug, out)
+            return _format_implement_handoff(
+                slug,
+                out,
+                run_to_completion=run_to_completion,
+            )
         else:
             return f"Unknown subcommand: {sub}"
     except Exception as exc:  # noqa: BLE001
@@ -280,7 +310,7 @@ def _usage() -> str:
         "  /uiplan-plan <plan-id> [--paradigm value]               — write plan.md (after spec)\n"
         "  /uiplan-tasks <plan-id> [--paradigm value]              — write tasks.md (after plan)\n"
         "  /uiplan-review <plan-id> [all|spec|plan|tasks]\n"
-        "  /uiplan-implement <plan-id>          — build after review and approval\n"
+        "  /uiplan-implement <plan-id> [--run-to-completion|--yes] — build accepted local tasks\n"
         "Backwards-compatible dispatcher: /uiplan <full|ground|spec|plan|tasks|review|implement> ...\n"
         "CLI: uipath-claude plan uiplan <subcommand> ..."
     )

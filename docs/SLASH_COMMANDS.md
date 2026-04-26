@@ -26,11 +26,14 @@ They expose separate native Cursor entries:
 | `/uiplan-plan <slug> [--paradigm value]` | Write `plan.md` for an existing draft. |
 | `/uiplan-tasks <slug> [--paradigm value]` | Write `tasks.md` for an existing draft. |
 | `/uiplan-review <slug> [all\|spec\|plan\|tasks]` | Review a draft bundle. |
-| `/uiplan-implement <slug>` | Review first, confirm planner/discovery/specialist handoff, ask before build, then implement from `tasks.md`. |
+| `/uiplan-implement <slug> [--run-to-completion\|--yes]` | Review first, confirm planner/discovery/specialist handoff, then implement from `tasks.md`; run-to-completion skips per-task confirmations but not hard gates. |
 
 Each wrapper points back to `.cursor/skills/uiplan/SKILL.md` as the canonical
 contract and stops before implementation until review passes and the human
-approves the build.
+approves the build. In run-to-completion mode, `/uiplan-implement` runs a
+per-task UiPath loop: plan alignment, dependency/tooling check, development,
+task verification, analyze gate, spec compliance review, and code quality
+review before moving to the next task.
 
 `/uiplan-review` now enforces feasibility checks (paradigm declaration,
 descriptor coverage, CLI-family alignment, artifact-rich tasks, grounding
@@ -83,7 +86,7 @@ Commands are registered in [`framework/uipath_claude/cli/app.py`](../framework/u
 | `/uiplan-tasks` | Create UiPlan `tasks.md` (`uipath_plan_tasks_new`) | yes |
 | `/uiplan-review` | Review a UiPlan bundle (`uipath_plan_review`) | yes |
 | `/uiplan-full` | Full UiPlan scaffold (`uipath_plan_uiplan_new`) | yes |
-| `/uiplan-implement` | Review-first implementation from accepted UiPlan `tasks.md` | yes |
+| `/uiplan-implement` | Review-first implementation from accepted UiPlan `tasks.md`; supports `--run-to-completion` / `--yes` for local end-to-end execution | yes |
 | `/uiplan` | Backwards-compatible UiPlan dispatcher/help alias ([uiplan command README](../framework/uipath_claude/commands/uiplan.md)) | yes |
 | `/plan` | Planner slash command (when planner enabled) | yes |
 

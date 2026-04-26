@@ -294,6 +294,20 @@ After review passes and you accept the bundle, use:
 planner/discovery/specialist handoff, asks before source edits, then runs the
 project build gates. It does not publish or deploy without explicit approval.
 
+For an accepted bundle where you want the agent to continue through all local
+tasks without stopping between each task, use:
+
+```text
+/uiplan-implement <slug> --run-to-completion
+```
+
+This still stops on review errors, missing acceptance, submodule guard failure,
+dependency drift, restore/analyze failures, failing tests, missing
+credentials/tooling, publish, deploy, or Production. Between those hard gates,
+the agent loops over each task with plan alignment, dependency/tooling check,
+implementation, task verification, analyze gate, spec compliance review, and
+code quality review.
+
 ### Pattern 3: Fix and Debug
 
 When something doesn't work:

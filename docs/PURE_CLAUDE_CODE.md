@@ -71,14 +71,19 @@ For deterministic, scriptable plan tools:
 uv run uipath-claude doctor
 uv run uipath-claude plan uiplan full "Your feature title"
 uv run uipath-claude plan uiplan accept "your-plan-id"
-uv run uipath-claude plan uiplan implement "your-slug"
+uv run uipath-claude plan uiplan implement "your-slug" --run-to-completion
 uv run pytest -q
 ```
 
 `uipath-claude plan uiplan accept <plan-id>` marks the reviewed UiPlan bundle
 accepted. `uipath-claude plan uiplan implement <plan-id>` runs
-`uipath_plan_review` with `stage=all` and prints JSON (build preflight). Chat
-uses a friendly handoff; see [SLASH_COMMANDS.md](SLASH_COMMANDS.md).
+`uipath_plan_review` with `stage=all` and prints JSON (build preflight).
+`--run-to-completion` (alias: `--yes`) records that the handoff should continue
+through accepted local tasks without intermediate confirmations while still
+stopping on hard gates. The agent should run each task through plan alignment,
+dependency/tooling checks, implementation, task verification, analyze, spec
+compliance review, and code quality review before continuing. Chat uses a
+friendly handoff; see [SLASH_COMMANDS.md](SLASH_COMMANDS.md).
 
 Use `uipath-claude chat` only if you want this project’s custom Bedrock+LangGraph REPL, slash command registry, session store, and orchestration router. Otherwise stay in `claude` and use skills + optional MCP/CLI as above.
 
@@ -107,7 +112,7 @@ Use `uipath-claude chat` only if you want this project’s custom Bedrock+LangGr
 | `/validate`, `/analyze` | See [uipath-cli.md](uipath-cli.md) for exact `uipcli` flags; or `/validate`-style command via `uipath-claude chat` |
 | `/books` | If MCP: `uipath_library_list` / `uipath_library_search`; else follow library rules in `.cursor/rules/library-tools.mdc` in Cursor, or use CLI paths documented in [USER_GUIDE.md](USER_GUIDE.md) |
 | `/uiplan-full <title>` | "Follow `.cursor/skills/uiplan-full/SKILL.md`" or `uv run uipath-claude plan uiplan full "<title>"` |
-| `/uiplan-implement <slug>` | "Follow `.cursor/skills/uiplan-implement/SKILL.md`" or `uv run uipath-claude plan uiplan implement <slug>` + agentic execution after human approval |
+| `/uiplan-implement <slug> [--run-to-completion]` | "Follow `.cursor/skills/uiplan-implement/SKILL.md`" or `uv run uipath-claude plan uiplan implement <slug> --run-to-completion` + agentic execution after human approval |
 | `/resume` / `/recall` | Use `uipath-claude chat` for session history, or use git + `docs/`; no 1:1 in pure `claude` alone |
 
 ## UiPlan lifecycle (three-file bundle)

@@ -396,13 +396,52 @@ def plan_uiplan_implement_cmd(
     slug: str = typer.Argument(
         ..., help="UiPlan slug; runs stage=all review as build preflight."
     ),
+    run_to_completion: bool = typer.Option(
+        False,
+        "--run-to-completion",
+        "--yes",
+        help=(
+            "Emit an implementation handoff that authorizes continuing through accepted "
+            "local tasks without pausing between tasks. Hard gates still stop execution."
+        ),
+    ),
     project_root: str | None = typer.Option(None, "--project-root"),
 ) -> None:
     """Review-first preflight for implementation (see /uiplan-implement, uiplan-implement skill)."""
     args: dict[str, Any] = {"slug": slug, "stage": "all"}
     if project_root:
         args["project_root"] = project_root
-    _print_plan_result(_run_plan_tool("uipath_plan_review", args))
+    result = _run_plan_tool("uipath_plan_review", args)
+    if run_to_completion:
+        result["run_to_completion"] = True
+        result["handoff_mode"] = "execute_accepted_local_tasks_without_intermediate_confirmation"
+        result["task_loop"] = [
+            "plan_alignment",
+            "dependency_and_tooling_check",
+            "development",
+            "task_verification",
+            "analyze_gate",
+            "spec_compliance_review",
+            "code_quality_review",
+            "record_progress",
+        ]
+        result["stop_conditions"] = [
+            "review_errors",
+            "missing_acceptance",
+            "submodule_guard_failure",
+            "dependency_drift",
+            "restore_failure",
+            "analyze_errors",
+            "failing_tests",
+            "unfixable_spec_compliance_issue",
+            "unfixable_code_quality_issue",
+            "missing_required_credentials_or_tooling",
+            "destructive_action",
+            "publish",
+            "deploy",
+            "production_target",
+        ]
+    _print_plan_result(result)
 
 
 @uiplan_app.command("accept")

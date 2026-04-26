@@ -110,6 +110,34 @@ def test_cli_plan_uiplan_accept_and_publish(monkeypatch: pytest.MonkeyPatch) -> 
     assert "uipath_plan_publish" in publish.stdout
 
 
+def test_cli_plan_uiplan_implement_run_to_completion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, dict[str, Any]]] = []
+
+    def _fake_run_plan_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        calls.append((name, dict(arguments)))
+        return {"ok": True, "findings": [], "next_action": "accept"}
+
+    monkeypatch.setattr("uipath_claude.cli.app._run_plan_tool", _fake_run_plan_tool)
+
+    result = runner.invoke(
+        app,
+        ["plan", "uiplan", "implement", "zipauto", "--run-to-completion"],
+    )
+
+    assert result.exit_code == 0
+    assert calls == [("uipath_plan_review", {"slug": "zipauto", "stage": "all"})]
+    assert '"run_to_completion": true' in result.stdout
+    assert "execute_accepted_local_tasks_without_intermediate_confirmation" in result.stdout
+    assert "plan_alignment" in result.stdout
+    assert "dependency_and_tooling_check" in result.stdout
+    assert "spec_compliance_review" in result.stdout
+    assert "code_quality_review" in result.stdout
+    assert "dependency_drift" in result.stdout
+    assert "deploy" in result.stdout
+
+
 def test_cli_start_project_command():
     """Test start-project command exists."""
     result = runner.invoke(app, ["start-project", "--help"])
