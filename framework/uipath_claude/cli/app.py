@@ -3,6 +3,7 @@ import asyncio
 from datetime import datetime, timezone
 import os
 import re
+import shlex
 from pathlib import Path
 import sys
 import uuid
@@ -385,6 +386,20 @@ def plan_uiplan_review_cmd(
 ) -> None:
     """Run structured review on spec/plan/tasks."""
     args: dict[str, Any] = {"slug": slug, "stage": stage}
+    if project_root:
+        args["project_root"] = project_root
+    _print_plan_result(_run_plan_tool("uipath_plan_review", args))
+
+
+@uiplan_app.command("implement")
+def plan_uiplan_implement_cmd(
+    slug: str = typer.Argument(
+        ..., help="UiPlan slug; runs stage=all review as build preflight."
+    ),
+    project_root: str | None = typer.Option(None, "--project-root"),
+) -> None:
+    """Review-first preflight for implementation (see /uiplan-implement, uiplan-implement skill)."""
+    args: dict[str, Any] = {"slug": slug, "stage": "all"}
     if project_root:
         args["project_root"] = project_root
     _print_plan_result(_run_plan_tool("uipath_plan_review", args))
@@ -995,6 +1010,65 @@ def _is_generated_chat_artifact_folder(path: Path) -> bool:
     return False
 
 
+def _is_affirmative_followup(user_input: str) -> bool:
+    text = re.sub(r"[\s.!?]+", " ", user_input.strip().lower()).strip()
+    return text in {
+        "y",
+        "yes",
+        "yes please",
+        "please do",
+        "do it",
+        "do that",
+        "please do that",
+        "go ahead",
+        "continue",
+        "next",
+        "run it",
+        "run that",
+        "ok",
+        "okay",
+    }
+
+
+def _command_name_from_slash(command: str) -> str:
+    first = command.strip().split(maxsplit=1)[0] if command.strip() else ""
+    return first.lstrip("/").strip().lower()
+
+
+def _suggested_slash_commands(history: list[dict[str, str]]) -> list[str]:
+    """Find slash commands suggested by recent assistant outputs, newest first."""
+    commands: list[str] = []
+    for message in reversed(history[-8:]):
+        if message.get("role") != "assistant":
+            continue
+        content = str(message.get("content") or "")
+        for match in re.finditer(r"`(/[^`\r\n]+)`", content):
+            command = match.group(1).strip()
+            if command and not command.startswith(("/exit", "/quit")):
+                commands.append(command)
+    return commands
+
+
+def _last_suggested_slash_command(history: list[dict[str, str]]) -> str | None:
+    commands = _suggested_slash_commands(history)
+    return commands[0] if commands else None
+
+
+def _suggested_slash_command_for(
+    history: list[dict[str, str]], command_name: str
+) -> str | None:
+    wanted = command_name.strip().lstrip("/").lower()
+    for command in _suggested_slash_commands(history):
+        if _command_name_from_slash(command) == wanted:
+            return command
+    return None
+
+
+def _embedded_slash_command_name(user_input: str) -> str | None:
+    match = re.search(r"/([A-Za-z0-9_-]+)", user_input)
+    return match.group(1).lower() if match else None
+
+
 def _build_command_registry(
     skill_registry: SkillRegistry,
     get_status,
@@ -1545,6 +1619,17 @@ def chat(
                         "Use /status to inspect active profile."
                     )
                     continue
+                if not args:
+                    suggested_command = _suggested_slash_command_for(history, command)
+                    if suggested_command:
+                        try:
+                            suggested_parts = shlex.split(suggested_command)
+                        except ValueError:
+                            suggested_parts = suggested_command.split()
+                        if suggested_parts:
+                            command = suggested_parts[0].lstrip("/")
+                            args = suggested_parts[1:]
+                            console.print(f"[dim]Continuing with {suggested_command}[/dim]")
                 output = registry.execute(command, *args)
                 console.print(_console_safe_text(output))
                 output_text = str(output) if output is not None else ""
@@ -1580,6 +1665,49 @@ def chat(
                 result = tool.invoke({"query": query})
                 console.print(f"[magenta]Assistant:[/magenta] {result}\n")
                 continue
+
+            embedded_command = _embedded_slash_command_name(user_input)
+            suggested_command = (
+                _suggested_slash_command_for(history, embedded_command)
+                if embedded_command
+                else _last_suggested_slash_command(history)
+            )
+            if suggested_command and (
+                _is_affirmative_followup(user_input)
+                or (
+                    embedded_command is not None
+                    and _command_name_from_slash(suggested_command) == embedded_command
+                )
+            ):
+                try:
+                    suggested_parts = shlex.split(suggested_command)
+                except ValueError:
+                    suggested_parts = suggested_command.split()
+                if suggested_parts:
+                    command = suggested_parts[0].lstrip("/")
+                    args = suggested_parts[1:]
+                    if not is_command_allowed(tool_profile, command):
+                        progress.error(
+                            f"Command '/{command}' is blocked by tool profile '{tool_profile.name}'. "
+                            "Use /status to inspect active profile."
+                        )
+                        continue
+                    console.print(f"[dim]Continuing with {suggested_command}[/dim]")
+                    output = registry.execute(command, *args)
+                    console.print(_console_safe_text(output))
+                    output_text = str(output) if output is not None else ""
+                    if output_text.strip():
+                        max_chars = 4000
+                        if len(output_text) > max_chars:
+                            output_text = output_text[:max_chars] + "\n...(truncated)"
+                        history.append({"role": "user", "content": user_input})
+                        history.append(
+                            {
+                                "role": "assistant",
+                                "content": f"[command output: /{command}]\n{output_text}",
+                            }
+                        )
+                    continue
 
             orchestration_on = os.environ.get(
                 "UIPATH_ORCHESTRATION_ROUTER", "1"
@@ -1747,16 +1875,34 @@ def chat(
                         )
                     else:
                         u_title = (user_input.split("\n")[0] or "Feature")[:120].strip() or "Feature"
-                        spec_out = _run_plan_tool(
-                            "uipath_plan_spec_new",
+                        bundle_out = _run_plan_tool(
+                            "uipath_plan_uiplan_new",
                             {
                                 "project_root": str(Path.cwd().resolve()),
                                 "title": u_title,
                                 "intent": user_input,
                             },
                         )
-                        rel = spec_out.get("relative") or spec_out.get("path", "")
-                        u_msg = f"{orch_dec.rationale}\nSpec draft: {rel}"
+                        u_slug = bundle_out.get("slug", "")
+                        u_folder = bundle_out.get("folder") or ""
+                        u_rev = (
+                            bundle_out.get("review")
+                            if isinstance(bundle_out.get("review"), dict)
+                            else {}
+                        )
+                        ok_rev = u_rev.get("ok") if u_rev else None
+                        rev_line = (
+                            f"\nInitial review: {'pass' if ok_rev else 'needs edits'}."
+                            if ok_rev is not None
+                            else ""
+                        )
+                        u_msg = (
+                            f"{orch_dec.rationale}\n"
+                            f"UiPlan bundle created. Plan id: `{u_slug}`\n"
+                            f"Folder: `{u_folder}`{rev_line}\n"
+                            f"Next: edit `spec.md` / `plan.md` / `tasks.md` if needed, then "
+                            f"`/uiplan-review {u_slug} all` (or `/uiplan-implement {u_slug}` after review)."
+                        )
                         console.print(
                             f"[magenta]Assistant:[/magenta] {_console_safe_text(str(u_msg))}\n"
                         )
@@ -1764,7 +1910,10 @@ def chat(
                     history.append(
                         {
                             "role": "assistant",
-                            "content": "[uiplan] See output above; edit spec.md then /uiplan-plan",
+                            "content": (
+                                "[uiplan] See output above. Edit the bundle under `.cursor/plans/`, "
+                                "then `/uiplan-review <slug> all` or `/uiplan-implement <slug>` when ready."
+                            ),
                         }
                     )
                     continue

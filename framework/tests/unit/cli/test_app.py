@@ -877,3 +877,210 @@ def test_slash_uiplan_spec_does_not_call_orchestration_router(
                     input="/uiplan-spec Title A\nexit\n",
                 )
     assert result.exit_code == 0
+
+
+def test_slash_uiplan_implement_does_not_call_orchestration_router(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Explicit /uiplan-implement stays on the command registry; no LLM route."""
+
+    async def _fail_route(*args: object, **kwargs: object) -> object:
+        raise AssertionError("route_user_request must not be called for slash commands")
+
+    async def _fake_plan_tool(
+        name: str, _arguments: dict[str, Any]
+    ) -> dict[str, Any]:
+        if name == "uipath_plan_review" and _arguments.get("stage") == "all":
+            return {
+                "ok": True,
+                "findings": [],
+                "next_action": "optional",
+            }
+        return {"ok": True, "findings": []}
+
+    with patch("uipath_claude.cli.app._create_engine") as create_engine:
+        create_engine.return_value = object()
+        with patch(
+            "uipath_claude.query.orchestration_router.route_user_request",
+            side_effect=_fail_route,
+        ):
+            with patch(
+                "mcp_server.tools.plan_tools.call_plan_tool",
+                side_effect=_fake_plan_tool,
+            ):
+                result = runner.invoke(
+                    app,
+                    ["chat", "--no-banner", "--no-stream"],
+                    input="/uiplan-implement my-uiplan-slug\nexit\n",
+                )
+    assert result.exit_code == 0
+    out = (result.stdout or "")
+    assert "UiPlan implement (preflight)" in out
+    assert "my-uiplan-slug" in out
+
+
+def test_cli_plan_uiplan_implement_help() -> None:
+    result = runner.invoke(app, ["plan", "uiplan", "implement", "--help"])
+    assert result.exit_code == 0
+    assert "implement" in result.stdout.lower()
+
+
+def test_chat_orchestration_uiplan_full_bundle_without_suggested_command(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """RouteKind.UIPLAN with no suggested_command scaffolds a full bundle via uipath_plan_uiplan_new."""
+    monkeypatch.setenv("UIPATH_ORCHESTRATION_ROUTER", "1")
+    from uipath_claude.query.orchestration_types import (
+        ApprovalLevel,
+        OrchestrationDecision,
+        RouteKind,
+    )
+
+    plan_calls: list[str] = []
+
+    async def _fake_plan_tool(name: str, _arguments: dict[str, Any]) -> dict[str, Any]:
+        plan_calls.append(name)
+        if name == "uipath_plan_uiplan_new":
+            return {
+                "status": "ok",
+                "slug": "2026-04-26-feat",
+                "folder": ".cursor/plans/draft",
+                "review": {"ok": True, "findings": []},
+            }
+        return {"status": "ok"}
+
+    async def _fake_route(*args: object, **kwargs: object) -> OrchestrationDecision:
+        return OrchestrationDecision(
+            route=RouteKind.UIPLAN,
+            confidence=0.9,
+            rationale="scaffold a UiPlan for this request",
+            approval_level=ApprovalLevel.NONE,
+            question=None,
+            suggested_command=None,
+        )
+
+    with patch("uipath_claude.cli.app._create_engine") as create_engine:
+        create_engine.return_value = object()
+        with patch(
+            "uipath_claude.query.orchestration_router.route_user_request",
+            side_effect=_fake_route,
+        ):
+            with patch(
+                "mcp_server.tools.plan_tools.call_plan_tool",
+                side_effect=_fake_plan_tool,
+            ):
+                with patch("uipath_claude.cli.app.compile_chat_graph") as cgraph:
+                    mock_g = MagicMock()
+                    mock_g.ainvoke = AsyncMock(return_value={})
+                    cgraph.return_value = mock_g
+                    result = runner.invoke(
+                        app,
+                        ["chat", "--no-banner", "--no-stream"],
+                        input="Multi-step uiplan for error handling in our automation\nexit\n",
+                    )
+    assert result.exit_code == 0
+    assert "uipath_plan_uiplan_new" in plan_calls
+    out = (result.stdout or "")
+    assert "UiPlan bundle created" in out or "uipath_plan_uiplan_new" in " ".join(plan_calls)
+
+
+def test_affirmative_followup_runs_suggested_uiplan_command(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """After /uiplan-spec, 'please do' should run the suggested /uiplan-plan."""
+
+    monkeypatch.setenv("UIPATH_ORCHESTRATION_ROUTER", "1")
+    calls: list[str] = []
+
+    async def _fail_route(*args: object, **kwargs: object) -> object:
+        raise AssertionError("route_user_request must not run for suggested command follow-up")
+
+    async def _fake_plan_tool(
+        name: str, _arguments: dict[str, Any]
+    ) -> dict[str, Any]:
+        calls.append(name)
+        if name == "uipath_plan_spec_new":
+            return {
+                "status": "ok",
+                "slug": "zipautomation",
+                "relative": ".cursor/plans/2026-04-26-zipautomation",
+            }
+        if name == "uipath_plan_plan_new":
+            return {"status": "ok", "slug": "zipautomation", "path": "plan.md"}
+        return {"status": "ok"}
+
+    with patch("uipath_claude.cli.app._create_engine") as create_engine:
+        create_engine.return_value = object()
+        with patch(
+            "uipath_claude.query.orchestration_router.route_user_request",
+            side_effect=_fail_route,
+        ):
+            with patch(
+                "mcp_server.tools.plan_tools.call_plan_tool",
+                side_effect=_fake_plan_tool,
+            ):
+                result = runner.invoke(
+                    app,
+                    ["chat", "--no-banner", "--no-stream"],
+                    input="/uiplan-spec zipautomation\nplease do\nexit\n",
+                )
+
+    assert result.exit_code == 0
+    assert calls[:2] == ["uipath_plan_spec_new", "uipath_plan_plan_new"]
+    assert "Continuing with /uiplan-plan zipautomation" in result.stdout
+    assert "UiPlan plan created" in result.stdout
+
+
+@pytest.mark.parametrize(
+    "followup",
+    [
+        "/uiplan-plan",
+        "create /uiplan-plan",
+    ],
+)
+def test_uiplan_followup_command_reuses_suggested_slug(
+    monkeypatch: pytest.MonkeyPatch,
+    followup: str,
+) -> None:
+    """Missing or embedded /uiplan-plan should continue with the suggested slug."""
+
+    monkeypatch.setenv("UIPATH_ORCHESTRATION_ROUTER", "1")
+    calls: list[str] = []
+
+    async def _fail_route(*args: object, **kwargs: object) -> object:
+        raise AssertionError("route_user_request must not run for UiPlan command follow-up")
+
+    async def _fake_plan_tool(
+        name: str, _arguments: dict[str, Any]
+    ) -> dict[str, Any]:
+        calls.append(name)
+        if name == "uipath_plan_spec_new":
+            return {
+                "status": "ok",
+                "slug": "zipauto",
+                "relative": ".cursor/plans/2026-04-26-zipauto",
+            }
+        if name == "uipath_plan_plan_new":
+            return {"status": "ok", "slug": "zipauto", "path": "plan.md"}
+        return {"status": "ok"}
+
+    with patch("uipath_claude.cli.app._create_engine") as create_engine:
+        create_engine.return_value = object()
+        with patch(
+            "uipath_claude.query.orchestration_router.route_user_request",
+            side_effect=_fail_route,
+        ):
+            with patch(
+                "mcp_server.tools.plan_tools.call_plan_tool",
+                side_effect=_fake_plan_tool,
+            ):
+                result = runner.invoke(
+                    app,
+                    ["chat", "--no-banner", "--no-stream"],
+                    input=f"/uiplan-spec zipauto\n{followup}\nexit\n",
+                )
+
+    assert result.exit_code == 0
+    assert calls[:2] == ["uipath_plan_spec_new", "uipath_plan_plan_new"]
+    assert "Continuing with /uiplan-plan zipauto" in result.stdout
+    assert "Suggested: /uiplan-spec" not in result.stdout

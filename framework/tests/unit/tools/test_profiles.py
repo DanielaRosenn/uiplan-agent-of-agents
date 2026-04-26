@@ -73,6 +73,7 @@ def test_safe_profile_allows_pdd_and_uiplan():
     profile = resolve_tool_profile("safe")
     assert is_command_allowed(profile, "pdd")
     assert is_command_allowed(profile, "uiplan")
+    assert is_command_allowed(profile, "uiplan-implement")
     assert is_command_allowed(profile, "repair-restore")
 
 

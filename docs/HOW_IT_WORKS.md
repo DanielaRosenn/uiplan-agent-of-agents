@@ -340,7 +340,7 @@ Pick your door.
 | "this job is failing with…" | `uipath-diagnostics` skill |
 | "send this as feedback to UiPath" | `uipath-feedback` skill |
 
-### B. In Claude Code (terminal)
+### B. In `uipath-claude chat` (terminal)
 
 Prerequisites: session hook must have run (installs `@uipath/cli`).
 
@@ -359,7 +359,26 @@ Prerequisites: session hook must have run (installs `@uipath/cli`).
 /scan-upstream-skills
 ```
 
-### C. Via the Python CLI / MCP directly
+### C. In pure Claude Code (`claude`)
+
+Pure Claude Code does not automatically expose Cursor's native slash commands.
+Ask it to read the repo contracts and skill files explicitly:
+
+```text
+Read CLAUDE.md first, then use .cursor/skills/uiplan/SKILL.md as the UiPlan
+contract. Create a UiPlan for invoice exception handling and stop for review.
+```
+
+For accepted-plan implementation:
+
+```text
+Use .cursor/skills/uiplan-implement/SKILL.md for <slug>. Run review first, ask
+before source edits, then implement from tasks.md with tests and build gates.
+```
+
+Full guide: [PURE_CLAUDE_CODE.md](PURE_CLAUDE_CODE.md).
+
+### D. Via the Python CLI / MCP directly
 
 ```powershell
 # activate venv

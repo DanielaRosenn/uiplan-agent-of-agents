@@ -176,6 +176,57 @@ def _context_payload(ctx: OrchestrationContext) -> str:
     return json.dumps(payload, ensure_ascii=True, indent=2)
 
 
+def _fallback_decision_from_context(
+    ctx: OrchestrationContext,
+    *,
+    allowed_routes: set[RouteKind] | None = None,
+) -> OrchestrationDecision:
+    """Use deterministic intent when the LLM router returns malformed text."""
+    lower = ctx.user_request.lower()
+    route = RouteKind.CLARIFY
+    approval = ApprovalLevel.NONE
+    question: str | None = (
+        "What would you like to do next (answer a question, create a UiPlan spec, "
+        "or implement a change)?"
+    )
+    suggested: str | None = None
+    rationale = "Router JSON was malformed; used deterministic intent fallback."
+
+    if "uiplan" in lower:
+        route = RouteKind.COMMAND_HINT
+        question = None
+        approval = ApprovalLevel.NONE
+        suggested = "/uiplan-spec <title> --intent <goal>"
+        rationale = "Request mentions UiPlan; suggesting the deterministic UiPlan command."
+    elif ctx.intent == "question":
+        route = RouteKind.ANSWER
+        question = None
+    elif ctx.intent == "documentation":
+        route = RouteKind.DOCUMENTATION
+        question = None
+        approval = ApprovalLevel.CONFIRM_WRITE
+    elif ctx.intent == "build":
+        route = RouteKind.EXECUTE
+        question = None
+        approval = ApprovalLevel.CONFIRM_WRITE
+
+    if allowed_routes and route not in allowed_routes:
+        route = RouteKind.CLARIFY
+        approval = ApprovalLevel.NONE
+        question = "That path is not available in this context. What should we do instead?"
+        suggested = None
+
+    return OrchestrationDecision(
+        route=route,
+        confidence=0.56 if route != RouteKind.CLARIFY else 0.0,
+        rationale=rationale,
+        approval_level=approval,
+        question=question,
+        suggested_command=suggested,
+        selected_skills=["uiplan"] if "uiplan" in lower else [],
+    )
+
+
 async def route_user_request(
     ctx: OrchestrationContext,
     *,
@@ -224,6 +275,8 @@ async def route_user_request(
         text = str(r.content) if r else ""
 
     data = parse_orchestration_json(text)
+    if data is None:
+        return _fallback_decision_from_context(ctx, allowed_routes=allowed)
     return decision_from_parsed(data, allowed_routes=allowed)
 
 

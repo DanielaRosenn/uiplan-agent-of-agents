@@ -37,6 +37,7 @@ _SAFE_COMMANDS = (
     "uiplan-tasks",
     "uiplan-review",
     "uiplan-full",
+    "uiplan-implement",
     "plan",
 )
 _UIPATH_DEV_COMMANDS = (*_SAFE_COMMANDS,)

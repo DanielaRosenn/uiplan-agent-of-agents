@@ -9,8 +9,11 @@ Full setup for UiPath Claude Code. The [README.md](../README.md) Quickstart is t
 | Python 3.11+ | Runtime |
 | Node.js 18+ | Required by `@uipath/cli` |
 | UiPath Studio Desktop **26.2+** | Required for `uip rpa --use-studio` validation commands |
-| AWS account with Bedrock access | LLM backend (Anthropic Claude via Bedrock) |
+| AWS account with Bedrock access | LLM backend (Anthropic Claude via Bedrock) for `uipath-claude chat` |
 | Git with submodule support | Official UiPath skills ship as a submodule |
+| (Optional) Anthropic Claude Code | `claude` in terminal for **pure** repo usage without `uipath-claude` — see [PURE_CLAUDE_CODE.md](PURE_CLAUDE_CODE.md) |
+
+**Pure Claude Code vs this package:** [PURE_CLAUDE_CODE.md](PURE_CLAUDE_CODE.md) describes installing and signing in to Anthropic’s `claude` for direct editing and optional MCP. That is separate from AWS Bedrock and from `uipath-claude`’s custom chat process.
 
 ## 1. Clone and install
 

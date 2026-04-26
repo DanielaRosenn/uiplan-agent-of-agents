@@ -92,6 +92,24 @@ async def test_route_user_request_uses_invoke_model() -> None:
     assert "Which project" in (d.question or "")
 
 
+@pytest.mark.asyncio
+async def test_route_user_request_malformed_json_uses_intent_fallback() -> None:
+    ctx = OrchestrationContext(
+        user_request="create uiplan spec",
+        project_root="/tmp",
+        tool_profile="all",
+        intent="build",
+    )
+
+    async def _fake_invoke(_messages: object) -> str:
+        return "I can help with that."
+
+    d = await route_user_request(ctx, invoke_model=_fake_invoke)
+    assert d.route == RouteKind.COMMAND_HINT
+    assert d.suggested_command == "/uiplan-spec <title> --intent <goal>"
+    assert "uiplan" in d.selected_skills
+
+
 def test_parse_orchestration_json_raw() -> None:
     text = (
         '{"route": "answer", "confidence": 1, "rationale": "ok", '
