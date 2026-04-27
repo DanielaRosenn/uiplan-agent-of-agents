@@ -584,12 +584,26 @@ def get_plan_tools() -> list[Tool]:
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "slug": {"type": "string", "description": "UiPlan slug (meta.slug)."},
+                    "slug": {
+                        "type": "string",
+                        "description": (
+                            "UiPlan metadata slug, dated folder name, or full folder path. "
+                            "The tool resolves all three forms."
+                        ),
+                    },
+                    "filename": {
+                        "type": "string",
+                        "description": "Optional UiPlan dated folder name (YYYY-MM-DD-slug).",
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "Optional full path to the UiPlan draft folder.",
+                    },
                     "project_root": {"type": "string"},
                     "grounding_pack": {"type": "object"},
                     "paradigm": {"type": "string"},
                 },
-                "required": ["slug"],
+                "required": [],
             },
             annotations=_write("Write UiPlan plan.md", destructive=True),
         ),
@@ -605,13 +619,24 @@ def get_plan_tools() -> list[Tool]:
                 "properties": {
                     "slug": {
                         "type": "string",
-                        "description": "UiPlan slug from .meta.yaml (same as folder meta slug).",
+                        "description": (
+                            "UiPlan metadata slug, dated folder name, or full folder path. "
+                            "The tool resolves all three forms."
+                        ),
+                    },
+                    "filename": {
+                        "type": "string",
+                        "description": "Optional UiPlan dated folder name (YYYY-MM-DD-slug).",
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "Optional full path to the UiPlan draft folder.",
                     },
                     "project_root": {"type": "string"},
                     "grounding_pack": {"type": "object"},
                     "paradigm": {"type": "string"},
                 },
-                "required": ["slug"],
+                "required": [],
             },
             annotations=_write("Write UiPlan tasks.md", destructive=True),
         ),
@@ -627,7 +652,18 @@ def get_plan_tools() -> list[Tool]:
                 "properties": {
                     "slug": {
                         "type": "string",
-                        "description": "UiPlan slug identifying the draft folder under .cursor/plans/.",
+                        "description": (
+                            "UiPlan metadata slug, dated folder name, or full folder path. "
+                            "The tool resolves all three forms."
+                        ),
+                    },
+                    "filename": {
+                        "type": "string",
+                        "description": "Optional UiPlan dated folder name (YYYY-MM-DD-slug).",
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "Optional full path to the UiPlan draft folder.",
                     },
                     "stage": {
                         "type": "string",
@@ -636,7 +672,7 @@ def get_plan_tools() -> list[Tool]:
                     },
                     "project_root": {"type": "string"},
                 },
-                "required": ["slug"],
+                "required": [],
             },
             annotations=_ro("Review UiPlan bundle"),
         ),

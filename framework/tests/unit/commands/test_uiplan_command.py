@@ -99,7 +99,8 @@ def test_uiplan_spec_title_and_intent(registry: tuple) -> None:
     ]
     assert "UiPlan spec created" in out
     assert "Plan id: `my-feature`" in out
-    assert "Copy/paste next: `/uiplan-plan my-feature`" in out
+    assert "Run `/uiplan-plan my-feature`" in out
+    assert "Copy/paste" not in out
     assert "/uiplan-plan my-feature" in out
 
 
@@ -152,8 +153,22 @@ def test_uiplan_plan_tasks_review_full(registry: tuple) -> None:
     ]
     assert "UiPlan bundle created" in out
     assert "Review/edit next" in out
+    assert "Copy/paste" not in out
     assert "Plan id:" in out
     assert "/uiplan-implement" in out
+
+
+def test_uiplan_plan_keeps_full_folder_path(registry: tuple) -> None:
+    reg, calls = registry
+    folder = (
+        r"C:\Users\DanielaRosenstein\projects\uipath-builder-agent"
+        r"\.cursor\plans\2026-04-27-zip-email-automation-uiplan-build"
+    )
+    out = reg.execute("uiplan-plan", folder)
+    assert calls == [("uipath_plan_plan_new", {"slug": folder, "paradigm": None})]
+    assert "UiPlan plan created" in out
+    assert "Copy/paste" not in out
+    assert "/uiplan-tasks" not in out
 
 
 def test_uiplan_review_defaults_stage_all(registry: tuple) -> None:

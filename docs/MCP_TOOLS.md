@@ -4459,7 +4459,7 @@ flowchart TD
 
 **Required MCP arguments:**
 
-- **`slug`** — UiPlan slug (meta.slug).
+_No required parameters (all optional)._
 
 **Typical return:** **Dict** (or similar) from the planner-with-discovery pipeline, including trace metadata.
 
@@ -4479,7 +4479,15 @@ flowchart TD
   "properties": {
     "slug": {
       "type": "string",
-      "description": "UiPlan slug (meta.slug)."
+      "description": "UiPlan metadata slug, dated folder name, or full folder path. The tool resolves all three forms."
+    },
+    "filename": {
+      "type": "string",
+      "description": "Optional UiPlan dated folder name (YYYY-MM-DD-slug)."
+    },
+    "path": {
+      "type": "string",
+      "description": "Optional full path to the UiPlan draft folder."
     },
     "project_root": {
       "type": "string"
@@ -4491,9 +4499,7 @@ flowchart TD
       "type": "string"
     }
   },
-  "required": [
-    "slug"
-  ]
+  "required": []
 }
 ```
 
@@ -4515,7 +4521,7 @@ flowchart LR
 
 **Required MCP arguments:**
 
-- **`slug`** — UiPlan slug from .meta.yaml (same as folder meta slug).
+_No required parameters (all optional)._
 
 **Typical return:** **Dict** (or similar) from the planner-with-discovery pipeline, including trace metadata.
 
@@ -4535,7 +4541,15 @@ flowchart LR
   "properties": {
     "slug": {
       "type": "string",
-      "description": "UiPlan slug from .meta.yaml (same as folder meta slug)."
+      "description": "UiPlan metadata slug, dated folder name, or full folder path. The tool resolves all three forms."
+    },
+    "filename": {
+      "type": "string",
+      "description": "Optional UiPlan dated folder name (YYYY-MM-DD-slug)."
+    },
+    "path": {
+      "type": "string",
+      "description": "Optional full path to the UiPlan draft folder."
     },
     "project_root": {
       "type": "string"
@@ -4547,9 +4561,7 @@ flowchart LR
       "type": "string"
     }
   },
-  "required": [
-    "slug"
-  ]
+  "required": []
 }
 ```
 
@@ -4570,7 +4582,7 @@ flowchart LR
 
 **Required MCP arguments:**
 
-- **`slug`** — UiPlan slug identifying the draft folder under .cursor/plans/.
+_No required parameters (all optional)._
 
 **Typical return:** **Dict** (or similar) from the planner-with-discovery pipeline, including trace metadata.
 
@@ -4590,7 +4602,15 @@ flowchart LR
   "properties": {
     "slug": {
       "type": "string",
-      "description": "UiPlan slug identifying the draft folder under .cursor/plans/."
+      "description": "UiPlan metadata slug, dated folder name, or full folder path. The tool resolves all three forms."
+    },
+    "filename": {
+      "type": "string",
+      "description": "Optional UiPlan dated folder name (YYYY-MM-DD-slug)."
+    },
+    "path": {
+      "type": "string",
+      "description": "Optional full path to the UiPlan draft folder."
     },
     "stage": {
       "type": "string",
@@ -4606,9 +4626,7 @@ flowchart LR
       "type": "string"
     }
   },
-  "required": [
-    "slug"
-  ]
+  "required": []
 }
 ```
 

@@ -69,8 +69,9 @@ the smoke + log validation tasks for that story before moving to the next.
    user explicitly supplied `--run-to-completion`, `--yes`, `--no-stop`, or
    clearly asked to run the accepted task plan end to end without stopping.
 7. Confirm the `uipath-planner` route, project discovery agent output, matched
-   specialist skills, MCP tools (`uipath_library_search`, `uipath_library_lookup`,
-   `query_uipath_docs`, `uipath_doc_get_activity`), library/AskAI-style lookup, and useful
+   specialist UiPath skills, MCP tools (`uipath_library_search`, `uipath_library_lookup`,
+   `query_uipath_docs`, `uipath_doc_get_activity`), library lookup,
+   AskAI-style documentation lookup, and useful
    subagents before source edits.
 8. Implement from `tasks.md` in order. **Feature build surface match:** for each
    story/feature, use the build surface declared in `tasks.md` / `plan.md`:

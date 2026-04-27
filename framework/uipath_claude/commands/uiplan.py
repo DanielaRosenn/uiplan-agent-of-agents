@@ -184,7 +184,7 @@ def _format_result(sub: str, out: dict[str, Any]) -> str:
             f"{_files_line(str(folder) if folder else None)}\n\n"
             "Review/edit next:\n"
             "1. Open `spec.md` and edit requirements/user stories.\n"
-            f"2. Copy/paste next: `/uiplan-plan {slug}`\n"
+            f"2. Run `/uiplan-plan {slug}`\n"
             f"3. Optional spec check: `/uiplan-review {slug} spec`\n"
             "\nTip: in chat, you can type `/uiplan-plan` or `please do` right after this and the CLI will reuse the plan id."
         )
@@ -195,11 +195,7 @@ def _format_result(sub: str, out: dict[str, Any]) -> str:
         return (
             "UiPlan plan created.\n"
             f"Plan id: `{slug}`\n"
-            f"Path: `{path}`\n\n"
-            "Next:\n"
-            "1. Review/edit `plan.md`.\n"
-            f"2. Copy/paste next: `/uiplan-tasks {slug}`.\n"
-            f"3. Optional plan check: `/uiplan-review {slug} plan`."
+            f"Path: `{path}`"
         )
 
     if sub == "tasks":
@@ -211,7 +207,7 @@ def _format_result(sub: str, out: dict[str, Any]) -> str:
             f"Path: `{path}`\n\n"
             "Next:\n"
             "1. Review/edit `tasks.md`.\n"
-            f"2. Copy/paste next: `/uiplan-review {slug} all`.\n"
+            f"2. Run `/uiplan-review {slug} all`.\n"
             "3. Build only after review passes and you approve the bundle."
         )
 
@@ -227,7 +223,7 @@ def _format_result(sub: str, out: dict[str, Any]) -> str:
             f"{_format_review(review)}\n\n"
             "Review/edit next:\n"
             "1. Open `spec.md`, `plan.md`, and `tasks.md`.\n"
-            f"2. Copy/paste next after edits: `/uiplan-review {slug} all`.\n"
+            f"2. Run `/uiplan-review {slug} all` after edits.\n"
             f"3. Build accepted work with `/uiplan-implement {slug}`."
         )
 
@@ -264,7 +260,7 @@ def _dispatch_uiplan(sub: str, tail: str, *, command_name: str = "uiplan") -> st
             clean_tail, paradigm = _extract_flag_value(tail, "--paradigm")
             out = _run_plan_tool(
                 "uipath_plan_plan_new",
-                {"slug": clean_tail.split()[0], "paradigm": paradigm},
+                {"slug": clean_tail.strip(), "paradigm": paradigm},
             )
         elif sub == "tasks":
             if not tail:
@@ -272,7 +268,7 @@ def _dispatch_uiplan(sub: str, tail: str, *, command_name: str = "uiplan") -> st
             clean_tail, paradigm = _extract_flag_value(tail, "--paradigm")
             out = _run_plan_tool(
                 "uipath_plan_tasks_new",
-                {"slug": clean_tail.split()[0], "paradigm": paradigm},
+                {"slug": clean_tail.strip(), "paradigm": paradigm},
             )
         elif sub == "review":
             bits = tail.split()

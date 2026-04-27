@@ -515,6 +515,102 @@ def _ensure_slug(arguments: dict[str, Any], title: str) -> str:
     return slug
 
 
+_DATED_FOLDER_RE = re.compile(r"^\d{4}-\d{2}-\d{2}-[a-z0-9_-]+$")
+
+
+def _argument_plan_ref(arguments: dict[str, Any]) -> str:
+    for key in ("path", "folder", "filename", "slug"):
+        value = arguments.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    raise ValueError("provide a UiPlan slug, folder name, or folder path")
+
+
+def _repo_from_uiplan_path(path: Path) -> Path | None:
+    folder = path if path.is_dir() else path.parent
+    for parent in (folder, *folder.parents):
+        if parent.name == "plans" and parent.parent.name == ".cursor":
+            return parent.parent.parent.resolve()
+        if parent.name == "plans" and parent.parent.name == "docs":
+            return parent.parent.parent.resolve()
+    return None
+
+
+def _checkout_repo_root() -> Path:
+    return Path(__file__).resolve().parents[3]
+
+
+def _candidate_repo_roots(arguments: dict[str, Any], ref: str) -> list[Path]:
+    import os  # noqa: PLC0415
+
+    candidates: list[Path] = []
+
+    def add(path: Path | str | None) -> None:
+        if path is None:
+            return
+        try:
+            resolved = Path(path).expanduser().resolve()
+        except OSError:
+            return
+        if resolved not in candidates:
+            candidates.append(resolved)
+
+    explicit_root = arguments.get("project_root")
+    if isinstance(explicit_root, str) and explicit_root.strip():
+        add(explicit_root)
+
+    ref_path = Path(ref).expanduser()
+    if ref_path.is_absolute() or "/" in ref or "\\" in ref:
+        direct = ref_path.resolve()
+        if direct.exists():
+            repo = _repo_from_uiplan_path(direct)
+            if repo is not None:
+                add(repo)
+
+    add(os.environ.get("WORKSPACE_ROOT"))
+    add(Path.cwd())
+    add(_checkout_repo_root())
+    return candidates
+
+
+def _is_folder_or_file_ref(ref: str) -> bool:
+    name = Path(ref).name
+    return (
+        "/" in ref
+        or "\\" in ref
+        or name.endswith(".md")
+        or bool(_DATED_FOLDER_RE.match(name))
+    )
+
+
+def _resolve_existing_uiplan(arguments: dict[str, Any]) -> tuple[Path, Any, str]:
+    from mcp_server.tools.plan_tools import _drafts_dir, _plans_dir  # noqa: PLC0415
+
+    ref = _argument_plan_ref(arguments)
+    filename = Path(ref).name if _is_folder_or_file_ref(ref) else None
+    slug = None if filename else ref
+    errors: list[str] = []
+
+    for repo in _candidate_repo_roots(arguments, ref):
+        drafts = _drafts_dir(repo)
+        plans = _plans_dir(repo)
+        try:
+            resolved = resolve_plan_path(drafts, filename, slug, extra_dirs=[plans])
+            if resolved.kind != "folder" or not is_folder_plan(resolved.path):
+                raise ValueError("resolved plan is not a folder-shaped UiPlan draft")
+            meta = load_folder_meta(resolved.path)
+            resolved_slug = str(meta.get("slug") or slug or resolved.path.name)
+            return repo, resolved, resolved_slug
+        except Exception as exc:  # noqa: BLE001 - aggregate context for tool callers
+            errors.append(f"{repo}: {exc}")
+
+    joined = "; ".join(errors[-3:]) if errors else "no candidate repo roots"
+    raise FileNotFoundError(
+        f"Could not resolve UiPlan {ref!r}. Pass a metadata slug, dated folder name, "
+        f"or full folder path. Tried: {joined}"
+    )
+
+
 def call_uiplan_spec_new(arguments: dict[str, Any]) -> dict[str, Any]:
     from mcp_server.tools.plan_tools import (  # noqa: PLC0415
         _PROJECT_TYPES,
@@ -652,15 +748,9 @@ def call_uiplan_spec_new(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 def call_uiplan_plan_new(arguments: dict[str, Any]) -> dict[str, Any]:
-    from mcp_server.tools.plan_tools import _drafts_dir, _plans_dir, _resolve_repo_root, _today_iso  # noqa: PLC0415
+    from mcp_server.tools.plan_tools import _today_iso  # noqa: PLC0415
 
-    repo = _resolve_repo_root(arguments.get("project_root"))
-    slug = _ensure_slug(arguments, arguments.get("title") or "plan")
-    drafts = _drafts_dir(repo)
-    plans = _plans_dir(repo)
-    resolved = resolve_plan_path(drafts, None, slug, extra_dirs=[plans])
-    if resolved.kind != "folder" or not is_folder_plan(resolved.path):
-        raise ValueError("uipath_plan_plan_new requires an existing UiPlan folder draft (run uipath_plan_spec_new first)")
+    repo, resolved, slug = _resolve_existing_uiplan(arguments)
     folder = resolved.path
     files = read_uiplan_files(resolved)
     spec = files.get("spec.md", "")
@@ -727,19 +817,16 @@ def call_uiplan_plan_new(arguments: dict[str, Any]) -> dict[str, Any]:
     )
     plan_body = _fill(tpl, mapping)
     (folder / "plan.md").write_text(plan_body, encoding="utf-8")
-    return {"status": "ok", "path": str(folder / "plan.md"), "slug": slug}
+    return {
+        "status": "ok",
+        "path": str(folder / "plan.md"),
+        "slug": slug,
+        "folder_name": folder.name,
+    }
 
 
 def call_uiplan_tasks_new(arguments: dict[str, Any]) -> dict[str, Any]:
-    from mcp_server.tools.plan_tools import _drafts_dir, _plans_dir, _resolve_repo_root  # noqa: PLC0415
-
-    repo = _resolve_repo_root(arguments.get("project_root"))
-    slug = _ensure_slug(arguments, arguments.get("title") or "plan")
-    drafts = _drafts_dir(repo)
-    plans = _plans_dir(repo)
-    resolved = resolve_plan_path(drafts, None, slug, extra_dirs=[plans])
-    if resolved.kind != "folder" or not is_folder_plan(resolved.path):
-        raise ValueError("uipath_plan_tasks_new requires a UiPlan folder with spec.md and plan.md")
+    repo, resolved, slug = _resolve_existing_uiplan(arguments)
     folder = resolved.path
     files = read_uiplan_files(resolved)
     spec = files.get("spec.md", "")
@@ -829,24 +916,19 @@ def call_uiplan_tasks_new(arguments: dict[str, Any]) -> dict[str, Any]:
     tasks_body += _resolved_activity_docs_markdown(spec, plan)
     tasks_body += _tdd_reference_append(repo)
     (folder / "tasks.md").write_text(tasks_body, encoding="utf-8")
-    return {"status": "ok", "path": str(folder / "tasks.md"), "slug": slug}
+    return {
+        "status": "ok",
+        "path": str(folder / "tasks.md"),
+        "slug": slug,
+        "folder_name": folder.name,
+    }
 
 
 def call_uiplan_review(arguments: dict[str, Any]) -> dict[str, Any]:
-    from mcp_server.tools.plan_tools import _drafts_dir, _plans_dir, _resolve_repo_root  # noqa: PLC0415
-
-    repo = _resolve_repo_root(arguments.get("project_root"))
-    slug = str(arguments.get("slug", "")).strip()
-    if not slug:
-        raise ValueError("'slug' is required")
+    repo, resolved, slug = _resolve_existing_uiplan(arguments)
     stage = arguments.get("stage") or "all"
     if stage not in ("spec", "plan", "tasks", "all"):
         raise ValueError("stage must be spec | plan | tasks | all")
-    drafts = _drafts_dir(repo)
-    plans = _plans_dir(repo)
-    resolved = resolve_plan_path(drafts, None, slug, extra_dirs=[plans])
-    if resolved.kind != "folder":
-        raise ValueError("uipath_plan_review for UiPlan requires a folder-shaped draft")
     files = read_uiplan_files(resolved)
     gate_ids = _gate_ids(repo)
     meta = load_folder_meta(resolved.path)

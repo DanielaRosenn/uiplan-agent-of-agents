@@ -302,3 +302,49 @@ async def test_plan_new_writes_grounding_inputs(repo, monkeypatch):
     assert "[skill:uipath-rpa]" in plan_text
     assert "SOURCE: library:uipath-docs/orchestrator/queues" in plan_text
     assert "Queue guidance excerpt" in plan_text
+
+
+@pytest.mark.asyncio
+async def test_plan_new_accepts_folder_path_and_dated_folder_name(repo):
+    spec_out = await plan_tools.call_plan_tool(
+        "uipath_plan_spec_new",
+        {
+            "project_root": str(repo),
+            "title": "Path Resolution Test",
+            "intent": "verify folder path input",
+            "slug": "path-resolution-test",
+        },
+    )
+    assert spec_out.get("status") == "ok"
+
+    folder = repo / ".cursor" / "plans" / spec_out["folder_name"]
+
+    by_path = await plan_tools.call_plan_tool(
+        "uipath_plan_plan_new",
+        {"slug": str(folder)},
+    )
+    assert by_path.get("status") == "ok"
+    assert by_path.get("slug") == "path-resolution-test"
+    assert by_path.get("folder_name") == spec_out["folder_name"]
+    assert (folder / "plan.md").is_file()
+
+    (folder / "plan.md").unlink()
+    by_folder_name = await plan_tools.call_plan_tool(
+        "uipath_plan_plan_new",
+        {
+            "project_root": str(repo),
+            "slug": spec_out["folder_name"],
+        },
+    )
+    assert by_folder_name.get("status") == "ok"
+    assert by_folder_name.get("slug") == "path-resolution-test"
+    assert (folder / "plan.md").is_file()
+
+    review = await plan_tools.call_plan_tool(
+        "uipath_plan_review",
+        {
+            "slug": str(folder),
+            "stage": "plan",
+        },
+    )
+    assert review["routing_metadata"]["slug"] == "path-resolution-test"

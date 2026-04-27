@@ -8,9 +8,20 @@ disable-model-invocation: true
 
 Use `.cursor/skills/uiplan/SKILL.md` as the canonical contract.
 
-Treat the user's text after `/uiplan-plan` as the UiPlan slug. Run
-`uipath_plan_plan_new` for the matching `.cursor/plans/<YYYY-MM-DD-slug>/`
-folder.
+Treat the user's text after `/uiplan-plan` as a UiPlan reference. It may be:
+
+- the metadata slug from `.meta.yaml` (for example `zip-email-automation`);
+- the dated draft folder name (for example `2026-04-27-zip-email-automation`);
+- the full path to the draft folder.
+
+Run `uipath_plan_plan_new` directly with that reference. Do **not** hand-copy
+`templates/uiplan/_plan-template.md`, do **not** paste the generated plan into
+chat, and do **not** ask the user to copy files or commands. The MCP tool writes
+`plan.md`.
+
+If an MCP status file says the server is errored, treat it as advisory only.
+Call the tool once; only surface the problem if the tool call itself returns an
+error.
 
 ## Audience
 
@@ -25,6 +36,11 @@ activity wiring (that's `tasks.md`) and do **not** restate business outcomes
 Generate the plan in one shot with all sections filled. Only ask the user
 **up to 3 targeted questions** when information is genuinely missing AND
 cannot be resolved through the AskAI / Library ladder below.
+
+Successful output is terse: report only that `plan.md` was created, the resolved
+Plan id, and the path. Do not add caveats, manual follow-up options, or
+"copy/paste next" instructions after a successful generation. Unresolved facts
+belong in `## Open Grounding Questions` inside `plan.md`, not in chat.
 
 ### AskAI / Library ladder (run before asking the user)
 
