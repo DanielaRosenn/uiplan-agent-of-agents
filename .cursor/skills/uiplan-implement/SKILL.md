@@ -12,6 +12,45 @@ Use `docs/uiplan/TASK_AUTHORING.md` as the concrete task-quality contract for
 workflow design, capability routing, handoff tags, and the per-task
 develop/analyze/fix/rerun loop.
 
+## Personas: Developer <-> Solution Engineer build loop
+
+`/uiplan-implement` runs a **Developer <-> Solution Engineer pairing** for each
+task in `tasks.md`. The Developer implements one task; the Solution Engineer
+runs verification CLI tools (analyze, test, pack), reviews output, diagnoses
+failures, and either signs off or sends the task back with a structured failure
+report.
+
+```mermaid
+flowchart LR
+  Pick[Pick next unchecked task] --> Dev[Developer: implement task]
+  Dev --> SE[Solution Engineer: restore -> analyze -> test -> pack]
+  SE --> Verdict{Verdict}
+  Verdict -- pass --> Sign[Sign off + record evidence]
+  Verdict -- fail --> Diag[Diagnose: parse output, AskAI ladder, inspect source]
+  Diag --> Fix[Developer: safe local fix]
+  Fix --> SE
+  Sign --> Pick
+  classDef proc fill:#F1F5F9,stroke:#64748B,color:#0F172A
+  classDef gate fill:#FFFBEB,stroke:#F59E0B,color:#92400E
+  class Verdict gate
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+**Subagent dispatch**:
+
+- `[subagent:shell]` for CLI execution (analyze/test/pack).
+- `[subagent:explore]` for read-only source inspection during diagnosis.
+- `[subagent:browser-use]` for UI smoke (Orchestrator job log, Slack HITL card).
+- `[subagent:generalPurpose]` for isolated independent task implementation.
+
+**AskAI / Library ladder during diagnosis** (run before declaring blocker):
+`uipath_library_search` / `uipath_library_lookup` -> `uipath_doc_get_activity`
+-> `query_uipath_docs` -> specialist skill (`uipath-diagnostics`,
+`uipath-platform`, etc.) -> ask user.
+
+**Story-level checkpoint**: after every task in a user story is signed off, run
+the smoke + log validation tasks for that story before moving to the next.
+
 ## Flow
 
 1. Treat the user's text after `/uiplan-implement` as the UiPlan slug. If the

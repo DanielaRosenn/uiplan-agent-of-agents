@@ -128,6 +128,29 @@ stop and rerun `/uiplan-plan` before task generation.
 code-structure descriptors, CLI-family consistency, artifact-rich tasks, and
 deploy gates.
 
+## Document personas (BA / Dev / Solution Engineer)
+
+Each UiPlan document targets a different audience. Keep content in the right
+document; review flags persona leakage.
+
+| Document | Audience | Owns | Avoids |
+| --- | --- | --- | --- |
+| `spec.md` | BA <-> Developer | Business intent, user stories, acceptance criteria, NFRs, SME items | `.xaml` / `.cs` / `.py` filenames, CLI verbs, `[skill:...]`, activity wiring |
+| `plan.md` | Developer <-> Solution Engineer | Architecture, paradigm, project topology, workflow catalog, activity inventory, bindings, capability routing, stack policy, coded-surface justification | Per-activity micro-instructions, per-line CLI recipes |
+| `tasks.md` | Solution Engineer -> Developer / Executor | Artifact paths, exact CLI commands, evidence paths, `[skill:]`/`[agent:]`/`[subagent:]`/`[library:]`/`[askai:]` tags, acceptance gates, build/verify/diagnose/fix loop | Re-opening architectural decisions |
+
+When any persona hits a knowledge gap, run the **AskAI / Library ladder**
+before asking the user: `uipath_library_search` / `uipath_library_lookup` ->
+`uipath_doc_get_activity` -> `query_uipath_docs` -> specialist skill or
+`[agent:uipath-project-discovery-agent]` -> user.
+
+The plan/tasks generator routes the HITL surface to the org Custom HITL skill
+(`[skill:uipath-custom-hitl]` + `HITL_Application` Adaptive Cards/Slack +
+Action Center External Tasks). Do **not** use UiPath Flow as the HITL canvas.
+The stack policy is **Modern Studio + activity-first** (latest Studio, C#,
+Windows, .NET 8); coded `.cs` workflows are allowed only when justified in
+`plan.md` -> `## Coded Surface Justification`.
+
 ## Capability and persona routing
 
 Before accepting a non-trivial bundle, inventory the active capabilities and show

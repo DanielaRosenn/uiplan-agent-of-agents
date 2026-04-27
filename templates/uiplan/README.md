@@ -37,6 +37,37 @@ Normalized copies of the UiPlan document templates used with the
 | `_plan-template.md` | Implementation plan skeleton |
 | `_tasks-template.md` | Executable task list skeleton |
 | `_diagram-patterns.md` | Ready-to-copy Pro Standard Mermaid blocks |
+| `_workflow-catalog.md` | Curated UiPath workflow templates (Dispatcher, Performer, LRW, Custom HITL, BPMN, etc.) with diagrams, when-to-use, activities, CLI verbs, and skill routing |
+
+## Document personas (BA / Dev / Solution Engineer)
+
+Each template targets a different audience and carries an explicit
+**Audience and Scope** banner. Keep content in the right document; the review
+tool flags persona leakage.
+
+| Document | Audience | Owns | Avoids |
+| --- | --- | --- | --- |
+| `spec.md` | BA <-> Developer | Business intent, user stories, acceptance criteria, NFRs, SME / NEEDS CLARIFICATION items | `.xaml` / `.cs` / `.py` filenames, CLI verbs, `[skill:...]`, package versions, activity-level wiring |
+| `plan.md` | Developer <-> Solution Engineer | Architecture, paradigm, project topology, workflow catalog, activity inventory, bindings, dependencies, capability routing, stack policy, coded-surface justification | Per-activity micro-instructions, per-line CLI recipes |
+| `tasks.md` | Solution Engineer -> Developer / Executor | Per-task artifact paths, exact CLI commands, evidence paths, `[skill:]`/`[agent:]`/`[subagent:]`/`[library:]`/`[askai:]` tags, acceptance gates, build/verify/diagnose/fix loop | Re-opening architectural decisions; anything not already settled in `spec.md` / `plan.md` |
+
+When uncertain, every persona must run the **AskAI / Library escalation
+ladder** before asking the user: `uipath_library_search` /
+`uipath_library_lookup` -> `uipath_doc_get_activity` /
+`uipath_doc_list_packages` -> `query_uipath_docs` -> specialist skill or
+`[agent:uipath-project-discovery-agent]` -> user (recording attempts).
+
+## Stack policy (Modern Studio + activity-first)
+
+- Latest UiPath Studio (Desktop + Web), C# expressions, Windows target, .NET 8.
+- **No** `Windows-Legacy` / VB.Net / Classic. `uipath-rpa-legacy` is excluded
+  from default routing.
+- Prefer UiPath activities (resolved via `uipath_doc_get_activity`); coded
+  automation (`.cs` workflow) is allowed only when justified in
+  `plan.md` -> `## Coded Surface Justification`.
+- Custom HITL surface: org `HITL_Application` (Adaptive Cards + Slack) +
+  Action Center External Tasks via `[skill:uipath-custom-hitl]`. Do **not**
+  use UiPath Flow as the HITL canvas.
 
 The templates now encode feasibility contracts:
 

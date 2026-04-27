@@ -322,6 +322,25 @@ def review_spec_text(spec: str, repo: Path | None = None) -> list[dict[str, Any]
                 "spec.md",
             )
         )
+    spec_body = spec.split("## Development Handoff", 1)[0] if "## Development Handoff" in spec else spec
+    spec_body_main = spec_body
+    if "## Audience and Scope" in spec_body_main:
+        spec_body_main = spec_body_main.split("## Audience and Scope", 1)[0] + (
+            spec_body_main.split("## Audience and Scope", 1)[1].split("\n## ", 1)[1]
+            if "\n## " in spec_body_main.split("## Audience and Scope", 1)[1]
+            else ""
+        )
+    if re.search(r"`[^`]+\.(xaml|cs)`|\buipcli\b|\buipath\s+pack\b|\[skill:", spec_body_main, re.IGNORECASE):
+        findings.append(
+            _finding(
+                "warn",
+                "spec",
+                "persona_leakage",
+                "spec.md contains implementation-level tokens (.xaml/.cs paths, CLI verbs, [skill:]). "
+                "spec.md is the BA <-> Developer contract; move those to plan.md / tasks.md.",
+                "spec.md",
+            )
+        )
     if "## Development Handoff" not in spec:
         findings.append(
             _finding(
@@ -601,6 +620,42 @@ def review_plan_text(
                     "plan_vbnet_modern",
                     "plan.md mentions VB.NET / VisualBasic without an explicit legacy carve-out — "
                     "modern repo default is C# expressions for XAML.",
+                    "plan.md",
+                )
+            )
+    if re.search(r"\bWindows-Legacy\b|\bClassic\b|\buipath-rpa-legacy\b", plan, re.IGNORECASE):
+        findings.append(
+            _finding(
+                "warn",
+                "plan",
+                "stack_policy_legacy",
+                "plan.md mentions Windows-Legacy / Classic / uipath-rpa-legacy. The repo policy "
+                "is modern Studio + .NET 8 + C#. Justify or remove the legacy reference.",
+                "plan.md",
+            )
+        )
+    if "## Stack Policy" not in plan and paradigm in _xaml_paradigms:
+        findings.append(
+            _finding(
+                "warn",
+                "plan",
+                "stack_policy_section",
+                "plan.md should include a `## Stack Policy` section declaring modern Studio + "
+                "activity-first preference (and a `## Coded Surface Justification` table when any "
+                "coded `.cs` workflow is in scope).",
+                "plan.md",
+            )
+        )
+    if re.search(r"\bWorkflows/[^\s`]+\.cs\b|`[^`]+\.cs\`", plan) and paradigm in _xaml_paradigms:
+        if "## Coded Surface Justification" not in plan or "_empty by default" in plan:
+            findings.append(
+                _finding(
+                    "warn",
+                    "plan",
+                    "coded_surface_justification",
+                    "plan.md references a `.cs` workflow but `## Coded Surface Justification` is empty. "
+                    "Modern stack prefers UiPath activities; justify each coded surface with the "
+                    "library/activity-doc lookup that proved activities cannot cover the case.",
                     "plan.md",
                 )
             )

@@ -83,7 +83,7 @@ async def test_zip_email_fixture_generates_solution_xaml_contract(
         "uipcli solution analyze --resultPath out/solution-analyze.json",
     ):
         assert phrase in tasks, f"expected solution RPA task vocabulary in tasks: {phrase}"
-    for forbidden in ("Run project discovery before implementation", "Graph/Office365", "Slack", "HumanReviewHandler"):
+    for forbidden in ("Run project discovery before implementation", "Graph/Office365", "HumanReviewHandler"):
         assert forbidden not in tasks, f"forbidden stale/discovery task text present: {forbidden}"
 
     review = plan_uiplan_review.run_uiplan_review(

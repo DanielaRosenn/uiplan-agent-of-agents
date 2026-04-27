@@ -6,6 +6,22 @@
 **Status**: Draft
 **Input**: User description: "{{INTENT}}"
 
+## Audience and Scope
+
+This document is the **BA <-> Developer** contract. It captures business intent, user
+stories, acceptance criteria, scope boundaries, and non-functional requirements.
+
+- **Do** describe outcomes, actors, business rules, and what success means.
+- **Do** record SME / NEEDS CLARIFICATION items when business facts are unknown.
+- **Do not** name `.xaml` / `.cs` / `.py` files, CLI verbs, `[skill:...]`, package
+  versions, or activity-level wiring — those belong in `plan.md` and `tasks.md`.
+
+If a role hits a knowledge gap while drafting this spec, follow the AskAI / Library
+escalation ladder before asking the user: `uipath_library_search` /
+`uipath_library_lookup` -> `uipath_doc_get_activity` / `uipath_doc_list_packages` ->
+`query_uipath_docs` -> specialist skill or `[agent:uipath-project-discovery-agent]`,
+then user.
+
 _If a PDD/SDD path was supplied, a short excerpt may appear in **Source traceability** at the end of the file. The **User Scenarios** and **Requirements** sections below are the build-ready specification (not a paste of the PDD)._
 
 ## Design source priority

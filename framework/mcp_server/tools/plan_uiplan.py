@@ -753,6 +753,12 @@ def call_uiplan_tasks_new(arguments: dict[str, Any]) -> dict[str, Any]:
         "### Paradigm build loop",
         "## Per-project workflow and platform inventory",
         "## Planner Route & Specialist Handoff",
+        "## Project Inventory",
+        "## Workflow Catalog",
+        "## Activity Inventory",
+        "## Bindings and Environment",
+        "## Skill and Subagent Routing",
+        "## Stack Policy",
     )
     missing_sections = [section for section in required_plan_sections if section not in plan]
     if missing_sections:

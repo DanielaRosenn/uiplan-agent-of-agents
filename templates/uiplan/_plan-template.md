@@ -6,6 +6,40 @@
 **Date**: {{DATE}}
 **Spec**: ./spec.md
 
+## Audience and Scope
+
+This document is the **Developer <-> Solution Engineer** contract. It captures
+architecture, paradigm decisions, project topology, integration boundaries,
+bindings, dependencies, capability routing, and build/verify gates.
+
+- **Do** name projects, workflow files, workflow types, queues, assets, code
+  modules, dependencies, CLI families, skills, subagents, and agents.
+- **Do** declare the stack policy and any coded-surface justification.
+- **Do not** expand into per-activity micro-instructions or per-line CLI
+  recipes — that elaboration belongs in `tasks.md`.
+
+If a role hits a knowledge gap, run the AskAI / Library ladder before asking
+the user: `uipath_library_search` / `uipath_library_lookup` ->
+`uipath_doc_get_activity` / `uipath_doc_list_packages` -> `query_uipath_docs` ->
+specialist skill or `[agent:uipath-project-discovery-agent]`, then user.
+
+## Stack Policy (Modern Studio + Activity-First)
+
+- **Studio**: latest UiPath Studio + Studio Web. **No Legacy / Windows-Legacy /
+  VB.Net / Classic.** `uipath-rpa-legacy` is excluded from default routing.
+- **Expressions / runtime**: C# expressions, Windows target, .NET 8.
+- **Activity-first**: prefer `.xaml` workflows built from UiPath activities
+  (resolved via `uipath_doc_get_activity`). Coded automation (`.cs`) is allowed
+  only when explicitly justified in `## Coded Surface Justification` below.
+- **Coded agents** (Python / LangGraph default) remain unaffected; this policy
+  is RPA-side only.
+
+### Coded Surface Justification
+
+| Coded surface (`.cs` workflow) | Why activities are insufficient | Coverage check (library / activity-doc lookup) |
+| --- | --- | --- |
+| _empty by default — fill only when justified_ | | |
+
 ## Summary
 
 {{SUMMARY}}
@@ -31,6 +65,141 @@ List open **AskAI / library** topics (`uipath_library_search` query text) and ma
 ## Planner Route & Specialist Handoff
 
 {{PLANNER_HANDOFF}}
+
+## Project Inventory
+
+Every project in scope, its kind, descriptor, starter template, and scaffold command.
+
+| Project | Kind | Repo path | Descriptor | Starter template | Scaffold command |
+| --- | --- | --- | --- | --- | --- |
+| _e.g. `Process.Dispatcher`_ | modern-rpa | `projects/Process.Dispatcher/` | `project.json` | Dispatcher | `uip rpa create-project --studio-dir ...` |
+
+## Workflow Catalog
+
+Per project, list every workflow file the build needs. Reference reusable patterns in
+[`_workflow-catalog.md`](../../templates/uiplan/_workflow-catalog.md).
+
+| Project | Workflow file | Type | Owns story | Invoked by | Invokes | Correlation id |
+| --- | --- | --- | --- | --- | --- | --- |
+| _Process.Dispatcher_ | `Main.xaml` | Sequence | US1 | Trigger | Queue.Add | `correlationId` |
+
+## Activity Inventory
+
+Only entries resolved via `uipath_doc_get_activity` / `uipath_library_search` /
+`uipath_library_lookup`. Unresolved entries belong in `## Open Grounding Questions`.
+
+| Workflow | Package | Activity | Inputs | Outputs | Connection / asset |
+| --- | --- | --- | --- | --- | --- |
+| _Main.xaml_ | _UiPath.Mail.Activities_ | _GetIMAPMailMessages_ | _server, port, filter_ | _List<MailMessage>_ | _MailConnection_ |
+
+## Code Module Inventory (agents / apps)
+
+| Module | File | Symbol | Schema (request -> response) | Tools / nodes | Model / gateway |
+| --- | --- | --- | --- | --- | --- |
+| _AnalyzerAgent_ | `projects/AnalyzerAgent/src/graph.py` | `graph` | `{ subject, body } -> { route, reasons }` | classify, lookup_vendor | UiPath LLM Gateway / gpt-4o-mini |
+
+## Bindings and Environment
+
+| Resource | Name | Folder | Tenant-only? | Notes |
+| --- | --- | --- | --- | --- |
+| Queue | _IntakeQueue_ | _Dev_ | no | _stores intake items_ |
+| Asset | _MailConnection_ | _Dev_ | yes | _credential, set per env_ |
+
+## Dependency Matrix
+
+| Project | Manager | Package | Version | Source |
+| --- | --- | --- | --- | --- |
+| _Process.Dispatcher_ | NuGet | _UiPath.Mail.Activities_ | _>=1.20_ | library hit |
+| _AnalyzerAgent_ | uv | _uipath-langchain_ | _>=0.8,<0.9_ | pyproject |
+
+## CLI Command Matrix
+
+Per project, the exact commands the Solution Engineer runs in the build loop.
+
+| Project | Restore | Analyze | Test | Pack | Smoke |
+| --- | --- | --- | --- | --- | --- |
+| _Process.Dispatcher_ | `uipcli package restore` | `uipcli package analyze --resultPath out/dispatcher-analyze.json` | `uipcli test run -a <key> .` | `uipcli package pack` | `uipcli job run` (personal workspace) |
+
+## Skill and Subagent Routing
+
+Map every project x phase to the owning capability. Each row also informs
+`tasks.md` task tags.
+
+| Project | Phase | Skill(s) | Agent / discovery | Subagent | MCP / AskAI tools |
+| --- | --- | --- | --- | --- | --- |
+| _Process.Dispatcher_ | Build | `[skill:uipath-rpa]` | `[agent:uipath-project-discovery-agent]` | `[subagent:explore]` | `uipath_library_search`, `uipath_doc_get_activity` |
+| _AnalyzerAgent_ | Build | `[skill:uipath-agents]` |  | `[subagent:generalPurpose]` | `uipath_library_search`, `query_uipath_docs` |
+| _all_ | Verify | `[skill:uipath-diagnostics]`, `[skill:uipath-platform]`, `[skill:uipath-test]` |  | `[subagent:shell]`, `[subagent:browser-use]` (UI smoke) |  |
+| _all_ | Diagrams | `[skill:mermaid-diagram-builder]` |  |  |  |
+
+## Capability Routing Map
+
+```mermaid
+flowchart LR
+  subgraph Capabilities["Capability surface"]
+    Planner[uipath-planner]:::skill
+    SolDesign[uipath-solution-design]:::skill
+    Discovery[uipath-project-discovery-agent]:::agent
+  end
+  subgraph Domain["Domain skills"]
+    RPA[uipath-rpa]:::skill
+    Agents[uipath-agents]:::skill
+    Flow[uipath-maestro-flow]:::skill
+    Apps[uipath-coded-apps]:::skill
+    HITL[uipath-custom-hitl]:::skill
+    Platform[uipath-platform]:::skill
+    Diagnostics[uipath-diagnostics]:::skill
+    Test[uipath-test]:::skill
+    Interact[uipath-interact]:::skill
+    Mermaid[mermaid-diagram-builder]:::skill
+  end
+  subgraph Tools["MCP / AskAI"]
+    Library[uipath_library_search and lookup]:::tool
+    ActivityDoc[uipath_doc_get_activity and list]:::tool
+    AskAI[query_uipath_docs]:::tool
+  end
+  subgraph Subagents["Subagents"]
+    Shell[shell]:::sub
+    Explore[explore]:::sub
+    Browser[browser-use]:::sub
+    General[generalPurpose]:::sub
+  end
+  Planner --> RPA & Agents & Flow & Apps & HITL & Platform
+  Discovery --> RPA & Agents
+  RPA --> Library & ActivityDoc
+  Agents --> Library & AskAI
+  HITL --> Library & ActivityDoc
+  Platform --> Shell
+  Diagnostics --> Library & AskAI
+  Test --> Shell
+  Interact --> Browser
+  Mermaid --> Library
+
+  classDef skill fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.25px
+  classDef agent fill:#FEF3C7,stroke:#D97706,color:#78350F,stroke-width:1.25px
+  classDef tool  fill:#ECFEFF,stroke:#0891B2,color:#164E63,stroke-width:1.25px
+  classDef sub   fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+## AskAI / Library Escalation Ladder
+
+When uncertain about activities, packages, CLI flags, integration patterns, or
+project context, traverse this ladder before asking the user:
+
+1. `uipath_library_search` (ranked) and `uipath_library_lookup` (book/section).
+2. `uipath_doc_get_activity` / `uipath_doc_list_packages` for activity semantics.
+3. `query_uipath_docs` for AskAI fallback.
+4. Specialist skill (route from the table above) or
+   `[agent:uipath-project-discovery-agent]` for project-local context.
+5. Only then ask the user, naming what was already attempted.
+
+## Open Grounding Questions
+
+Items the Solution Engineer could not auto-resolve via the ladder above. These
+will surface as targeted questions when `/uiplan-plan` runs.
+
+- _none — add `NEEDS-CLARIFICATION` items here when applicable_
 
 ## Technical Context
 

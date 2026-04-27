@@ -5,6 +5,24 @@
 
 **Format**: `[ID] [P?] [Story] Description` - include exact file paths in descriptions (backticks).
 
+## Audience and Scope
+
+This document is the **Solution Engineer -> Developer / Executor** build sheet.
+Every architectural and routing decision in `spec.md` and `plan.md` is assumed
+settled. Each task line is a single done gate with: artifact path, project,
+workflow type, package/activity (when applicable), CLI command, evidence path,
+skill / agent / subagent / MCP-tool tag, and acceptance.
+
+- **Stack policy**: Modern UiPath Studio (latest), C# expressions, Windows,
+  .NET 8. Prefer UiPath activities (`uipath_doc_get_activity`); coded
+  automation (`.cs` workflow) only when justified in `plan.md`'s
+  `## Coded Surface Justification`. **No Legacy / VB.Net / Classic.**
+- **Capability routing**: every implementation task carries one or more of
+  `[skill:...]`, `[agent:...]`, `[subagent:...]`, `[library:...]`, `[askai:...]`.
+- **AskAI / Library ladder**: when uncertain, run `uipath_library_search` /
+  `uipath_library_lookup` -> `uipath_doc_get_activity` -> `query_uipath_docs`
+  -> specialist skill -> ask user (recording attempts).
+
 See [`docs/uiplan/TASK_AUTHORING.md`](../../docs/uiplan/TASK_AUTHORING.md) for
 the canonical workflow-design, capability-routing, handoff, and implementation
 loop contract.
@@ -136,6 +154,64 @@ metadata fix attempt when safe, and rerun evidence.
 - Split tasks (e.g. `T011A`, `T011B`, …) when **scope** differs (scaffold vs production activities vs agent code), not to drop XAML from the plan.
 - **Scaffold-only** XAML (`LogMessage` phase markers) is allowed **only** in bullets that explicitly say **scaffold-only** and must be **replaced** by production-activity tasks **before the story is done** when RPA is in scope.
 
+## Project topology map
+
+```mermaid
+flowchart TB
+  subgraph Repo["Solution / repo"]
+    Projects["Projects from plan.md"]:::process
+  end
+  subgraph Platform["UiPath platform"]
+    Bindings["Bindings, queues, assets"]:::data
+  end
+  subgraph Verify["Build & verify"]
+    CLI["uipcli / uipath / uip"]:::service
+  end
+  Projects --> Bindings
+  Projects --> CLI
+
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef data    fill:#ECFEFF,stroke:#0891B2,color:#164E63,stroke-width:1.25px
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+## Capability routing map
+
+```mermaid
+flowchart LR
+  Plan["plan.md routing table"]
+  subgraph Skills["Specialist skills"]
+    RPA["uipath-rpa"]
+    Agents["uipath-agents"]
+    HITL["uipath-custom-hitl"]
+    Platform["uipath-platform"]
+    Diag["uipath-diagnostics"]
+    Test["uipath-test"]
+    Mermaid["mermaid-diagram-builder"]
+  end
+  subgraph Tools["MCP / AskAI tools"]
+    Library["uipath_library_search / lookup"]
+    AskAI["query_uipath_docs"]
+    ActivityDoc["uipath_doc_get_activity"]
+  end
+  Plan --> RPA
+  Plan --> Agents
+  Plan --> HITL
+  Plan --> Platform
+  Plan --> Diag
+  Plan --> Test
+  Plan --> Mermaid
+  RPA --> Library
+  Agents --> AskAI
+  HITL --> ActivityDoc
+  classDef skill fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.25px
+  classDef tool  fill:#ECFEFF,stroke:#0891B2,color:#164E63,stroke-width:1.25px
+  class RPA,Agents,HITL,Platform,Diag,Test,Mermaid skill
+  class Library,AskAI,ActivityDoc tool
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
 ## Story execution map
 
 Execution order vs. parallel tracks (replace with story IDs and real tasks).
@@ -237,7 +313,14 @@ flowchart LR
 
 ## Phase 5: Build, Verify, and Handoff
 
-**Purpose**: Convert the accepted plan into a verified build artifact.
+**Purpose**: Convert the accepted plan into a verified build artifact, using a
+**Developer <-> Solution Engineer** loop. The Developer implements each task; the
+Solution Engineer runs `restore -> analyze -> test -> pack`, parses output, and
+either signs off or sends the task back with a diagnosed failure. No task is
+"complete" without runtime evidence. **Skills**: `[skill:uipath-platform]`,
+`[skill:uipath-test]`, `[skill:uipath-diagnostics]`. **Subagents**:
+`[subagent:shell]` for CLI execution, `[subagent:browser-use]` for UI smoke when
+needed.
 
 ```mermaid
 flowchart LR

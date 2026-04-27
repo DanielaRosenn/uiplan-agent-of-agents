@@ -37,9 +37,12 @@ async def test_uiplan_full_scaffold(repo, monkeypatch):
         encoding="utf-8",
     )
     (tpl / "_plan-template.md").write_text(
-        "# {{TITLE}}\n## Grounding Inputs\n{{GROUNDING_CONTEXT}}\n## Source routing (MCP)\n"
+        "# {{TITLE}}\n## Stack Policy\nmodern\n## Grounding Inputs\n{{GROUNDING_CONTEXT}}\n## Source routing (MCP)\n"
         "{{SOURCE_ROUTING_SNIPPET}}\n## Planner Route & Specialist Handoff\n{{PLANNER_HANDOFF}}\n"
         "## Per-project workflow and platform inventory\n| Project | Entry | Contracts |\n| --- | --- | --- |\n"
+        "## Project Inventory\n| P |\n| --- |\n## Workflow Catalog\n| W |\n| --- |\n"
+        "## Activity Inventory\n| A |\n| --- |\n## Bindings and Environment\n| B |\n| --- |\n"
+        "## Skill and Subagent Routing\n| R |\n| --- |\n"
         "## Technical Context\nx\n## Constitution Check\n"
         "- [ ] **modern_experience_only**: ok\n## Project Structure\n### Source Code (repository root)\n"
         "```\npyproject.toml\nlanggraph.json\n```\n### Paradigm build loop\nuipath run\n"
@@ -143,8 +146,11 @@ async def test_tasks_new_resolved_activity_docs(repo, monkeypatch):
         encoding="utf-8",
     )
     (tpl / "_plan-template.md").write_text(
-        "# {{TITLE}}\n## Planner Route & Specialist Handoff\n{{PLANNER_HANDOFF}}\n"
+        "# {{TITLE}}\n## Stack Policy\nmodern\n## Planner Route & Specialist Handoff\n{{PLANNER_HANDOFF}}\n"
         "## Per-project workflow and platform inventory\n| Project | Entry | Contracts |\n| --- | --- | --- |\n"
+        "## Project Inventory\n| P |\n| --- |\n## Workflow Catalog\n| W |\n| --- |\n"
+        "## Activity Inventory\n| A |\n| --- |\n## Bindings and Environment\n| B |\n| --- |\n"
+        "## Skill and Subagent Routing\n| R |\n| --- |\n"
         "## Technical Context\nx\n## Constitution Check\n"
         "- [ ] **modern_experience_only**: ok\n## Project Structure\n```\nx\n```\n"
         "### Paradigm build loop\nuipath run\n"
