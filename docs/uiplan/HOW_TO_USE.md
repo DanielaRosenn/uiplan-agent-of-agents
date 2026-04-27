@@ -79,10 +79,13 @@ Do **not** treat `generate-docs` output as approved scope by default.
    the same `uipath_plan_*` MCP tools as the CLI/chat surface, and keep
    implementation behind review plus human approval.
 
-5. Generated docs are visual-first. Expect:
-   - `spec.md`: architecture, sequence, story-journey, data-contract, and ownership diagrams.
-   - `plan.md`: story visual map, capability/ownership map, data-contract map, architecture, and build-loop diagrams.
-   - `tasks.md`: execution map, story workflow/task map(s), and build/diagnostics loop diagram.
+5. Generated docs are visual-first, but detail increases by stage. Expect:
+   - `spec.md`: simple business-scope and story-journey diagrams only. It should
+     stay readable beside the formal PDD / SDD and should not copy their prose.
+   - `plan.md`: story visual map, capability/ownership map, data-contract map,
+     architecture, and build-loop diagrams for Solution Engineer planning.
+   - `tasks.md`: execution map, story workflow/task map(s), and build/diagnostics
+     loop diagram for LLM/executor implementation.
 
 **Implementation validation:** `/uiplan-implement` must prove behavior with
 **runtime evidence**, not only static checks. Expect a **validation evidence ledger**
@@ -135,7 +138,7 @@ document; review flags persona leakage.
 
 | Document | Audience | Owns | Avoids |
 | --- | --- | --- | --- |
-| `spec.md` | BA <-> Developer | Business intent, user stories, acceptance criteria, NFRs, SME items | `.xaml` / `.cs` / `.py` filenames, CLI verbs, `[skill:...]`, activity wiring |
+| `spec.md` | BA <-> Developer | Lightweight business intent, user stories, acceptance criteria, NFRs, SME items, PDD / SDD traceability | `.xaml` / `.cs` / `.py` filenames, CLI verbs, `[skill:...]`, activity wiring, copied PDD / SDD prose |
 | `plan.md` | Developer <-> Solution Engineer | Architecture, paradigm, project topology, workflow catalog, activity inventory, bindings, capability routing, stack policy, coded-surface justification | Per-activity micro-instructions, per-line CLI recipes |
 | `tasks.md` | Solution Engineer -> Developer / Executor | Artifact paths, exact CLI commands, evidence paths, `[skill:]`/`[agent:]`/`[subagent:]`/`[library:]`/`[askai:]` tags, acceptance gates, build/verify/diagnose/fix loop | Re-opening architectural decisions |
 

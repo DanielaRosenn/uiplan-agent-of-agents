@@ -22,12 +22,15 @@ This flow is the fastest way to keep planning quality high and implementation pr
 
 ## Paradigm-aware bundles (2026 update)
 
-UiPlan templates now emit paradigm-specific build structure by default:
+UiPlan templates now separate human-readable intent from executor-grade detail:
 
-- `spec.md` Development Handoff declares paradigm, stack, CLI family, and deploy gate.
-- `plan.md` includes a paradigm-specific code structure block and build-loop block.
-- `tasks.md` includes paradigm task scaffolds with artifact paths, grounding citations,
-  and verification steps before implementation.
+- `spec.md` is a lightweight BA / Developer bridge: business intent, user
+  stories, acceptance criteria, SME gaps, and PDD / SDD traceability without
+  copying formal documentation prose.
+- `plan.md` is the Solution Engineer blueprint: architecture, topology,
+  capability routing, dependencies, and build gates.
+- `tasks.md` is the LLM/executor build sheet: artifact paths, grounding
+  citations, verification commands, and evidence requirements.
 
 Use `--paradigm` to override detection when needed (for example, forcing
 `coded-agent` or `solution` in mixed repositories).

@@ -64,6 +64,11 @@ async def test_zip_email_fixture_generates_solution_xaml_contract(
     assert "ZipEmailIntakeQueue" in combo
     assert "ZipEmailHumanReviewQueue" in combo
     assert "**Implementation paradigm**: solution" in spec
+    assert "## Business Scope Map" in spec
+    assert "## Story Journey Map" in spec
+    assert "## Architecture diagram" not in spec
+    assert "## Data and queue contract map" not in spec
+    assert "projects/<Dispatcher>/Main.xaml" not in spec
     assert "solution.uipx" in plan
     assert "bindings" in plan.lower()
     assert "XAML-first" in plan or ".xaml" in plan.lower()

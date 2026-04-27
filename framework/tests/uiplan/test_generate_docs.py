@@ -14,7 +14,14 @@ def test_generate_docs_bundle_passes_visual_density(tmp_path: Path) -> None:
     )
     issues = validate_uiplan_docs(out, strict=True)
     assert not issues, issues
-    assert "## Development Handoff" in (out / "spec.md").read_text(encoding="utf-8")
+    spec_text = (out / "spec.md").read_text(encoding="utf-8")
+    assert "## Development Handoff" in spec_text
+    assert "## Business Scope Map" in spec_text
+    assert "## Story Journey Map" in spec_text
+    assert "## Architecture diagram" not in spec_text
+    assert "## Primary interaction" not in spec_text
+    assert "## Data and queue contract map" not in spec_text
+    assert "technical topology belongs in `plan.md`" in spec_text
     assert "## Development execution contract" in (out / "plan.md").read_text(
         encoding="utf-8"
     )

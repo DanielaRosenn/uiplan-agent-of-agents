@@ -69,15 +69,18 @@ ladder** before asking the user: `uipath_library_search` /
   Action Center External Tasks via `[skill:uipath-custom-hitl]`. Do **not**
   use UiPath Flow as the HITL canvas.
 
-The templates now encode feasibility contracts:
+The templates now encode staged handoff contracts:
 
-- `spec.md`: paradigm + stack + CLI family + deploy gate in Development Handoff.
-- `plan.md`: paradigm-specific code structure and build loop sections.
-- `tasks.md`: artifact-level implementation tasks with grounding + verification.
+- `spec.md`: lightweight BA / Developer bridge. It stays human-readable and
+  points to PDD / SDD sources without copying them.
+- `plan.md`: Solution Engineer blueprint for architecture, project topology,
+  capability routing, dependencies, and build gates.
+- `tasks.md`: LLM/executor-facing build sheet with artifact-level tasks,
+  grounding, verification, and evidence requirements.
 
 Templates are also **visual-first**:
 
-- `spec.md` includes architecture, sequence, story journey, data-contract, and ownership maps.
+- `spec.md` includes only simple business-scope and story-journey maps.
 - `plan.md` includes story visuals, capability ownership, data-contract, architecture, and build-loop visuals.
 - `tasks.md` includes task execution maps plus per-story workflow diagrams and build/diagnostics loops.
 - `templates/uiplan/_diagram-patterns.md` contains reusable copy-ready diagrams for these sections.
