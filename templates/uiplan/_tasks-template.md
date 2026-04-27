@@ -9,6 +9,39 @@ See [`docs/uiplan/TASK_AUTHORING.md`](../../docs/uiplan/TASK_AUTHORING.md) for
 the canonical workflow-design, capability-routing, handoff, and implementation
 loop contract.
 
+## Task generation preconditions (already completed)
+
+`/uiplan-tasks` is a build-contract stage. It must consume completed discovery
+and grounding, not recreate them as checklist items.
+
+Before generating tasks:
+
+- `spec.md` and `plan.md` are present and reviewable for this slug.
+- Project discovery output exists (for example `.claude/rules/project-context.md`)
+  and key project surfaces are already captured in `plan.md`.
+- `plan.md` includes per-project workflows, template/scaffold decisions, source
+  paths, bindings/queues/assets, and build gates.
+- Activity/package lookup inputs are known through `uipath_library_search`,
+  `uipath_library_lookup`, `uipath_doc_get_activity`, or equivalent grounding.
+
+If these preconditions are not met, stop and rerun `/uiplan-ground` and/or
+`/uiplan-plan` before generating `tasks.md`.
+
+## How to read this task list
+
+- **Tests**: failing-first checks that define expected behavior.
+- **Implementation**: concrete workflow/graph/flow/app build tasks.
+- **Build/Verify**: restore -> analyze -> test -> pack gates.
+- **Diagnostics**: parse failures, inspect sources, apply safe fix, rerun.
+- **Handoff**: approval-gated deployment and evidence summary tasks.
+
+Every story block should include:
+
+1. one-sentence purpose (`Why this exists`);
+2. a story workflow/task map diagram;
+3. tests before implementation;
+4. explicit verification commands and runtime evidence paths.
+
 ## Task detail contract
 
 Every **non-[P]** checklist task MUST embed the following (inline on the same bullet or as indented sub-bullets):
@@ -16,8 +49,7 @@ Every **non-[P]** checklist task MUST embed the following (inline on the same bu
 - **Feature build surface**: RPA/Studio, Maestro/Flow, coded app/action, coded agent (`LangGraph` / `LlamaIndex`), platform/config, docs-only, or a named combination.
 - **Project** (Studio project / agent package / app name) or owning repo path
 - **Starter template / scaffold source** for Studio projects: named template, `uip rpa create-project`
-  evidence, existing `project.json` / `project.uiproj` provenance, or an explicit discovery/question
-  task when the right template is not yet known.
+  evidence, existing `project.json` / `project.uiproj` provenance, and workflow-type rationale.
 - **Workflow / sequence / node** (`.xaml` / `.cs` workflow / LangGraph node / CLI step)
 - **Artifact path** in backticks (source, test, binding, or policy file)
 - **UiPath construct** (queue, asset, folder, binding key, graph, process)
@@ -64,9 +96,8 @@ For **RPA / Studio** tasks:
   project. Examples: Dispatcher/scheduled intake template for mailbox polling and enqueue,
   Performer/queue-worker template for transaction processing, Long Running Workflow/HITL template
   for human waits, Sequence for deterministic linear work, Flowchart for branching, State Machine
-  for stateful transitions. If the correct template is uncertain, generated tasks must include a
-  discovery/question task that uses `uip rpa create-project --help`, available Studio templates,
-  repo template folders, `uipath_library_search`, and `[skill:uipath-rpa]` before implementation.
+  for stateful transitions. If template selection is still uncertain, stop and return to
+  `/uiplan-plan`; do not emit discovery-question tasks in `tasks.md`.
 - Template evidence is part of the done gate: generated files, command output, `project.json` /
   `project.uiproj`, workflow type, and preserved generated control-flow structure. A generic
   hand-written `Main.xaml` with `LogMessage` markers is scaffold-only and cannot satisfy a Studio
@@ -105,7 +136,7 @@ metadata fix attempt when safe, and rerun evidence.
 - Split tasks (e.g. `T011A`, `T011B`, …) when **scope** differs (scaffold vs production activities vs agent code), not to drop XAML from the plan.
 - **Scaffold-only** XAML (`LogMessage` phase markers) is allowed **only** in bullets that explicitly say **scaffold-only** and must be **replaced** by production-activity tasks **before the story is done** when RPA is in scope.
 
-## Architecture diagram
+## Story execution map
 
 Execution order vs. parallel tracks (replace with story IDs and real tasks).
 
@@ -136,30 +167,44 @@ flowchart TD
   linkStyle 4,5 stroke:#10B981,stroke-width:2px
 ```
 
-## Phase 1: Setup (Shared Infrastructure)
+## Phase 1: Contract and Test Baseline
+
+**Why this exists**: lock executable contracts and baseline checks before source implementation.
 
 - [ ] T001 [P] [US1] {{T001}}
 - [ ] T001A [US1] Run the compatibility preflight from [docs/ORCHESTRATOR_DEPLOYMENT.md](../../docs/ORCHESTRATOR_DEPLOYMENT.md) before scaffolding, package selection, pack, publish, or deploy; record Studio/CLI/package/target-folder evidence.
-- [ ] T001B [US1] Confirm paradigm `{{PARADIGM}}` and CLI family `{{CLI_FAMILY}}`; if unknown, stop and resolve project type before implementation.
-- [ ] T001C [US1] For every Studio/RPA project in `plan.md`, create a template decision matrix:
-  project path, use case, selected starter template/scaffold source, workflow type, generated
-  control-flow structure to preserve, exact `uip rpa create-project` / Studio evidence, and fallback
-  question/discovery item if the template is not knowable from `spec.md` / `plan.md`.
 
 ---
 
-## Phase 2: Foundational (Blocking Prerequisites)
+## Phase 2: Foundational Build Slice
 
 **Purpose**: Core infrastructure that MUST be complete before user stories.
 
 - [ ] T002 [US1] {{T002}}
-- [ ] T002A [US1] Record feasibility grounding links for this story using `uipath_library_search`, `uipath_library_lookup`, `uipath_skill_match`, `query_uipath_docs`, and `uipath_doc_get_activity` when activities or packages are in scope.
 
 **Checkpoint**: Foundation ready.
 
 ---
 
 ## Phase 3: User Story 1 - {{US1_TITLE}} (Priority: P1)
+
+**Why this exists**: {{US1_GOAL}}
+
+### Story 1 workflow map
+
+```mermaid
+flowchart LR
+  subgraph Story["US1 execution slice"]
+    Tests[Tests]:::service --> Impl[Implementation]:::process
+    Impl --> Verify[Analyze and verify]:::service
+    Verify --> Evidence[Runtime evidence]:::endOk
+  end
+
+  classDef process  fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service  fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef endOk    fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:2px
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
 
 **Goal**: {{US1_GOAL}}
 
@@ -183,6 +228,8 @@ flowchart TD
 
 ## Phase 4: Polish & Cross-Cutting
 
+**Why this exists**: finalize cross-cutting quality, docs, and approval-gated handoff notes.
+
 - [ ] T020 [P] {{T020}}
 - [ ] T021 [P] Optional deploy handoff: if deployment is in scope, request explicit approval and follow [docs/ORCHESTRATOR_DEPLOYMENT.md](../../docs/ORCHESTRATOR_DEPLOYMENT.md); do not embed unsafe deploy commands in this task list.
 
@@ -191,6 +238,27 @@ flowchart TD
 ## Phase 5: Build, Verify, and Handoff
 
 **Purpose**: Convert the accepted plan into a verified build artifact.
+
+```mermaid
+flowchart LR
+  subgraph Gates["Build and verify"]
+    Restore[Restore]:::process --> Analyze[Analyze]:::service
+    Analyze --> Test[Test]:::service
+    Test --> Pack[Pack]:::process
+    Pack --> Evidence[Evidence and handoff]:::endOk
+  end
+  subgraph Recovery["Failure loop"]
+    Analyze -->|Fail| Diagnose[Diagnose and safe fix]:::human
+    Test -->|Fail| Diagnose
+    Diagnose --> Analyze
+  end
+
+  classDef process  fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service  fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef human    fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.5px
+  classDef endOk    fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:2px
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
 
 - [ ] T030 Run the accepted-plan handoff: confirm `spec.md`, `plan.md`, and
   `tasks.md` are reviewed and accepted before source edits.

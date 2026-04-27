@@ -44,6 +44,13 @@ The templates now encode feasibility contracts:
 - `plan.md`: paradigm-specific code structure and build loop sections.
 - `tasks.md`: artifact-level implementation tasks with grounding + verification.
 
+Templates are also **visual-first**:
+
+- `spec.md` includes architecture, sequence, story journey, data-contract, and ownership maps.
+- `plan.md` includes story visuals, capability ownership, data-contract, architecture, and build-loop visuals.
+- `tasks.md` includes task execution maps plus per-story workflow diagrams and build/diagnostics loops.
+- `templates/uiplan/_diagram-patterns.md` contains reusable copy-ready diagrams for these sections.
+
 Templates include **Pro Standard** Mermaid (`classDef`; `linkStyle` on
 flowcharts) per [`.cursor/skills/mermaid-diagram-builder/SKILL.md`](../../.cursor/skills/mermaid-diagram-builder/SKILL.md).
 
@@ -66,3 +73,10 @@ flowchart TD
 Avoid `%%{init}%%` theme blocks in templates. Some markdown preview renderers
 either ignore them or fall back to showing the Mermaid source as a code block.
 Keep visual styling in `classDef` and `linkStyle` directives inside the diagram.
+
+## Task Readiness Boundary
+
+`tasks.md` is the implementation contract, not discovery work. Discovery, project
+surface mapping, template decisions, and capability routing must be complete in
+`spec.md` + `plan.md` before `/uiplan-tasks` runs. If those inputs are missing,
+rerun `/uiplan-ground` and `/uiplan-plan` first.

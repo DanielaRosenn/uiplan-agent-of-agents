@@ -115,6 +115,61 @@ sequenceDiagram
   class Op,WF,Orch,Ext persona
 ```
 
+## Story journey map
+
+Map how each user story moves through the workflow boundaries.
+
+```mermaid
+flowchart LR
+  Story1[User Story 1] --> Surface1[Automation surface]
+  Surface1 --> Outcome1[Story 1 outcome]
+  Story2[User Story 2] --> Surface2[HITL or exception surface]
+  Surface2 --> Outcome2[Story 2 outcome]
+  classDef story fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef surface fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef outcome fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:1.5px
+  class Story1,Story2 story
+  class Surface1,Surface2 surface
+  class Outcome1,Outcome2 outcome
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+## Data and queue contract map
+
+Show key entities, queues, assets, and ownership boundaries.
+
+```mermaid
+flowchart TB
+  Input[Input entity] --> Queue1[(Primary queue or store)]
+  Queue1 --> Processor[Processor workflow]
+  Processor --> Queue2[(Review or output queue)]
+  Processor --> Assets[Asset or config keys]
+  classDef source fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef data fill:#ECFEFF,stroke:#0891B2,color:#164E63,stroke-width:1.25px
+  class Input source
+  class Queue1,Queue2,Assets data
+  class Processor process
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+## Capability ownership map
+
+Capture which skill/persona owns each major surface.
+
+```mermaid
+flowchart LR
+  BA[BA] --> Spec[Spec scope and acceptance]
+  SA[SA] --> Topology[Architecture and contracts]
+  Dev[Dev] --> Build[Implementation artifacts]
+  QA[QA] --> Verify[Tests and runtime evidence]
+  classDef persona fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.25px
+  classDef owned fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  class BA,SA,Dev,QA persona
+  class Spec,Topology,Build,Verify owned
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
 ## Success Criteria
 
 ### Measurable Outcomes

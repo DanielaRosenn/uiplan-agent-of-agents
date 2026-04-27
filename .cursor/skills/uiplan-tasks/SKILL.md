@@ -18,12 +18,24 @@ Before task generation:
 
 - `spec.md` exists and includes `Development Handoff` with declared paradigm.
 - `plan.md` exists and includes `Project Structure` and `Paradigm build loop`.
+- `plan.md` already includes discovery results, project surfaces, template/scaffold
+  decisions, source paths, bindings/contracts, and capability routing.
+- grounding inputs for activities/packages are already captured (`uipath_library_*`,
+  `uipath_doc_get_activity`, optional `query_uipath_docs` fallback).
 - If either is missing, stop and ask to run/re-run `/uiplan-spec` or `/uiplan-plan`.
+- If discovery/surface/template details are missing, stop and ask to rerun
+  `/uiplan-ground` and `/uiplan-plan` before `/uiplan-tasks`.
 
 ## Task authoring contract
 
 Every story-level task block must include tests before implementation and then
 implementation tasks with explicit feasibility details.
+
+Every story-level block must also include:
+
+- a one-sentence explanation (`Why this exists`);
+- at least one Mermaid workflow/task map for that story;
+- explicit evidence expectations (command output paths/log artifacts).
 
 ### Mandatory task fields
 
@@ -65,3 +77,7 @@ Tasks must reflect actual build targets for the declared paradigm:
 `tasks.md` should be executable without guessing: a reviewer should be able to
 validate feasibility of each task against UiPath capabilities, chosen CLI, and
 project structure before implementation starts.
+
+Reject checklist-only walls of text. A non-trivial `tasks.md` must be visual and
+explanatory enough that a reviewer can understand the workflow and task purpose
+before reading individual checklist lines.

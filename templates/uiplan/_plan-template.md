@@ -58,11 +58,13 @@ to the same boundaries.
 
 ```mermaid
 flowchart TD
-  Start([Story trigger]):::start
-  Work[Primary automated work]:::process
-  Decide{Business outcome?}:::decision
-  Done[Terminal success]:::success
-  Review[Human or exception path]:::human
+  subgraph Journey["Story slice"]
+    Start([Story trigger]):::start
+    Work[Primary automated work]:::process
+    Decide{Business outcome?}:::decision
+    Done[Terminal success]:::success
+    Review[Human or exception path]:::human
+  end
 
   Start --> Work --> Decide
   Decide -- Success --> Done
@@ -76,6 +78,50 @@ flowchart TD
 
   linkStyle default stroke:#94A3B8,stroke-width:1.5px
   linkStyle 0,1 stroke:#3B82F6,stroke-width:2px
+```
+
+## Capability and ownership map
+
+Map each build surface to personas and specialist capabilities before tasking.
+
+```mermaid
+flowchart LR
+  subgraph Roles["Ownership lenses"]
+    BA[BA lens] --> Scope[Process and acceptance scope]
+    SA[SA lens] --> Design[Topology and workflow shape]
+    Dev[Dev lens] --> Artifacts[Concrete source artifacts]
+    QA[QA or Test lens] --> Evidence[Test and runtime evidence]
+    Skills[Specialist skills] --> Artifacts
+  end
+  classDef persona fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.25px
+  classDef owned fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef skill fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  class BA,SA,Dev,QA persona
+  class Scope,Design,Artifacts,Evidence owned
+  class Skills skill
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+## Data and queue contract map
+
+Show the major runtime contracts consumed by implementation tasks.
+
+```mermaid
+flowchart TB
+  subgraph Contracts["Runtime contracts"]
+    Inputs[Source inputs] --> Intake[(Intake queue or store)]
+    Intake --> Processor[Main processing workflow]
+    Processor --> Review[(Review queue or HITL)]
+    Processor --> Output[(Output sink)]
+    Processor --> Config[Assets, bindings, and config]
+  end
+  classDef source fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef data fill:#ECFEFF,stroke:#0891B2,color:#164E63,stroke-width:1.25px
+  class Inputs source
+  class Processor process
+  class Intake,Review,Output,Config data
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
 ```
 
 ## Logging and verification contract

@@ -746,6 +746,21 @@ def call_uiplan_tasks_new(arguments: dict[str, Any]) -> dict[str, Any]:
     plan = files.get("plan.md", "")
     if not plan.strip():
         raise ValueError("plan.md is empty — run uipath_plan_plan_new first")
+    if "## Development Handoff" not in spec:
+        raise ValueError("spec.md is missing Development Handoff — run uipath_plan_spec_new first")
+    required_plan_sections = (
+        "## Project Structure",
+        "### Paradigm build loop",
+        "## Per-project workflow and platform inventory",
+        "## Planner Route & Specialist Handoff",
+    )
+    missing_sections = [section for section in required_plan_sections if section not in plan]
+    if missing_sections:
+        joined = ", ".join(missing_sections)
+        raise ValueError(
+            "plan.md is missing required task-generation preconditions "
+            f"({joined}) — rerun uipath_plan_plan_new after discovery/grounding."
+        )
 
     pack = arguments.get("grounding_pack")
     if not isinstance(pack, dict) or pack.get("status") != "ok":
@@ -766,13 +781,13 @@ def call_uiplan_tasks_new(arguments: dict[str, Any]) -> dict[str, Any]:
         "TITLE": title,
         "GROUNDING_CITATIONS": cites,
         "T001": (
-            "Scaffold only directories/files listed in `plan.md` **Project Structure** / "
-            "**Per-project workflow** (concrete `mkdir` paths); cite `[skill:uipath-planner]` and "
-            "`[agent:uipath-project-discovery-agent]` when discovery is needed."
+            "Create the contract baseline from `plan.md`: test fixture paths, queue/asset/binding "
+            "schemas, and workflow ownership notes for each build surface; verify baseline files exist "
+            "before implementation starts."
         ),
         "T002": (
-            "Restore + analyze green for touched projects per `plan.md` build loop; record evidence paths "
-            "(`out/analyze.json`, `.nupkg`) after first successful `uipcli` / `uipath` gate."
+            "Implement shared foundational artifacts required by all stories (schemas, reusable helpers, "
+            "common validation utilities) and prove they pass the first targeted test/analyze gate."
         ),
         "PLANNER_TASKS": _format_task_planner_handoff(pack),
         "US1_TITLE": "MVP slice",

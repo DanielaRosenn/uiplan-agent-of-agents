@@ -79,6 +79,11 @@ Do **not** treat `generate-docs` output as approved scope by default.
    the same `uipath_plan_*` MCP tools as the CLI/chat surface, and keep
    implementation behind review plus human approval.
 
+5. Generated docs are visual-first. Expect:
+   - `spec.md`: architecture, sequence, story-journey, data-contract, and ownership diagrams.
+   - `plan.md`: story visual map, capability/ownership map, data-contract map, architecture, and build-loop diagrams.
+   - `tasks.md`: execution map, story workflow/task map(s), and build/diagnostics loop diagram.
+
 **Implementation validation:** `/uiplan-implement` must prove behavior with
 **runtime evidence**, not only static checks. Expect a **validation evidence ledger**
 in the session summary: commands run (or MCP tools used), exit codes, changed
@@ -114,6 +119,10 @@ accepted implementation loop. In Cursor, `/uiplan-implement <slug>` reads the
 planner/specialist handoff, reviews first, asks before building, executes tasks
 in order, runs restore -> analyze -> test -> pack, and stops before any
 approval-required deploy.
+
+`/uiplan-tasks` assumes discovery is done. If project discovery, template
+decisions, workflow surfaces, and capability routing are missing in `plan.md`,
+stop and rerun `/uiplan-plan` before task generation.
 
 `uipath_plan_review` now includes feasibility checks for declared paradigm,
 code-structure descriptors, CLI-family consistency, artifact-rich tasks, and

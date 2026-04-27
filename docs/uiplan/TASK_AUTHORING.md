@@ -24,6 +24,17 @@ Tasks that skip available capability surfaces should fail review. Do not invent
 activity names, package APIs, template shapes, or CLI flags when a project skill,
 library lookup, activity doc, CLI help, or subagent can resolve them.
 
+## Discovery boundary
+
+Discovery is a precondition to task authoring, not a task output.
+
+- Run project discovery and architecture routing in `/uiplan-ground` and `/uiplan-plan`.
+- Capture project surfaces, template decisions, bindings/contracts, and activity lookup
+  context in `plan.md` before generating `tasks.md`.
+- If those inputs are missing, stop and return to plan/grounding stages.
+
+`tasks.md` should begin when the team already knows what to build.
+
 ## Persona checkpoints
 
 Before acceptance, review a non-trivial UiPlan bundle through these lenses:
@@ -75,11 +86,18 @@ Each non-parallel implementation task must include:
 - exact verification command;
 - runtime evidence path or artifact.
 
+Each story block should also include:
+
+- **Why this exists**: one sentence explaining business/workflow purpose.
+- **Workflow/task diagram**: Mermaid visual showing tests, implementation,
+  verification, and evidence outputs.
+- **Dependencies note**: what must be done before this story starts.
+
 Good task:
 
 ```text
 - [ ] T014 [US1] In `ZipEmail.Dispatcher`, implement the `ReadMailboxMessages`
-  sequence in `projects/ZipEmail.Dispatcher/Main.xaml` using Microsoft Graph mail
+  sequence in `projects/ZipEmail.Dispatcher/Main.xaml` using Email connector mail
   activities resolved by `uipath_doc_get_activity` and queue guidance from
   `uipath_library_search`; verify with `uipcli package analyze
   projects/ZipEmail.Dispatcher/project.json --resultPath out/dispatcher.json`
@@ -111,6 +129,27 @@ For every task, `/uiplan-implement` should run this loop:
    or remains.
 9. Mark complete only with runtime evidence; otherwise leave an explicit blocker
    or handoff.
+
+## Visual task authoring
+
+For every non-trivial story, include three visuals:
+
+1. **Story workflow map**: how runtime steps move across surfaces.
+2. **Task dependency map**: order/parallelization of tests, implementation, and gates.
+3. **Build/verify loop**: restore -> analyze -> test -> pack with diagnosis retry.
+
+Minimal pattern:
+
+```mermaid
+flowchart LR
+  Explain[Why this exists] --> Tests[Tests]
+  Tests --> Build[Implementation]
+  Build --> Verify[Analyze and verify]
+  Verify --> Evidence[Runtime evidence]
+```
+
+Pair each diagram with a short explanatory paragraph so readers understand why
+the checklist exists, not only what to run.
 
 ## Failure review
 
@@ -146,7 +185,7 @@ Group clarification output by topic and make every item actionable:
 ```text
 ### Human review
 - `[NEEDS CLARIFICATION: review channel]` Should ambiguous invoices be reviewed
-  in Slack, Action Center, or both?
+  in UiPath Flow HITL, Action Center, or another approved channel?
 ```
 
 Write answers back into `spec.md`, `plan.md`, or `tasks.md` before acceptance.

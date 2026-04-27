@@ -39,6 +39,7 @@ async def test_uiplan_full_scaffold(repo, monkeypatch):
     (tpl / "_plan-template.md").write_text(
         "# {{TITLE}}\n## Grounding Inputs\n{{GROUNDING_CONTEXT}}\n## Source routing (MCP)\n"
         "{{SOURCE_ROUTING_SNIPPET}}\n## Planner Route & Specialist Handoff\n{{PLANNER_HANDOFF}}\n"
+        "## Per-project workflow and platform inventory\n| Project | Entry | Contracts |\n| --- | --- | --- |\n"
         "## Technical Context\nx\n## Constitution Check\n"
         "- [ ] **modern_experience_only**: ok\n## Project Structure\n### Source Code (repository root)\n"
         "```\npyproject.toml\nlanggraph.json\n```\n### Paradigm build loop\nuipath run\n"
@@ -137,12 +138,16 @@ async def test_tasks_new_resolved_activity_docs(repo, monkeypatch):
     (tpl / "_spec-template.md").write_text(
         "# {{TITLE}}\n{{INTENT}}\n## User Scenarios\n### User Story 1 - A (Priority: P1)\n"
         "**Given** g **When** w **Then** t\n## Requirements\n### Functional Requirements\n"
-        "**FR-001**: System MUST x\n## Success Criteria\n### Measurable Outcomes\n**SC-001**: m\n",
+        "**FR-001**: System MUST x\n## Success Criteria\n### Measurable Outcomes\n**SC-001**: m\n"
+        "## Development Handoff\n**Implementation paradigm**: coded-agent\n",
         encoding="utf-8",
     )
     (tpl / "_plan-template.md").write_text(
-        "# {{TITLE}}\n## Technical Context\nx\n## Constitution Check\n"
+        "# {{TITLE}}\n## Planner Route & Specialist Handoff\n{{PLANNER_HANDOFF}}\n"
+        "## Per-project workflow and platform inventory\n| Project | Entry | Contracts |\n| --- | --- | --- |\n"
+        "## Technical Context\nx\n## Constitution Check\n"
         "- [ ] **modern_experience_only**: ok\n## Project Structure\n```\nx\n```\n"
+        "### Paradigm build loop\nuipath run\n"
         "**Structure Decision**: {{STRUCTURE_DECISION}}\n## Complexity Tracking\nx\n",
         encoding="utf-8",
     )

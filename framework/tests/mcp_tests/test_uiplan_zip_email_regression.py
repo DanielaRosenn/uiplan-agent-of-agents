@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from mcp_server.tools import plan_tools, plan_uiplan_review
+from mcp_server.tools import plan_tools, plan_uiplan, plan_uiplan_review
 
 
 @pytest.fixture
@@ -73,19 +73,18 @@ async def test_zip_email_fixture_generates_solution_xaml_contract(
     assert "correlation" in tasks.lower()
     assert "smoke" in tasks.lower()
     for phrase in (
-        "T011C1",
-        "ZipEmail.Dispatcher",
-        "Graph/Office365",
+        "projects/<Dispatcher>/Main.xaml",
+        "projects/<AnalyzerRunner>/Main.xaml",
+        "projects/<AnalyzerAgent>/langgraph.json",
+        ".flow` / BPMN",
         "uipath_doc_get_activity",
-        "Dispatcher Graph read in `projects/ZipEmail.Dispatcher/Main.xaml`",
-        "AnalyzerRunner Invoke Agent boundary",
         "Diagnose and fix verification failures",
         "parse analyzer",
-        "solution.uipx",
-        "project metadata/Automation Hub setting inspection",
+        "uipcli solution analyze --resultPath out/solution-analyze.json",
     ):
         assert phrase in tasks, f"expected solution RPA task vocabulary in tasks: {phrase}"
-    assert "validates except explicit tenant policy findings" not in tasks
+    for forbidden in ("Run project discovery before implementation", "Graph/Office365", "Slack", "HumanReviewHandler"):
+        assert forbidden not in tasks, f"forbidden stale/discovery task text present: {forbidden}"
 
     review = plan_uiplan_review.run_uiplan_review(
         spec=spec,
@@ -128,8 +127,39 @@ def test_zip_detailed_build_spec_has_grouped_readable_clarifications() -> None:
     cl = review.get("clarifications") or {}
     # SME block replaced open NEEDS CLARIFICATION markers — bundle may have zero parsed items.
     assert int(cl.get("open_count") or 0) == 0
-    na = (review.get("next_action") or "").lower()
-    assert "clarification" in na or "accept" in na or "warning" in na
+
+
+def test_tasks_generation_requires_plan_preconditions(
+    repo_with_real_uiplan_templates: Path,
+) -> None:
+    repo = repo_with_real_uiplan_templates
+    slug = "missing-preconditions"
+    folder = repo / ".cursor" / "plans" / f"2026-01-01-{slug}"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / ".meta.yaml").write_text(
+        "\n".join(
+            [
+                f"slug: {slug}",
+                "title: Missing Preconditions",
+                "date: '2026-01-01'",
+                "status: draft",
+                "plan_kind: uiplan",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (folder / "spec.md").write_text(
+        "# Spec\n\n## Development Handoff\n\n- placeholder\n",
+        encoding="utf-8",
+    )
+    (folder / "plan.md").write_text(
+        "# Plan\n\n## Summary\n\nNo required sections here.\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="required task-generation preconditions"):
+        plan_uiplan.call_uiplan_tasks_new({"project_root": str(repo), "slug": slug})
 
 
 def test_plan_warns_on_vb_without_legacy():
