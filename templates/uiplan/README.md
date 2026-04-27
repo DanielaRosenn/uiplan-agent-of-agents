@@ -46,3 +46,23 @@ The templates now encode feasibility contracts:
 
 Templates include **Pro Standard** Mermaid (`classDef`; `linkStyle` on
 flowcharts) per [`.cursor/skills/mermaid-diagram-builder/SKILL.md`](../../.cursor/skills/mermaid-diagram-builder/SKILL.md).
+
+## Mermaid Preview
+
+This workspace recommends `bierner.markdown-mermaid` via
+[`.vscode/extensions.json`](../../.vscode/extensions.json). Install the
+recommendation and reload Cursor so ` ```mermaid ` fences render directly in
+Markdown Preview.
+
+Use plain fenced Mermaid blocks:
+
+````markdown
+```mermaid
+flowchart TD
+  A[Start] --> B[Done]
+```
+````
+
+Avoid `%%{init}%%` theme blocks in templates. Some markdown preview renderers
+either ignore them or fall back to showing the Mermaid source as a code block.
+Keep visual styling in `classDef` and `linkStyle` directives inside the diagram.

@@ -1,10 +1,10 @@
 # Feature Specification: Zip Email Automation Smart Invoice Routing
 
-> **Grounding:** [skill:uipath-planner] [agent:uipath-project-discovery-agent] [skill:uipath-solution-design] [skill:writing-uipath-plans] [skill:mermaid-diagram-builder] [skill:uiplan] [skill:uipath-gov-aops-policy] [repo:uipath-builder-agent/CLAUDE.md] [template:templates/long-running/]
+> **Grounding:** [skill:uipath-planner] [agent:uipath-project-discovery-agent] [skill:uipath-solution-design] [skill:uipath-rpa] [skill:uipath-maestro-flow] [skill:uipath-agents] [skill:uipath-platform] [skill:mermaid-diagram-builder] [skill:uiplan]
 
 **Created**: 2026-04-27
 **Status**: Draft
-**Input**: User description: "Create the build-ready UiPlan specification for the Zip Email Automation Smart Invoice Routing UiPath Solution from the actual PDD, SDD, and ADD in C:/Users/DanielaRosenstein/cursor_projects/AgenticAI_FIN02_ZipMailboxAutomation/docs/design. The solution includes ZipEmail.Dispatcher, ZipEmail.AnalyzerRunner, ZipEmail.AnalyzerAgent, and ZipEmail.HumanReviewHandler with ZipEmailIntakeQueue and ZipEmailHumanReviewQueue. Start with spec only; plan, tasks, review, acceptance, and implementation remain gated by explicit approval."
+**Input**: User description: "Create the build-ready UiPlan specification for the Zip Email Automation Smart Invoice Routing UiPath Solution from the actual PDD, SDD, ADD, and latest user corrections. The solution uses the Email connector (not Microsoft Graph), a Dispatcher template for intake, a Long Running Workflow for the analyzer host, a LangGraph coded agent for analysis, and a UiPath Flow for the final Human-in-the-Loop stage. Start with spec only; plan, tasks, review, acceptance, and implementation remain gated by explicit approval."
 
 _If a PDD/SDD path was supplied, a short excerpt may appear in **Source traceability** at the end of the file. The **User Scenarios** and **Requirements** sections below are the build-ready specification (not a paste of the PDD)._
 
@@ -37,8 +37,9 @@ update the intake item, and correlation IDs appear in logs.
 
 **Acceptance Scenarios**:
 
-1. **Given** a new Microsoft Graph message from a monitored payable mailbox,
-   **When** `ZipEmail.Dispatcher` runs, **Then** it creates exactly one
+1. **Given** a new email from a monitored payable mailbox through the UiPath
+   Email connector, **When** `ZipEmail.Dispatcher` runs from the Dispatcher
+   template, **Then** it creates exactly one
    `ZipEmailIntakeQueue` item with source mailbox, message identity, sender,
    received time, normalized subject/body evidence reference, and correlation ID.
 2. **Given** the same logical email appears in more than one regional mailbox,
@@ -58,19 +59,19 @@ fast review decision so the linked intake item and review queue stay consistent.
 the happy path but are mandatory for compliance and operational closure.
 
 **Independent Test**: Inject a `ZipEmailHumanReviewQueue` fixture item and verify
-`ZipEmail.HumanReviewHandler` creates the review notification/task, waits for an
-outcome, updates the review item, and updates the linked intake item.
+the UiPath Flow creates the Human-in-the-Loop review step, waits for an outcome,
+updates the review item, and updates the linked intake item.
 
 **Acceptance Scenarios**:
 
 1. **Given** analyzer output requires human review, **When**
-   `ZipEmail.AnalyzerRunner` creates a review item, **Then** the review item is
-   linked to the original `ZipEmailIntakeQueue` item with reason code, evidence
-   summary, recommended action, and correlation ID.
+   `ZipEmail.AnalyzerRunner` creates a review item, **Then** the UiPath Flow
+   Human-in-the-Loop stage receives a linked review item with reason code,
+   evidence summary, recommended action, and correlation ID.
 2. **Given** a reviewer approves a route, **When**
-   `ZipEmail.HumanReviewHandler` resumes, **Then** both queue items reflect the
-   final business outcome and an audit entry records the decision.
-3. **Given** review times out or cannot be completed, **When** the handler
+   the UiPath Flow completes the HITL outcome, **Then** both queue items reflect
+   the final business outcome and an audit entry records the decision.
+3. **Given** review times out or cannot be completed, **When** the UiPath Flow
    reaches the configured SLA, **Then** the item is escalated or marked
    exception according to the plan/task policy.
 
@@ -92,16 +93,17 @@ outcome, updates the review item, and updates the linked intake item.
 ### Functional Requirements
 
 - **FR-001**: System MUST monitor configured regional payable mailboxes through
-  Microsoft Graph using persisted per-mailbox cursor or delta-token state.
+  the UiPath Email connector using persisted per-mailbox cursor/state.
 - **FR-002**: System MUST deduplicate logical messages across mailboxes using a
-  stable message identity such as `InternetMessageId`, Graph message ID, sender,
-  received time, and normalized subject/body hash.
+  stable email identity from the Email connector such as `InternetMessageId`,
+  sender, received time, and normalized subject/body hash.
 - **FR-003**: System MUST create and update `ZipEmailIntakeQueue` items for the
   dispatcher/analyzer contract and `ZipEmailHumanReviewQueue` items for
   ambiguous cases.
-- **FR-004**: System MUST implement four coordinated projects:
-  `ZipEmail.Dispatcher`, `ZipEmail.AnalyzerRunner`,
-  `ZipEmail.AnalyzerAgent`, and `ZipEmail.HumanReviewHandler`.
+- **FR-004**: System MUST implement these coordinated build surfaces:
+  `ZipEmail.Dispatcher` from the Dispatcher template, `ZipEmail.AnalyzerRunner`
+  as a Long Running Workflow, `ZipEmail.AnalyzerAgent` as a Python LangGraph
+  coded agent, and a UiPath Flow for the final Human-in-the-Loop stage.
 - **FR-005**: System MUST keep the Python/LangGraph agent as the analyzer
   engine only; it must not replace the RPA analyzer host or become a second
   queue consumer.
@@ -132,19 +134,21 @@ outcome, updates the review item, and updates the linked intake item.
 
 ## Architecture diagram
 
-High-level boundaries from the SDD.
+High-level boundaries from the SDD plus the latest user corrections.
 
 ```mermaid
 flowchart TB
   subgraph Schedule["Schedules"]
     DispatchSchedule([Every 30 min: Dispatcher]):::start
     AnalyzeSchedule([After dispatcher: AnalyzerRunner]):::start
-    ReviewTrigger([Queue/schedule: HumanReviewHandler]):::start
+    ReviewTrigger([Queue / event: HITL Flow]):::start
   end
   subgraph RPA["RPA / Studio projects"]
     Dispatcher[ZipEmail.Dispatcher]:::process
     AnalyzerRunner[ZipEmail.AnalyzerRunner]:::process
-    HumanReview[ZipEmail.HumanReviewHandler]:::process
+  end
+  subgraph Flow["UiPath Flow"]
+    HumanReview[Human-in-the-Loop Flow]:::process
   end
   subgraph Agent["Coded agent"]
     AnalyzerAgent[ZipEmail.AnalyzerAgent]:::service
@@ -154,13 +158,13 @@ flowchart TB
     Review[(ZipEmailHumanReviewQueue)]:::data
   end
   subgraph External["External systems"]
-    Graph[Microsoft Graph]:::external
+    Email[UiPath Email connector]:::external
     Vendor[Vendor master]:::external
     Zip[Zip mailbox / API]:::external
-    ReviewChannel[Action Center / Slack]:::external
+    ReviewChannel[Human review channel]:::external
   end
   DispatchSchedule --> Dispatcher
-  Dispatcher --> Graph
+  Dispatcher --> Email
   Dispatcher --> Intake
   AnalyzeSchedule --> AnalyzerRunner
   Intake --> AnalyzerRunner
@@ -198,7 +202,7 @@ sequenceDiagram
   participant Runner as ZipEmail.AnalyzerRunner
   participant Agent as ZipEmail.AnalyzerAgent
   participant ReviewQ as ZipEmailHumanReviewQueue
-  participant Handler as ZipEmail.HumanReviewHandler
+  participant Handler as HITL UiPath Flow
   participant Zip as Zip mailbox or API
   Scheduler->>Dispatcher: start mailbox intake
   Dispatcher->>Intake: add normalized queue item
@@ -251,8 +255,9 @@ sequenceDiagram
 
 - **SDD**:
   `C:/Users/DanielaRosenstein/cursor_projects/AgenticAI_FIN02_ZipMailboxAutomation/docs/design/sdd.md`
-  v1.2. Defines the four-project solution, two queues, schedules, RPA host vs
-  agent engine split, and human review handler.
+  v1.2. Defines the base solution, two queues, schedules, and RPA host vs agent
+  engine split. Latest user correction supersedes its Graph/HumanReviewHandler
+  details: use Email connector and UiPath Flow for the HITL stage.
 - **PDD**:
   `C:/Users/DanielaRosenstein/cursor_projects/AgenticAI_FIN02_ZipMailboxAutomation/docs/design/pdd.md`.
   Defines business problem, 90% junk-reduction objective, regional payable
@@ -261,6 +266,10 @@ sequenceDiagram
   `C:/Users/DanielaRosenstein/cursor_projects/AgenticAI_FIN02_ZipMailboxAutomation/docs/design/add.md`.
   Defines the analyzer graph, deterministic-first agent gating, structured
   state, outputs, and human-review item creation.
+- **User correction 2026-04-27**: Use the UiPath Email connector instead of
+  Microsoft Graph; use the Dispatcher template for intake; use a Long Running
+  Workflow for the analyzer host; use LangGraph for the agent; use UiPath Flow
+  for the final Human-in-the-Loop stage.
 
 ## SME inputs (do not invent)
 

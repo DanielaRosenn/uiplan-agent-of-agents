@@ -55,7 +55,8 @@ htmlcov/
 **/~$*
 
 # IDEs
-.vscode/
+.vscode/*
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo

@@ -50,6 +50,34 @@ List open **AskAI / library** topics (`uipath_library_search` query text) and ma
 
 {{WORKFLOW_SHAPE_BLOCK}}
 
+## Story visual map
+
+Divide visuals by user story when the spec has multiple stories. Use one
+diagram per story slice so `tasks.md` can map build tasks, tests, and evidence
+to the same boundaries.
+
+```mermaid
+flowchart TD
+  Start([Story trigger]):::start
+  Work[Primary automated work]:::process
+  Decide{Business outcome?}:::decision
+  Done[Terminal success]:::success
+  Review[Human or exception path]:::human
+
+  Start --> Work --> Decide
+  Decide -- Success --> Done
+  Decide -- Needs review --> Review
+
+  classDef start fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:2px
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef success fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:1.5px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.5px
+
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+  linkStyle 0,1 stroke:#3B82F6,stroke-width:2px
+```
+
 ## Logging and verification contract
 
 {{LOGGING_VERIFICATION_BLOCK}}
@@ -87,7 +115,6 @@ Gates re-checked after Phase 1 design:
 Implementation layering and dependencies (adapt nodes to this plan).
 
 ```mermaid
-%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
 flowchart LR
   subgraph Packages["UiPath packages / projects"]
     A[Process or library project]:::process
@@ -138,7 +165,6 @@ replacement for the implementation contract in `tasks.md`.
 Restore, analyze, test, and pack (adapt steps to your project type).
 
 ```mermaid
-%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
 flowchart TB
   subgraph Prep["Prepare"]
     R[Restore deps]:::process
