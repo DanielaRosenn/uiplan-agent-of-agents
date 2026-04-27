@@ -3,7 +3,12 @@
 ## Canonical paths
 
 - **Kit:** `templates/uiplan/` at repo root (MCP and `generate-docs` resolve here).
+- **Runtime:** `tools/uiplan/` for local CLI entry points and scaffold/adaptor support.
+- **Cursor skills:** `.cursor/skills/uiplan*/SKILL.md` for slash command behavior.
+- **MCP tools:** `framework/mcp_server/tools/plan_uiplan*.py`.
 - **Pytest (UiPlan):** `framework/tests/uiplan/`. Example: `uv run pytest framework/tests/uiplan/ -q`.
+- **Task authoring:** [TASK_AUTHORING.md](TASK_AUTHORING.md) for workflow design,
+  capability routing, examples, and the implementation loop.
 
 ## Decision table
 
@@ -20,6 +25,32 @@
 - **Published:** `docs/plans/<slug>/` after `uipath_plan_accept` + `uipath_plan_publish`.
 - **Templates (kit):** [`templates/uiplan/`](../../templates/uiplan/) at the repo root.
 
+## Slug and lifecycle rules
+
+UiPlan has two names that are easy to confuse:
+
+- **Folder slug**: the draft folder under `.cursor/plans/`, often date-prefixed
+  like `.cursor/plans/2026-04-27-my-feature/`.
+- **Metadata slug**: `.meta.yaml` field `slug`, used by review/accept/publish
+  tools as the stable logical plan id.
+
+When in doubt, read `.meta.yaml` and pass the metadata slug to MCP/CLI review
+commands. The status flow is:
+
+1. **Draft**: generated or edited under `.cursor/plans/<folder>/`.
+2. **Review**: run `uipath_plan_review` or `/uiplan-review <slug>` until no
+   error-severity findings remain.
+3. **Accept**: use `uipath_plan_accept` or
+   `uipath-claude plan uiplan accept <slug>` after human approval.
+4. **Implement**: use `/uiplan-implement <slug>`; it re-runs review, checks
+   `.meta.yaml` status, and executes from `tasks.md`.
+5. **Publish**: use `uipath_plan_publish` or
+   `uipath-claude plan uiplan publish <slug>` when the accepted bundle should be
+   copied to `docs/plans/<slug>/`.
+
+Never publish by manually copying files to `docs/plans/`, and never treat a draft
+as implementation-approved only because it exists on disk.
+
 ## Human approval gate
 
 Do **not** treat `generate-docs` output as approved scope by default.
@@ -29,8 +60,9 @@ Do **not** treat `generate-docs` output as approved scope by default.
    **Development execution contract**, and `tasks.md` includes
    **Build, Verify, and Handoff**.
 3. Run `uipath_plan_review` until `"ok": true` when using MCP.
-4. Only then accept the bundle and run `scaffold-code` or start implementation
-   work from `tasks.md`.
+4. Only then accept the bundle and start implementation with
+   `/uiplan-implement <slug>`. Use `scaffold-code` only when you specifically
+   need the local runtime/adaptor checks described in [SCAFFOLD_CODE.md](SCAFFOLD_CODE.md).
 
 ## Numbered quickstarts
 
@@ -47,6 +79,15 @@ Do **not** treat `generate-docs` output as approved scope by default.
    the same `uipath_plan_*` MCP tools as the CLI/chat surface, and keep
    implementation behind review plus human approval.
 
+**Implementation validation:** `/uiplan-implement` must prove behavior with
+**runtime evidence**, not only static checks. Expect a **validation evidence ledger**
+in the session summary: commands run (or MCP tools used), exit codes, changed
+paths, and observed pass/fail. For this repo (Python / LangGraph), that should
+normally include `uv run pytest …` on affected tests or an equivalent run named
+in `tasks.md`. If proof needs the Cursor UI (slash picker, reload), the agent
+should ask for **human confirmation** and record it in the ledger instead of
+claiming end-to-end proof without it.
+
 ### B) Local Typer CLI (`tools/uiplan`)
 
 ```bash
@@ -54,6 +95,7 @@ cd <repo-root>
 uv sync
 uv run python -m tools.uiplan generate-docs 2026-04-23-my-feature
 # optional: --out path/to/folder --kit path/to/kit --no-strict --paradigm coded-agent
+# optional runtime/adaptor support, not a replacement for /uiplan-implement:
 uv run python -m tools.uiplan scaffold-code 2026-04-23-my-feature --max-loops 5
 ```
 
@@ -76,3 +118,58 @@ approval-required deploy.
 `uipath_plan_review` now includes feasibility checks for declared paradigm,
 code-structure descriptors, CLI-family consistency, artifact-rich tasks, and
 deploy gates.
+
+## Capability and persona routing
+
+Before accepting a non-trivial bundle, inventory the active capabilities and show
+how `plan.md` / `tasks.md` will use them:
+
+- **Planning/design skills**: `uiplan-*`, `uipath-planner`,
+  `uipath-solution-design`, `writing-uipath-plans`, `mermaid-diagram-builder`.
+- **Product/build skills**: `uipath-rpa`, `uipath-rpa-legacy`,
+  `uipath-agents`, `uipath-platform`, `uipath-coded-apps`,
+  `uipath-maestro-flow`, `uipath-case-management`, `uipath-data-fabric`,
+  `uipath-human-in-the-loop`, `uipath-gov-aops-policy`, `uipath-test`,
+  `uipath-diagnostics`, `uipath-interact`.
+- **Submodule agents**: `skills/agents/uipath-project-discovery-agent.md` when
+  project context is missing or stale.
+- **Diagnostic agent personas**: triage, scope-checker, hypothesis-generator,
+  hypothesis-tester, and presenter for failed analyzer/test/tooling loops.
+- **MCP/library/docs**: `uipath_library_search`, `uipath_library_lookup`,
+  `uipath_doc_get_activity`, `uipath_doc_list_packages`, and
+  `query_uipath_docs` / `[askai:...]` only when local/library coverage is not
+  enough.
+- **CLI/tooling**: `uipcli`, `uipath`, `uip`, and live `--help` before uncertain
+  flags.
+- **Focused subagents**: discovery, implementation, shell/test execution,
+  browser/UI verification, documentation, and code review when work can be split
+  safely.
+
+Run non-trivial plans through BA / SA / Dev / QA lenses before acceptance:
+
+- **BA**: process, actors, inputs/outputs, acceptance criteria, SME gaps.
+- **SA**: topology, project split, workflow shape, queues/assets/connections,
+  deployment gates.
+- **Dev**: artifacts, activities/SDK calls, package dependencies, implementation
+  order, local build loop.
+- **QA/Test**: fixtures, analyze/test commands, runtime evidence, failure-path
+  validation, smoke criteria.
+
+Any unresolved design choice should name its owning persona, skill, or blocker
+so `/uiplan-implement` does not make architecture decisions while coding.
+
+## Task quality gate
+
+Use [TASK_AUTHORING.md](TASK_AUTHORING.md) when drafting or reviewing `tasks.md`.
+At minimum, each implementation task must name:
+
+- project or package;
+- workflow / sequence / graph node / CLI step;
+- artifact path;
+- UiPath construct;
+- skill/library/docs/AskAI/CLI/subagent grounding;
+- exact verification command;
+- runtime evidence.
+
+The implementation loop is always: develop -> analyze/test -> parse output ->
+compare against plan/tasks -> fix safely -> rerun -> record evidence.

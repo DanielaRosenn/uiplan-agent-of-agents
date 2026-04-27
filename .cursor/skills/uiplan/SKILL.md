@@ -33,12 +33,18 @@ the happy path and at least one failure path.
 lists, credentials, Zip mode, audit store, trigger mode), record them as **`[SME REVIEW]`** or
 `[NEEDS CLARIFICATION: …]` in the bundle — do not silently invent values.
 
+**Task authoring:** `tasks.md` must follow
+[`docs/uiplan/TASK_AUTHORING.md`](../../../docs/uiplan/TASK_AUTHORING.md):
+workflow design before tasking, full capability routing, BA/SA/Dev/QA lenses,
+and the dev -> analyze/test -> parse output -> fix -> rerun evidence loop.
+
 ## Canonical layout (no duplicate kits)
 
 | Role | Path |
 | --- | --- |
 | Template kit | `templates/uiplan/` only |
 | Human overview | `docs/uiplan/README.md`, `docs/uiplan/HOW_TO_USE.md` |
+| Task authoring contract | `docs/uiplan/TASK_AUTHORING.md` |
 | UiPlan pytest | `framework/tests/uiplan/` (collected via `testpaths = ["framework/tests"]`) |
 | After clone | `docs/uiplan/CLONED_PROJECT_SETUP.md` |
 | Draft bundle | `.cursor/plans/<YYYY-MM-DD-slug>/` |
@@ -69,6 +75,7 @@ Load this skill when any of these apply:
   **Build, Verify, and Handoff** before implementation starts.
 - **Mermaid:** include at least one Pro Standard diagram in the bundle for non-trivial work (see [`mermaid-diagram-builder`](../mermaid-diagram-builder/SKILL.md)).
 - **Reject reasons are mandatory** — `uipath_plan_reject` refuses empty reasons on purpose.
+- **No half-tasks in `tasks.md`:** each checklist line is one **done gate** (verification + evidence). **When the use case includes Studio / RPA / `.xaml`**, tasks must require **building those workflows** (same class of deliverable as tests and analyze gates), using MCP + skills + CLI — not only bindings or Python. Split tasks by **scope** (scaffold vs production workflow vs agent), not to omit XAML from the plan. **`[HANDOFF:…]`** only for secrets, deploy approval, OAuth, or physical robot smoke — see `templates/uiplan/_tasks-template.md` (**Executable task split**).
 
 ## Discovery and grounding (before tools or after 1–2 questions)
 
@@ -80,6 +87,34 @@ Then ground the work:
 2. **Optional `uipath_plan_brainstorm`** — read-only hint pack (library query suggestions, `pdd_candidates`, clarifying questions). Use as extra signal, or when preparing a **legacy single-file** draft only.
 
 Follow-ups (read-only): `uipath_library_search` / `uipath_library_lookup`, `query_uipath_docs`, `uipath_doc_get_activity` / `uipath_doc_list_packages`, `uipath_skill_match`, read PDD paths from disk. If `UIPATH_PLAN_WEB=1` and web is noted as needed, use the host agent web skill — MCP does not browse the web itself.
+
+## Capability routing before acceptance
+
+For non-trivial bundles, record the active capability surfaces before acceptance:
+
+- planning/design skills: `uiplan-*`, `uipath-planner`,
+  `uipath-solution-design`, `writing-uipath-plans`, `mermaid-diagram-builder`;
+- product/build skills: route each build surface to the owning skill
+  (`uipath-rpa`, `uipath-agents`, `uipath-platform`, `uipath-coded-apps`,
+  `uipath-maestro-flow`, `uipath-case-management`, `uipath-data-fabric`,
+  `uipath-human-in-the-loop`, `uipath-test`, `uipath-diagnostics`,
+  `uipath-interact`, or other active project skills);
+- lifecycle lenses: BA for process/PDD gaps, SA for architecture/workflow shape,
+  Dev for artifact/activity/build order, QA/Test for fixtures/evidence/failure
+  paths;
+- project/submodule agents: use `skills/agents/uipath-project-discovery-agent.md`
+  when project context is missing or stale;
+- diagnostics personas: triage, scope-checker, hypothesis-generator,
+  hypothesis-tester, and presenter when validation/analyzer output fails;
+- MCP and docs: `uipath_library_search`, `uipath_library_lookup`,
+  `uipath_doc_get_activity`, `uipath_doc_list_packages`, and `query_uipath_docs`
+  only when local/library coverage is insufficient;
+- focused subagents: split discovery, implementation, tests, UI/browser checks,
+  docs, and review when they can proceed safely.
+
+If a task says "implement workflow" without naming the capability that resolves
+activity/template/tooling details and the evidence that proves it, treat it as
+not build-ready.
 
 ## Default flow — complete UiPlan (three files)
 
@@ -111,7 +146,7 @@ flowchart TD
 
 **One-shot orchestrator:** `uipath_plan_uiplan_new` runs ground through `uipath_plan_review(all)`; then fix findings and accept when clean.
 
-**Local file-first path:** `uv run python -m tools.uiplan generate-docs <slug>` then human approval, then `scaffold-code` — see [docs/uiplan/HOW_TO_USE.md](../../../docs/uiplan/HOW_TO_USE.md).
+**Local file-first path:** `uv run python -m tools.uiplan generate-docs <slug>` then human approval, then `/uiplan-implement <slug>` for the build. Use `scaffold-code` only for the local runtime/adaptor checks described in [docs/uiplan/SCAFFOLD_CODE.md](../../../docs/uiplan/SCAFFOLD_CODE.md).
 
 ### Hard gate before implementation
 
@@ -162,6 +197,12 @@ This is the build handoff command. It must:
    docs lookup, local CLI commands, tests, and build gates.
 7. Run restore -> analyze -> test -> pack for the detected project type.
 8. Summarize verification evidence and any approval-required follow-up.
+
+**Evidence ledger:** the implement step must end with a written ledger (exact
+commands or MCP calls, exit codes, artifact paths, observed results).
+**No static-only completion** — routing or file-presence checks alone are not
+enough to claim the build works. If only a human can verify (for example Cursor
+UI), stop and record **human validation** explicitly.
 
 In run-to-completion mode, execute `tasks.md` as a constant UiPath loop. For
 each task, check plan alignment, source reality, dependencies/tooling,
@@ -222,6 +263,7 @@ Do not use `uipath_plan_refine` for UiPlan **folders**.
 - Marking accepted on the user's behalf — require explicit "accept" / "go ahead" or plan UI acceptance.
 - Publishing before `uipath_plan_accept`.
 - Omitting Mermaid for non-trivial bundles.
+- Treating **static** wiring or doc checks as proof that **runtime** behavior works.
 
 ## Related
 

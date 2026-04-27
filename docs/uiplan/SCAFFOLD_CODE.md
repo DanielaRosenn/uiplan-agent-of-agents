@@ -1,5 +1,11 @@
 # UiPlan `scaffold-code` — current behavior
 
+> **Not the canonical implementation command.**
+> Use `/uiplan-implement <slug>` for the review-first build flow from
+> `tasks.md`. `scaffold-code` is local runtime/adaptor support; depending on the
+> detected paradigm, it may validate markers and return follow-up suggestions
+> rather than build business behavior.
+
 This note is the **baseline** for per-project-type scaffold work (see
 `docs/superpowers/specs/2026-04-23-uiplan-runtime-restructure-design.md`, section 13).
 
@@ -12,8 +18,9 @@ This note is the **baseline** for per-project-type scaffold work (see
   `tools/uiplan/scaffold/registry.py` using `tools/uiplan/scaffold/project_kind.py`.
 
 `generate-docs` now writes paradigm-aware plan/task scaffolds (descriptor files,
-CLI build loop, artifact-level implementation tasks, and deploy gates) so
-`scaffold-code` receives an implementation-ready `tasks.md`.
+CLI build loop, artifact-level implementation tasks, and deploy gates). The
+accepted `tasks.md` is implemented through `/uiplan-implement`; `scaffold-code`
+can consume the same bundle for local adapter/runtime checks.
 
 ## Loop policy
 
@@ -30,3 +37,14 @@ CLI build loop, artifact-level implementation tasks, and deploy gates) so
 | `coded-agent` | `CodedAgentScaffoldAdapter` | Validates LangGraph / agent markers + `pyproject.toml`; reports suggested `uipath` CLI follow-ups. |
 | `rpa` | `RpaScaffoldAdapter` | Validates `project.json`; reports suggested `uipcli` / `uip rpa` follow-ups. |
 | others | `ExplicitStubAdapter` | Single non-recoverable failure with `not_implemented` and the detected kind. |
+
+## Implementation is not done at `scaffold-code` alone
+
+`scaffold-code` runs the loop policy and adapters above; for many paradigms the
+adapter only **validates markers** or returns **follow-up suggestions**. That
+is **not** the same as a completed business feature. After `scaffold-code` (or
+parallel hand work from `tasks.md`), you still need **task-level verification**
+from the bundle: behavioral tests, CLI runs, or an explicit **human-gated**
+smoke step. UiPlan `/uiplan-implement` and
+[`.cursor/skills/uiplan-implement/SKILL.md`](../../.cursor/skills/uiplan-implement/SKILL.md)
+require a **validation evidence ledger** and reject **static-only** completion.

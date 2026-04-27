@@ -2,8 +2,8 @@
 
 UiPlan is the **three-file planning-to-build bundle** used before implementation:
 `spec.md` (what), `plan.md` (how), and `tasks.md` (executable build steps).
-It pairs with MCP plan tools and the local **`tools/uiplan`** CLI for
-generate -> review -> accept -> scaffold/build workflows.
+It pairs with MCP plan tools, Cursor skills, and the local **`tools/uiplan`**
+CLI for generate -> review -> accept -> implement workflows.
 ![UiPlan logo](../assets/uiplan-logo.svg)
 
 ## First 15 minutes
@@ -14,10 +14,9 @@ If you are new, do this in order:
 2. Generate a bundle: `uv run python -m tools.uiplan generate-docs <slug>`.
 3. Review the three files (`spec.md`, `plan.md`, `tasks.md`) and tighten scope.
 4. Run review (`uipath_plan_review` or Cursor `/uiplan-review <slug>`) and resolve findings.
-5. Move to scaffold/build only after acceptance; use `/uiplan-implement <slug>`
-   or `scaffold-code` with the Development Handoff in `spec.md`, the
-   Development execution contract in `plan.md`, and the final
-   Build/Verify/Handoff phase in `tasks.md`.
+5. Move to build only after acceptance; use `/uiplan-implement <slug>` with the
+   Development Handoff in `spec.md`, the Development execution contract in
+   `plan.md`, and the final Build/Verify/Handoff phase in `tasks.md`.
 
 This flow is the fastest way to keep planning quality high and implementation predictable.
 
@@ -44,7 +43,7 @@ flowchart TD
   formalNode -->|no| uiplanNode["Use UiPlan bundle"]
   uiplanNode --> reviewNode["Review and accept"]
   reviewNode --> acceptNode["Accept bundle"]
-  acceptNode --> buildNode["Scaffold/build from tasks"]
+  acceptNode --> buildNode["/uiplan-implement from tasks"]
 ```
 
 ## Audience
@@ -57,13 +56,29 @@ flowchart TD
 | Doc | Purpose |
 | --- | --- |
 | [HOW_TO_USE.md](HOW_TO_USE.md) | MCP vs CLI vs skill; folder conventions; approval gate |
-| [UiPlan framework (MCP matrix)](../plans/2026-04-21-uiplan-framework.md) | Tooling roles and storage model |
+| [TASK_AUTHORING.md](TASK_AUTHORING.md) | Workflow design, capability routing, task examples, and implementation loop |
+| [UiPlan framework historical plan](../plans/2026-04-21-uiplan-framework.md) | Historical design record; not the current operating guide |
 | [Template kit](../../templates/uiplan/) | `_spec-template.md`, `_plan-template.md`, `_tasks-template.md`, `_diagram-patterns.md` |
 | [Orchestrator deployment runbook](../ORCHESTRATOR_DEPLOYMENT.md) | Optional deploy gates and compatibility preflight for generated tasks |
 | [Mermaid Pro Standard](../../.cursor/skills/mermaid-diagram-builder/SKILL.md) | Diagram style contract for this repo |
 | [MERMAID_VALIDATION.md](MERMAID_VALIDATION.md) | Optional `mmdc` batch check for fenced diagrams |
 | [SCAFFOLD_CODE.md](SCAFFOLD_CODE.md) | What `tools.uiplan scaffold-code` does today |
 | [../CAPABILITY_CONTRACT.md](../CAPABILITY_CONTRACT.md) | Canonical CLI/Cursor/MCP surface and non-goals |
+
+## Authority map
+
+| Surface | Canonical location | Role |
+| --- | --- | --- |
+| UiPlan document templates | [`templates/uiplan/`](../../templates/uiplan/) | Source for generated `spec.md`, `plan.md`, `tasks.md`, and diagram snippets |
+| Human documentation | [`docs/uiplan/`](./) | Current operating guide for humans and agents |
+| Cursor skill behavior | [`../../.cursor/skills/uiplan*/`](../../.cursor/skills/) | Slash command behavior and planning/implement contracts |
+| MCP tool implementation | [`../../framework/mcp_server/tools/plan_uiplan.py`](../../framework/mcp_server/tools/plan_uiplan.py), [`../../framework/mcp_server/tools/plan_uiplan_review.py`](../../framework/mcp_server/tools/plan_uiplan_review.py) | Generation, review, accept/publish surfaces |
+| Local CLI/runtime | [`../../tools/uiplan/`](../../tools/uiplan/) | `generate-docs`, `scaffold-code`, validation helpers, and adapters |
+| Draft bundles | `.cursor/plans/<YYYY-MM-DD-slug>/` | Per-user working drafts with `.meta.yaml` |
+| Published bundles | [`../plans/`](../plans/) | Git-tracked accepted plans after publish |
+
+`scaffold-code` is not the primary implementation command. Treat it as local
+runtime/adaptor support; `/uiplan-implement` is the review-first build handoff.
 
 ## Repository layout (UiPlan-related)
 
@@ -92,7 +107,7 @@ flowchart TB
   F --> C
 ```
 
-## Generate → review → accept → scaffold (sequence)
+## Generate → review → accept → implement (sequence)
 
 ```mermaid
 sequenceDiagram
@@ -105,8 +120,9 @@ sequenceDiagram
   CLI->>FS: spec.md plan.md tasks.md
   Dev->>Rev: Human + uipath_plan_review
   Rev-->>Dev: ok / findings
-  Dev->>CLI: accept + /uiplan-implement <slug> or scaffold-code
-  CLI-->>Dev: implementation loop (capped)
+  Dev->>CLI: accept
+  Dev->>Rev: /uiplan-implement <slug>
+  Rev-->>Dev: task-by-task implementation loop + evidence ledger
 ```
 
 ## Best leverage patterns

@@ -8,6 +8,9 @@ disable-model-invocation: true
 
 Use `.cursor/skills/uiplan/SKILL.md` as the canonical planning contract and the
 project-specific specialist skills as the implementation contract.
+Use `docs/uiplan/TASK_AUTHORING.md` as the concrete task-quality contract for
+workflow design, capability routing, handoff tags, and the per-task
+develop/analyze/fix/rerun loop.
 
 ## Flow
 
@@ -30,14 +33,67 @@ project-specific specialist skills as the implementation contract.
    specialist skills, MCP tools (`uipath_library_search`, `uipath_library_lookup`,
    `query_uipath_docs`, `uipath_doc_get_activity`), library/AskAI-style lookup, and useful
    subagents before source edits.
-8. Implement from `tasks.md` in order. Use every relevant project capability as
-   needed: specialist UiPath skills, MCP tools, subagents, library lookup,
-   AskAI-style documentation lookup, local CLI commands, tests, and build gates.
+8. Implement from `tasks.md` in order. **Feature build surface match:** for each
+   story/feature, use the build surface declared in `tasks.md` / `plan.md`:
+   **RPA/Studio**, **Maestro/Flow**, **coded app/action**, **coded agent**,
+   **platform/config**, or a named combination. Mixed Solutions must be executed
+   by artifact; do not collapse RPA, Flow, app, agent, and bindings work into a
+   single generic "solution" task.
+
+   - For **RPA / `.xaml` / Studio-backed processes**, implement workflows in the
+     repo using **`uipath_doc_get_activity`**, **`uipath_library_search` /
+     `uipath_library_lookup`**, **`[skill:uipath-rpa]`**, Studio/default activity
+     evidence (`uip rpa create-project --studio-dir ...`, Studio-generated XAML,
+     or `uip rpa get-default-activity-xaml` / package-local equivalent), and
+     **`uipcli`** restore/analyze/pack. Do not satisfy production workflow bullets
+     with `LogMessage`-only XAML unless the task explicitly says **scaffold-only**
+     and names the follow-up activity task.
+   - For **agent-backed features**, build the agent artifact (`langgraph.json`,
+     `llama_index.json`, graph entry point, graph nodes/tools) and verify it with
+     `uv run pytest`, `uipath run`, or the task-specific command. If an RPA/Flow/app
+     host invokes the agent, implement and verify the host invocation boundary and
+     request/response schema as part of the same feature slice.
+   - For **Maestro/Flow** and **coded app/action** surfaces, use the matched
+     specialist skill and CLI (`uip` / `uip codedapp`) and verify the declared
+     flow/app artifact, not only bindings or docs.
+
+   **Task atomicity:** if a bullet mixes unrelated concerns without a clear split
+   or `[HANDOFF:…]` where only secrets/deploy/robot apply, **stop** and get
+   `tasks.md` corrected. Use every relevant project capability: specialist skills,
+   MCP, subagents, library lookup, AskAI-style docs, CLI, tests, and build gates.
 9. Run the build loop for the detected project type: restore -> analyze -> test
    -> pack, then the **smoke run** and **log validation** steps written in `tasks.md` (correlation
-   id, expected log substrings). Stop on analyzer errors or failing tests.
+   id, expected log substrings). If any verification fails, run the **Failure
+   Diagnosis and Fix Loop** below before calling it blocked or moving on.
 10. Summarize exact verification evidence, changed files, package path if
    produced, and approval-required next steps.
+
+## Validation evidence ledger (required)
+
+Do not claim implementation is done from **static checks alone** (file exists,
+string appears in a skill, routing table, docs wording, or `ReadLints` with no
+commands run). The final summary **must** include a **validation evidence
+ledger**: for each major verification step, record **exact command(s) run** (or
+MCP tool name + key arguments), **working directory**, **exit code** (or tool
+`ok` / error), **paths of generated or changed artifacts**, and a **short
+observed result** (pass/fail summary, not only "ran").
+
+For this **Python / LangGraph-style repo** (`pyproject.toml`, `langgraph.json`),
+include at least one real execution path such as `uv run pytest …` on the
+tests touched by the change, or the closest safe equivalent named in `tasks.md`.
+
+## No static-only completion
+
+The following **do not** satisfy "validated" or "working" by themselves:
+
+- Proving slash command **files** or **skill text** reference the right tool names
+- Passing only **structural** or **routing** unit tests that never invoke
+  `generate-docs`, `scaffold-code`, runtime code, or the build loop
+- Lint-only or existence-only checks without a run that exercises behavior
+
+If the only honest proof needs **human UI** (for example Cursor slash picker
+after reload), **stop and ask** the human to confirm; record that as explicit
+**human validation** in the ledger instead of implying end-to-end proof.
 
 ## Per-Task UiPath Loop
 
@@ -68,8 +124,9 @@ before moving to the next task:
    Tests must assert behavior tied to the task; existence/layout tests alone
    cannot satisfy business implementation tasks.
 7. **Analyze gate** - for UiPath projects touched by the task, run the
-   applicable analyze/lint gate before continuing. Any analyzer error blocks
-   the loop.
+   applicable analyze/lint gate before continuing. Any analyzer/tooling/test
+   failure must enter the **Failure Diagnosis and Fix Loop** before it can be
+   reported as blocked.
 8. **Spec compliance review** - compare the changed files against `spec.md`,
    `plan.md`, and the exact task text. Fix gaps before continuing.
 9. **Code quality review** - review maintainability, security, secret handling,
@@ -78,6 +135,53 @@ before moving to the next task:
    artifacts, verification commands/results, and remaining unchecked or blocked
    task IDs. Mark the task complete only after all applicable checks pass, then
    continue to the next unchecked task.
+
+## Failure Diagnosis and Fix Loop
+
+Never summarize a failed verification as "blocked", "tenant policy", "Studio
+issue", "solution descriptor invalid", or equivalent until this loop has been
+completed and recorded in the validation ledger.
+
+For every failed `uipcli package analyze`, `uipcli solution restore|analyze`,
+Studio validation, `uip rpa ...`, `uipath run`, or test command:
+
+1. **Capture evidence** - record the exact command, working directory, exit code,
+   result file path (`--resultPath`, JUnit, pytest output, terminal log), and the
+   smallest relevant error excerpt.
+2. **Parse structured output** - read analyzer JSON/result files when present.
+   Extract rule IDs (for example `ST-USG-034`), severities, affected files or
+   activities, messages, and whether the error is project-level or solution
+   descriptor/resource-builder-level.
+3. **Ground the failure** - consult the correct source before guessing:
+   `uipath_library_search` / `uipath_library_lookup`, `query_uipath_docs`,
+   `uipath_doc_get_activity`, local package docs, live `--help`, Studio IPC
+   (`uip rpa find-activities`, `get-default-activity-xaml`, `get-errors`), or
+   repo docs such as `docs/uipath-cli.md`.
+4. **Inspect source reality** - read the affected `project.json`, `.xaml`,
+   `solution.uipx`, bindings, generated `.local` metadata, or package descriptor
+   and compare it to docs/tool-generated examples. For Solutions, explicitly
+   distinguish project restore/analyze failures from `solution.uipx` definition
+   failures.
+5. **Attempt a safe local fix** - when the evidence points to source/config/tooling
+   that can be changed locally, make the smallest non-destructive fix. Do not
+   publish, deploy, delete tenant resources, alter secrets, or mutate shared
+   resources without approval.
+6. **Re-run the same verification** - record whether the original error cleared,
+   changed, or remains. If a new error appears, repeat the loop for the new error.
+7. **Only then report blocked** - the blocker report must include:
+   - command + working directory + exit code;
+   - parsed rule/error and result file path;
+   - docs/tooling consulted;
+   - source/config inspected;
+   - local fix attempted or why no safe local fix exists;
+   - rerun result;
+   - precise blocker class: tenant-only, human UI-only, missing credentials,
+     generated descriptor required, unsupported local tooling, or unsafe action.
+
+Task checkboxes remain incomplete while the diagnosis loop is still in progress.
+If the remaining issue is truly external, mark only the local implementation
+subtask complete and leave a separate diagnosis/handoff task open with the
+blocker report.
 
 ## Artifact Completeness Rules
 
@@ -121,9 +225,11 @@ Still stop and report before:
 
 - review errors or missing human acceptance,
 - `skills/` submodule guard failure,
-- analyzer errors, failing tests, or failed restore/pack commands,
+- analyzer errors, failing tests, or failed restore/pack commands **after** the
+  Failure Diagnosis and Fix Loop has been run and recorded,
 - dependency drift or failed restore/sync,
-- incomplete runtime artifacts, scaffold-only progress, or self-certifying tests,
+- incomplete runtime artifacts, scaffold-only progress, self-certifying tests,
+  or missing validation evidence ledger for claimed completion,
 - task status mismatches between `tasks.md` and source reality,
 - spec compliance or code quality review issues that cannot be fixed locally,
 - missing required credentials or tooling,

@@ -141,15 +141,16 @@ project context.
 
 Legacy **single-file** drafts (`uipath_plan_new`, refine, diff) are unchanged. UiPlan folders skip `uipath_plan_refine` / `uipath_plan_diff` (edit markdown directly or regenerate stages).
 
-### UiPlan template kit and two-step runtime (local `tools/uiplan`)
+### UiPlan template kit and local runtime (`tools/uiplan`)
 
-For normalized templates and the **generate-docs → review → accept → scaffold-code**
+For normalized templates and the **generate-docs -> review -> accept -> implement**
 flow, see [docs/uiplan/README.md](uiplan/README.md) and
 [docs/uiplan/HOW_TO_USE.md](uiplan/HOW_TO_USE.md). From the repo root, the local runtime is:
 
 1. `uv run python -m tools.uiplan generate-docs <slug>` — materialize or refresh the doc bundle (drafts under `.cursor/plans/`, published copies under `docs/plans/`, per storage rules above).
 2. Human approval on that bundle before implementation.
-3. `uv run python -m tools.uiplan scaffold-code <slug> --max-loops N` — drive implementation with an explicit loop cap; omit `--max-loops` to use the **`UIPLAN_MAX_LOOPS`** default.
+3. `/uiplan-implement <slug>` — review-first implementation from `tasks.md`.
+4. Optional: `uv run python -m tools.uiplan scaffold-code <slug> --max-loops N` — run local runtime/adaptor checks with an explicit loop cap; omit `--max-loops` to use the **`UIPLAN_MAX_LOOPS`** default. This is not a replacement for the implementation contract in `tasks.md`.
 
 ## Front matter (template-of-record)
 

@@ -86,6 +86,11 @@ def test_uiplan_implement_reviews_then_controls_building() -> None:
         REPO_ROOT / ".cursor" / "skills" / "uiplan-implement" / "SKILL.md"
     ).read_text(encoding="utf-8")
 
+    assert "Validation evidence ledger" in content
+    assert "exit code" in content.lower()
+    assert "No static-only completion" in content
+    assert "human" in content.lower() and "validation" in content.lower()
+    assert "uv run pytest" in content
     assert "uipath_plan_review" in content
     assert "stage=all" in content
     assert "ask the user before starting implementation" in content
@@ -119,6 +124,26 @@ def test_uiplan_implement_reviews_then_controls_building() -> None:
     assert "AskAI-style documentation lookup" in content
     assert "restore -> analyze -> test" in content
     assert "Never deploy to Production" in content
+
+
+def test_canonical_uiplan_skill_requires_implement_evidence_ledger() -> None:
+    content = _skill_content()
+    assert "Evidence ledger" in content
+    assert "No static-only completion" in content
+    assert "human validation" in content.lower()
+
+
+def test_how_to_use_documents_runtime_validation_for_implement() -> None:
+    text = (REPO_ROOT / "docs" / "uiplan" / "HOW_TO_USE.md").read_text(encoding="utf-8")
+    assert "validation evidence ledger" in text.lower()
+    assert "runtime evidence" in text.lower() or "runtime" in text.lower()
+    assert "/uiplan-implement" in text
+
+
+def test_scaffold_code_doc_rejects_static_only_completion() -> None:
+    text = (REPO_ROOT / "docs" / "uiplan" / "SCAFFOLD_CODE.md").read_text(encoding="utf-8")
+    assert "static-only" in text.lower() or "static-only" in text
+    assert "validation evidence ledger" in text.lower()
 
 
 def test_uiplan_review_wrapper_requires_feasibility_checks() -> None:

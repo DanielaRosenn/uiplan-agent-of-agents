@@ -41,6 +41,28 @@ def _default_mapping(plan_slug: str, paradigm: str) -> dict[str, str]:
         "FOLDER_NAME": plan_slug,
         "INTENT": f"UiPlan bundle for `{plan_slug}` (fill from product brief).",
         "GROUNDING_CITATIONS": "_Grounding to be filled after `uipath_plan_ground`._",
+        "GROUNDING_CONTEXT": "_Run `uipath_plan_ground` or paste grounding excerpts here._",
+        "SOURCE_ROUTING_SNIPPET": (
+            "- `uipath_library_search` / `uipath_library_lookup` first\n"
+            "- `query_uipath_docs` / `[askai:...]` when library coverage is insufficient\n"
+            "- `uipath_doc_get_activity` / `uipath_doc_list_packages` before naming activities\n"
+        ),
+        "PLANNER_HANDOFF": (
+            "[skill:uipath-planner] [skill:uipath-rpa] [skill:uipath-agents] [skill:uipath-platform] "
+            "[agent:uipath-project-discovery-agent] `.claude/rules/project-context.md` "
+            "uipath_library_search uipath_library_lookup uipath_doc_get_activity"
+        ),
+        "WORKFLOW_SHAPE_BLOCK": (
+            "_Name per-project workflow types (Sequence, Flowchart, State Machine, Long Running) "
+            "for each `.xaml` entry in `plan.md`._"
+        ),
+        "LOGGING_VERIFICATION_BLOCK": (
+            "`LogMessage` with correlation id per phase; smoke run; assert expected substrings in "
+            "robot/job logs."
+        ),
+        "PLANNER_TASKS": (
+            "Re-read `[skill:uipath-planner]` routing in `plan.md` and align `tasks.md` execution order."
+        ),
         "SUMMARY": "_One-paragraph summary._",
         "LANG_VERSION": "_e.g. C# / .NET 8 or Python 3.11+_",
         "DEPS": "_Primary packages / services._",
@@ -86,16 +108,35 @@ def _default_mapping(plan_slug: str, paradigm: str) -> dict[str, str]:
         "BUILD_ENTRYPOINT": "`tasks.md` after review passes and the bundle is accepted.",
         "IMPLEMENTATION_SCOPE": "_Files/projects/services the build may change._",
         "BUILD_COMMAND": (
-            f"`uv run python -m tools.uiplan scaffold-code {plan_slug} --max-loops 5` "
-            "or specialist skill execution from `tasks.md`."
+            f"`/uiplan-implement {plan_slug}` after review passes and the bundle "
+            "is accepted. Use `scaffold-code` only for optional local "
+            "runtime/adaptor checks."
         ),
         "QUALITY_GATES": "restore -> analyze -> test -> pack; deploy only with explicit approval.",
-        "T001": "_Confirm project type and compatibility envelope before scaffolding._",
-        "T002": "_Set up source structure after preflight is recorded._",
+        "T001": (
+            "Confirm project type from `plan.md` / repo descriptors (`project.json`, `solution.uipx`, "
+            "`pyproject.toml`); cite `[skill:uipath-planner]` and `[agent:uipath-project-discovery-agent]`; "
+            "record Studio/CLI versions in `docs/` notes."
+        ),
+        "T002": (
+            "Create only directories/files listed in `plan.md` **Structure Decision** (mirror "
+            "`projects/` / `tests/` paths); no speculative scaffolding."
+        ),
         "US1_GOAL": "_Story goal._",
         "US1_IND_TEST": "_Independent test description._",
-        "T010_TEST": "_Add failing test first._",
-        "T011_IMPL": "_Implement to green._",
+        "T010_TEST": (
+            "Add failing automated test at `tests/test_us1_placeholder.py` (or `Tests/` per paradigm); "
+            "run `uv run pytest tests/test_us1_placeholder.py -q` (or `uipcli test run -a <projectKey> .`); "
+            "**Runtime evidence**: pytest JUnit or console log under `TestResults/`."
+        ),
+        "T011_IMPL": (
+            "Implement US1 at the concrete artifact paths in `plan.md` (e.g. `projects/Process/Main.xaml` "
+            "or `main.py`); use `[skill:uipath-rpa]` / `[skill:uipath-agents]` per paradigm; "
+            "`uipath_library_search` + `uipath_library_lookup` and `uipath_doc_get_activity` before naming "
+            "activities; **Verification**: `uipcli package analyze --resultPath out/analyze.json` or "
+            "`uv run pytest`; **Runtime evidence**: `out/analyze.json` or pytest report + correlation id "
+            "in `LogMessage` smoke logs; personal workspace default; Production requires explicit approval."
+        ),
         "PARADIGM_TASK_BLOCKS": paradigm_task_blocks(normalized),
         "T020": "_Polish / docs / telemetry; deploy remains approval-required via docs/ORCHESTRATOR_DEPLOYMENT.md._",
         "DEPENDENCIES_TEXT": "_Story B may start after foundation; otherwise parallel._",

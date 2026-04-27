@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from mcp_server.tools.plan_uiplan_review import (
+    build_clarifications_bundle,
     review_citations,
     review_duplicate_uiplan_slug,
     review_spec_text,
@@ -59,11 +60,18 @@ def test_run_uiplan_review_all_includes_citations():
     plan += "## Development execution contract\nrestore -> analyze -> test -> pack\n"
     plan += "## Complexity Tracking\nnone\n"
     tasks = "## Phase 3: User Story 1 - A (Priority: P1)\n### Tests for User Story 1\n"
-    tasks += "- [ ] T010 [US1] test `t.py` uipath_library_search\n"
+    tasks += "- [ ] T010 [US1] test `t.py` uipath_library_search uv run pytest tests/t.py -q\n"
     tasks += "### Implementation for User Story 1\n"
-    tasks += "- [ ] T011 [US1] impl `m.py` [skill:uipath-rpa] uipath_library_lookup LogMessage "
+    tasks += "- [ ] T009 [US1] template decision matrix for `Main.xaml`: starter template "
+    tasks += "long-running scaffold source from `project.json` / `project.uiproj`, Studio evidence "
+    tasks += "from uip rpa create-project, workflow type Long Running, preserve generated structure; "
+    tasks += "[skill:uipath-rpa] uipath_library_search\n"
+    tasks += "- [ ] T011 [US1] impl `Main.xaml` [skill:uipath-rpa] uipath_library_lookup LogMessage "
     tasks += "correlation id smoke job run robot log assert personal workspace Production\n"
-    tasks += "## Phase 5: Build, Verify, and Handoff\n- [ ] T030 build\n"
+    tasks += "## Phase 5: Build, Verify, and Handoff\n"
+    tasks += "- [ ] T030 build `out/pkg.nupkg` pytest junit analyzer resultPath robot log\n"
+    tasks += "- [ ] T031 diagnose failures: parse analyzer resultPath rule, use uipath_library_search "
+    tasks += "and --help, inspect project.json source schema, apply local fix, rerun command\n"
     out = run_uiplan_review(
         spec=spec,
         plan=plan,
@@ -75,6 +83,74 @@ def test_run_uiplan_review_all_includes_citations():
     )
     assert "findings" in out
     assert "ok" in out
+    assert "clarifications" in out
+    assert out["clarifications"].get("open_count") == 0
+
+
+def test_build_clarifications_bundle_groups_zip_style_markers():
+    spec = (
+        "## SME inputs\n"
+        "- `[NEEDS CLARIFICATION: monitored mailboxes]` Which mailboxes are in scope?\n"
+        "- `[NEEDS CLARIFICATION: final trigger model]` Queue vs schedule?\n"
+        "- `[NEEDS CLARIFICATION: Zip mode]` Forward or API?\n"
+    )
+    out = build_clarifications_bundle(spec=spec, plan="", tasks="")
+    assert out["open_count"] == 3
+    gids = {g["id"] for g in out["groups"]}
+    assert "mailboxes_routing" in gids
+    assert "execution_triggers" in gids
+    assert "zip_integration" in gids
+    assert "Mailboxes and routing" in out["clarifications_text"]
+    assert "[NEEDS CLARIFICATION: Zip mode]" in out["clarifications_text"]
+
+
+def test_run_uiplan_review_next_action_when_clarifications_open():
+    repo = Path(__file__).resolve().parents[3]
+    spec = "### User Story 1 - A (Priority: P1)\n**Given** a **When** b **Then** c\n"
+    spec += "## Requirements\n### Functional Requirements\n**FR-001**: System MUST x\n"
+    spec += "## Success Criteria\n### Measurable Outcomes\n**SC-001**: y\n"
+    spec += "## Source routing\nuipath_library_search uipath_library_lookup query_uipath_docs "
+    spec += "uipath_doc_get_activity uipath-project-discovery-agent\n"
+    spec += "## SME inputs\n"
+    spec += "- `[NEEDS CLARIFICATION: Zip mode]` — Forward to mailbox or use Zip API?\n"
+    spec += "## Development Handoff\n**Implementation paradigm**: modern-rpa\n**CLI family**: uipcli\n"
+    spec += "Use tasks.md after uipath_plan_review and acceptance.\n"
+    plan = "## Technical Context\nok\n## Constitution Check\n- [ ] **modern_experience_only**: ok\n"
+    plan += "## XAML workflow shape\nSequence Flowchart Long Running for `.xaml` entry.\n"
+    plan += "## Logging contract\nLogMessage correlation smoke job run robot log assert.\n"
+    plan += "## Planner Route & Specialist Handoff\n"
+    plan += "[skill:uipath-planner] [skill:uipath-rpa] uipath-project-discovery-agent "
+    "project-context.md uipath_library_search uipath_doc_get_activity\n"
+    plan += "## Project Structure\n### Source Code (repository root)\nproject.json\nMain.xaml\n"
+    plan += "### Paradigm build loop\nuipcli analyze\n```\nx\n```\n"
+    plan += "**Structure Decision**: use templates/long-running/ for layout.\n"
+    plan += "## Development execution contract\nrestore -> analyze -> test -> pack\n"
+    plan += "## Complexity Tracking\nnone\n"
+    tasks = "## Phase 3: User Story 1 - A (Priority: P1)\n### Tests for User Story 1\n"
+    tasks += "- [ ] T010 [US1] test `t.py` uipath_library_search uv run pytest tests/t.py -q\n"
+    tasks += "### Implementation for User Story 1\n"
+    tasks += "- [ ] T009 [US1] template decision matrix for `Main.xaml`: starter template "
+    tasks += "long-running scaffold source from `project.json` / `project.uiproj`, Studio evidence "
+    tasks += "from uip rpa create-project, workflow type Long Running, preserve generated structure; "
+    tasks += "[skill:uipath-rpa] uipath_library_search\n"
+    tasks += "- [ ] T011 [US1] impl `Main.xaml` [skill:uipath-rpa] uipath_library_lookup LogMessage "
+    tasks += "correlation id smoke job run robot log assert personal workspace Production\n"
+    tasks += "## Phase 5: Build, Verify, and Handoff\n"
+    tasks += "- [ ] T030 build `out/pkg.nupkg` pytest junit analyzer resultPath robot log\n"
+    tasks += "- [ ] T031 diagnose failures: parse analyzer resultPath rule, use uipath_library_search "
+    tasks += "and --help, inspect project.json source schema, apply local fix, rerun command\n"
+    out = run_uiplan_review(
+        spec=spec,
+        plan=plan,
+        tasks=tasks,
+        stage="all",
+        gate_ids=["modern_experience_only"],
+        repo=repo,
+        slug="nodup-test-slug-2",
+    )
+    assert out.get("ok") is True
+    assert out["clarifications"].get("open_count", 0) >= 1
+    assert "clarification" in out["next_action"].lower()
 
 
 def test_review_requires_development_handoff_in_spec():
@@ -112,6 +188,80 @@ def test_review_requires_build_verify_handoff_phase_in_tasks():
     )
 
     assert any(f.get("rule") == "build_verify_handoff_phase" for f in findings)
+
+
+def test_review_requires_failure_diagnosis_loop_in_phase5():
+    findings = review_tasks_text(
+        "## Phase 3: User Story 1 - A (Priority: P1)\n"
+        "### Tests for User Story 1\n"
+        "- [ ] T010 [US1] test `tests/t.py` uipath_library_search uv run pytest tests/t.py -q\n"
+        "### Implementation for User Story 1\n"
+        "- [ ] T011 [US1] impl `Main.xaml` [skill:uipath-rpa] uipath_library_search "
+        "LogMessage correlation id smoke job run robot log assert personal workspace Production\n"
+        "## Phase 5: Build, Verify, and Handoff\n"
+        "- [ ] T030 build `out/pkg.nupkg` pytest junit analyzer resultPath robot log; "
+        "stop on analyzer errors\n",
+        "### User Story 1 - A (Priority: P1)\n**Implementation paradigm**: modern-rpa\n",
+    )
+
+    assert any(f.get("rule") == "task_failure_diagnosis_loop" for f in findings)
+
+
+def test_review_requires_studio_template_contract_for_rpa_tasks():
+    findings = review_tasks_text(
+        "## Phase 3: User Story 1 - A (Priority: P1)\n"
+        "### Tests for User Story 1\n"
+        "- [ ] T010 [US1] test `tests/t.py` uipath_library_search uv run pytest tests/t.py -q\n"
+        "### Implementation for User Story 1\n"
+        "- [ ] T011 [US1] build `projects/ZipEmail.Dispatcher/Main.xaml` [skill:uipath-rpa] "
+        "uipath_library_search LogMessage correlation id smoke job run robot log assert "
+        "personal workspace Production\n"
+        "## Phase 5: Build, Verify, and Handoff\n"
+        "- [ ] T030 build `out/pkg.nupkg` pytest junit analyzer resultPath robot log\n"
+        "- [ ] T031 diagnose failures: parse analyzer resultPath rule, use uipath_library_search "
+        "and --help, inspect project.json source schema, apply local fix, rerun command\n",
+        "### User Story 1 - A (Priority: P1)\n**Implementation paradigm**: modern-rpa\n",
+    )
+
+    assert any(f.get("rule") == "tasks_studio_template_contract" for f in findings)
+
+
+def test_review_rejects_stusg034_blocker_without_diagnosis():
+    findings = review_tasks_text(
+        "## Phase 3: User Story 1 - A (Priority: P1)\n"
+        "### Tests for User Story 1\n"
+        "- [ ] T010 [US1] test `tests/t.py` uipath_library_search uv run pytest tests/t.py -q\n"
+        "### Implementation for User Story 1\n"
+        "- [ ] T011 [US1] update `projects/A/Main.xaml` [skill:uipath-rpa] "
+        "uipath_library_search LogMessage correlation id smoke job run robot log assert "
+        "personal workspace Production\n"
+        "## Phase 5: Build, Verify, and Handoff\n"
+        "- [ ] T030 build `out/pkg.nupkg` pytest junit analyzer resultPath robot log\n"
+        "- [ ] T031 ST-USG-034 can be blocked by tenant policy after analyze validates except "
+        "that finding\n",
+        "### User Story 1 - A (Priority: P1)\n**Implementation paradigm**: modern-rpa\n",
+    )
+
+    assert any(f.get("rule") == "task_analyzer_rule_diagnosis" for f in findings)
+
+
+def test_review_rejects_solution_uipx_without_descriptor_diagnosis():
+    findings = review_tasks_text(
+        "## Phase 3: User Story 1 - A (Priority: P1)\n"
+        "### Tests for User Story 1\n"
+        "- [ ] T010 [US1] test `tests/t.py` uipath_library_search uv run pytest tests/t.py -q\n"
+        "### Implementation for User Story 1\n"
+        "- [ ] T011 [US1] package `projects/A/Main.xaml` and `solution.uipx` "
+        "[skill:uipath-rpa] uipath_library_search LogMessage correlation id smoke job run "
+        "robot log assert personal workspace Production\n"
+        "## Phase 5: Build, Verify, and Handoff\n"
+        "- [ ] T030 build `out/pkg.nupkg` pytest junit analyzer resultPath robot log\n"
+        "- [ ] T031 diagnose failures: parse analyzer resultPath rule, use uipath_library_search "
+        "and --help, inspect project.json source schema, apply local fix, rerun command\n",
+        "### User Story 1 - A (Priority: P1)\n**Implementation paradigm**: solution\n",
+    )
+
+    assert any(f.get("rule") == "task_solution_descriptor_diagnosis" for f in findings)
 
 
 def test_review_requires_paradigm_declaration_in_spec():
@@ -190,11 +340,13 @@ def test_review_warns_on_unknown_activity_tag():
     )
     tasks = (
         "## Phase 3: User Story 1 - A (Priority: P1)\n### Tests for User Story 1\n"
-        "- [ ] T010 [US1] test `tests/test_us1.py`\n"
+        "- [ ] T010 [US1] test `tests/test_us1.py` uv run pytest tests/test_us1.py -q\n"
         "### Implementation for User Story 1\n"
         "- [ ] T011 [US1] impl `main.py` [skill:uipath-agents] uipath run personal workspace Production\n"
-        "- [ ] T012 [US1] use [activity:Fake.Package:MissingActivity]\n"
-        "## Phase 5: Build, Verify, and Handoff\n- [ ] T030 build\n"
+        "- [ ] T012 [US1] use `tests/stub.py` [activity:Fake.Package:MissingActivity] "
+        "uipath_library_lookup personal workspace Production\n"
+        "## Phase 5: Build, Verify, and Handoff\n"
+        "- [ ] T030 build `out/pkg.nupkg` pytest junit resultPath robot log\n"
     )
     out = run_uiplan_review(
         spec=spec,
@@ -211,10 +363,66 @@ def test_review_warns_on_unknown_activity_tag():
 def test_tasks_document_grounding_accepts_uipath_library_search_only():
     findings = review_tasks_text(
         "## Phase 3: User Story 1 - A (Priority: P1)\n"
-        "### Tests for User Story 1\n- [ ] T010 [US1] test `tests/t.py` uipath_library_search\n"
+        "### Tests for User Story 1\n"
+        "- [ ] T010 [US1] test `tests/t.py` uipath_library_search uv run pytest tests/t.py -q\n"
         "### Implementation for User Story 1\n"
         "- [ ] T011 [US1] impl `main.py` uipath_library_search personal workspace Production\n"
-        "## Phase 5: Build, Verify, and Handoff\n- [ ] T030 build `x.py` uipcli queue\n",
+        "## Phase 5: Build, Verify, and Handoff\n"
+        "- [ ] T030 build `x.py` uipcli queue pytest junit nupkg resultPath\n",
         "### User Story 1 - A (Priority: P1)\n",
     )
     assert not any(f.get("rule") == "feasibility_grounding" for f in findings)
+
+
+def test_review_rejects_tests_without_command():
+    findings = review_tasks_text(
+        "## Phase 3: User Story 1 - A (Priority: P1)\n"
+        "### Tests for User Story 1\n- [ ] T010 [US1] test `tests/t.py` uipath_library_search\n"
+        "### Implementation for User Story 1\n"
+        "- [ ] T011 [US1] impl `main.py` uipath_library_search personal workspace Production\n"
+        "## Phase 5: Build, Verify, and Handoff\n- [ ] T030 build `x.py` pytest junit\n",
+        "### User Story 1 - A (Priority: P1)\n**Implementation paradigm**: coded-agent\n",
+    )
+    assert any(f.get("rule") == "task_test_detail" for f in findings)
+
+
+def test_review_rejects_impl_missing_workflow_hint_when_paradigm_declared():
+    findings = review_tasks_text(
+        "## Phase 3: User Story 1 - A (Priority: P1)\n"
+        "### Tests for User Story 1\n- [ ] T010 [US1] test `t.py` uv run pytest t.py -q\n"
+        "### Implementation for User Story 1\n"
+        "- [ ] T011 [US1] do work with `config.json` only [skill:uipath-rpa] uipath_library_lookup "
+        "personal workspace Production\n"
+        "## Phase 5: Build, Verify, and Handoff\n- [ ] T030 build `x.nupkg` pytest junit\n",
+        "### User Story 1 - A (Priority: P1)\n**Implementation paradigm**: solution\n",
+    )
+    assert any(f.get("rule") == "task_workflow_detail" for f in findings)
+
+
+def test_review_rejects_studio_handoff_and_broad_rpa_activity_task():
+    findings = review_tasks_text(
+        "## Phase 3: User Story 1 - A (Priority: P1)\n"
+        "### Tests for User Story 1\n- [ ] T010 [US1] test `tests/t.py` uv run pytest tests/t.py -q\n"
+        "### Implementation for User Story 1\n"
+        "- [ ] T011 [US1] **[HANDOFF:Studio] `projects/ZipEmail.Dispatcher/Main.xaml`:** "
+        "Microsoft Graph + intake queue activities after `uipath_doc_get_activity`; "
+        "[skill:uipath-rpa] uipath_library_search `out/analyze.json` uipcli package analyze\n"
+        "## Phase 5: Build, Verify, and Handoff\n- [ ] T030 build `x.nupkg` pytest junit resultPath robot log\n",
+        "### User Story 1 - A (Priority: P1)\n**Implementation paradigm**: solution\n",
+    )
+    rules = {f.get("rule") for f in findings}
+    assert "task_studio_handoff_skip" in rules
+    assert "task_rpa_too_broad" in rules
+
+
+def test_review_rejects_agent_task_without_graph_or_invocation_contract():
+    findings = review_tasks_text(
+        "## Phase 3: User Story 1 - A (Priority: P1)\n"
+        "### Tests for User Story 1\n- [ ] T010 [US1] test `tests/t.py` uv run pytest tests/t.py -q\n"
+        "### Implementation for User Story 1\n"
+        "- [ ] T011 [US1] Invoke Agent from `projects/ZipEmail.AnalyzerRunner/Main.xaml`; "
+        "[skill:uipath-rpa] [skill:uipath-agents] uipath_library_lookup uipcli package analyze\n"
+        "## Phase 5: Build, Verify, and Handoff\n- [ ] T030 build `x.nupkg` pytest junit resultPath robot log\n",
+        "### User Story 1 - A (Priority: P1)\n**Implementation paradigm**: solution\n",
+    )
+    assert any(f.get("rule") == "task_agent_contract_detail" for f in findings)

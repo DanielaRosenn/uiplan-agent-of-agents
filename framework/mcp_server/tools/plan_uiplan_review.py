@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 import importlib.util
+from collections import defaultdict
 from pathlib import Path
 from typing import Any, Literal
 
@@ -84,6 +85,174 @@ def _declared_paradigm(spec: str) -> str | None:
     if value in _KNOWN_PARADIGM_SET:
         return value
     return None
+
+
+_NEEDS_CLARIFICATION_RE = re.compile(
+    r"\[NEEDS\s+CLARIFICATION:\s*([^\]]+)\]",
+    re.IGNORECASE,
+)
+_SME_REVIEW_RE = re.compile(r"\[SME\s+REVIEW(?::\s*([^\]]+))?\]", re.IGNORECASE)
+
+_CLARIFICATION_GROUP_ORDER: tuple[tuple[str, str], ...] = (
+    ("mailboxes_routing", "Mailboxes and routing"),
+    ("execution_triggers", "Execution triggers"),
+    ("zip_integration", "Zip integration"),
+    ("vendor_data", "Vendor data"),
+    ("human_review", "Human review"),
+    ("audit_retention", "Audit and retention"),
+    ("security_links", "Security and links"),
+    ("sla_escalation", "SLA and escalation"),
+    ("sme_review", "SME review"),
+    ("other", "Other open items"),
+)
+
+
+def _categorize_clarification_label(label: str) -> tuple[str, str]:
+    """Map a NEEDS CLARIFICATION label slug to (group_id, group_title)."""
+    low = label.lower().strip()
+    rules: list[tuple[tuple[str, ...], tuple[str, str]]] = [
+        (
+            ("mailbox", "mailboxes", "il entity", "payable", "routing", "regional"),
+            ("mailboxes_routing", "Mailboxes and routing"),
+        ),
+        (
+            ("trigger", "schedule", "queue", "dispatcher", "analyzer", "review", "sweep"),
+            ("execution_triggers", "Execution triggers"),
+        ),
+        (("zip", "invoice.ziphq", "forward", "api"), ("zip_integration", "Zip integration")),
+        (("vendor", "supplier", "lookup key", "missing-vendor"), ("vendor_data", "Vendor data")),
+        (("human", "action center", "notification", "channel"), ("human_review", "Human review")),
+        (("audit", "retention", "body", "attachment", "sink", "siem", "blob"), ("audit_retention", "Audit and retention")),
+        (("domain", "link", "document", "allow-list", "allowlist"), ("security_links", "Security and links")),
+        (("sla", "escalation", "recipient"), ("sla_escalation", "SLA and escalation")),
+    ]
+    for keywords, pair in rules:
+        if any(k in low for k in keywords):
+            return pair
+    return "other", "Other open items"
+
+
+def _question_from_needs_line(line: str, marker_inner: str) -> str:
+    """Turn a bullet line with [NEEDS CLARIFICATION: x] into a readable question."""
+    m = _NEEDS_CLARIFICATION_RE.search(line)
+    if not m:
+        return f"Please confirm: {marker_inner.strip()}"
+    tail = line[m.end() :].strip()
+    for prefix in ("\u2014", "-", ":", "—"):
+        if tail.startswith(prefix):
+            tail = tail[len(prefix) :].strip()
+    if tail and len(tail) > 3:
+        if tail[0].islower():
+            tail = tail[0].upper() + tail[1:]
+        if not tail.endswith("?"):
+            tail = tail.rstrip(".") + "?"
+        return tail
+    return f"Please confirm: {marker_inner.strip()}?"
+
+
+def _parse_clarification_items(text: str, source: str) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    for line in text.splitlines():
+        if "[NEEDS CLARIFICATION" in line.upper():
+            m = _NEEDS_CLARIFICATION_RE.search(line)
+            if not m:
+                continue
+            label = m.group(1).strip()
+            gid, title = _categorize_clarification_label(label)
+            marker = f"[NEEDS CLARIFICATION: {label}]"
+            q = _question_from_needs_line(line, label)
+            items.append(
+                {
+                    "kind": "needs_clarification",
+                    "marker": marker,
+                    "label": label,
+                    "question": q,
+                    "source": source,
+                    "group_id": gid,
+                    "group_title": title,
+                    "blocking_for": "implementation",
+                }
+            )
+            continue
+        if "[SME REVIEW" in line.upper():
+            for sm in _SME_REVIEW_RE.finditer(line):
+                detail = (sm.group(1) or "").strip()
+                tail = line[sm.end() :].strip()
+                for prefix in ("\u2014", "-", ":", "—"):
+                    if tail.startswith(prefix):
+                        tail = tail[len(prefix) :].strip()
+                q = tail if tail else f"Please complete SME review{f' ({detail})' if detail else ''}."
+                if not q.endswith("?"):
+                    q = q.rstrip(".") + "?"
+                items.append(
+                    {
+                        "kind": "sme_review",
+                        "marker": sm.group(0),
+                        "label": detail or "sme_review",
+                        "question": q,
+                        "source": source,
+                        "group_id": "sme_review",
+                        "group_title": "SME review",
+                        "blocking_for": "production_readiness",
+                    }
+                )
+    return items
+
+
+def build_clarifications_bundle(
+    *,
+    spec: str,
+    plan: str,
+    tasks: str,
+) -> dict[str, Any]:
+    """Structured, grouped clarification questions from bundle markdown."""
+    raw: list[dict[str, Any]] = []
+    raw.extend(_parse_clarification_items(spec, "spec.md"))
+    raw.extend(_parse_clarification_items(plan, "plan.md"))
+    raw.extend(_parse_clarification_items(tasks, "tasks.md"))
+
+    by_group: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    title_for: dict[str, str] = {}
+    for it in raw:
+        gid = str(it["group_id"])
+        by_group[gid].append(it)
+        title_for[gid] = str(it["group_title"])
+
+    groups_out: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    for gid, default_title in _CLARIFICATION_GROUP_ORDER:
+        if gid in by_group and by_group[gid]:
+            groups_out.append(
+                {
+                    "id": gid,
+                    "title": title_for.get(gid, default_title),
+                    "items": by_group[gid],
+                }
+            )
+            seen_ids.add(gid)
+    for gid, lst in by_group.items():
+        if gid not in seen_ids and lst:
+            groups_out.append(
+                {
+                    "id": gid,
+                    "title": title_for.get(gid, gid),
+                    "items": lst,
+                }
+            )
+
+    lines: list[str] = ["Clarifications"]
+    for i, grp in enumerate(groups_out, start=1):
+        lines.append(f"{i}. {grp['title']}")
+        for it in grp["items"]:
+            lines.append(f"   - {it['marker']} {it['question']}")
+    text_block = "\n".join(lines) if len(raw) else ""
+
+    return {
+        "open_count": len(raw),
+        "items": raw,
+        "groups": groups_out,
+        "clarifications_text": text_block,
+    }
 
 
 def review_spec_text(spec: str, repo: Path | None = None) -> list[dict[str, Any]]:
@@ -455,36 +624,289 @@ _TASK_LINE = re.compile(
     re.MULTILINE,
 )
 
+_WORKFLOW_HINT_RE = re.compile(
+    r"`[^`]+\.(?:xaml|cs|py|flow|bpmn|json|md|ts|tsx)`|projects/|Main\.xaml|Workflows/|Activities/|"
+    r"langgraph\.json|agent_framework\.json|caseplan\.json|api-workflow\.json|project\.json|tests/|Tests/|"
+    r"\bSequence\b|\bFlowchart\b|Long\s+Running|State\s+Machine",
+    re.IGNORECASE,
+)
+_TEST_COMMAND_RE = re.compile(
+    r"pytest|uipcli\s+test\s+run|unittest|uipath\s+run|\buip\s+codedapp\s+test|\buip\s+case\b",
+    re.IGNORECASE,
+)
+_PHASE5_EVIDENCE_RE = re.compile(
+    r"junit|\.trx|pytest|\bnupkg\b|analyzer|resultPath|robot\s+log|job\s+log|execution\s+log|testresults",
+    re.IGNORECASE,
+)
+_FAILURE_DIAGNOSIS_RE = re.compile(
+    r"(diagnos|parse|parsed).*?(analyzer|resultPath|CLI|error|rule).*?"
+    r"(uipath_library_search|uipath_library_lookup|query_uipath_docs|--help|Studio\s+IPC).*?"
+    r"(inspect|source|schema|descriptor|project\.json|solution\.uipx).*?"
+    r"(fix|local).*?(rerun|re-run)",
+    re.IGNORECASE | re.DOTALL,
+)
+_ANALYZER_POLICY_TRIGGER_RE = re.compile(
+    r"ST-USG-034|Automation\s+Hub|tenant\s+policy|validates\s+except",
+    re.IGNORECASE,
+)
+_ANALYZER_POLICY_DIAGNOSIS_RE = re.compile(
+    r"(analyzer|resultPath|JSON).*?"
+    r"(uipath_library_search|uipath_library_lookup|query_uipath_docs|docs?).*?"
+    r"(project\.json|Studio|project-setting|project\s+metadata|Automation\s+Hub).*?"
+    r"(fix|local).*?(rerun|re-run)",
+    re.IGNORECASE | re.DOTALL,
+)
+_SOLUTION_DESCRIPTOR_DIAGNOSIS_RE = re.compile(
+    r"solution\.uipx.*?"
+    r"(descriptor|schema|definition|ResourceBuilder).*?"
+    r"(generated|provenance|placeholder|manual|Studio|Automation\s+Cloud).*?"
+    r"(project-level|restore|analyze).*?"
+    r"(rerun|re-run)",
+    re.IGNORECASE | re.DOTALL,
+)
+_STUDIO_TEMPLATE_CONTRACT_RE = re.compile(
+    r"(template\s+decision\s+matrix|starter\s+template|scaffold\s+source).*?"
+    r"(uip\s+rpa\s+create-project|project\.uiproj|project\.json|Studio).*?"
+    r"(workflow\s+type|Dispatcher|Performer|queue[-\s]?worker|Long\s+Running|HITL|Sequence|Flowchart|State\s+Machine)",
+    re.IGNORECASE | re.DOTALL,
+)
+_GENERIC_XAML_SCAFFOLD_RE = re.compile(
+    r"(generic|manual|hand[-\s]?written).*?Main\.xaml|LogMessage[-\s]?only|scaffold[-\s]?only",
+    re.IGNORECASE | re.DOTALL,
+)
+_TEMPLATE_REMEDIATION_RE = re.compile(
+    r"(template\s+remediation|replace.*?generic.*?template|starter\s+template|uip\s+rpa\s+create-project|"
+    r"Dispatcher\s+template|Performer|queue[-\s]?worker|Long\s+Running|HITL)",
+    re.IGNORECASE | re.DOTALL,
+)
+_UIPATH_PKG_MENTION = re.compile(r"\bUiPath\.[A-Za-z0-9_.]+\b")
+_RPA_BROAD_ACTIVITY_RE = re.compile(
+    r"(Microsoft\s+Graph\s*\+\s*[^;]*activities|Graph\s*\+\s*[^;]*activities|"
+    r"Slack\s+HITL\s*\+\s*queue\s+updates|host\s+loop\s*\+\s*[^;]*agent\s+invoke\s*\+\s*queue\s+updates)",
+    re.IGNORECASE,
+)
+_STUDIO_HANDOFF_RE = re.compile(r"\[HANDOFF:Studio\]", re.IGNORECASE)
+_AGENT_TASK_RE = re.compile(r"\b(agent|Invoke Agent|LangGraph|LlamaIndex)\b", re.IGNORECASE)
+_AGENT_TASK_EVIDENCE_RE = re.compile(
+    r"langgraph\.json|llama_index\.json|agent_framework\.json|uipath\s+run|uv\s+run\s+pytest|"
+    r"request/response|response\s+schema|graph_entry\.py|graph\s+nodes",
+    re.IGNORECASE,
+)
 
-def _review_implementation_task_routing(tasks: str) -> list[dict[str, Any]]:
-    """Each non-[P] checklist line under ### Implementation should cite routing evidence."""
+
+def _task_id_number(line: str) -> int | None:
+    # Match T010 / T011 but not a prefix of T011A — `(T\d+)` alone treats T011A as T011.
+    m = re.match(r"^\s*-\s*\[\s*\]\s*T(\d+)([A-Z])?(?=\s)", line)
+    if not m:
+        return None
+    return int(m.group(1), 10)
+
+
+def _review_task_section_contracts(tasks: str, paradigm: str | None) -> list[dict[str, Any]]:
+    """Tests / Implementation / Paradigm-specific task lines must meet detail contracts."""
     findings: list[dict[str, Any]] = []
-    in_impl = False
+    mode = "none"  # none | tests | impl | phase5
+    wf_paradigms = {
+        "modern-rpa",
+        "coded-automation",
+        "solution",
+        "library",
+        "tests",
+        "api-workflow",
+        "coded-app",
+        "maestro-flow",
+        "case-management",
+        "coded-agent",
+    }
+
     for line in tasks.splitlines():
         stripped = line.strip()
-        if stripped.startswith("### Implementation"):
-            in_impl = True
+        if stripped.startswith("## "):
+            if re.search(r"phase\s*5", stripped, re.IGNORECASE):
+                mode = "phase5"
+            else:
+                mode = "none"
             continue
-        if stripped.startswith("### ") and in_impl and "Implementation" not in stripped:
-            in_impl = False
-        if not in_impl:
+        if stripped.startswith("### Tests"):
+            mode = "tests"
             continue
-        m = re.match(r"^\s*-\s*\[\s*\]\s*(T\d+)", line)
-        if not m:
+        if stripped.startswith("### Implementation") or stripped.startswith("### Paradigm-specific tasks"):
+            mode = "impl"
             continue
-        if "[P]" in line:
+
+        tid = _task_id_number(line)
+        if tid is None:
             continue
-        if not _PER_LINE_IMPL_GROUND.search(line):
+        is_parallel = "[P]" in line
+
+        if mode == "tests":
+            if not _TEST_COMMAND_RE.search(line):
+                findings.append(
+                    _finding(
+                        "error",
+                        "tasks",
+                        "task_test_detail",
+                        f"Task T{tid} must cite an exact test command (pytest, uipcli test run, "
+                        f"unittest, uipath run, or uip ...): {stripped[:160]}",
+                        "tasks.md",
+                    )
+                )
+        elif mode == "impl" and not is_parallel:
+            if _STUDIO_HANDOFF_RE.search(line):
+                findings.append(
+                    _finding(
+                        "error",
+                        "tasks",
+                        "task_studio_handoff_skip",
+                        "[HANDOFF:Studio] is not a valid substitute for building Studio/RPA source artifacts.",
+                        "tasks.md",
+                    )
+                )
+            if _RPA_BROAD_ACTIVITY_RE.search(line):
+                findings.append(
+                    _finding(
+                        "error",
+                        "tasks",
+                        "task_rpa_too_broad",
+                        "RPA/Studio task is too broad; split into package/activity/property mapped subtasks "
+                        f"with Studio/default-activity evidence: {stripped[:180]}",
+                        "tasks.md",
+                    )
+                )
+            if _AGENT_TASK_RE.search(line) and not _AGENT_TASK_EVIDENCE_RE.search(line):
+                findings.append(
+                    _finding(
+                        "error",
+                        "tasks",
+                        "task_agent_contract_detail",
+                        "Agent-backed task must name graph descriptor/entry point, local run/test command, "
+                        f"or request/response schema: {stripped[:180]}",
+                        "tasks.md",
+                    )
+                )
+            if not _PER_LINE_IMPL_GROUND.search(line):
+                findings.append(
+                    _finding(
+                        "error",
+                        "tasks",
+                        "task_implementation_grounding",
+                        f"Task T{tid} must cite grounding ([skill:/[library:/[askai:/[agent: or "
+                        f"uipath_library_search / uipath_library_lookup / query_uipath_docs / uipath_doc_*).",
+                        "tasks.md",
+                    )
+                )
+            wf_ok = False
+            if paradigm in (
+                "solution",
+                "modern-rpa",
+                "coded-automation",
+                "library",
+                "tests",
+                "api-workflow",
+            ):
+                wf_ok = bool(
+                    re.search(
+                        r"`[^`]+\.xaml`|projects/|Main\.xaml|Workflows/|Activities/|\bSequence\b|"
+                        r"\bFlowchart\b|Long\s+Running|State\s+Machine",
+                        line,
+                        re.IGNORECASE,
+                    )
+                )
+            elif paradigm == "coded-agent":
+                wf_ok = bool(
+                    re.search(
+                        r"`[^`]+\.py`|langgraph\.json|agent_framework\.json|tests/|Tests/",
+                        line,
+                        re.IGNORECASE,
+                    )
+                )
+            elif paradigm in wf_paradigms:
+                wf_ok = bool(_WORKFLOW_HINT_RE.search(line))
+            if paradigm in wf_paradigms and tid >= 11 and not wf_ok:
+                findings.append(
+                    _finding(
+                        "error",
+                        "tasks",
+                        "task_workflow_detail",
+                        f"Task T{tid} must name a workflow entry (.xaml/.cs/.py), projects/, graph, "
+                        f"or workflow type keyword: {stripped[:160]}",
+                        "tasks.md",
+                    )
+                )
+            if tid >= 11 and not _PATH_TOKEN_RE.search(line):
+                findings.append(
+                    _finding(
+                        "error",
+                        "tasks",
+                        "task_project_detail",
+                        f"Task T{tid} must include a concrete artifact path in backticks.",
+                        "tasks.md",
+                    )
+                )
+            if _UIPATH_PKG_MENTION.search(line):
+                low = line.lower()
+                if "uipath_doc_get_activity" not in low and "[activity:" not in line:
+                    findings.append(
+                        _finding(
+                            "error",
+                            "tasks",
+                            "task_activity_detail",
+                            f"Task T{tid} names a UiPath package token — add `uipath_doc_get_activity` or "
+                            f"`[activity:Package:Activity]`: {stripped[:160]}",
+                            "tasks.md",
+                        )
+                    )
+            if _RESOURCE_TOKEN_RE.search(line) and not _LIBRARY_TOOL_RE.search(line):
+                findings.append(
+                    _finding(
+                        "error",
+                        "tasks",
+                        "task_knowledge_grounding",
+                        f"Task T{tid} mentions queues/assets/bindings/folders — include "
+                        f"`uipath_library_search` or `uipath_library_lookup` (or query_uipath_docs fallback): "
+                        f"{stripped[:160]}",
+                        "tasks.md",
+                    )
+                )
+
+    m5 = re.search(r"(?i)##\s*Phase\s*5\s*:", tasks)
+    if m5:
+        tail = tasks[m5.start() :]
+        if not _PHASE5_EVIDENCE_RE.search(tail):
             findings.append(
                 _finding(
-                    "warn",
+                    "error",
                     "tasks",
-                    "task_implementation_grounding",
-                    f"Task {m.group(1)} should cite grounding (skill/agent/library/AskAI tokens or "
-                    f"uipath_library_search / uipath_library_lookup / query_uipath_docs / uipath_doc_*).",
+                    "task_evidence_detail",
+                    "Phase 5 must name verification evidence (JUnit/pytest report, analyzer resultPath JSON, "
+                    ".nupkg path, robot/job logs).",
                     "tasks.md",
                 )
             )
+        if not _FAILURE_DIAGNOSIS_RE.search(tail):
+            findings.append(
+                _finding(
+                    "error",
+                    "tasks",
+                    "task_failure_diagnosis_loop",
+                    "Phase 5 must require parsing failed verification output, consulting docs/tooling, "
+                    "inspecting affected source/schema, attempting a safe local fix, and rerunning before "
+                    "declaring analyzer/solution/tooling failures blocked.",
+                    "tasks.md",
+                )
+            )
+        if re.search(r"stop\s+on\s+analyzer\s+errors|blocked\s+by\s+tenant\s+policy", tail, re.IGNORECASE) and not _FAILURE_DIAGNOSIS_RE.search(tail):
+            findings.append(
+                _finding(
+                    "error",
+                    "tasks",
+                    "task_premature_blocker_wording",
+                    "Phase 5 cannot allow premature blocker wording for analyzer errors or tenant policy "
+                    "without the diagnosis/fix/rerun loop.",
+                    "tasks.md",
+                )
+            )
+
     return findings
 
 
@@ -593,8 +1015,56 @@ def review_tasks_text(tasks: str, spec: str) -> list[dict[str, Any]]:
                 "tasks.md",
             )
         )
-    findings.extend(_review_implementation_task_routing(tasks))
+    findings.extend(_review_task_section_contracts(tasks, paradigm))
+    if _ANALYZER_POLICY_TRIGGER_RE.search(tasks) and not _ANALYZER_POLICY_DIAGNOSIS_RE.search(tasks):
+        findings.append(
+            _finding(
+                "error",
+                "tasks",
+                "task_analyzer_rule_diagnosis",
+                "Tasks mention ST-USG-034, Automation Hub, tenant policy, or 'validates except' without "
+                "requiring analyzer JSON parsing, docs lookup, project/Studio metadata inspection, "
+                "safe local fix attempt, and rerun evidence.",
+                "tasks.md",
+            )
+        )
+    if "solution.uipx" in tasks and not _SOLUTION_DESCRIPTOR_DIAGNOSIS_RE.search(tasks):
+        findings.append(
+            _finding(
+                "error",
+                "tasks",
+                "task_solution_descriptor_diagnosis",
+                "Tasks mention `solution.uipx` without requiring descriptor/schema validation, generated "
+                "versus placeholder/manual provenance, project-level restore/analyze separation, and rerun evidence.",
+                "tasks.md",
+            )
+        )
     if paradigm in _xaml_paradigms:
+        if not _STUDIO_TEMPLATE_CONTRACT_RE.search(tasks):
+            findings.append(
+                _finding(
+                    "error",
+                    "tasks",
+                    "tasks_studio_template_contract",
+                    "RPA/Studio tasks must include a template decision matrix: project path, selected "
+                    "starter template or scaffold source, workflow type, why it matches the use case, "
+                    "generated structure to preserve, and `uip rpa create-project` / Studio evidence. "
+                    "If unknown, add a discovery/question task before implementation.",
+                    "tasks.md",
+                )
+            )
+        if _GENERIC_XAML_SCAFFOLD_RE.search(tasks) and not _TEMPLATE_REMEDIATION_RE.search(tasks):
+            findings.append(
+                _finding(
+                    "error",
+                    "tasks",
+                    "tasks_generic_xaml_without_template_remediation",
+                    "Generic or LogMessage-only XAML scaffolding must have explicit template remediation "
+                    "tasks when Dispatcher, Performer/queue worker, Long Running/HITL, Flowchart, or "
+                    "State Machine structure is required.",
+                    "tasks.md",
+                )
+            )
         if not re.search(r"LogMessage|log message", tasks, re.IGNORECASE):
             findings.append(
                 _finding(
@@ -800,14 +1270,22 @@ def run_uiplan_review(
                 findings.extend(review_duplicate_uiplan_slug(repo, slug))
     errors = [f for f in findings if f.get("severity") == "error"]
     ok = len(errors) == 0
-    next_action = (
-        "Address error-severity findings and re-run uipath_plan_review."
-        if not ok
-        else "Optional: resolve warnings; then uipath_plan_accept when ready."
-    )
+    clarifications = build_clarifications_bundle(spec=spec, plan=plan, tasks=tasks)
+    open_n = int(clarifications.get("open_count") or 0)
+    if not ok:
+        next_action = "Address error-severity findings and re-run uipath_plan_review."
+    elif open_n > 0:
+        next_action = (
+            f"Review passed with {open_n} open clarification(s). "
+            "Use the grouped `clarifications` object (or `clarifications_text`) and update "
+            "`spec.md` / `plan.md` / `tasks.md` before Production-bound implementation."
+        )
+    else:
+        next_action = "Optional: resolve warnings; then uipath_plan_accept when ready."
     return {
         "ok": ok,
         "stage": stage,
         "findings": findings,
         "next_action": next_action,
+        "clarifications": clarifications,
     }

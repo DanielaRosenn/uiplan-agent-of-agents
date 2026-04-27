@@ -27,3 +27,6 @@ def test_generate_docs_bundle_passes_visual_density(tmp_path: Path) -> None:
     tasks_text = (out / "tasks.md").read_text(encoding="utf-8")
     assert "### Paradigm-specific tasks" in tasks_text
     assert "personal workspace" in tasks_text.lower()
+    assert "## Task detail contract" in tasks_text
+    assert "Runtime evidence" in tasks_text
+    assert "uipath_doc_get_activity" in tasks_text

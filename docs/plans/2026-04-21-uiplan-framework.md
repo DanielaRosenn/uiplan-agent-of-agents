@@ -15,6 +15,13 @@ published_at: null
 
 # /uiplan framework (spec-kit-style, grounded in workspace)
 
+> **Historical design record, not current operating instructions.**
+> Current usage lives in
+> [`docs/uiplan/HOW_TO_USE.md`](../uiplan/HOW_TO_USE.md), and task quality /
+> implementation-loop rules live in
+> [`docs/uiplan/TASK_AUTHORING.md`](../uiplan/TASK_AUTHORING.md). Treat this
+> file as the accepted architecture snapshot from 2026-04-21.
+>
 > Follow-up update: paradigm-aware scaffolds and feasibility review gates were
 > added in a later implementation pass (`uiplan_skills_detail_5ad4aff8`).
 > This file remains a historical accepted plan.
@@ -52,7 +59,11 @@ Back-compat: existing single-file plans (e.g. `2026-04-21-invoice-routing.md`)
 continue to work; folder plans and single-file plans are distinguished by
 filesystem shape.
 
-### Five new MCP tools
+### Initial MCP tool set
+
+This section documents the original design-time tool set. Check
+[`docs/uiplan/HOW_TO_USE.md`](../uiplan/HOW_TO_USE.md) and the live MCP tool
+descriptors for current operational names and behavior.
 
 | Tool | Annotation | Purpose |
 |---|---|---|
@@ -282,7 +293,7 @@ If green, commit in one logical push:
 feat(plan): add /uiplan spec-kit-style workflow grounded in workspace
 
 - Three-file plans (spec.md + plan.md + tasks.md) per slug directory
-- Five new MCP tools: uipath_plan_{ground,spec_new,plan_new,tasks_new,review,uiplan_new}
+- Initial MCP tool set: uipath_plan_{ground,spec_new,plan_new,tasks_new,review,uiplan_new}
 - Grounding pulls project-context, skills, library, PDD templates, project templates
 - Review enforces spec coverage, constitution gates, TDD pairing, citation resolution
 - CLI (uipath-claude plan uiplan) + /uiplan slash + .cursor/skills/uiplan/

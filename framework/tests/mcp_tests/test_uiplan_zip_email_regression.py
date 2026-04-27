@@ -72,6 +72,20 @@ async def test_zip_email_fixture_generates_solution_xaml_contract(
     assert "LogMessage" in tasks
     assert "correlation" in tasks.lower()
     assert "smoke" in tasks.lower()
+    for phrase in (
+        "T011C1",
+        "ZipEmail.Dispatcher",
+        "Graph/Office365",
+        "uipath_doc_get_activity",
+        "Dispatcher Graph read in `projects/ZipEmail.Dispatcher/Main.xaml`",
+        "AnalyzerRunner Invoke Agent boundary",
+        "Diagnose and fix verification failures",
+        "parse analyzer",
+        "solution.uipx",
+        "project metadata/Automation Hub setting inspection",
+    ):
+        assert phrase in tasks, f"expected solution RPA task vocabulary in tasks: {phrase}"
+    assert "validates except explicit tenant policy findings" not in tasks
 
     review = plan_uiplan_review.run_uiplan_review(
         spec=spec,
@@ -84,6 +98,38 @@ async def test_zip_email_fixture_generates_solution_xaml_contract(
     )
     err_rules = {f.get("rule") for f in review["findings"] if f.get("severity") == "error"}
     assert review.get("ok") is True, f"review errors: {err_rules}"
+
+
+def test_zip_detailed_build_spec_has_grouped_readable_clarifications() -> None:
+    """Example draft uses grouped SME headings and full-sentence questions (not marker-only)."""
+    root = Path(__file__).resolve().parents[3]
+    spec_path = root / ".cursor" / "plans" / "2026-04-27-zip-email-automation-detailed-build" / "spec.md"
+    if not spec_path.is_file():
+        pytest.skip("detailed Zip UiPlan example not in workspace")
+    text = spec_path.read_text(encoding="utf-8")
+    assert "### Mailboxes and routing" in text
+    assert "eleven regional payable mailboxes" in text.lower() or "eleven" in text.lower()
+
+    plan_path = root / ".cursor" / "plans" / "2026-04-27-zip-email-automation-detailed-build" / "plan.md"
+    tasks_path = root / ".cursor" / "plans" / "2026-04-27-zip-email-automation-detailed-build" / "tasks.md"
+    spec = spec_path.read_text(encoding="utf-8")
+    plan = plan_path.read_text(encoding="utf-8") if plan_path.is_file() else ""
+    tasks = tasks_path.read_text(encoding="utf-8") if tasks_path.is_file() else ""
+    review = plan_uiplan_review.run_uiplan_review(
+        spec=spec,
+        plan=plan,
+        tasks=tasks,
+        stage="all",
+        gate_ids=[],
+        repo=root,
+        slug="zip-email-automation-detailed-build",
+    )
+    assert review.get("ok") is True
+    cl = review.get("clarifications") or {}
+    # SME block replaced open NEEDS CLARIFICATION markers — bundle may have zero parsed items.
+    assert int(cl.get("open_count") or 0) == 0
+    na = (review.get("next_action") or "").lower()
+    assert "clarification" in na or "accept" in na or "warning" in na
 
 
 def test_plan_warns_on_vb_without_legacy():

@@ -27,14 +27,19 @@ implementation tasks with explicit feasibility details.
 
 ### Mandatory task fields
 
-Each implementation task must include:
+Each **non-[P]** implementation or paradigm-specific task must include:
 
-1. exact artifact path (for example `Workflows/ParseInvoice.xaml`,
-   `projects/Process.Alpha/Main.xaml`, `main.py`, `bindings/dev.json`);
-2. concrete UiPath construct (activity tag, SDK call, CLI verb, queue/asset/bucket/folder);
-3. grounding citation (`[skill:...]`, `[agent:...]`, `[library:...]`, `[askai:...]`,
-   or explicit `uipath_library_lookup` / `query_uipath_docs`);
-4. verification step (command and expected output/evidence).
+1. **Project** name (Studio process, agent package, or app) tied to an artifact path.
+2. **Workflow / sequence / node** (`.xaml` entry, `.cs` workflow, LangGraph node, or CLI step name).
+3. exact artifact path in backticks (for example `Workflows/ParseInvoice.xaml`,
+   `projects/ZipEmail.Dispatcher/Main.xaml`, `main.py`, `bindings/dev.json`);
+4. concrete UiPath construct (activity tag after `uipath_doc_get_activity`, SDK call, CLI verb, queue/asset/binding key);
+5. grounding citation (`[skill:...]`, `[agent:...]`, `[library:...]`, `[askai:...]`,
+   or explicit `uipath_library_search` / `uipath_library_lookup` / `query_uipath_docs`);
+6. **Verification**: exact command (`uv run pytest ...`, `uipcli test run ...`, `uipcli package analyze --resultPath ...`, `uipath run ...`) and pass/fail expectation.
+7. **Runtime evidence** artifact path (JUnit/pytest output, analyzer JSON, `.nupkg`, robot/job log excerpt).
+
+Each **Tests** subsection task must cite a real test command (`pytest`, `uipcli test run`, `uipath run`, etc.) plus the test file path in backticks.
 
 ### Paradigm detail expectations
 

@@ -49,11 +49,13 @@ async def test_uiplan_full_scaffold(repo, monkeypatch):
     )
     (tpl / "_tasks-template.md").write_text(
         "# {{TITLE}}\n## Phase 3: User Story 1 - MVP (Priority: P1)\n"
-        "### Tests for User Story 1\n- [ ] T010 [P] [US1] test `src/x.py`\n"
+        "### Tests for User Story 1\n"
+        "- [ ] T010 [P] [US1] test `src/x.py` uv run pytest src/x.py -q\n"
         "### Implementation for User Story 1\n"
         "- [ ] T011 [US1] impl `src/y.py` [skill:uipath-agents] uipath_library_search "
         "query_uipath_docs personal workspace Production\n"
-        "## Phase 5: Build, Verify, and Handoff\n- [ ] T030 build\n",
+        "## Phase 5: Build, Verify, and Handoff\n"
+        "- [ ] T030 build `out/pkg.nupkg` pytest junit resultPath\n",
         encoding="utf-8",
     )
     out = await plan_tools.call_plan_tool(

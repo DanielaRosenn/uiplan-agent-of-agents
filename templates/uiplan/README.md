@@ -5,7 +5,7 @@ MCP (`uipath_plan_spec_new`, etc.) and
 `uv run python -m tools.uiplan generate-docs` both read from here.
 
 Normalized copies of the UiPlan document templates used with the
-**generate-docs -> review -> accept -> scaffold/build** flow.
+**generate-docs -> review -> accept -> implement** flow.
 
 ## How To Use
 
@@ -16,15 +16,18 @@ Normalized copies of the UiPlan document templates used with the
      auto-detection is ambiguous.
 2. **Human approval**: review the generated docs for accuracy, scope,
    development handoff, and constitution checks before any implementation work.
-3. Accept the bundle, then run
-   **`uv run python -m tools.uiplan scaffold-code <slug> --max-loops N`**
-   to drive implementation against the approved plan.
+3. Accept the bundle, then use **`/uiplan-implement <slug>`** to implement from
+   the approved `tasks.md`.
+   - `uv run python -m tools.uiplan scaffold-code <slug> --max-loops N` is
+     optional runtime/adaptor support. It is not the canonical implementation
+     command and may only validate markers or return follow-up suggestions.
 
 ## Framework Reference
 
 - Human overview: [docs/uiplan/README.md](../../docs/uiplan/README.md)
 - Step-by-step: [docs/uiplan/HOW_TO_USE.md](../../docs/uiplan/HOW_TO_USE.md)
-- Tooling matrix: [UiPlan framework](../../docs/plans/2026-04-21-uiplan-framework.md)
+- Task authoring contract: [docs/uiplan/TASK_AUTHORING.md](../../docs/uiplan/TASK_AUTHORING.md)
+- Historical design record: [UiPlan framework](../../docs/plans/2026-04-21-uiplan-framework.md)
 
 ## Files
 

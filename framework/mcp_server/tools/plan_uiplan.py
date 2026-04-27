@@ -603,8 +603,9 @@ def call_uiplan_spec_new(arguments: dict[str, Any]) -> dict[str, Any]:
         "BUILD_ENTRYPOINT": "`tasks.md` after review passes and the bundle is accepted.",
         "IMPLEMENTATION_SCOPE": "Only files, projects, assets, queues, and docs named in plan.md/tasks.md.",
         "BUILD_COMMAND": (
-            f"`uv run python -m tools.uiplan scaffold-code {folder_name} --max-loops 5` "
-            "or specialist skill execution from `tasks.md`."
+            f"`/uiplan-implement {slug}` after `uipath_plan_review` passes and "
+            "`uipath_plan_accept` records human approval. Use `scaffold-code` "
+            "only for optional local runtime/adaptor checks."
         ),
         "QUALITY_GATES": (
             "restore -> analyze -> test -> pack; add smoke run + robot log assertions (correlation id, "
@@ -764,20 +765,32 @@ def call_uiplan_tasks_new(arguments: dict[str, Any]) -> dict[str, Any]:
     mapping = {
         "TITLE": title,
         "GROUNDING_CITATIONS": cites,
-        "T001": "Scaffold project directories per plan.md Project Structure (list concrete mkdir paths).",
-        "T002": "Restore/analyze pipeline green for the touched projects.",
+        "T001": (
+            "Scaffold only directories/files listed in `plan.md` **Project Structure** / "
+            "**Per-project workflow** (concrete `mkdir` paths); cite `[skill:uipath-planner]` and "
+            "`[agent:uipath-project-discovery-agent]` when discovery is needed."
+        ),
+        "T002": (
+            "Restore + analyze green for touched projects per `plan.md` build loop; record evidence paths "
+            "(`out/analyze.json`, `.nupkg`) after first successful `uipcli` / `uipath` gate."
+        ),
         "PLANNER_TASKS": _format_task_planner_handoff(pack),
         "US1_TITLE": "MVP slice",
         "US1_GOAL": "Deliver first usable increment from spec User Story 1.",
         "US1_IND_TEST": "Run the Independent Test from spec for US1.",
         "T010_TEST": (
-            "Write failing automated test covering US1 happy path (exact test file path from plan); "
-            "ground package/API choices with `uipath_library_search` or `uipath_library_lookup`."
+            "Write failing automated test at the exact path from `plan.md` (e.g. `tests/test_us1_mvp.py`); "
+            "run `uv run pytest tests/test_us1_mvp.py -q` or `uipcli test run -a <projectKey> .`; "
+            "ground APIs with `uipath_library_search` / `uipath_library_lookup`; **Runtime evidence**: "
+            "pytest JUnit or `TestResults/` output path."
         ),
         "T011_IMPL": (
-            f"Minimal implementation to satisfy US1 (exact source paths from plan) using {skill_tag}; "
-            "confirm activity/SDK details with `uipath_library_search` / `uipath_library_lookup` and "
-            "`uipath_doc_get_activity` when activities are involved."
+            f"Complete US1 using **separate** checklist lines from `### Paradigm-specific tasks` "
+            f"(e.g. `T011A`, `T011B`, …) when present — one bullet = one done gate; no merged half-tasks. "
+            f"Use {skill_tag}; `uipath_library_search` / `uipath_library_lookup` / `uipath_doc_get_activity` "
+            "before activities/SDKs on any line that adds `.xaml` / RPA activities (when RPA is in scope, "
+            "build those workflows in-repo — do not treat them as optional). **Verification/evidence**: "
+            "per sub-task; personal workspace default; Production requires explicit approval."
         ),
         "T020": "Documentation + README updates for operators.",
         "DEPENDENCIES_TEXT": "Phase 1 -> Phase 2 -> US1 -> Polish. Tests before implementation within each story.",

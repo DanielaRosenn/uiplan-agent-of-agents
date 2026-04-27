@@ -1,4 +1,4 @@
-﻿# Implementation Plan: {{TITLE}}
+# Implementation Plan: {{TITLE}}
 
 > **Grounding:** {{GROUNDING_CITATIONS}}
 > **Spec:** `./spec.md`
@@ -9,6 +9,16 @@
 ## Summary
 
 {{SUMMARY}}
+
+## Per-project workflow and platform inventory
+
+Fill after solution/RPA decomposition (names come from SDD/plan — not invented):
+
+| Project / package | Entry workflows (`.xaml` / `.cs` / graph) | Queues / assets / bindings |
+| --- | --- | --- |
+| _e.g. `projects/ZipEmail.Dispatcher/Main.xaml`_ | Sequence / Flowchart / Long Running + named sequences | _Queue names, asset keys, `bindings/dev.json` keys_ |
+
+List open **AskAI / library** topics (`uipath_library_search` query text) and mandatory `uipath_doc_get_activity` calls before implementation.
 
 ## Grounding Inputs
 
@@ -108,14 +118,20 @@ The accepted bundle is the build contract. After review and human acceptance:
    changes; do not invent UiPath APIs, activities, or CLI verbs.
 3. Run the local build loop for the detected project type:
    restore -> analyze -> test -> pack.
-4. Stop on analyzer errors or failing tests. Deployment remains approval-required
-   and follows the deployment policy below.
+4. If analyze/test/tooling fails, parse the structured output, consult the
+   relevant skills/docs/tools, apply one safe local fix when evidence supports
+   it, rerun the same gate, and record the result before calling the issue
+   blocked.
+5. Deployment remains approval-required and follows the deployment policy below.
 
-Recommended local handoff command when using the file-first runtime:
+Preferred build handoff after review and human acceptance:
 
-```bash
-uv run python -m tools.uiplan scaffold-code {{FOLDER_NAME}} --max-loops 5
+```text
+/uiplan-implement {{FOLDER_NAME}}
 ```
+
+`scaffold-code` is optional local runtime/adaptor support. It is not a
+replacement for the implementation contract in `tasks.md`.
 
 ## Build and verify gates
 

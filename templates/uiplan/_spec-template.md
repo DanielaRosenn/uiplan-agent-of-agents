@@ -1,4 +1,4 @@
-﻿# Feature Specification: {{TITLE}}
+# Feature Specification: {{TITLE}}
 
 > **Grounding:** {{GROUNDING_CITATIONS}}
 
@@ -7,6 +7,16 @@
 **Input**: User description: "{{INTENT}}"
 
 _If a PDD/SDD path was supplied, a short excerpt may appear in **Source traceability** at the end of the file. The **User Scenarios** and **Requirements** sections below are the build-ready specification (not a paste of the PDD)._
+
+## Design source priority
+
+1. **SDD** (`sdd.md` or equivalent) is the primary source when it exists — align scope, integrations, and NFRs to it.
+2. **PDD** or product brief when no SDD exists.
+3. **User description** in this file when neither document exists.
+
+Record production gaps as explicit clarification items until an SME confirms;
+never invent tenant mailboxes, credentials, Zip handling mode, or other
+tenant-specific values.
 
 ## User Scenarios & Testing
 
@@ -117,9 +127,9 @@ sequenceDiagram
 
 ## SME inputs (do not invent)
 
-Until the human confirms facts, record gaps with `[SME REVIEW]` or
-`[NEEDS CLARIFICATION: topic]` (examples: mailbox allow-lists, credential scope,
-Zip handling mode, audit log sink, trigger cadence, human review channel). Do not
+Until the human confirms facts, record gaps as explicit SME review or
+clarification prose. Examples: mailbox allow-lists, credential scope, Zip
+handling mode, audit log sink, trigger cadence, and human review channel. Do not
 silently invent production values.
 
 ## Source routing & MCP contracts
