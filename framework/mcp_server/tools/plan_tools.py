@@ -679,8 +679,8 @@ def get_plan_tools() -> list[Tool]:
         Tool(
             name="uipath_plan_uiplan_new",
             description=(
-                "UiPlan orchestrator: uipath_plan_ground -> spec_new -> plan_new -> "
-                "tasks_new -> uipath_plan_review(all). Returns paths and review "
+                "UiPlan orchestrator: grounding -> spec -> plan -> tasks -> "
+                "uipath_plan_review(all). Returns one spec/plan/tasks bundle and review "
                 "payload; refine spec/plan/tasks before accept if review has errors. "
                 "Generated deploy tasks reference docs/ORCHESTRATOR_DEPLOYMENT.md "
                 "for compatibility preflight and explicit approval."

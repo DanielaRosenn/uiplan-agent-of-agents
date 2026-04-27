@@ -154,12 +154,8 @@ def _clip_one_line(text: str, limit: int = 220) -> str:
     return text[: limit - 14].rstrip() + " ... (truncated)"
 
 
-# Teaser only — full PDD/SDD lives on disk; the spec body above must stay structured.
-_SOURCE_TRACE_EXCERPT_CAP = 500
-
-
 def _source_documents_markdown(pack: dict[str, Any]) -> str:
-    """Appendix: path + short teaser. Avoid pasting the PDD so the spec reads as a real spec, not a copy."""
+    """Append source paths only; source text is context, not generated document body."""
     docs = pack.get("source_documents") or []
     if not isinstance(docs, list) or not docs:
         return ""
@@ -167,7 +163,7 @@ def _source_documents_markdown(pack: dict[str, Any]) -> str:
         "## Source traceability",
         "",
         "_The sections above (user stories, requirements) are the build-ready specification. "
-        "Below: paths and a short reference excerpt only. Open the files for the full PDD/SDD text._",
+        "Below are the source paths used as context; source content is intentionally not copied._",
         "",
     ]
     for doc in docs[:5]:
@@ -182,15 +178,6 @@ def _source_documents_markdown(pack: dict[str, Any]) -> str:
         lines.append(f"- **Kind**: {kind}")
         if doc.get("error"):
             lines.append(f"- **Read error**: {doc['error']}")
-        excerpt = str(doc.get("excerpt") or "").strip()
-        if excerpt:
-            clipped = excerpt[:_SOURCE_TRACE_EXCERPT_CAP]
-            if len(excerpt) > _SOURCE_TRACE_EXCERPT_CAP:
-                clipped = clipped.rstrip() + " … _(truncated; see file)_"
-            lines.append("")
-            lines.append("**Reference excerpt (not a substitute for user stories):**")
-            lines.append("")
-            lines.append("> " + clipped.replace("\n", "\n> "))
         lines.append("")
     return "\n".join(lines).rstrip() + "\n\n"
 
@@ -209,10 +196,7 @@ def _source_doc_summary(pack: dict[str, Any]) -> tuple[str | None, str | None]:
         return None, None
     first = docs[0] if isinstance(docs[0], dict) else {}
     name = str(first.get("name") or "source document")
-    excerpt = str(first.get("excerpt") or "").strip()
-    if not excerpt:
-        return name, None
-    return name, _clip_one_line(excerpt, 260)
+    return name, None
 
 
 def _format_source_routing_snippet(repo: Path, pack: dict[str, Any]) -> str:
@@ -274,16 +258,15 @@ def _format_grounding_context(pack: dict[str, Any]) -> str:
 
     source_docs = pack.get("source_documents") or []
     if isinstance(source_docs, list) and source_docs:
-        lines.append("- Source documents read:")
+        lines.append("- Source documents used as context (content intentionally not copied):")
         for doc in source_docs[:5]:
             if not isinstance(doc, dict):
                 continue
             name = str(doc.get("name") or doc.get("path") or "source document")
             path = str(doc.get("path") or "")
             lines.append(f"  - `{name}`: `{path}`")
-            excerpt = doc.get("excerpt") or doc.get("error")
-            if excerpt:
-                lines.append(f"    - Excerpt: {_clip_one_line(str(excerpt), 300)}")
+            if doc.get("error"):
+                lines.append(f"    - Read error: {_clip_one_line(str(doc['error']), 180)}")
 
     lookups = pack.get("knowledge_lookups") or []
     if isinstance(lookups, list) and lookups:
@@ -649,16 +632,16 @@ def call_uiplan_spec_new(arguments: dict[str, Any]) -> dict[str, Any]:
         raise FileExistsError(f"UiPlan folder already exists: {folder}")
 
     cites = " ".join(pack.get("suggested_citations") or [])
-    source_name, source_summary = _source_doc_summary(pack)
-    if source_name and source_summary:
+    source_name, _source_summary = _source_doc_summary(pack)
+    if source_name:
         us1_body = (
-            f"Translate `{source_name}` into a build-ready UiPath specification. "
-            f"Source summary: {source_summary}"
+            f"Translate `{source_name}` into a build-ready UiPath specification using the "
+            "document as context, without copying its prose into the generated bundle."
         )
         fr_001 = f"implement the process requirements captured in `{source_name}`"
         entity_1 = "SourceProcess"
         entity_1_desc = f"Business process described by `{source_name}`."
-        sc_001 = f"Spec, SDD, and tasks trace back to `{source_name}` without generic placeholders."
+        sc_001 = f"Spec, plan, and tasks trace back to `{source_name}` without generic placeholders."
         assumption_1 = f"`{source_name}` is the authoritative input until the human edits this spec."
     else:
         us1_body = f"Deliver the core outcome for: {intent}"
@@ -974,9 +957,9 @@ def call_uiplan_new(arguments: dict[str, Any]) -> dict[str, Any]:
         "status": "ok",
         "slug": slug,
         "folder": out_spec.get("path"),
-        "spec_new": out_spec,
-        "plan_new": out_plan,
-        "tasks_new": out_tasks,
+        "spec": out_spec,
+        "plan": out_plan,
+        "tasks": out_tasks,
         "review": review,
     }
 

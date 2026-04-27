@@ -129,8 +129,8 @@ async def test_uiplan_spec_reads_referenced_pdd(repo, monkeypatch):
     meta_text = (folder / ".meta.yaml").read_text(encoding="utf-8")
 
     assert "## Source traceability" in spec_text
-    assert "Zip mailbox automation PDD" in spec_text
-    assert "finance mailbox" in spec_text
+    assert "source paths used as context; source content is intentionally not copied" in spec_text
+    assert "finance mailbox" not in spec_text
     assert "[source:pdd.md]" in spec_text
     assert "linked_pdd: docs\\design\\pdd.md" in meta_text or "linked_pdd: docs/design/pdd.md" in meta_text
 
@@ -348,3 +348,117 @@ async def test_plan_new_accepts_folder_path_and_dated_folder_name(repo):
         },
     )
     assert review["routing_metadata"]["slug"] == "path-resolution-test"
+
+
+@pytest.mark.asyncio
+async def test_uiplan_generation_uses_source_as_context_without_copying(repo):
+    tpl = repo / "templates" / "uiplan"
+    (tpl / "_spec-template.md").write_text(
+        "# {{TITLE}}\n{{GROUNDING_CITATIONS}}\n{{INTENT}}\n"
+        "## User Scenarios\n### User Story 1 - A (Priority: P1)\n"
+        "**Given** g **When** w **Then** t\n"
+        "## Requirements\n### Functional Requirements\n**FR-001**: System MUST x\n"
+        "## Success Criteria\n### Measurable Outcomes\n**SC-001**: m\n"
+        "## Development Handoff\n**Implementation paradigm**: solution\n",
+        encoding="utf-8",
+    )
+    (tpl / "_plan-template.md").write_text(
+        "# {{TITLE}}\n## Stack Policy\nmodern\n## Grounding Inputs\n{{GROUNDING_CONTEXT}}\n"
+        "## Planner Route & Specialist Handoff\n{{PLANNER_HANDOFF}}\n"
+        "## Per-project workflow and platform inventory\n| Project | Entry | Contracts |\n| --- | --- | --- |\n"
+        "## Project Inventory\n| P |\n| --- |\n## Workflow Catalog\n| W |\n| --- |\n"
+        "## Activity Inventory\n| A |\n| --- |\n## Bindings and Environment\n| B |\n| --- |\n"
+        "## Skill and Subagent Routing\n| R |\n| --- |\n"
+        "## Technical Context\nx\n## Constitution Check\n- [ ] **modern**: ok\n"
+        "## Project Structure\n### Source Code (repository root)\n```\nx\n```\n"
+        "### Paradigm build loop\nuipcli solution analyze\n"
+        "**Structure Decision**: {{STRUCTURE_DECISION}}\n"
+        "## Development execution contract\nrestore -> analyze -> test -> pack\n"
+        "## Complexity Tracking\nx\n",
+        encoding="utf-8",
+    )
+    (tpl / "_tasks-template.md").write_text(
+        "# {{TITLE}}\n## Phase 3: User Story 1 - MVP (Priority: P1)\n"
+        "### Tests for User Story 1\n- [ ] T010 [P] [US1] test `projects/Test/Main.xaml`\n"
+        "### Implementation for User Story 1\n"
+        "- [ ] T011 [US1] build `projects/App/Main.xaml` [skill:uipath-rpa] "
+        "uipath_library_search\n"
+        "## Phase 5: Build, Verify, and Handoff\n"
+        "- [ ] T030 analyze `solution.uipx` resultPath\n",
+        encoding="utf-8",
+    )
+
+    pdd = repo / "docs" / "design" / "copy-sensitive-pdd.md"
+    pdd.parent.mkdir(parents=True)
+    copied_sentence = "COPY_ME_NOT_SENTENCE payment operations should never be pasted verbatim."
+    pdd.write_text(
+        "# Payment operations automation\n\n"
+        f"{copied_sentence}\n\n"
+        "The automation monitors shared finance inputs and routes exceptions for review.\n",
+        encoding="utf-8",
+    )
+
+    spec_out = await plan_tools.call_plan_tool(
+        "uipath_plan_spec_new",
+        {
+            "project_root": str(repo),
+            "title": "Copy Sensitive Plan",
+            "intent": f"Create the UiPlan from this PDD: {pdd}",
+            "slug": "copy-sensitive-plan",
+            "project_type": "solution",
+            "paradigm": "solution",
+        },
+    )
+    assert spec_out.get("status") == "ok"
+
+    plan_out = await plan_tools.call_plan_tool(
+        "uipath_plan_plan_new",
+        {
+            "project_root": str(repo),
+            "slug": spec_out["slug"],
+            "paradigm": "solution",
+        },
+    )
+    assert plan_out.get("status") == "ok"
+    assert "plan_new" not in plan_out
+
+    tasks_out = await plan_tools.call_plan_tool(
+        "uipath_plan_tasks_new",
+        {
+            "project_root": str(repo),
+            "slug": spec_out["slug"],
+            "paradigm": "solution",
+        },
+    )
+    assert tasks_out.get("status") == "ok"
+    assert "tasks_new" not in tasks_out
+
+    folder = repo / ".cursor" / "plans" / spec_out["folder_name"]
+    spec_text = (folder / "spec.md").read_text(encoding="utf-8")
+    plan_text = (folder / "plan.md").read_text(encoding="utf-8")
+    tasks_text = (folder / "tasks.md").read_text(encoding="utf-8")
+    combined = f"{spec_text}\n{plan_text}\n{tasks_text}"
+
+    assert copied_sentence not in combined
+    assert "Reference excerpt" not in combined
+    assert "Source summary:" not in combined
+    assert "source content is intentionally not copied" in spec_text
+    assert "Source documents used as context (content intentionally not copied)" in plan_text
+    assert "## Phase 5: Build, Verify, and Handoff" in tasks_text
+
+    full_out = await plan_tools.call_plan_tool(
+        "uipath_plan_uiplan_new",
+        {
+            "project_root": str(repo),
+            "title": "Copy Safe One Shot",
+            "intent": f"Create a solution from this PDD: {pdd}",
+            "slug": "copy-safe-one-shot",
+            "project_type": "solution",
+            "paradigm": "solution",
+        },
+    )
+    assert full_out.get("status") == "ok"
+    assert {"spec", "plan", "tasks"}.issubset(full_out)
+    assert "spec_new" not in full_out
+    assert "plan_new" not in full_out
+    assert "tasks_new" not in full_out

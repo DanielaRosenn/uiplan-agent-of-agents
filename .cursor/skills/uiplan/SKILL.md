@@ -69,7 +69,7 @@ Load this skill when any of these apply:
 - **Drafts only** under `.cursor/plans/` (per-user, git-ignored) until publish.
 - **Never** write to `docs/plans/` directly — use `uipath_plan_publish` after accept.
 - **Never** execute destructive workflow tools from inside this skill; hand off after acceptance.
-- **UiPlan folders** (`spec.md`, `plan.md`, `tasks.md`, `.meta.yaml`): do not use `uipath_plan_refine` / `uipath_plan_diff` — edit markdown in the bundle or re-run stages (`uipath_plan_spec_new` / `plan_new` / `tasks_new` as appropriate).
+- **UiPlan folders** (`spec.md`, `plan.md`, `tasks.md`, `.meta.yaml`): do not use `uipath_plan_refine` / `uipath_plan_diff` — edit markdown in the bundle or re-run the relevant stage (`spec`, `plan`, or `tasks`) as appropriate.
 - **Build handoff is required**: `spec.md` needs **Development Handoff**,
   `plan.md` needs **Development execution contract**, and `tasks.md` needs
   **Build, Verify, and Handoff** before implementation starts.
