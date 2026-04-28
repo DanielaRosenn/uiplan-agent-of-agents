@@ -14,9 +14,7 @@ Landing page for everything under `docs/`. Start with [ARCHITECTURE.md](ARCHITEC
 - [PDD_LIFECYCLE.md](PDD_LIFECYCLE.md) — the full BA -> SA -> ADD -> TDD -> Dev -> QA -> publish -> deploy flow driven by `/pdd` (includes **Naming: SDD vs lifecycle TDD**).
 - [CURSOR_USER_GUIDE.md](CURSOR_USER_GUIDE.md) — using the UiPath skills + MCP tools from inside Cursor (clone + `uv sync --extra mcp` + `mcp.json`).
 - Local setup policy: one assistant per clone via `ops/scripts/cursor-quickstart.*` or `ops/scripts/claude-quickstart.*` (`.assistant-choice`, switch with force).
-- [uiplan/README.md](uiplan/README.md) — UiPlan quick start, decision tree, and leverage patterns for `spec.md` + `plan.md` + `tasks.md`.
-- UiPlan update: paradigm-aware template scaffolds, stricter feasibility review
-  checks, and optional `--paradigm` override on staged generation commands.
+- [uiplan/README.md](uiplan/README.md) — canonical UiPlan onboarding: what to use where, quickstart, and role-based read order.
 - [INSTALL.md](INSTALL.md) — full installation: UiPath CLI, Studio 26.2+, submodules, AWS Bedrock.
 - [TOOLS.md](TOOLS.md) — reference for every tool the agent can call.
 - [MCP_TOOLS.md](MCP_TOOLS.md) — generated catalog of MCP-exposed tools (run `python ops/scripts/generate_mcp_tools_doc.py` after changes).
@@ -24,13 +22,16 @@ Landing page for everything under `docs/`. Start with [ARCHITECTURE.md](ARCHITEC
 
 ## Planning (Cursor + agent)
 
-- [PLANNING_FRAMEWORK.md](PLANNING_FRAMEWORK.md) — superpowers-style brainstorm -> draft -> accept -> publish loop, including the optional `UIPATH_PLAN_GATE`.
+- [uiplan/README.md](uiplan/README.md) — start here for UiPlan usage and default command flow.
+- [uiplan/HOW_TO_USE.md](uiplan/HOW_TO_USE.md) — operational runbook, acceptance gates, and review-failure fixes.
+- [uiplan/TASK_AUTHORING.md](uiplan/TASK_AUTHORING.md) — advanced `tasks.md` execution contract.
+- [PLANNING_FRAMEWORK.md](PLANNING_FRAMEWORK.md) — full planning framework and legacy planning paths.
 - [plans/README.md](plans/README.md) — index of git-tracked implementation plans under `docs/plans/`.
 - [plans/_TEMPLATE.md](plans/_TEMPLATE.md) — required front matter, Mermaid, tasks, verification.
 - Cursor skills: `.cursor/skills/uiplan/SKILL.md` (canonical planning + discovery), `.cursor/skills/uiplan-*` (visible UiPlan slash wrappers), `.cursor/skills/writing-uipath-plans/SKILL.md`, `.cursor/skills/mermaid-diagram-builder/SKILL.md`.
-- MCP (CRUD): `uipath_plan_save`, `uipath_plan_list` (scope), `uipath_plan_read`, `uipath_plan_status_set`, `uipath_plan_render_mermaid`, `uipath_plan_build`.
-- MCP (brainstorm loop): `uipath_plan_new`, `uipath_plan_brainstorm`, `uipath_plan_refine`, `uipath_plan_diff`, `uipath_plan_accept`, `uipath_plan_reject`, `uipath_plan_publish` — see [MCP_TOOLS.md](MCP_TOOLS.md).
-- CLI: `uipath plan new|brainstorm|refine|diff|accept|reject|publish|list`.
+- MCP (UiPlan default): `uipath_plan_ground`, `uipath_plan_spec_new`, `uipath_plan_plan_new`, `uipath_plan_tasks_new`, `uipath_plan_review`, `uipath_plan_accept`, `uipath_plan_publish`.
+- MCP (legacy single-file): `uipath_plan_new`, `uipath_plan_refine`, `uipath_plan_diff`, etc. Use only when intentionally choosing legacy format.
+- CLI: `uipath-claude plan uiplan ...` for default UiPlan flow.
 - Regenerate the plans table: `python ops/scripts/generate_plan_index.py`.
 - Formal lifecycle: [PDD_LIFECYCLE.md](PDD_LIFECYCLE.md).
 

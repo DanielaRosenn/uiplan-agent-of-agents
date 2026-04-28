@@ -347,142 +347,26 @@ The generated output should leave [docs/MCP_TOOLS.md](docs/MCP_TOOLS.md) unchang
 
 ---
 
-## SDLC planning (brainstorm -> plan -> build)
+## SDLC planning (quick pointer)
 
-The repo ships a superpowers-style planning loop for any non-trivial change: you draft a plan, ground it in project context, iterate, accept it, then let destructive tools run against an approved artifact. The full spec is in [docs/PLANNING_FRAMEWORK.md](docs/PLANNING_FRAMEWORK.md); the short version is below.
+For non-trivial changes, use UiPlan as the default planning contract:
+`spec.md` -> `plan.md` -> `tasks.md` with review and acceptance gates before build.
 
-### Storage model
+Primary references:
 
-- Drafts live in `.cursor/plans/` (per-user, **git-ignored**) so you can iterate without polluting history.
-- Published plans live in `docs/plans/` (git-tracked). `docs/plans/README.md` is a regenerated index.
-- Snapshots of each refine step go under `.cursor/plans/.snapshots/` for `uipath_plan_diff --mode self`.
+- [docs/uiplan/README.md](docs/uiplan/README.md) — canonical onboarding (what to use where)
+- [docs/uiplan/HOW_TO_USE.md](docs/uiplan/HOW_TO_USE.md) — operational command flow
+- [docs/uiplan/TASK_AUTHORING.md](docs/uiplan/TASK_AUTHORING.md) — advanced execution contract
+- [docs/PLANNING_FRAMEWORK.md](docs/PLANNING_FRAMEWORK.md) — broader planning framework and legacy paths
 
-### UiPlan (spec-kit-style: `spec.md` + `plan.md` + `tasks.md`)
+Default execution path:
 
-For a **structured** planning-to-build contract (separate *what / how / atomic work / build handoff*), use **UiPlan**: a folder
-`.cursor/plans/<YYYY-MM-DD>-<slug>/` with `spec.md`, `plan.md`, `tasks.md`, and `.meta.yaml`
-(`plan_kind: uiplan`). Grounding pulls **project-context**, **skills**, **library** hits, **PDD/SDD**
-candidates, and **`docs/plans/constitution.md`** gates into the plan. **`uipath_plan_review`**
-returns machine-readable findings (spec/plan/tasks/all) before you accept.
+1. Generate/refine UiPlan bundle.
+2. Run review until no error findings.
+3. Accept the bundle.
+4. Implement from accepted tasks.
 
-```mermaid
-%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
-flowchart LR
-  G[uipath_plan_ground]:::ro --> S[uipath_plan_spec_new]:::w
-  S --> P[uipath_plan_plan_new]:::w
-  P --> T[uipath_plan_tasks_new]:::w
-  T --> R[uipath_plan_review]:::ro
-  R --> A[uipath_plan_accept]:::w
-  A --> Pub[uipath_plan_publish]:::w
-  classDef ro fill:#E0F2FE,stroke:#0284C7,color:#0C4A6E,stroke-width:1.25px
-  classDef w fill:#FEF3C7,stroke:#D97706,color:#78350F,stroke-width:1.25px
-  linkStyle default stroke:#94A3B8,stroke-width:1.5px
-```
-
-- **Cursor:** separate UiPlan skills expose `/uiplan-full`, `/uiplan-ground`, `/uiplan-spec`, `/uiplan-plan`, `/uiplan-tasks`, `/uiplan-review`, and `/uiplan-implement`; `/uiplan` stays as the overview/router.
-- **CLI:** `uipath-claude plan uiplan full "..."` or `plan uiplan ground|spec|plan|tasks|review ...`.
-- **Skill:** [.cursor/skills/uiplan/SKILL.md](.cursor/skills/uiplan/SKILL.md).
-- **Docs:** [docs/uiplan/README.md](docs/uiplan/README.md), [docs/uiplan/HOW_TO_USE.md](docs/uiplan/HOW_TO_USE.md), and the [UiPlan framework matrix](docs/plans/2026-04-21-uiplan-framework.md).
-- **Local kit + generator:** `uv run python -m tools.uiplan generate-docs <slug>` (templates default to `templates/uiplan/`).
-
-Single-file drafts (`uipath_plan_new`) stay supported; `uipath_plan_refine` / `uipath_plan_diff` apply to those only, not UiPlan folders.
-
-### Legacy single-file plan loop (optional)
-
-Use only when you explicitly want one `.md` draft under `.cursor/plans/` (not the UiPlan three-file folder). For normal work, use **UiPlan** above.
-
-```mermaid
-flowchart LR
-    New[uipath_plan_new]:::write --> Brainstorm[uipath_plan_brainstorm]:::ro
-    Brainstorm --> Refine[uipath_plan_refine]:::write
-    Refine --> Diff[uipath_plan_diff]:::ro
-    Diff --> Refine
-    Refine --> Accept{uipath_plan_accept<br/>or reject}:::gate
-    Accept -->|accepted| Publish[uipath_plan_publish]:::write
-    Accept -->|rejected| Refine
-    Publish --> Build[destructive<br/>workflow tools]:::build
-    classDef ro fill:#E0F2FE,stroke:#0284C7,color:#0C4A6E
-    classDef write fill:#FEF3C7,stroke:#D97706,color:#78350F
-    classDef gate fill:#FCE7F3,stroke:#BE185D,color:#500724
-    classDef build fill:#DCFCE7,stroke:#16A34A,color:#14532D
-```
-
-### Starting a new project
-
-Same seven steps either way. Cursor drives them through chat + the MCP tools; the CLI gives you one command per step. Pick whichever your session is in.
-
-#### In Cursor (recommended for interactive work)
-
-Prereq: ran `ops/scripts/setup-cursor.ps1` / `.sh` so `.cursor/mcp.json` is wired and the `uipath-builder-agent` MCP server shows **connected** under Cursor Settings -> MCP. Load the **`uiplan`** skill ([`.cursor/skills/uiplan/SKILL.md`](.cursor/skills/uiplan/SKILL.md)) and attach **`@docs/uiplan/`** when you want the full contract in context.
-
-1. **Kick it off in chat.** Use **`/uiplan-full <title>`** for the bundled path, or step through `/uiplan-ground`, `/uiplan-spec`, `/uiplan-plan`, `/uiplan-tasks`, and `/uiplan-review`. Each command calls the matching `uipath_plan_*` MCP tool. Drafts land under `.cursor/plans/<YYYY-MM-DD-slug>/` with `spec.md`, `plan.md`, `tasks.md` (git-ignored, per-user).
-2. **Ground and clarify.** Answer at most a couple of batched questions in chat; `uipath_plan_ground` returns matched skills, library hits, PDD candidates, and constitution gates. Optionally call `uipath_plan_brainstorm` for extra read-only hints — it does not replace UiPlan.
-3. **Iterate on the bundle.** Fix `unanswered` items and review findings; re-run stages or edit the three markdown files directly (do **not** use `uipath_plan_refine` on UiPlan folders — that path is for legacy single-file drafts only).
-4. **Review.** `uipath_plan_review` until `"ok": true` for the stages you care about.
-5. **Accept (or reject).** `uipath_plan_accept` stamps acceptance; `uipath_plan_reject` requires a non-empty reason.
-6. **Publish.** `uipath_plan_publish` promotes the accepted draft folder to `docs/plans/` and refreshes the index.
-7. **Hand off to build.** Use the Development Handoff in `spec.md`, the Development execution contract in `plan.md`, and the final Build/Verify/Handoff phase in `tasks.md`; then run **`/uiplan-implement <slug>`** or `scaffold-code` per [docs/uiplan/HOW_TO_USE.md](docs/uiplan/HOW_TO_USE.md).
-
-The skill keeps destructive workflow tools out of the planning phase and stops at the accept gate before promotion.
-
-#### From the CLI
-
-All seven tools are exposed via `uipath-claude plan <subcommand>` (and map 1:1 to the MCP tools above):
-
-```bash
-# 1. Scaffold a draft under .cursor/plans/
-uipath-claude plan new --title "Invoice routing" --intent "Route invoices to approvers"
-
-# 2. Get grounding hints (library searches, candidate skills, PDD/SDD candidates)
-uipath-claude plan brainstorm --slug invoice-routing
-
-# 3. Apply structured patches (tasks, goal, mermaid, section bodies)
-uipath-claude plan refine --slug invoice-routing \
-  --op append_task --value "Add retry scope to SAP post"
-
-# 4. Diff against published twin or against last snapshot
-uipath-claude plan diff --slug invoice-routing --mode vs-published
-
-# 5. Accept (stamps accepted_at/accepted_by) or reject (requires --reason)
-uipath-claude plan accept --slug invoice-routing --actor you
-
-# 6. Promote draft -> docs/plans/ and regenerate the index
-uipath-claude plan publish --slug invoice-routing
-
-# At any point: list drafts, published, or both
-uipath-claude plan list --scope both
-```
-
-Same files, same MCP tools - no drift between the two paths.
-
-### Optional hard gate (`UIPATH_PLAN_GATE=1`)
-
-Set the environment variable and the destructive workflow tools - `uipath_workflow_write_file`, `uipath_workflow_install_package`, `uipath_workflow_deploy`, `uipath_workflow_publish` - refuse to run unless an **accepted** plan exists for the target `project_dir`. Useful for CI or when you want to enforce the loop:
-
-```powershell
-# Windows PowerShell
-$env:UIPATH_PLAN_GATE = "1"
-```
-
-```bash
-# macOS / Linux
-export UIPATH_PLAN_GATE=1
-```
-
-Unset or set to `0` to restore the default (no gate).
-
-### When to use which
-
-| Scenario | Entry point |
-|---|---|
-| One-off change with an obvious design | Skip - just edit and validate |
-| Planning interactively in Cursor | **`/uiplan-full`** for the full flow, or staged `/uiplan-ground` -> `/uiplan-spec` -> `/uiplan-plan` -> `/uiplan-tasks` -> `/uiplan-review`; build with `/uiplan-implement` |
-| Planning from a terminal / CI | **`uipath-claude plan uiplan ...`** for the three-file bundle; legacy: `plan new` -> `brainstorm` -> `refine` -> `accept` -> `publish` |
-| Formal PDD/SDD/ADD lifecycle (BA -> SA -> ADD -> TDD -> Dev -> QA) | `/pdd` - see [docs/PDD_LIFECYCLE.md](docs/PDD_LIFECYCLE.md) |
-| Spec-kit-style bundle (spec + plan + tasks + review) | Cursor: `/uiplan-full <title>` or staged `/uiplan-spec` -> `/uiplan-plan` -> `/uiplan-tasks` -> `/uiplan-review`; CLI: `uipath-claude plan uiplan` — see [docs/PLANNING_FRAMEWORK.md](docs/PLANNING_FRAMEWORK.md#uiplan-spec-kit-style) |
-| Quick routing question ("which skill handles X?") | `uipath-planner` skill directly |
-
-The planning framework and `/pdd` are complementary: the planning loop is for authoring the change; `/pdd` is the formal document lifecycle.
+Legacy single-file planning (`uipath_plan_new/refine/diff`) remains available but is non-default for UiPlan work.
 
 ---
 

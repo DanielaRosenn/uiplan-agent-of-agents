@@ -4,6 +4,10 @@ Use this guide when writing or reviewing `tasks.md`. The goal is to make
 `/uiplan-implement` follow instructions instead of inventing architecture during
 coding.
 
+Prerequisite: read [README.md](README.md) and [HOW_TO_USE.md](HOW_TO_USE.md)
+first for onboarding, path selection (Cursor/CLI/MCP), and lifecycle flow.
+This document is the advanced execution-quality contract.
+
 ## 360 tasking objective
 
 `tasks.md` must execute the `spec.md` 360 visibility contract without gaps. For
@@ -17,25 +21,12 @@ every in-scope artifact/surface declared in spec/plan, there must be:
 If any artifact cannot be mapped to those four elements, stop and fix `spec.md`
 or `plan.md` before continuing.
 
-## Capability inventory first
+## Capability routing baseline
 
-Before tasking non-trivial work, record which project capabilities are relevant:
-
-| Capability family | Use when |
-| --- | --- |
-| Planning/design skills | Route scope and architecture through `uiplan-*`, `uipath-planner`, `uipath-solution-design`, `writing-uipath-plans`, and `mermaid-diagram-builder`. |
-| Product/build skills | Use the owning product skill: `uipath-rpa`, `uipath-rpa-legacy`, `uipath-agents`, `uipath-platform`, `uipath-coded-apps`, `uipath-maestro-flow`, `uipath-case-management`, `uipath-data-fabric`, `uipath-human-in-the-loop`, `uipath-gov-aops-policy`, `uipath-test`, `uipath-diagnostics`, or `uipath-interact`. |
-| BA / SA / Dev / QA lenses | BA owns process scope and SME gaps; SA owns solution topology and workflow shape; Dev owns concrete artifacts, activities, and build order; QA/Test owns fixtures, evidence, and failure-path validation. |
-| Submodule/project agents | Run `skills/agents/uipath-project-discovery-agent.md` when project context is missing or stale. |
-| Diagnostics agents | Use triage, scope-checker, hypothesis-generator, hypothesis-tester, and presenter when analyzer/test output fails. |
-| MCP/library tools | Use `uipath_library_search`, `uipath_library_lookup`, `uipath_doc_get_activity`, and `uipath_doc_list_packages` before naming activities or platform constructs. |
-| AskAI/docs fallback | Use `query_uipath_docs` or `[askai:...]` only when local/library coverage is insufficient. |
-| CLI surfaces | Use `uipcli`, `uipath`, or `uip`; run live `--help` before uncertain flags. |
-| Focused subagents | Split discovery, implementation, testing, browser/UI checks, docs, and code review when work can proceed safely in parallel. |
-
-Tasks that skip available capability surfaces should fail review. Do not invent
-activity names, package APIs, template shapes, or CLI flags when a project skill,
-library lookup, activity doc, CLI help, or subagent can resolve them.
+`tasks.md` should consume routing already captured in `plan.md` and use the
+minimal required capability set for each task (skill/agent/subagent/library/doc
+lookup + CLI gate). Do not re-open broad onboarding-level routing here; keep
+this file focused on executable artifact-level instructions and evidence.
 
 ## Discovery boundary
 

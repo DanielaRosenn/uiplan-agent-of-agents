@@ -1,24 +1,46 @@
 # UiPlan (spec + plan + tasks)
 
-UiPlan is the **three-file planning-to-build bundle** used before implementation:
-`spec.md` (what), `plan.md` (how), and `tasks.md` (executable build steps).
-It pairs with MCP plan tools, Cursor skills, and the local **`tools/uiplan`**
-CLI for generate -> review -> accept -> implement workflows.
+UiPlan is the three-file planning-to-build contract used before implementation:
+`spec.md` (what), `plan.md` (how), and `tasks.md` (executable steps + evidence).
+It supports Cursor slash commands, MCP tool calls, and terminal usage.
+
 ![UiPlan logo](../assets/uiplan-logo.svg)
 
-## First 15 minutes
+## Choose your path
 
-If you are new, do this in order:
+Use one primary path per session; all paths converge on the same bundle and gates.
 
-1. Read [HOW_TO_USE.md](HOW_TO_USE.md) for the mode matrix (MCP vs CLI vs skill).
-2. Generate a bundle: `uv run python -m tools.uiplan generate-docs <slug>`.
-3. Review the three files (`spec.md`, `plan.md`, `tasks.md`) and tighten scope.
-4. Run review (`uipath_plan_review` or Cursor `/uiplan-review <slug>`) and resolve findings.
-5. Move to build only after acceptance; use `/uiplan-implement <slug>` with the
-   Development Handoff in `spec.md`, the Development execution contract in
-   `plan.md`, and the final Build/Verify/Handoff phase in `tasks.md`.
+| Path | Use this when | Primary commands |
+| --- | --- | --- |
+| Cursor chat | Interactive planning in IDE | `/uiplan-full` or staged `/uiplan-ground` -> `/uiplan-spec` -> `/uiplan-plan` -> `/uiplan-tasks` -> `/uiplan-review` -> `/uiplan-implement` |
+| Terminal CLI | Scriptable/headless flow | `uipath-claude plan uiplan full` or staged `ground/spec/plan/tasks/review` |
+| MCP tools | Agent/tool-driven orchestration | `uipath_plan_ground`, `uipath_plan_spec_new`, `uipath_plan_plan_new`, `uipath_plan_tasks_new`, `uipath_plan_review`, `uipath_plan_accept` |
 
-This flow is the fastest way to keep planning quality high and implementation predictable.
+## Quickstart (5 steps)
+
+1. Generate or refresh a draft bundle under `.cursor/plans/<slug>/`.
+2. Fill and tighten `spec.md`, `plan.md`, and `tasks.md` (remove placeholders).
+3. Run review (`uipath_plan_review` or `/uiplan-review <slug>`) until no error findings remain.
+4. Accept the bundle (`uipath_plan_accept`) after human approval.
+5. Implement from accepted tasks (`/uiplan-implement <slug>`), then publish when needed.
+
+## When to use UiPlan vs skip it
+
+Use UiPlan when:
+- a change touches multiple artifacts/surfaces (`.xaml`, `.flow`, agent `.py`, `.dmn`, bindings/resources);
+- there are architecture or sequencing decisions to lock before coding;
+- you need traceable review gates and evidence-driven implementation.
+
+Skip UiPlan (direct edit + validate) when:
+- the change is a tiny single-file fix with no routing/contract impact;
+- there is no meaningful design tradeoff and no cross-surface dependency.
+
+## Role-based read order
+
+- BA/PM: this file -> [HOW_TO_USE.md](HOW_TO_USE.md)
+- Solution Engineer: [HOW_TO_USE.md](HOW_TO_USE.md)
+- Implementer: [TASK_AUTHORING.md](TASK_AUTHORING.md)
+- Template maintainer: [../../templates/uiplan/README.md](../../templates/uiplan/README.md)
 
 ## 360 visibility standard (2026 update)
 

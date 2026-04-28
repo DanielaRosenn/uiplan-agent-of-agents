@@ -10,6 +10,20 @@
 - **Task authoring:** [TASK_AUTHORING.md](TASK_AUTHORING.md) for workflow design,
   capability routing, examples, and the implementation loop.
 
+## Default flow (recommended)
+
+Use this as the primary path unless you explicitly need legacy single-file plans:
+
+1. `ground` -> 2) `spec` -> 3) `plan` -> 4) `tasks` -> 5) `review` -> 6) `accept` -> 7) `implement`
+
+Equivalent surfaces:
+
+- Cursor: `/uiplan-ground` -> `/uiplan-spec` -> `/uiplan-plan` -> `/uiplan-tasks` -> `/uiplan-review` -> `/uiplan-implement`
+- CLI: `uipath-claude plan uiplan ground|spec|plan|tasks|review ...`
+- MCP: `uipath_plan_ground`, `uipath_plan_spec_new`, `uipath_plan_plan_new`, `uipath_plan_tasks_new`, `uipath_plan_review`, `uipath_plan_accept`
+
+Legacy single-file planning (`uipath_plan_new`, `uipath_plan_refine`, `uipath_plan_diff`) is still supported but non-default for UiPlan folders.
+
 ## Decision table
 
 | I want to… | Use |
@@ -84,6 +98,26 @@ Do **not** treat `generate-docs` output as approved scope by default.
 4. Only then accept the bundle and start implementation with
    `/uiplan-implement <slug>`. Use `scaffold-code` only when you specifically
    need the local runtime/adaptor checks described in [SCAFFOLD_CODE.md](SCAFFOLD_CODE.md).
+
+## Acceptance gates before implementation
+
+Do not start build execution until all are true:
+
+- `uipath_plan_review(stage=all)` returns no error-severity findings.
+- `.meta.yaml` status is accepted (`uipath_plan_accept` was run).
+- `spec.md` includes 360 visibility contract and workflow visual catalog coverage.
+- `plan.md` includes artifact chain map, conformance matrix, connector/boundary/log contracts.
+- `tasks.md` includes per-workflow activity checklist and executable evidence gates.
+
+## Top review failures and fastest fixes
+
+| Review failure | Fastest fix |
+| --- | --- |
+| `RULE_SPEC_NO_360` | Add `## 360 Build Visibility Contract` and fill required inventory tables. |
+| `RULE_SPEC_NO_WORKFLOW_VISUAL` | Add `### Workflow surface visual catalog (required)` with one `#### <artifact>` + Mermaid per in-scope workflow artifact. |
+| `RULE_TASKS_NO_ACTIVITY_CHECKLIST` | Add `## Per-workflow activity checklist (required)` and include every workflow path from scope. |
+| `RULE_TASKS_NO_DIAGRAM` | Add dedicated per-workflow mini-topology sections and ensure each scoped path has concrete internal-step coverage. |
+| `RULE_ANY_TEMPLATE_RESIDUE` | Remove unresolved `{{...}}` template tokens from `spec.md`, `plan.md`, and `tasks.md`. |
 
 ## Numbered quickstarts
 
