@@ -160,8 +160,9 @@ Every generated task list MUST include project facts from `spec.md` / `plan.md`,
   template. Each row must include why that template fits the use case and what generated structure
   must be preserved.
 - **Mailbox dispatcher guardrail**: if a task builds or remediates mailbox intake
-  that queues work, it must cite the dispatcher scaffold/template source, preserve
-  config/assets/queues/exception/logging concepts, and include concrete tasks for
+  that queues work, it must cite the template catalog root (`scaffold/template`)
+  and record `dispatcher` as the selected template type. It must preserve
+  config/assets/queues/exception/logging concepts and include concrete tasks for
   real connector mailbox reads, non-stub queue payloads, idempotency/cursor
   behavior, and Studio-visible phase logs. A `PullMailbox` workflow that only
   logs or fabricates `stub-*` message IDs cannot close the story.
@@ -381,6 +382,41 @@ For each listed workflow artifact, include an alias line immediately before its
 diagram:
 
 - `<artifact alias> -> <full repo path>`
+
+## Per-workflow activity checklist (required)
+
+For each workflow artifact from `plan.md` workflow catalog, include one checklist
+row that names the required activities/nodes and how they are verified.
+
+| Workflow artifact | Activity/node checklist (must exist) | How to confirm | Skill/tool route | Evidence path |
+| --- | --- | --- | --- | --- |
+| `projects/<Name>/Main.xaml` | `Sequence`, `Switch`, `If`, `Assign`, `Log Message`, `Try Catch` | `uipath_doc_get_activity` + analyze output | `[skill:uipath-rpa]`, `uipath_doc_get_activity`, `uipcli` | `out/analyze-<name>.json` |
+| `projects/<Name>/<flow>.flow` | trigger, normalize, branch node, closure node | flow graph review + validate | `[skill:uipath-maestro-flow]`, `uip` | `out/flow-validate.log` |
+
+## Activity conformance gate visual (required)
+
+```mermaid
+flowchart TD
+  Start([Per-workflow review]):::start --> HasDiagram{Diagram exists?}:::decision
+  HasDiagram -- No --> AddDiagram[Add workflow diagram]:::process
+  HasDiagram -- Yes --> HasChecklist{Activity checklist complete?}:::decision
+  AddDiagram --> HasChecklist
+  HasChecklist -- No --> PatchWorkflow[Patch activities/nodes]:::process
+  HasChecklist -- Yes --> VerifyGate[Run validate/test/analyze gate]:::service
+  PatchWorkflow --> VerifyGate
+  VerifyGate --> Pass{Gate passed?}:::decision
+  Pass -- No --> Diagnose[Rerun diagnose + fix loop]:::human
+  Pass -- Yes --> Evidence(((Record evidence path))):::endOk
+  Diagnose --> VerifyGate
+
+  classDef start fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:2px
+  classDef endOk fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:2px
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.5px
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
 
 ## Phase 1: Contract and Test Baseline
 

@@ -527,3 +527,20 @@ def test_review_flags_stub_xaml_and_missing_diagram_rules():
     rules = {f.get("rule") for f in findings}
     assert "RULE_TASKS_STUB_XAML" in rules
     assert "RULE_TASKS_NO_DIAGRAM" in rules
+
+
+def test_review_flags_missing_activity_checklist_for_workflow_artifacts():
+    findings = review_tasks_text(
+        "## Phase 3: User Story 1 - A (Priority: P1)\n"
+        "### Tests for User Story 1\n"
+        "- [ ] T010 [US1] test `tests/t.py` uipath_library_search uv run pytest tests/t.py -q\n"
+        "### Implementation for User Story 1\n"
+        "- [ ] T011 [US1] implement `projects/A/Main.xaml` [skill:uipath-rpa] "
+        "uipath_library_search personal workspace Production\n"
+        "### Mini-topology: `projects/A/Main.xaml`\n"
+        "```mermaid\nflowchart LR\nA[Start] --> B[End]\n```\n"
+        "## Phase 5: Build, Verify, and Handoff\n"
+        "- [ ] T030 build `out/pkg.nupkg` pytest junit analyzer resultPath robot log\n",
+        "### User Story 1 - A (Priority: P1)\n**Implementation paradigm**: solution\n",
+    )
+    assert any(f.get("rule") == "RULE_TASKS_NO_ACTIVITY_CHECKLIST" for f in findings)

@@ -110,6 +110,15 @@ Add one row for every in-scope artifact from `spec.md` (including `.flow`, `.dmn
 `langgraph.json` entrypoints, bindings, and queue/asset sidecars when they are
 part of completion criteria).
 
+## Workflow diagram + activity conformance matrix (required)
+
+For every workflow row in `## Workflow Catalog`, record where its diagram lives
+and which activities/nodes must exist before implementation is considered done.
+
+| Workflow artifact | Diagram section | Mandatory activities/nodes | Verify activity docs/package | Primary skill/tool route | Build/verify command |
+| --- | --- | --- | --- | --- | --- |
+| `projects/<Name>/Main.xaml` | `## Surface execution visuals` | Sequence, Switch, If, Assign, Log Message, Try Catch | `uipath_doc_get_activity` + package source | `[skill:uipath-rpa]` | `uipcli package analyze ... --resultPath out/analyze-<name>.json` |
+
 ## Activity Inventory
 
 Only entries resolved via `uipath_doc_get_activity` / `uipath_library_search` /

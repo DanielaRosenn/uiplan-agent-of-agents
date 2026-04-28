@@ -34,6 +34,9 @@ UiPlan now enforces a 360 build-visibility contract across the bundle:
   contract.
 - `tasks.md` is the executable build sheet and must map every in-scope artifact
   to task IDs, commands, evidence paths, and per-workflow internal diagrams.
+- Template contract now also requires per-workflow activity conformance:
+  each workflow row must declare mandatory activities/nodes, skill/tool route,
+  and a verification gate proving those activities are truly present.
 - `uipath_plan_review` is the hard gate: under-specified bundles fail before
   acceptance.
 - `/uiplan-implement` runs a preflight and refuses thin accepted bundles before

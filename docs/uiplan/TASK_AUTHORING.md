@@ -249,6 +249,20 @@ graph, DMN decision), include a corresponding Mermaid diagram that captures the
 Reject task bundles that provide only high-level topology boxes without
 workflow-level step diagrams.
 
+## Activity conformance is mandatory
+
+Alongside each workflow diagram, `tasks.md` must include a per-workflow activity
+checklist row describing:
+
+- the concrete required activities/nodes (`.xaml`, `.flow`, graph nodes, DMN rows);
+- how those are verified (activity docs lookup, validate/analyze/test command);
+- which skill/tool route owns implementation;
+- where evidence is written.
+
+For XAML surfaces, list concrete activity names (for example `Sequence`,
+`Switch`, `Assign`, `If`, `Log Message`, `Try Catch`) and verify them through
+`uipath_doc_get_activity` plus analyzer evidence.
+
 ## Executor context block (required)
 
 Add this before tasks for each phase or story:

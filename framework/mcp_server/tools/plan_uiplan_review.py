@@ -853,6 +853,10 @@ _MINI_TOPOLOGY_RE = re.compile(
     r"###\s*(Mini-topology|Workflow map|Workflow interaction):",
     re.IGNORECASE,
 )
+_PER_WORKFLOW_ACTIVITY_CHECKLIST_HEADING_RE = re.compile(
+    r"##\s*Per-workflow activity checklist",
+    re.IGNORECASE,
+)
 _SPEC_ARTIFACT_TOKEN_RE = re.compile(
     r"[A-Za-z0-9_./-]+\.(?:xaml|flow|py|dmn|json|uipx|uiproj)",
     re.IGNORECASE,
@@ -869,6 +873,19 @@ def _task_id_number(line: str) -> int | None:
     if not m:
         return None
     return int(m.group(1), 10)
+
+
+def _extract_section(text: str, heading_pattern: re.Pattern[str]) -> str:
+    """Return markdown section body from heading match to next ## heading."""
+    m = heading_pattern.search(text)
+    if not m:
+        return ""
+    start = m.end()
+    rest = text[start:]
+    next_heading = re.search(r"\n##\s+", rest)
+    if not next_heading:
+        return rest
+    return rest[: next_heading.start()]
 
 
 def _review_task_section_contracts(tasks: str, paradigm: str | None) -> list[dict[str, Any]]:
@@ -1281,6 +1298,35 @@ def review_tasks_text(tasks: str, spec: str) -> list[dict[str, Any]]:
                     "tasks.md",
                 )
             )
+        checklist_section = _extract_section(tasks, _PER_WORKFLOW_ACTIVITY_CHECKLIST_HEADING_RE)
+        if not checklist_section:
+            findings.append(
+                _finding(
+                    "error",
+                    "tasks",
+                    "RULE_TASKS_NO_ACTIVITY_CHECKLIST",
+                    "tasks.md must include `## Per-workflow activity checklist (required)` "
+                    "when workflow artifacts are in scope.",
+                    "tasks.md",
+                )
+            )
+        else:
+            unresolved_checklist: list[str] = []
+            for path in sorted(workflow_paths):
+                if path not in checklist_section:
+                    unresolved_checklist.append(path)
+            if unresolved_checklist:
+                findings.append(
+                    _finding(
+                        "error",
+                        "tasks",
+                        "RULE_TASKS_NO_ACTIVITY_CHECKLIST",
+                        "Per-workflow activity checklist coverage is incomplete for one or more "
+                        "workflow artifacts: "
+                        + ", ".join(unresolved_checklist),
+                        "tasks.md",
+                    )
+                )
         unresolved: list[str] = []
         for path in sorted(workflow_paths):
             if tasks.count(f"`{path}`") < 2:

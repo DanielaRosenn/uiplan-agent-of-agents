@@ -188,6 +188,15 @@ unknown, use `[NEEDS CLARIFICATION: ...]` and keep the row.
 | --- | --- | --- | --- | --- |
 | {{VERIFY_1_SURFACE}} | {{VERIFY_1_FAMILY}} | {{VERIFY_1_COMMAND}} | {{VERIFY_1_DONE_WHEN}} | {{VERIFY_1_EVIDENCE}} |
 
+### Workflow-level visual and activity conformance
+
+Every executable workflow surface must be visualized and tied to concrete
+activities/nodes (no generic placeholders).
+
+| Workflow artifact | Diagram section (spec/plan/tasks) | Mandatory activities/nodes | Skill/tool route | Verification evidence |
+| --- | --- | --- | --- | --- |
+| {{WF_1_PATH}} | {{WF_1_DIAGRAM_SECTION}} | {{WF_1_MANDATORY_ACTIVITIES}} | {{WF_1_SKILL_TOOL_ROUTE}} | {{WF_1_EVIDENCE}} |
+
 ### Clarification resolution ledger
 
 Track unresolved business/technical facts so `plan.md` and `tasks.md` can map

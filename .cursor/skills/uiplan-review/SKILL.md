@@ -87,6 +87,8 @@ explicitly asks for the next step after seeing review output.
   (`.xaml`, `.flow`, LangGraph entrypoint, DMN file), `tasks.md` must include a
   corresponding internal step-flow diagram, not only a generic topology block.
 - Missing per-workflow diagrams is a blocking error (`RULE_TASKS_NO_DIAGRAM`).
+- Missing per-workflow activity checklist rows (or missing artifact coverage in
+  that checklist) is a blocking error (`RULE_TASKS_NO_ACTIVITY_CHECKLIST`).
 - `.xaml` tasks cannot be completed with placeholder/contract-only wording;
   stub-only completion is a blocking error (`RULE_TASKS_STUB_XAML`).
 - If accepted `spec.md`/`plan.md` explicitly chooses UiPath Flow as HITL canvas,
