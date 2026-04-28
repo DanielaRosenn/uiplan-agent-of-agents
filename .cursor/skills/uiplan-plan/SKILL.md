@@ -100,8 +100,12 @@ Record any remaining gaps under `## Open Grounding Questions` in `plan.md` as
 
 When the plan needs a human approval / data-enrichment / write-back gate,
 default to `[skill:uipath-custom-hitl]` (Action Center External Tasks +
-HITL_Application Adaptive Cards / Slack). Do **not** plan around UiPath Flow
-as the HITL canvas.
+HITL_Application Adaptive Cards / Slack).
+
+**Override rule:** if accepted `spec.md` or user instructions explicitly mandate
+UiPath Flow as the HITL canvas, plan around Flow and route through
+`[skill:uipath-maestro-flow]`. Record the override in `plan.md` so
+`tasks.md` and `/uiplan-implement` can follow the same contract.
 
 ## Do / Don't
 

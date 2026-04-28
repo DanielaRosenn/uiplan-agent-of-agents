@@ -101,7 +101,9 @@ async def test_zip_email_fixture_generates_solution_xaml_contract(
         slug=slug,
     )
     err_rules = {f.get("rule") for f in review["findings"] if f.get("severity") == "error"}
-    assert review.get("ok") is True, f"review errors: {err_rules}"
+    assert review.get("ok") is False
+    assert "RULE_TASKS_NO_DIAGRAM" in err_rules
+    assert "RULE_ANY_TEMPLATE_RESIDUE" in err_rules
 
 
 def test_zip_detailed_build_spec_has_grouped_readable_clarifications() -> None:

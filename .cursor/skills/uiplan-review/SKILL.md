@@ -21,6 +21,14 @@ explicitly asks for the next step after seeing review output.
 ### Spec checks
 
 - `spec.md` must include user stories, acceptance scenarios, FR/SC sections.
+- `spec.md` must include `## 360 Build Visibility Contract`. Missing section is a
+  blocking error (`RULE_SPEC_NO_360`).
+- `spec.md` must include `## LLM / Executor Readiness Contract` with:
+  - `### Role and scope`,
+  - `### Environment and conventions`,
+  - `### Skill routing matrix`,
+  - `### Decision logic inventory`,
+  - `### Build readiness checklist`.
 - `## Development Handoff` must include:
   - implementation paradigm (`modern-rpa`, `coded-automation`, `coded-agent`,
     `solution`, `maestro-flow`, `coded-app`, `api-workflow`, `case-management`,
@@ -35,9 +43,15 @@ explicitly asks for the next step after seeing review output.
 
 - `plan.md` must include:
   - `Planner Route & Specialist Handoff`;
+  - `Spec artifact chain map` (spec artifact -> plan owner -> task area);
+  - `LLM execution navigation` (where to navigate for skills/tools/subagents);
   - explicit `Project Structure` coverage for repository artifacts;
   - `### Source Code (repository root)` with paradigm-appropriate descriptors;
   - `### Paradigm build loop` matching the declared paradigm CLI family.
+- `plan.md` must include connector/resource inventory rows
+  (`RULE_PLAN_NO_CONNECTOR_INV`), invocation boundaries (`RULE_PLAN_NO_SURFACE_BOUNDARY`),
+  and a logging contract with phase markers + correlation id + assertions
+  (`RULE_PLAN_NO_LOG_CONTRACT`).
 - For **modern-rpa / coded-automation / solution / library / tests** paradigms, `plan.md` should
   anchor **XAML-first** orchestration, name **workflow types** (Sequence, Flowchart, State Machine,
   Long Running Workflow) per process, and document **C#** expressions unless legacy VisualBasic is
@@ -53,6 +67,15 @@ explicitly asks for the next step after seeing review output.
 ### Tasks checks
 
 - `tasks.md` must include tests before implementation in each story slice.
+- `tasks.md` must include `### Executor context` blocks for each major phase or
+  story section.
+- `tasks.md` must include one-row task-card tables (`| Field | Content |`) for
+  non-parallel implementation tasks.
+- `tasks.md` should include:
+  - `FR traceability matrix`,
+  - `Clarification resolution ledger`,
+  - `Log assertion checklist`,
+  - `LLM execution navigation guide`.
 - `## Task detail contract` (from the UiPlan template) must be satisfied: **Feature build surface**, **Project**, **Workflow/sequence/node**, backtick **artifact paths**, **Activities/SDKs** only after `uipath_doc_get_activity` documents the concrete activity (no unresolved activity-tag placeholders), **AskAI/library** lookups, **Verification** commands, and **Runtime evidence** paths.
 - `tasks.md` should include a **Project-specific contract** for non-trivial work: repo root, descriptors, project directories, bindings, queues/assets/connections, schedules/triggers, package versions, and local verification commands.
 - For RPA/Studio or Solution plans with `.xaml` projects, `tasks.md` must include a **Studio
@@ -60,6 +83,14 @@ explicitly asks for the next step after seeing review output.
   scaffold source, workflow type, why it matches the use case, generated structure to preserve, and
   `uip rpa create-project` / Studio evidence. If the right template is not knowable, tasks must
   include a discovery/question item rather than silently hand-scaffolding.
+- Workflow visuals must be concrete: for each in-scope workflow artifact
+  (`.xaml`, `.flow`, LangGraph entrypoint, DMN file), `tasks.md` must include a
+  corresponding internal step-flow diagram, not only a generic topology block.
+- Missing per-workflow diagrams is a blocking error (`RULE_TASKS_NO_DIAGRAM`).
+- `.xaml` tasks cannot be completed with placeholder/contract-only wording;
+  stub-only completion is a blocking error (`RULE_TASKS_STUB_XAML`).
+- If accepted `spec.md`/`plan.md` explicitly chooses UiPath Flow as HITL canvas,
+  review must reject task routing that forces custom HITL-only handling.
 - **No half-tasks:** warn when one bullet mixes unrelated concerns without a clear split, or when **RPA/XAML is in scope** but tasks allow **log-only** completion without an explicit **scaffold-only** + named production-activity follow-up (see template **Executable task split**). **`[HANDOFF:…]`** is for secrets/deploy/OAuth/robot smoke — not for skipping `.xaml` when the paradigm requires it.
 - Each **non-[P]** implementation or `### Paradigm-specific tasks` line must include:
   - artifact path in backticks,
@@ -114,6 +145,10 @@ explicitly asks for the next step after seeing review output.
   - library lookup evidence (`uipath_library_search` / `uipath_library_lookup`),
   - AskAI-style evidence (`query_uipath_docs`) when library coverage is insufficient.
 - Confirm activity tags `[activity:Package:Activity]` are resolvable in activity docs.
+- Reject any leftover template tokens `{{...}}` in spec/plan/tasks
+  (`RULE_ANY_TEMPLATE_RESIDUE`).
+- Reject spec artifacts declared in the 360 contract when they do not appear in
+  plan/tasks (`RULE_SPEC_ARTIFACT_MISSING`).
 
 ### Stack and policy checks
 

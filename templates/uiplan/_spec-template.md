@@ -8,17 +8,20 @@
 
 ## Audience and Scope
 
-This document is the lightweight **BA <-> Developer** bridge. The formal PDD and
-SDD remain the readable human documentation. This spec summarizes only the
-business outcome, scope, user stories, acceptance criteria, and open SME facts
-needed to prepare `plan.md` and `tasks.md`.
+This document is the **BA <-> Developer** bridge and the mandatory scope
+contract for `plan.md` and `tasks.md`. The formal PDD and SDD remain the
+readable human documentation, but this spec must still expose full 360
+build-visibility for every in-scope surface.
 
 - **Do** describe outcomes, actors, business rules, and what success means in
   plain language.
 - **Do** point to PDD / SDD source documents instead of copying their prose.
 - **Do** record SME / NEEDS CLARIFICATION items when business facts are unknown.
-- **Do not** name `.xaml` / `.cs` / `.py` files, CLI verbs, `[skill:...]`, package
-  versions, or activity-level wiring — those belong in `plan.md` and `tasks.md`.
+- **Do** list all in-scope workflow surfaces, descriptors, dependencies,
+  connectors, resources, decision boundaries, logs, and evidence expectations.
+- **Do** mark unknown details as explicit `[NEEDS CLARIFICATION: ...]` items.
+- **Do not** use placeholders, generic "implement later" wording, or stub
+  completion criteria.
 
 If a role hits a knowledge gap while drafting this spec, follow the AskAI / Library
 escalation ladder before asking the user: `uipath_library_search` /
@@ -80,6 +83,138 @@ tenant-specific values.
 ### Key Entities
 
 - **{{ENTITY_1}}**: {{ENTITY_1_DESC}}
+
+## LLM / Executor Readiness Contract
+
+Keep this section concise and high-signal. It defines guardrails and routing so
+`plan.md` and `tasks.md` are generated consistently.
+
+### Role and scope
+
+- **Project type**: {{PROJECT_TYPE}}
+- **Allowed build surfaces**: {{ALLOWED_SURFACES}}
+- **Languages / runtimes**: {{LANG_VERSION}}
+- **Explicit exclusions**: {{EXPLICIT_EXCLUSIONS}}
+
+### Environment and conventions
+
+- **Required CLIs**: `uipcli`, `uipath`, `uip` (list only those in scope)
+- **Access requirements**: {{TARGET_PLATFORM}}
+- **Package manager/runtime**: {{DEPS}}
+- **Evidence location convention**: {{EVIDENCE_PATHS}}
+- **Naming/folder convention notes**: {{NAMING_CONVENTIONS}}
+
+### Skill routing matrix
+
+| Feature area | Required skill/tool | Use when | Evidence expected |
+| --- | --- | --- | --- |
+| Flow/process orchestration | `[skill:uipath-maestro-flow]` | `.flow`/BPMN orchestration, HITL stage in Flow | flow validation/export log + flow artifact path |
+| LangGraph or coded agent | `[skill:uipath-agents]` | semantic reasoning, multi-source retrieval, agent execution | pytest/JUnit + `uipath run` evidence |
+| Deterministic business rules | `[skill:dmn-business-rules]` | policy decision table with typed IO | `.dmn` + rule coverage test evidence |
+| RPA workflow implementation | `[skill:uipath-rpa]` | `.xaml` activity-first implementation | analyze JSON + workflow test evidence |
+| Platform/resources/deploy gates | `[skill:uipath-platform]` | queues/assets/folders/bindings/deploy policy | binding/resource diff + CLI logs |
+| Test/diagnostics | `[skill:uipath-test]`, `[skill:uipath-diagnostics]` | verification failures and rerun loop | parsed failure + rerun evidence |
+
+If a row is not used, mark it out-of-scope explicitly.
+
+### Decision logic inventory
+
+| Decision | Owner surface | Why | Inputs | Outputs | Human review trigger |
+| --- | --- | --- | --- | --- | --- |
+| {{DECISION_1}} | {{DECISION_1_OWNER}} | {{DECISION_1_WHY}} | {{DECISION_1_INPUTS}} | {{DECISION_1_OUTPUTS}} | {{DECISION_1_REVIEW_TRIGGER}} |
+
+Use this table to prevent scope drift between DMN policy logic, agent semantic
+reasoning, and Flow/process branching.
+
+### Build readiness checklist
+
+- [ ] Required cloud/studio access identified for all in-scope surfaces.
+- [ ] Required CLIs and runtime versions listed.
+- [ ] In-scope deploy command availability verified from live CLI help (for Flow: confirm `uip solution upload`; do not assume `resource refresh` / `flow tidy` exist in this CLI build).
+- [ ] Certificate trust chain preflight documented for cloud upload paths (no placeholder `NODE_EXTRA_CA_CERTS`; record approved fallback if needed).
+- [ ] Flow runtime smoke requirement declared when Flow is in scope (`uip flow debug` or documented reason it is unsafe/unavailable).
+- [ ] Flow project name, folder name, and `.flow` filename consistency declared (`project.uiproj` name must match the debug/upload artifact expected by the installed CLI).
+- [ ] Windows Flow debug prerequisites declared when needed (`zip` executable availability, or documented shim/tool installation).
+- [ ] Coded agent runtime smoke requirement declared when agents are in scope (unit tests + direct graph/function invocation + `uipath run` or documented platform blocker).
+- [ ] Secrets represented as assets/env vars only.
+- [ ] Runtime assets and queues are explicitly listed with target folder path,
+  provisioning command family (`uip resource` for non-secret assets/queues),
+  and secret handoff items for credentials.
+- [ ] Test fixtures identified for each story.
+- [ ] DMN explicitly marked in-scope or out-of-scope.
+- [ ] Human approval gates called out where required.
+- [ ] If coded agents are in scope, acceptance includes deployed invocation,
+  output review, and Orchestrator trace/graph verification (entrypoint,
+  package version, graph node spans), not only a successful job state.
+
+## 360 Build Visibility Contract
+
+Every row in this section is mandatory for in-scope surfaces. If a value is
+unknown, use `[NEEDS CLARIFICATION: ...]` and keep the row.
+
+### Workflow and artifact visibility inventory
+
+| Artifact path | Type/surface | Owns user story | Invocation entrypoint | Cannot be stubbed by | Evidence required |
+| --- | --- | --- | --- | --- | --- |
+| {{ARTIFACT_1_PATH}} | {{ARTIFACT_1_TYPE}} | {{ARTIFACT_1_STORY}} | {{ARTIFACT_1_ENTRYPOINT}} | {{ARTIFACT_1_ANTISTUB}} | {{ARTIFACT_1_EVIDENCE}} |
+
+### Activity, connector, dependency, and package visibility
+
+| Package/tool | Activity or connector | Used in artifact | Why required | Version/source | Verification evidence |
+| --- | --- | --- | --- | --- | --- |
+| {{DEP_1_PACKAGE}} | {{DEP_1_ACTIVITY_CONNECTOR}} | {{DEP_1_ARTIFACT}} | {{DEP_1_REASON}} | {{DEP_1_VERSION_SOURCE}} | {{DEP_1_EVIDENCE}} |
+
+### Agent, DMN, Flow, HITL, and platform-resource visibility
+
+| Surface/resource | Descriptor/file | Invocation boundary | Inputs/outputs | Owner | Evidence |
+| --- | --- | --- | --- | --- | --- |
+| {{SURFACE_1_NAME}} | {{SURFACE_1_DESCRIPTOR}} | {{SURFACE_1_BOUNDARY}} | {{SURFACE_1_IO}} | {{SURFACE_1_OWNER}} | {{SURFACE_1_EVIDENCE}} |
+
+### Logging and observability visibility
+
+| Workflow/surface | Required log phases | Correlation id propagation | Expected assertions | Evidence path |
+| --- | --- | --- | --- | --- |
+| {{LOG_1_SURFACE}} | {{LOG_1_PHASES}} | {{LOG_1_CORRELATION}} | {{LOG_1_ASSERTIONS}} | {{LOG_1_EVIDENCE}} |
+
+### Template/scaffold provenance and anti-stub rules
+
+| Artifact | Scaffold/template source | Preserved from scaffold | Must be implemented (not stubbed) | Stub rejection signal |
+| --- | --- | --- | --- | --- |
+| {{SCAFFOLD_1_ARTIFACT}} | {{SCAFFOLD_1_SOURCE}} | {{SCAFFOLD_1_PRESERVE}} | {{SCAFFOLD_1_REQUIRED}} | {{SCAFFOLD_1_REJECT_SIGNAL}} |
+
+### Verification and evidence visibility
+
+| Surface | Command family | Concrete command to run | Done-when condition | Evidence output path |
+| --- | --- | --- | --- | --- |
+| {{VERIFY_1_SURFACE}} | {{VERIFY_1_FAMILY}} | {{VERIFY_1_COMMAND}} | {{VERIFY_1_DONE_WHEN}} | {{VERIFY_1_EVIDENCE}} |
+
+### Clarification resolution ledger
+
+Track unresolved business/technical facts so `plan.md` and `tasks.md` can map
+them to concrete owners and closure tasks.
+
+| Marker | Question | Owner role | Resolve in | Closure signal |
+| --- | --- | --- | --- | --- |
+| `[NEEDS CLARIFICATION: <topic>]` | `<question text>` | BA / SA / SME | `spec.md` or `plan.md` | marker removed + decision recorded |
+
+### Worked example (required)
+
+Add one concise example mapping:
+`user story -> plan phase -> task card -> verification evidence`.
+The example must reference one concrete row from the 360 visibility tables.
+
+### Decision boundary map
+
+```mermaid
+flowchart TD
+  Input[Business_input] --> Policy[Deterministic_policy_DMN]
+  Input --> Reason[Semantic_reasoning_agent]
+  Policy --> Route[Process_orchestration]
+  Reason --> Route
+  Route --> Action[Deterministic_action_workflow]
+  Route --> Review[Human_review]
+  Route --> Close[Audit_and_close]
+```
 
 ## Business Scope Map
 
@@ -158,3 +293,13 @@ in the right direction. `plan.md` owns architecture and capability routing;
 - **Build handoff**: after review and human acceptance, execute `tasks.md`.
 - **Open facts**: any production-critical fact not confirmed by PDD / SDD / SME
   stays in **SME inputs**; do not invent it in `plan.md` or `tasks.md`.
+
+## LLM navigation map
+
+Use this as the "where to read next" contract for deterministic LLM execution.
+
+| Need | Read first | Then read | Output expected |
+| --- | --- | --- | --- |
+| Scope and success boundaries | User stories + FR/SC | `## 360 Build Visibility Contract` | in-scope artifacts and outcomes |
+| Skill/tool routing | `### Skill routing matrix` | `## Source routing & MCP contracts` | resolved capability path |
+| Architecture and implementation steps | `plan.md` | `tasks.md` | executable sequence with evidence paths |

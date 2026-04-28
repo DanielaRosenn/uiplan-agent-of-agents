@@ -54,6 +54,29 @@ Fill after solution/RPA decomposition (names come from SDD/plan — not invented
 
 List open **AskAI / library** topics (`uipath_library_search` query text) and mandatory `uipath_doc_get_activity` calls before implementation.
 
+## 360 visibility traceability (spec -> plan)
+
+Each row must map to one or more rows in `spec.md` `## 360 Build Visibility Contract`.
+Do not leave rows out for in-scope surfaces.
+
+| Spec visibility area | Plan section(s) carrying it | Required plan evidence |
+| --- | --- | --- |
+| Workflow/artifact inventory | `## Workflow Catalog`, `## Project Inventory` | every artifact has path/type/owner |
+| Activity/connector/dependency visibility | `## Activity Inventory`, `## Dependency Matrix` | package/activity/connector rows resolved from docs |
+| Agent/DMN/Flow/HITL/platform resources | `## Code Module Inventory`, `## Bindings and Environment` | invocation boundaries + IO + ownership |
+| Logging/observability contract | `## Logging and verification contract` | phase markers + correlation id + assertions |
+| Scaffold provenance and anti-stub rules | `## Project Inventory`, `## Workflow Catalog` | scaffold source + preserved structure + anti-stub notes |
+| Verification/evidence contract | `## CLI Command Matrix` | per-surface verify commands + evidence outputs |
+
+## Spec artifact chain map
+
+Each in-scope artifact from `spec.md` must be traceable through plan design and
+task execution.
+
+| Spec artifact path | Plan section owning design | Planned task area | Verify/evidence owner |
+| --- | --- | --- | --- |
+| `<artifact path>` | `## Workflow Catalog` / `## Activity Inventory` | `tasks.md` story + task IDs | `## CLI Command Matrix` |
+
 ## Grounding Inputs
 
 {{GROUNDING_CONTEXT}}
@@ -83,6 +106,10 @@ Per project, list every workflow file the build needs. Reference reusable patter
 | --- | --- | --- | --- | --- | --- | --- |
 | _Process.Dispatcher_ | `Main.xaml` | Sequence | US1 | Trigger | Queue.Add | `correlationId` |
 
+Add one row for every in-scope artifact from `spec.md` (including `.flow`, `.dmn`,
+`langgraph.json` entrypoints, bindings, and queue/asset sidecars when they are
+part of completion criteria).
+
 ## Activity Inventory
 
 Only entries resolved via `uipath_doc_get_activity` / `uipath_library_search` /
@@ -104,6 +131,12 @@ Only entries resolved via `uipath_doc_get_activity` / `uipath_library_search` /
 | --- | --- | --- | --- | --- |
 | Queue | _IntakeQueue_ | _Dev_ | no | _stores intake items_ |
 | Asset | _MailConnection_ | _Dev_ | yes | _credential, set per env_ |
+
+Include connectors and external connection IDs when applicable:
+
+| Resource type | Name/id | Environment file | Owner surface | Verification evidence |
+| --- | --- | --- | --- | --- |
+| _Connector connection_ | _connection-id_ | `bindings/dev.json` | _Flow or XAML host_ | _connectivity check + run log_ |
 
 ## Dependency Matrix
 
@@ -131,6 +164,21 @@ Map every project x phase to the owning capability. Each row also informs
 | _AnalyzerAgent_ | Build | `[skill:uipath-agents]` |  | `[subagent:generalPurpose]` | `uipath_library_search`, `query_uipath_docs` |
 | _all_ | Verify | `[skill:uipath-diagnostics]`, `[skill:uipath-platform]`, `[skill:uipath-test]` |  | `[subagent:shell]`, `[subagent:browser-use]` (UI smoke) |  |
 | _all_ | Diagrams | `[skill:mermaid-diagram-builder]` |  |  |  |
+
+## LLM execution navigation (skills/tools/subagents)
+
+This table is a deterministic navigation contract for LLMs and implementers.
+
+| Execution question | Section to navigate | Primary surface | Escalation path |
+| --- | --- | --- | --- |
+| Which artifact to build? | `## Workflow Catalog`, `## Project Inventory` | project + workflow path | `## Open Grounding Questions` |
+| Which skill/tool to use? | `## Skill and Subagent Routing` | `[skill:...]`, `[subagent:...]` | `## AskAI / Library Escalation Ladder` |
+| Which command verifies completion? | `## CLI Command Matrix` | restore/analyze/test/pack/smoke | `## Logging and verification contract` |
+| Which evidence proves done? | `## Logging and verification contract` | expected logs/assertions | task evidence paths in `tasks.md` |
+
+HITL routing defaults to `[skill:uipath-custom-hitl]`. If accepted `spec.md`
+explicitly requires Flow as HITL canvas, mark the override in this section and
+route through `[skill:uipath-maestro-flow]` instead.
 
 ## Capability Routing Map
 
@@ -327,7 +375,7 @@ Gates re-checked after Phase 1 design:
 
 ## Architecture diagram
 
-Implementation layering and dependencies (adapt nodes to this plan).
+Implementation layering and dependencies for this specific plan.
 
 ```mermaid
 flowchart LR

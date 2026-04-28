@@ -1,4 +1,4 @@
-﻿# Tasks: {{TITLE}}
+# Tasks: {{TITLE}}
 
 > **Grounding:** {{GROUNDING_CITATIONS}}
 > **Input**: `./spec.md`, `./plan.md`
@@ -49,7 +49,8 @@ If these preconditions are not met, stop and rerun `/uiplan-ground` and/or
 
 - **Tests**: failing-first checks that define expected behavior.
 - **Implementation**: concrete workflow/graph/flow/app build tasks.
-- **Build/Verify**: restore -> analyze -> test -> pack gates.
+- **Build/Verify**: restore -> analyze -> test -> pack gates plus runtime smoke
+  evidence for executable Flow/agent surfaces.
 - **Diagnostics**: parse failures, inspect sources, apply safe fix, rerun.
 - **Handoff**: approval-gated deployment and evidence summary tasks.
 
@@ -59,6 +60,56 @@ Every story block should include:
 2. a story workflow/task map diagram;
 3. tests before implementation;
 4. explicit verification commands and runtime evidence paths.
+5. an **Executor context** block (role/scope, environment, workflow, guardrails,
+   tools, pattern anchors, return/evidence expectations).
+6. actual per-workflow diagrams that show the desired internal step flow.
+
+## 360 visibility execution matrix
+
+Before writing phases, map every in-scope artifact from spec/plan to explicit task
+IDs, verification command, and evidence path. If any artifact has no row, stop and
+repair `plan.md` first.
+
+| Artifact path | Surface | Owning story | Build task IDs | Verify command | Evidence path |
+| --- | --- | --- | --- | --- | --- |
+| `projects/<Name>/Main.xaml` | RPA | US1 | `T011A` | `uipcli package analyze ... --resultPath out/analyze.json` | `out/analyze.json` |
+
+## FR traceability matrix (required)
+
+Every FR in `spec.md` must map to at least one executable task ID.
+
+| FR | Covered by task IDs | Primary artifact(s) | Verification evidence |
+| --- | --- | --- | --- |
+| `FR-001` | `T010`, `T011A` | `<paths>` | `<evidence file>` |
+
+## Clarification resolution ledger (required)
+
+Convert unresolved clarification markers into explicit closure tasks.
+
+| Marker | Resolution owner | Resolution task ID | Done when |
+| --- | --- | --- | --- |
+| `[NEEDS CLARIFICATION: <topic>]` | BA / SA / SME | `T0xx` | decision recorded and marker removed |
+
+## Log assertion checklist (required)
+
+List expected runtime log assertions by surface before implementation.
+
+| Surface | Required log markers | Correlation id key | Assertion task ID | Evidence output path |
+| --- | --- | --- | --- | --- |
+| `<artifact path>` | start, input, decision, terminal | `<correlation field>` | `T0xx` | `out/<log-file>.log` |
+
+## Executor context template (required per phase or story)
+
+```markdown
+### Executor context for <phase/story>
+- **Role/scope**: <what to build and boundaries>
+- **Environment**: <required CLIs/runtimes/access + evidence paths>
+- **Workflow**: read/explore -> implement minimal scope -> verify -> parse output -> safe fix -> rerun
+- **Guardrails**: <non-negotiables>
+- **Tools**: <skills + MCP + CLI order>
+- **Patterns**: <existing files/templates to mirror>
+- **Return/evidence**: <what must be reported>
+```
 
 ## Task detail contract
 
@@ -75,8 +126,26 @@ Every **non-[P]** checklist task MUST embed the following (inline on the same bu
 - **AskAI / library lookup**: `uipath_library_search` / `uipath_library_lookup`; `query_uipath_docs` only when library coverage is insufficient; cite durable findings as `[library:...]` or `[askai:...]`
 - **Verification**: exact command (`uv run pytest ...`, `uipcli test run ...`, `uipcli package analyze ...`, `uipath run ...`) plus expected pass/fail
 - **Runtime evidence**: path or artifact for proof (JUnit/pytest report, analyzer `--resultPath` JSON, `.nupkg` path, robot/job log excerpts)
+- **Prerequisites**: upstream task IDs and required pre-existing artifacts
+- **External dependencies**: systems, permissions, policies, or SME approvals needed
+- **Tooling/access**: concrete local and cloud access needed to execute and verify
+- **Actual flow diagram references**: each workflow artifact in scope must have a
+  matching diagram section that describes the intended internal step sequence.
 
 **Tests before implementation** within each user story: `### Tests` precedes `### Implementation`.
+
+### Task card format (preferred)
+
+After each non-`[P]` task line, include a one-row card table:
+
+| Field | Content |
+| --- | --- |
+| Pre-reqs | `<task IDs + required artifacts>` |
+| Depends on | `<systems/policies/permissions>` |
+| Tooling / access | `<CLI/runtime/cloud/studio requirements>` |
+| Build surface | `<RPA / Flow / agent / platform / combo>` |
+| Verify / evidence | `<command + evidence path>` |
+| Skills / MCP | `<[skill:...] [library:...] [subagent:...]>` |
 
 ### Project-specific contract
 
@@ -90,7 +159,30 @@ Every generated task list MUST include project facts from `spec.md` / `plan.md`,
   worker, Long Running Workflow/HITL, Sequence/Flowchart/State Machine, or project-specific custom
   template. Each row must include why that template fits the use case and what generated structure
   must be preserved.
+- **Mailbox dispatcher guardrail**: if a task builds or remediates mailbox intake
+  that queues work, it must cite the dispatcher scaffold/template source, preserve
+  config/assets/queues/exception/logging concepts, and include concrete tasks for
+  real connector mailbox reads, non-stub queue payloads, idempotency/cursor
+  behavior, and Studio-visible phase logs. A `PullMailbox` workflow that only
+  logs or fabricates `stub-*` message IDs cannot close the story.
 - **Agent facts** for agent-backed features: `langgraph.json` / `llama_index.json`, graph entry point, node list, model/gateway assumptions, local `uipath run` or pytest command, and host invocation schema.
+- **Agent deployment acceptance** for coded agents: after publish/deploy, invoke
+  the deployed entrypoint with safe input, read job output and logs, fetch traces
+  where supported, and verify Orchestrator shows the expected graph/node spans
+  and package version. A green job with placeholder output is not complete.
+- **RPA-to-agent host boundary acceptance**: when an RPA workflow, Flow, or app is
+  expected to call a coded agent, local `uipath invoke` evidence is not enough.
+  Tasks must prove the host can call the agent from the target Orchestrator
+  folder through a supported surface (`Call Agent`, `Invoke Process` / `Run Job`
+  with returned output, or documented platform API wrapper). If the agent package
+  deploys but is not visible as a callable process/resource in the target folder,
+  keep a named remediation task open and do not mark the host invocation complete.
+- **No placeholder completion**: Flow, agent, RPA, app, and HITL tasks are not
+  done when nodes only say "placeholder", "would invoke", "contract only", or
+  "scaffold". If the installed CLI/platform cannot expose a real callable node,
+  tasks must capture registry/process evidence, keep a named remediation task
+  open, and still prove the closest executable boundary with runtime smoke
+  evidence (`uip flow debug`, `uipath invoke`, job logs, or equivalent).
 - **Feature ownership**: for mixed Solutions, split work by feature + artifact. Do not let a single “solution” task hide RPA, Flow/Maestro, coded app, agent, and platform work.
 
 ### Executable task split (default — no “half” tasks)
@@ -100,7 +192,7 @@ Every checklist line must be **fully completable** under a single, explicit **Do
 **Match the use case (paradigm + spec):**
 
 - **When the use case includes Studio / RPA / `.xaml`** (e.g. `modern-rpa`, `solution` with process projects, coded-automation with workflows): tasks **must** drive **building those workflow artifacts** — not only bindings, Python, or tests. Use the tools you have: **`uipath_doc_get_activity`**, **`uipath_library_search` / `uipath_library_lookup`**, **`[skill:uipath-rpa]`**, **`uipcli package restore|analyze|pack`**, and edit **`*.xaml` / `project.json` in the repo** (Studio Desktop **or** the same files in the editor + Studio/CLI validation). Skipping production activities when they are in scope is wrong.
-- **When the use case includes Maestro / Flow**, tasks must name `.flow` / BPMN artifacts, Studio Web / `uip` validation path, triggers, data mappings, and solution packaging boundary.
+- **When the use case includes Maestro / Flow**, tasks must name `.flow` / BPMN artifacts, Studio Web / `uip` validation path, triggers, data mappings, solution packaging boundary, and runtime smoke evidence via `uip flow debug` unless debug is unsafe or unavailable.
 - **When the use case includes coded app / action app**, tasks must name `app.config.json`, `action-schema.json`, TypeScript entry points, `uip codedapp` build/test commands, and Solution packaging boundary.
 - **When the use case is coded-agent / Python-only** (no XAML in the plan): the workflow surface is **graph / code** — do not invent RPA-only tasks.
 - **When RPA / Flow / app invokes an agent**, tasks must include both sides: the host artifact (`Main.xaml`, `.flow`, app action) and the agent artifact (`langgraph.json` / `llama_index.json`) plus request/response schema and local execution evidence.
@@ -128,6 +220,10 @@ For **agent-backed** tasks:
 
 - Build the agent package when the feature needs agentic reasoning. Default to **LangGraph**; use **LlamaIndex** only when the plan explicitly calls for retrieval/document-heavy indexing.
 - Tasks must name `langgraph.json` / `llama_index.json`, graph entry point, graph nodes/tools, request schema, response schema, local run command (`uipath run` or pytest), and the host invocation artifact.
+- Agent tasks must prove the graph actually runs, not only imports: include pytest/JUnit,
+  direct graph/function smoke output, and `uipath run` evidence where the platform
+  runtime is available. If `uipath run` fails after folder/auth resolution, record the
+  exact platform blocker and keep the local graph smoke as the code-level gate.
 - Host workflows/flows/apps must explicitly include the Invoke Agent boundary (activity, command, or API wrapper) and how the response updates queues, forms, or downstream systems.
 
 ### Failure diagnosis contract
@@ -243,12 +339,65 @@ flowchart TD
   linkStyle 4,5 stroke:#10B981,stroke-width:2px
 ```
 
+## Phase dependency map (task IDs)
+
+Keep one lightweight phase map with task IDs to reduce visual loops:
+
+```mermaid
+flowchart TD
+  T001[T001_foundation]
+  T010[T010_tests]
+  T020[T020_implementation]
+  T030[T030_verify]
+  T001 --> T010 --> T020 --> T030
+```
+
+## LLM execution navigation guide
+
+Use this map when executing `tasks.md` with an LLM.
+
+| Need | Navigate to | Required output |
+| --- | --- | --- |
+| next executable task | phase sections (`T...`) + dependency map | one task in-progress with evidence plan |
+| tool/skill for a task | task line tags + `## Capability routing map` | selected `[skill:]`, `[subagent:]`, MCP lookup |
+| evidence requirements | task card + log assertion checklist | command + artifact + evidence path |
+| unresolved blockers | clarification ledger + diagnosis contract | closure task or blocker class evidence |
+
+## Per-workflow actual flow diagrams (required)
+
+For every workflow artifact listed in `plan.md` workflow catalog (for example
+`.xaml`, `.flow`, LangGraph entrypoints, DMN decisions), include a diagram in
+`tasks.md` that shows:
+
+- entry trigger/input;
+- internal step sequence and key branches;
+- external calls/resources used;
+- terminal outcomes and write-backs.
+
+Do not use placeholder boxes only. The implementer should be able to build the
+artifact directly from the diagram + task card.
+
+For each listed workflow artifact, include an alias line immediately before its
+diagram:
+
+- `<artifact alias> -> <full repo path>`
+
 ## Phase 1: Contract and Test Baseline
 
 **Why this exists**: lock executable contracts and baseline checks before source implementation.
 
+### Executor context for Phase 1
+
+- **Role/scope**: {{PHASE1_ROLE_SCOPE}}
+- **Environment**: {{PHASE1_ENVIRONMENT}}
+- **Workflow**: {{PHASE1_WORKFLOW}}
+- **Guardrails**: {{PHASE1_GUARDRAILS}}
+- **Tools**: {{PHASE1_TOOLS}}
+- **Patterns**: {{PHASE1_PATTERNS}}
+- **Return/evidence**: {{PHASE1_EVIDENCE}}
+
 - [ ] T001 [P] [US1] {{T001}}
-- [ ] T001A [US1] Run the compatibility preflight from [docs/ORCHESTRATOR_DEPLOYMENT.md](../../docs/ORCHESTRATOR_DEPLOYMENT.md) before scaffolding, package selection, pack, publish, or deploy; record Studio/CLI/package/target-folder evidence.
+- [ ] T001A [US1] Run the compatibility preflight from [docs/ORCHESTRATOR_DEPLOYMENT.md](../../docs/ORCHESTRATOR_DEPLOYMENT.md) before scaffolding, package selection, pack, publish, or deploy; for Flow include `uip flow --help` / `uip solution --help` command availability, cloud-upload trust-chain checks, `zip` executable availability on Windows, and project folder/name/`.flow` filename consistency; record Studio/CLI/package/target-folder evidence.
 
 ---
 
@@ -265,6 +414,16 @@ flowchart TD
 ## Phase 3: User Story 1 - {{US1_TITLE}} (Priority: P1)
 
 **Why this exists**: {{US1_GOAL}}
+
+### Executor context for User Story 1
+
+- **Role/scope**: {{US1_ROLE_SCOPE}}
+- **Environment**: {{US1_ENVIRONMENT}}
+- **Workflow**: {{US1_WORKFLOW}}
+- **Guardrails**: {{US1_GUARDRAILS}}
+- **Tools**: {{US1_TOOLS}}
+- **Patterns**: {{US1_PATTERNS}}
+- **Return/evidence**: {{US1_EVIDENCE}}
 
 ### Story 1 workflow map
 
@@ -293,6 +452,14 @@ flowchart LR
 ### Implementation for User Story 1
 
 - [ ] T011 [US1] {{T011_IMPL}} Concrete `.xaml` paths are on the **T011A–…** lines under `### Paradigm-specific tasks` (e.g. `projects/<Process>/Main.xaml` from `plan.md`). *(If that section lists `T011A`/`T011B`/…, complete those in order; each is its own done gate.)*
+
+Each non-parallel implementation task must include:
+- artifact path in backticks,
+- build surface,
+- skill/MCP route tags,
+- verification command,
+- evidence output path,
+- one task card table row (Pre-reqs, Depends on, Tooling/access, Build surface, Verify/evidence, Skills/MCP).
 
 ### Paradigm-specific tasks
 
@@ -354,9 +521,15 @@ flowchart LR
   analyzer `--resultPath` JSON (e.g. `out/analyze.json`), `TestResults/*.trx` or pytest/JUnit XML,
   and the produced `.nupkg` path.
 - [ ] T032A [P] [US1] Smoke run and log validation: run a documented local smoke (`uipcli job run`,
-  `uip rpa run-file`, or tenant-safe fixture per plan) after pack; capture robot/job logs and assert
+  `uip rpa run-file`, `uip flow debug`, `uipath run`, or tenant-safe fixture per plan)
+  after pack/bundle; capture robot/job/flow/agent logs and assert
   expected substrings (correlation id, phase markers, terminal status) for the happy path and at
-  least one failure path. Use `LogMessage` with correlation id in workflows per plan.
+  least one failure path. For coded agents, invoke the deployed entrypoint and verify output,
+  logs, package version, and graph/node trace spans. Use `LogMessage` with correlation id in workflows per plan.
+- [ ] T032A.1 [P] [US1] Runtime resource provisioning: before tenant smoke, list/create required
+  non-secret assets and queues with `uip resource` in the deployed process folder, record the
+  resource keys, keep credential/secret values as `[HANDOFF:Secrets]`, and verify queue workflows
+  with `uip resource queue-items list --queue-definition-key <key>` after smoke.
 - [ ] T032B Diagnose and fix verification failures before any blocker report: parse analyzer
   `--resultPath` JSON or CLI output into rule IDs/error class, affected file/activity/descriptor,
   severity, and message; consult `uipath_library_search` / `uipath_library_lookup`,

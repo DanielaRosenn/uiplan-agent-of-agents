@@ -31,11 +31,83 @@ def _slug_title(slug: str) -> str:
     return cleaned.replace("-", " ").strip().title() or slug
 
 
+def _needs_clarification(topic: str) -> str:
+    return f"[NEEDS CLARIFICATION: {topic}]"
+
+
+def _decision_defaults(paradigm: str) -> dict[str, str]:
+    if paradigm == "solution":
+        return {
+            "DECISION_1": "RouteAndExecutionDecision",
+            "DECISION_1_OWNER": "Flow + DMN + agent boundary",
+            "DECISION_1_WHY": "separate deterministic policy from semantic reasoning",
+            "DECISION_1_INPUTS": "normalized request + confidence + policy fields",
+            "DECISION_1_OUTPUTS": "route target + review flag + execution mode",
+            "DECISION_1_REVIEW_TRIGGER": "policy requires review or low confidence",
+        }
+    return {
+        "DECISION_1": _needs_clarification("primary decision name"),
+        "DECISION_1_OWNER": _needs_clarification("owner surface"),
+        "DECISION_1_WHY": _needs_clarification("decision rationale"),
+        "DECISION_1_INPUTS": _needs_clarification("decision inputs"),
+        "DECISION_1_OUTPUTS": _needs_clarification("decision outputs"),
+        "DECISION_1_REVIEW_TRIGGER": _needs_clarification("human review trigger"),
+    }
+
+
+def _visibility_defaults(paradigm: str) -> dict[str, str]:
+    return {
+        "ALLOWED_SURFACES": {
+            "solution": ".xaml, .flow, .dmn, coded-agent modules, bindings/resources",
+            "modern-rpa": ".xaml workflows, queues/assets, project descriptors",
+            "coded-automation": ".cs workflows, descriptors, tests",
+            "coded-agent": "agent graph/code, descriptors, tests, bindings",
+            "maestro-flow": ".flow/.bpmn and bound resources",
+        }.get(paradigm, _needs_clarification("allowed build surfaces")),
+        "EXPLICIT_EXCLUSIONS": "Legacy/VB/Classic/Production deploy from assistant session",
+        "EVIDENCE_PATHS": "store outputs under `out/` by surface",
+        "NAMING_CONVENTIONS": "keep descriptor/project/workflow names aligned",
+        "ARTIFACT_1_PATH": _needs_clarification("primary artifact path"),
+        "ARTIFACT_1_TYPE": _needs_clarification("artifact type/surface"),
+        "ARTIFACT_1_STORY": "US1",
+        "ARTIFACT_1_ENTRYPOINT": _needs_clarification("artifact entrypoint"),
+        "ARTIFACT_1_ANTISTUB": "placeholder-only scaffold with no real execution",
+        "ARTIFACT_1_EVIDENCE": "analyze/test/smoke evidence file",
+        "DEP_1_PACKAGE": _needs_clarification("package/tool"),
+        "DEP_1_ACTIVITY_CONNECTOR": _needs_clarification("activity/connector id"),
+        "DEP_1_ARTIFACT": _needs_clarification("artifact path"),
+        "DEP_1_REASON": "required for in-scope behavior",
+        "DEP_1_VERSION_SOURCE": "descriptor or library lookup",
+        "DEP_1_EVIDENCE": "validation/test output path",
+        "SURFACE_1_NAME": _needs_clarification("surface/resource name"),
+        "SURFACE_1_DESCRIPTOR": _needs_clarification("descriptor file"),
+        "SURFACE_1_BOUNDARY": _needs_clarification("invocation boundary"),
+        "SURFACE_1_IO": _needs_clarification("typed inputs/outputs"),
+        "SURFACE_1_OWNER": _needs_clarification("owner"),
+        "SURFACE_1_EVIDENCE": "runtime/test evidence path",
+        "LOG_1_SURFACE": _needs_clarification("workflow/surface"),
+        "LOG_1_PHASES": "start, input summary, decision, status transition, exception, terminal",
+        "LOG_1_CORRELATION": "single correlation id propagated across boundaries",
+        "LOG_1_ASSERTIONS": "assert correlation id and phase markers",
+        "LOG_1_EVIDENCE": "log output path",
+        "SCAFFOLD_1_ARTIFACT": _needs_clarification("artifact path"),
+        "SCAFFOLD_1_SOURCE": _needs_clarification("scaffold/template source"),
+        "SCAFFOLD_1_PRESERVE": "descriptor and generated structure",
+        "SCAFFOLD_1_REQUIRED": "real implementation beyond scaffold markers",
+        "SCAFFOLD_1_REJECT_SIGNAL": "placeholder/contract-only/would invoke markers",
+        "VERIFY_1_SURFACE": _needs_clarification("surface"),
+        "VERIFY_1_FAMILY": cli_family(paradigm),
+        "VERIFY_1_COMMAND": _needs_clarification("verify command"),
+        "VERIFY_1_DONE_WHEN": "verification command succeeds and assertions pass",
+        "VERIFY_1_EVIDENCE": "evidence output path",
+    }
+
+
 def _default_mapping(plan_slug: str, paradigm: str) -> dict[str, str]:
     today = dt.date.today().isoformat()
     title = _slug_title(plan_slug)
     normalized = normalize_paradigm(paradigm)
-    return {
+    out = {
         "TITLE": title,
         "DATE": today,
         "FOLDER_NAME": plan_slug,
@@ -69,7 +141,7 @@ def _default_mapping(plan_slug: str, paradigm: str) -> dict[str, str]:
         "STORAGE": "_Queues, DBs, buckets._",
         "TESTING": "_Test framework / harness._",
         "TARGET_PLATFORM": "_Windows / cloud / etc._",
-        "PROJECT_TYPE": "_rpa | coded-agent | solution | …_",
+        "PROJECT_TYPE": normalized,
         "PARADIGM": normalized,
         "CLI_FAMILY": cli_family(normalized),
         "TARGET_STACK": stack_line(normalized),
@@ -141,6 +213,9 @@ def _default_mapping(plan_slug: str, paradigm: str) -> dict[str, str]:
         "T020": "_Polish / docs / telemetry; deploy remains approval-required via docs/ORCHESTRATOR_DEPLOYMENT.md._",
         "DEPENDENCIES_TEXT": "_Story B may start after foundation; otherwise parallel._",
     }
+    out.update(_decision_defaults(normalized))
+    out.update(_visibility_defaults(normalized))
+    return out
 
 
 def _apply_placeholders(template: str, mapping: dict[str, str]) -> str:

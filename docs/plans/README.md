@@ -1,8 +1,6 @@
 # Implementation plans
 
-Git-tracked **feature plans** and published UiPlan bundles under `docs/plans/`. For the reusable UiPlan template kit and how to run `generate-docs`, see [../uiplan/README.md](../uiplan/README.md).
-
-Template for single-file plans: [_TEMPLATE.md](_TEMPLATE.md). Process context: [../PDD_LIFECYCLE.md](../PDD_LIFECYCLE.md).
+Git-tracked plans for multi-step work in this repo. Template: [_TEMPLATE.md](_TEMPLATE.md). Process context: [../PDD_LIFECYCLE.md](../PDD_LIFECYCLE.md).
 
 To refresh this table after adding or editing a plan:
 
@@ -12,5 +10,7 @@ python ops/scripts/generate_plan_index.py
 
 | File | Date | Status | Slug | Title | Owner | Linked PDD |
 |------|------|--------|------|-------|-------|------------|
+| [2026-04-27-zip-email-automation-uiplan-build.md](2026-04-27-zip-email-automation-uiplan-build.md) | 2026-04-27 | accepted | `2026-04-27-zip-email-automation-uiplan-build` | Zip Email Automation Smart Invoice Routing | DanielaRosenstein | C:/Users/DanielaRosenstein/cursor_projects/AgenticAI_FIN02_ZipMailboxAutomation/docs/design/pdd.md |
+| [2026-04-28-it-support-flow-dmn-hitl-demo.md](2026-04-28-it-support-flow-dmn-hitl-demo.md) | 2026-04-28 | accepted | `2026-04-28-it-support-flow-dmn-hitl-demo` | IT Support Flow DMN HITL Demo | DanielaRosenstein |  |
 | [2026-04-21-uiplan-framework.md](2026-04-21-uiplan-framework.md) | 2026-04-21 | accepted | `uiplan-framework` | /uiplan framework (spec-kit-style, grounded in workspace) | daniela |  |
 | [constitution.md](constitution.md) |  |  | `` | constitution |  |  |

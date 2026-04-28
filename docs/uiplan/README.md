@@ -20,17 +20,24 @@ If you are new, do this in order:
 
 This flow is the fastest way to keep planning quality high and implementation predictable.
 
-## Paradigm-aware bundles (2026 update)
+## 360 visibility standard (2026 update)
 
-UiPlan templates now separate human-readable intent from executor-grade detail:
+UiPlan now enforces a 360 build-visibility contract across the bundle:
 
-- `spec.md` is a lightweight BA / Developer bridge: business intent, user
-  stories, acceptance criteria, SME gaps, and PDD / SDD traceability without
-  copying formal documentation prose.
-- `plan.md` is the Solution Engineer blueprint: architecture, topology,
-  capability routing, dependencies, and build gates.
-- `tasks.md` is the LLM/executor build sheet: artifact paths, grounding
-  citations, verification commands, and evidence requirements.
+- `spec.md` is the BA / Developer scope contract and must include
+  `## 360 Build Visibility Contract` (workflow/artifact inventory,
+  dependencies/connectors, surface boundaries, logging/observability,
+  scaffold provenance, and verification evidence expectations).
+- `plan.md` is the Solution Engineer blueprint and must mirror the spec
+  visibility rows in concrete inventories: workflow catalog, activity/dependency
+  matrix, connector/resource inventory, invocation boundaries, and logging
+  contract.
+- `tasks.md` is the executable build sheet and must map every in-scope artifact
+  to task IDs, commands, evidence paths, and per-workflow internal diagrams.
+- `uipath_plan_review` is the hard gate: under-specified bundles fail before
+  acceptance.
+- `/uiplan-implement` runs a preflight and refuses thin accepted bundles before
+  source edits.
 
 Use `--paradigm` to override detection when needed (for example, forcing
 `coded-agent` or `solution` in mixed repositories).
@@ -82,6 +89,16 @@ flowchart TD
 
 `scaffold-code` is not the primary implementation command. Treat it as local
 runtime/adaptor support; `/uiplan-implement` is the review-first build handoff.
+
+## Review and implement gates
+
+Before any implementation begins:
+
+1. `uipath_plan_review(stage=all)` must pass without error-severity findings.
+2. `.meta.yaml` status must be `accepted`.
+3. The bundle must pass 360 completeness checks (no template residue, no missing
+   artifact chain, no missing connector inventory, no missing boundary/logging
+   contract, no stub-only XAML tasks, and no missing per-workflow diagrams).
 
 ## Repository layout (UiPlan-related)
 

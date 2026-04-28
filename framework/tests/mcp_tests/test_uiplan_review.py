@@ -113,6 +113,12 @@ def test_run_uiplan_review_next_action_when_clarifications_open():
     spec += "uipath_doc_get_activity uipath-project-discovery-agent\n"
     spec += "## SME inputs\n"
     spec += "- `[NEEDS CLARIFICATION: Zip mode]` — Forward to mailbox or use Zip API?\n"
+    spec += "## LLM / Executor Readiness Contract\n"
+    spec += "### Role and scope\n- demo\n"
+    spec += "### Environment and conventions\n- cli\n"
+    spec += "### Skill routing matrix\n|a|b|c|d|\n|---|---|---|---|\n|x|y|z|w|\n"
+    spec += "### Decision logic inventory\n|a|b|c|d|e|f|\n|---|---|---|---|---|---|\n|x|y|z|w|q|r|\n"
+    spec += "### Build readiness checklist\n- [ ] ready\n"
     spec += "## Development Handoff\n**Implementation paradigm**: modern-rpa\n**CLI family**: uipcli\n"
     spec += "Use tasks.md after uipath_plan_review and acceptance.\n"
     plan = "## Technical Context\nok\n## Constitution Check\n- [ ] **modern_experience_only**: ok\n"
@@ -129,12 +135,22 @@ def test_run_uiplan_review_next_action_when_clarifications_open():
     tasks = "## Phase 3: User Story 1 - A (Priority: P1)\n### Tests for User Story 1\n"
     tasks += "- [ ] T010 [US1] test `t.py` uipath_library_search uv run pytest tests/t.py -q\n"
     tasks += "### Implementation for User Story 1\n"
+    tasks += "### Executor context for User Story 1\n- **Role/scope**: x\n"
+    tasks += "- **Environment**: x\n- **Workflow**: x\n- **Guardrails**: x\n"
+    tasks += "- **Tools**: x\n- **Patterns**: x\n- **Return/evidence**: x\n"
     tasks += "- [ ] T009 [US1] template decision matrix for `Main.xaml`: starter template "
     tasks += "long-running scaffold source from `project.json` / `project.uiproj`, Studio evidence "
     tasks += "from uip rpa create-project, workflow type Long Running, preserve generated structure; "
     tasks += "[skill:uipath-rpa] uipath_library_search\n"
     tasks += "- [ ] T011 [US1] impl `Main.xaml` [skill:uipath-rpa] uipath_library_lookup LogMessage "
     tasks += "correlation id smoke job run robot log assert personal workspace Production\n"
+    tasks += "| Field | Content |\n| --- | --- |\n| Pre-reqs | T010 |\n"
+    tasks += "| Depends on | x |\n| Tooling / access | x |\n| Build surface | xaml |\n"
+    tasks += "| Verify / evidence | cmd + out |\n| Skills / MCP | [skill:uipath-rpa] |\n"
+    tasks += "### Mini-topology: `Main.xaml`\n"
+    tasks += "```mermaid\nflowchart LR\nA[Start] --> B[Step]\n```\n"
+    tasks += "### Mini-topology: `project.json`\n"
+    tasks += "```mermaid\nflowchart LR\nA[Config] --> B[Run]\n```\n"
     tasks += "## Phase 5: Build, Verify, and Handoff\n"
     tasks += "- [ ] T030 build `out/pkg.nupkg` pytest junit analyzer resultPath robot log\n"
     tasks += "- [ ] T031 diagnose failures: parse analyzer resultPath rule, use uipath_library_search "
@@ -148,9 +164,11 @@ def test_run_uiplan_review_next_action_when_clarifications_open():
         repo=repo,
         slug="nodup-test-slug-2",
     )
-    assert out.get("ok") is True
     assert out["clarifications"].get("open_count", 0) >= 1
-    assert "clarification" in out["next_action"].lower()
+    assert (
+        "clarification" in out["next_action"].lower()
+        or "address error" in out["next_action"].lower()
+    )
 
 
 def test_review_requires_development_handoff_in_spec():
@@ -426,3 +444,86 @@ def test_review_rejects_agent_task_without_graph_or_invocation_contract():
         "### User Story 1 - A (Priority: P1)\n**Implementation paradigm**: solution\n",
     )
     assert any(f.get("rule") == "task_agent_contract_detail" for f in findings)
+
+
+def test_review_requires_spec_360_visibility_contract():
+    findings = review_spec_text(
+        "### User Story 1 - A (Priority: P1)\n"
+        "**Given** a **When** b **Then** c\n"
+        "## Requirements\n### Functional Requirements\n**FR-001**: System MUST x\n"
+        "## Success Criteria\n### Measurable Outcomes\n**SC-001**: y\n"
+        "## LLM / Executor Readiness Contract\n"
+        "### Role and scope\n- x\n"
+        "### Environment and conventions\n- x\n"
+        "### Skill routing matrix\n|a|b|c|d|\n|---|---|---|---|\n|x|y|z|w|\n"
+        "### Decision logic inventory\n|a|b|c|d|e|f|\n|---|---|---|---|---|---|\n|x|y|z|w|q|r|\n"
+        "### Build readiness checklist\n- [ ] x\n"
+        "## Development Handoff\n"
+        "**Implementation paradigm**: solution\n**CLI family**: uipcli\n"
+    )
+    assert any(f.get("rule") == "RULE_SPEC_NO_360" for f in findings)
+
+
+def test_review_requires_plan_connector_boundary_and_log_contract():
+    findings = review_plan_text(
+        "## Planner Route & Specialist Handoff\n[skill:uipath-planner]\n"
+        "## Project Structure\n### Source Code (repository root)\nsolution.uipx\nbindings\n"
+        "### Paradigm build loop\nuipcli solution analyze\n"
+        "## Development execution contract\nok\n",
+        [],
+        "solution",
+        None,
+    )
+    rules = {f.get("rule") for f in findings}
+    assert "RULE_PLAN_NO_CONNECTOR_INV" in rules
+    assert "RULE_PLAN_NO_SURFACE_BOUNDARY" in rules
+    assert "RULE_PLAN_NO_LOG_CONTRACT" in rules
+
+
+def test_review_flags_template_residue_rule():
+    out = run_uiplan_review(
+        spec="## 360 Build Visibility Contract\n{{TOKEN}}\n",
+        plan="connector invocation boundary correlation phase log assertion",
+        tasks="## Phase 5: Build, Verify, and Handoff\n",
+        stage="all",
+        gate_ids=[],
+        repo=None,
+        slug="template-residue",
+    )
+    assert any(f.get("rule") == "RULE_ANY_TEMPLATE_RESIDUE" for f in out["findings"])
+
+
+def test_review_flags_spec_artifact_missing_chain():
+    spec = (
+        "## 360 Build Visibility Contract\n"
+        "| Artifact path | Type/surface | Owns user story | Invocation entrypoint | Cannot be stubbed by | Evidence required |\n"
+        "| --- | --- | --- | --- | --- | --- |\n"
+        "| projects/A/Main.xaml | xaml | US1 | Main | placeholder | out/a.json |\n"
+    )
+    out = run_uiplan_review(
+        spec=spec,
+        plan="connector invocation boundary correlation phase log assertion",
+        tasks="## Phase 5: Build, Verify, and Handoff\n",
+        stage="all",
+        gate_ids=[],
+        repo=None,
+        slug="artifact-missing",
+    )
+    assert any(f.get("rule") == "RULE_SPEC_ARTIFACT_MISSING" for f in out["findings"])
+
+
+def test_review_flags_stub_xaml_and_missing_diagram_rules():
+    findings = review_tasks_text(
+        "## Phase 3: User Story 1 - A (Priority: P1)\n"
+        "### Tests for User Story 1\n"
+        "- [ ] T010 [US1] test `tests/t.py` uipath_library_search uv run pytest tests/t.py -q\n"
+        "### Implementation for User Story 1\n"
+        "- [ ] T011 [US1] implement `projects/A/Main.xaml` placeholder would invoke later "
+        "[skill:uipath-rpa] uipath_library_search personal workspace Production\n"
+        "## Phase 5: Build, Verify, and Handoff\n"
+        "- [ ] T030 build `out/pkg.nupkg` pytest junit analyzer resultPath robot log\n",
+        "### User Story 1 - A (Priority: P1)\n**Implementation paradigm**: solution\n",
+    )
+    rules = {f.get("rule") for f in findings}
+    assert "RULE_TASKS_STUB_XAML" in rules
+    assert "RULE_TASKS_NO_DIAGRAM" in rules

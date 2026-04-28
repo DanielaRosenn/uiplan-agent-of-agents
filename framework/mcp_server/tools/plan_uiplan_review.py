@@ -48,6 +48,7 @@ _PLACEHOLDER_BAN = re.compile(
 )
 _ACTIVITY_TAG_RE = re.compile(r"\[activity:([A-Za-z0-9_.]+):([A-Za-z][A-Za-z0-9_]*)\]")
 _PATH_TOKEN_RE = re.compile(r"`[^`]+\.(?:xaml|cs|py|json|md|yml|yaml|ts|tsx)`")
+_WORKFLOW_PATH_TOKEN_RE = re.compile(r"`([^`]+\.(?:xaml|flow|py|dmn))`", re.IGNORECASE)
 _GROUNDING_TOKEN_RE = re.compile(
     r"\[skill:|\[library:|\[askai:|\[agent:|uipath_library_lookup|uipath_library_search|"
     r"query_uipath_docs|uipath_doc_get_activity|uipath_doc_list_packages",
@@ -257,6 +258,16 @@ def build_clarifications_bundle(
 
 def review_spec_text(spec: str, repo: Path | None = None) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
+    if "## 360 Build Visibility Contract" not in spec:
+        findings.append(
+            _finding(
+                "error",
+                "spec",
+                "RULE_SPEC_NO_360",
+                "spec.md must include `## 360 Build Visibility Contract` with visibility inventories.",
+                "spec.md",
+            )
+        )
     if "[NEEDS CLARIFICATION" in spec or "[needs clarification" in spec.lower():
         findings.append(
             _finding(
@@ -330,7 +341,12 @@ def review_spec_text(spec: str, repo: Path | None = None) -> list[dict[str, Any]
             if "\n## " in spec_body_main.split("## Audience and Scope", 1)[1]
             else ""
         )
-    if re.search(r"`[^`]+\.(xaml|cs)`|\buipcli\b|\buipath\s+pack\b|\[skill:", spec_body_main, re.IGNORECASE):
+    has_360_contract = "## 360 Build Visibility Contract" in spec
+    if (not has_360_contract) and re.search(
+        r"`[^`]+\.(xaml|cs)`|\buipcli\b|\buipath\s+pack\b|\[skill:",
+        spec_body_main,
+        re.IGNORECASE,
+    ):
         findings.append(
             _finding(
                 "warn",
@@ -414,6 +430,34 @@ def review_spec_text(spec: str, repo: Path | None = None) -> list[dict[str, Any]
                 "spec.md",
             )
         )
+    if "## LLM / Executor Readiness Contract" not in spec:
+        findings.append(
+            _finding(
+                "error",
+                "spec",
+                "readiness_contract",
+                "spec.md must include `## LLM / Executor Readiness Contract`.",
+                "spec.md",
+            )
+        )
+    else:
+        for heading, rule in (
+            ("### Role and scope", "readiness_role_scope"),
+            ("### Environment and conventions", "readiness_environment"),
+            ("### Skill routing matrix", "readiness_skill_matrix"),
+            ("### Decision logic inventory", "readiness_decision_inventory"),
+            ("### Build readiness checklist", "readiness_build_checklist"),
+        ):
+            if heading not in spec:
+                findings.append(
+                    _finding(
+                        "error",
+                        "spec",
+                        rule,
+                        f"Readiness contract is missing `{heading}`.",
+                        "spec.md",
+                    )
+                )
     if repo is not None:
         ctx = repo / ".claude" / "rules" / "project-context.md"
         if not ctx.is_file() and "uipath-project-discovery-agent" not in spec.lower():
@@ -437,6 +481,42 @@ def review_plan_text(
     repo: Path | None = None,
 ) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
+    if "connector" not in plan.lower() and "connection" not in plan.lower():
+        findings.append(
+            _finding(
+                "error",
+                "plan",
+                "RULE_PLAN_NO_CONNECTOR_INV",
+                "plan.md must include connector/connection inventory rows for in-scope integrations.",
+                "plan.md",
+            )
+        )
+    has_boundary = "invocation boundary" in plan.lower() or (
+        "Invoked by" in plan and "Invokes" in plan
+    )
+    if not has_boundary:
+        findings.append(
+            _finding(
+                "error",
+                "plan",
+                "RULE_PLAN_NO_SURFACE_BOUNDARY",
+                "plan.md must define invocation boundaries (host/invoked surfaces).",
+                "plan.md",
+            )
+        )
+    has_log_contract = "correlation" in plan.lower() and (
+        "phase" in plan.lower() or "log assertion" in plan.lower()
+    )
+    if not has_log_contract:
+        findings.append(
+            _finding(
+                "error",
+                "plan",
+                "RULE_PLAN_NO_LOG_CONTRACT",
+                "plan.md must include logging phases, correlation id propagation, and log assertions.",
+                "plan.md",
+            )
+        )
     if "NEEDS CLARIFICATION" in plan:
         findings.append(
             _finding(
@@ -507,6 +587,26 @@ def review_plan_text(
                 "plan",
                 "planner_route_heading",
                 "plan.md must include `## Planner Route & Specialist Handoff` (contract routing).",
+                "plan.md",
+            )
+        )
+    if "## Spec artifact chain map" not in plan:
+        findings.append(
+            _finding(
+                "warn",
+                "plan",
+                "plan_spec_artifact_chain_map",
+                "plan.md should include `## Spec artifact chain map` for spec->plan->tasks traceability.",
+                "plan.md",
+            )
+        )
+    if "## LLM execution navigation" not in plan:
+        findings.append(
+            _finding(
+                "warn",
+                "plan",
+                "plan_llm_navigation_map",
+                "plan.md should include `## LLM execution navigation` for explicit skill/tool/subagent routing.",
                 "plan.md",
             )
         )
@@ -745,6 +845,20 @@ _AGENT_TASK_RE = re.compile(r"\b(agent|Invoke Agent|LangGraph|LlamaIndex)\b", re
 _AGENT_TASK_EVIDENCE_RE = re.compile(
     r"langgraph\.json|llama_index\.json|agent_framework\.json|uipath\s+run|uv\s+run\s+pytest|"
     r"request/response|response\s+schema|graph_entry\.py|graph\s+nodes",
+    re.IGNORECASE,
+)
+_EXECUTOR_CONTEXT_RE = re.compile(r"###\s*Executor context", re.IGNORECASE)
+_TASK_CARD_TABLE_RE = re.compile(r"\|\s*Field\s*\|\s*Content\s*\|", re.IGNORECASE)
+_MINI_TOPOLOGY_RE = re.compile(
+    r"###\s*(Mini-topology|Workflow map|Workflow interaction):",
+    re.IGNORECASE,
+)
+_SPEC_ARTIFACT_TOKEN_RE = re.compile(
+    r"[A-Za-z0-9_./-]+\.(?:xaml|flow|py|dmn|json|uipx|uiproj)",
+    re.IGNORECASE,
+)
+_STUB_TASK_RE = re.compile(
+    r"(placeholder|would invoke|contract only|logmessage-only|stub-)",
     re.IGNORECASE,
 )
 
@@ -1070,7 +1184,127 @@ def review_tasks_text(tasks: str, spec: str) -> list[dict[str, Any]]:
                 "tasks.md",
             )
         )
+    if not _EXECUTOR_CONTEXT_RE.search(tasks):
+        findings.append(
+            _finding(
+                "error",
+                "tasks",
+                "executor_context_required",
+                "tasks.md must include `### Executor context ...` blocks for phases/stories.",
+                "tasks.md",
+            )
+        )
+    if not _TASK_CARD_TABLE_RE.search(tasks):
+        findings.append(
+            _finding(
+                "error",
+                "tasks",
+                "task_card_required",
+                "tasks.md must include task-card tables (`| Field | Content |`) for implementation tasks.",
+                "tasks.md",
+            )
+        )
+    if not re.search(r"##\s*FR\s+traceability", tasks, re.IGNORECASE):
+        findings.append(
+            _finding(
+                "warn",
+                "tasks",
+                "tasks_fr_traceability_matrix",
+                "tasks.md should include `## FR traceability matrix (required)`.",
+                "tasks.md",
+            )
+        )
+    if "## Clarification resolution ledger" not in tasks:
+        findings.append(
+            _finding(
+                "warn",
+                "tasks",
+                "tasks_clarification_resolution_ledger",
+                "tasks.md should include `## Clarification resolution ledger (required)`.",
+                "tasks.md",
+            )
+        )
+    if "## Log assertion checklist" not in tasks:
+        findings.append(
+            _finding(
+                "warn",
+                "tasks",
+                "tasks_log_assertion_checklist",
+                "tasks.md should include `## Log assertion checklist (required)`.",
+                "tasks.md",
+            )
+        )
+    if "## LLM execution navigation guide" not in tasks:
+        findings.append(
+            _finding(
+                "warn",
+                "tasks",
+                "tasks_llm_navigation_guide",
+                "tasks.md should include `## LLM execution navigation guide`.",
+                "tasks.md",
+            )
+        )
     findings.extend(_review_task_section_contracts(tasks, paradigm))
+    workflow_paths = {
+        p.strip()
+        for p in _WORKFLOW_PATH_TOKEN_RE.findall(tasks)
+        if any(ext in p.lower() for ext in (".xaml", ".flow", ".py", ".dmn"))
+    }
+    stub_xaml_line = any(".xaml" in ln.lower() and _STUB_TASK_RE.search(ln) for ln in tasks.splitlines())
+    if stub_xaml_line:
+        findings.append(
+            _finding(
+                "error",
+                "tasks",
+                "RULE_TASKS_STUB_XAML",
+                "XAML tasks contain stub-only wording (placeholder/contract-only/would invoke).",
+                "tasks.md",
+            )
+        )
+    if workflow_paths:
+        if not _MINI_TOPOLOGY_RE.search(tasks):
+            findings.append(
+                _finding(
+                    "error",
+                    "tasks",
+                    "workflow_diagram_sections",
+                    "tasks.md references workflow artifacts but lacks explicit per-workflow diagram sections.",
+                    "tasks.md",
+                )
+            )
+            findings.append(
+                _finding(
+                    "error",
+                    "tasks",
+                    "RULE_TASKS_NO_DIAGRAM",
+                    "Each in-scope workflow artifact must have a dedicated internal-step diagram section.",
+                    "tasks.md",
+                )
+            )
+        unresolved: list[str] = []
+        for path in sorted(workflow_paths):
+            if tasks.count(f"`{path}`") < 2:
+                unresolved.append(path)
+        if unresolved:
+            findings.append(
+                _finding(
+                    "error",
+                    "tasks",
+                    "workflow_diagrams_complete",
+                    "Each workflow artifact should have an actual internal-step diagram section. "
+                    f"Add per-workflow diagrams for: {', '.join(unresolved)}",
+                    "tasks.md",
+                )
+            )
+            findings.append(
+                _finding(
+                    "error",
+                    "tasks",
+                    "RULE_TASKS_NO_DIAGRAM",
+                    "Per-workflow diagram coverage is incomplete for one or more referenced artifacts.",
+                    "tasks.md",
+                )
+            )
     if _ANALYZER_POLICY_TRIGGER_RE.search(tasks) and not _ANALYZER_POLICY_DIAGNOSIS_RE.search(tasks):
         findings.append(
             _finding(
@@ -1168,6 +1402,26 @@ def review_tasks_text(tasks: str, spec: str) -> list[dict[str, Any]]:
                     "tasks.md",
                 )
             )
+    flow_hitl_override = (
+        "flow" in spec.lower()
+        and "hitl" in spec.lower()
+        and (
+            "flow as the process owner" in spec.lower()
+            or "flow as hitl canvas" in spec.lower()
+            or "uipath flow" in spec.lower()
+        )
+    )
+    if flow_hitl_override and "[skill:uipath-custom-hitl]" in tasks and "[skill:uipath-maestro-flow]" not in tasks:
+        findings.append(
+            _finding(
+                "error",
+                "tasks",
+                "hitl_override_mismatch",
+                "Spec requires Flow-owned HITL, but tasks route only through custom HITL. "
+                "Add Flow HITL override and `[skill:uipath-maestro-flow]` routing.",
+                "tasks.md",
+            )
+        )
     return findings
 
 
@@ -1259,6 +1513,20 @@ def review_duplicate_uiplan_slug(repo: Path, slug: str) -> list[dict[str, Any]]:
 
 def review_cross(spec: str, plan: str, tasks: str) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
+    if "## 360 Build Visibility Contract" in spec:
+        spec_artifacts = {m.group(0) for m in _SPEC_ARTIFACT_TOKEN_RE.finditer(spec)}
+        missing = [a for a in sorted(spec_artifacts) if a not in plan and a not in tasks]
+        if missing:
+            findings.append(
+                _finding(
+                    "error",
+                    "cross",
+                    "RULE_SPEC_ARTIFACT_MISSING",
+                    "Artifacts declared in spec 360 contract are missing from plan/tasks: "
+                    + ", ".join(missing[:8]),
+                    "cross",
+                )
+            )
     fr_labels = re.findall(r"\*\*(FR-\d+)\*\*", spec)
     for fr in fr_labels:
         if fr not in tasks and fr.lower() not in tasks.lower():
@@ -1323,6 +1591,16 @@ def run_uiplan_review(
             findings.extend(review_citations("\n".join((spec, plan, tasks)), repo))
             if slug:
                 findings.extend(review_duplicate_uiplan_slug(repo, slug))
+    if "{{" in spec or "{{" in plan or "{{" in tasks:
+        findings.append(
+            _finding(
+                "error",
+                "cross",
+                "RULE_ANY_TEMPLATE_RESIDUE",
+                "Template tokens (`{{...}}`) remain in spec/plan/tasks.",
+                "cross",
+            )
+        )
     errors = [f for f in findings if f.get("severity") == "error"]
     ok = len(errors) == 0
     clarifications = build_clarifications_bundle(spec=spec, plan=plan, tasks=tasks)

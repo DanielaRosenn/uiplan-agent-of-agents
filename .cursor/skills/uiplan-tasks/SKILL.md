@@ -82,7 +82,10 @@ Generated `tasks.md` must include all of these diagrams (Pro Standard Mermaid;
 - Top-level: `Project topology map`, `Capability routing map`,
   `Story execution map`.
 - Per user story: `Story flow`, `Workflow interaction` (sequence),
-  `Data / queue contract`, and one mini-topology diagram per workflow file.
+  `Data / queue contract`, and one workflow diagram per workflow file.
+- Per workflow file: the diagram must represent the **target internal step
+  flow** (entry, major branches, external/system interactions, and terminal
+  outcomes), not just a placeholder topology box.
 - Phase 5: `Build, Verify, and Handoff` flow with explicit
   `Diagnose / safe fix / rerun` failure loop and the
   `Developer <-> Solution Engineer` handoff.
@@ -115,12 +118,20 @@ specialist skill -> ask user. Record attempted steps next to any
 ## Custom HITL default
 
 For any HITL surface in scope, route through `[skill:uipath-custom-hitl]`
-(Action Center External Tasks + HITL_Application Adaptive Cards / Slack). Do
-**not** route HITL through UiPath Flow.
+(Action Center External Tasks + HITL_Application Adaptive Cards / Slack).
+
+**Override rule:** if accepted `spec.md` / `plan.md` explicitly choose UiPath
+Flow as HITL canvas, route HITL tasks through `[skill:uipath-maestro-flow]`
+and cite the override near the top of `tasks.md`.
 
 ## Hard rules
 
 - Forbid placeholders (`TBD`, `TODO`, `implement later`, `FIXME`, `NEEDS CLARIFICATION`).
+- Forbid marking placeholder/scaffold-only runtime nodes complete. If Flow/RPA/app
+  tasks cannot wire a real callable resource because the installed CLI or tenant
+  registry does not expose it, require command evidence, a named remediation
+  task, and the closest executable smoke (`uip flow debug`, `uipath invoke`,
+  analyzer/job logs, or equivalent).
 - Keep `Phase 5: Build, Verify, and Handoff` with the Dev <-> SE loop.
 - Build phase must include restore -> analyze -> test -> pack (or paradigm equivalent).
 - Include explicit deploy gate text: personal workspace default, Production approval-required.
@@ -139,7 +150,7 @@ For any HITL surface in scope, route through `[skill:uipath-custom-hitl]`
 
 - Emit thin one-liners or generic "implement workflow" tasks.
 - Drop visuals because the story is "small".
-- Route HITL through UiPath Flow.
+- Ignore an explicit Flow HITL override from accepted spec/plan.
 - Emit `.cs` workflow tasks without `## Coded Surface Justification`.
 
 ## Deliverable quality bar

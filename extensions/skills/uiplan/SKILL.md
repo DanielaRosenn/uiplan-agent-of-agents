@@ -91,6 +91,53 @@ flowchart TD
 
 **Local file-first path:** `uv run python -m tools.uiplan generate-docs <slug>` then human approval, then `scaffold-code` — see [docs/uiplan/HOW_TO_USE.md](../../../docs/uiplan/HOW_TO_USE.md).
 
+## Spec quality contract (LLM readiness)
+
+When authoring `spec.md`, include a concise **LLM / Executor Readiness Contract**
+that downstream generation can consume. At minimum include:
+
+- role and scope boundaries (allowed surfaces + exclusions),
+- environment and access requirements,
+- skill routing matrix (feature area -> skill/tool -> expected evidence),
+- decision logic inventory (policy vs semantic reasoning vs orchestration owner),
+- build readiness checklist,
+- one worked example (`story -> phase -> task -> evidence`).
+
+Use this as guidance for `uipath_plan_spec_new` output quality, then ensure
+`uipath_plan_plan_new` and `uipath_plan_tasks_new` preserve the same routing.
+
+## Tasks quality contract (prerequisites + dependency clarity)
+
+When generating or reviewing `tasks.md`, enforce:
+
+- per-task prerequisites and external dependencies,
+- tooling/access requirements (CLI/runtime/cloud/studio),
+- one phase-level task dependency diagram using task IDs only,
+- compact executor context block per phase/story (role/scope, environment,
+  workflow, guardrails, tools, pattern anchors, evidence output).
+
+Prefer explicit imperative wording (`always`, `never`) for hard requirements.
+
+For mailbox dispatcher work, always enforce the dispatcher scaffold guardrail:
+tasks must cite the scaffold/template source, preserve config/assets/queues,
+exception handling, logging, mailbox read, and idempotency/cursor behavior, and
+must not close with stub-only `PullMailbox`, fabricated `stub-*` message IDs, or
+hardcoded queue payloads.
+
+For agent-backed host workflows, always enforce the host invocation guardrail:
+local agent smoke tests prove only the agent package. Tasks must also prove the
+RPA/Flow/app host can call the deployed agent from the target Orchestrator folder
+through a supported callable surface and receive the expected response payload.
+If the agent package deploys but is not visible as a callable process/resource,
+leave a named remediation task open and document the platform blocker.
+
+## HITL routing override rule
+
+Default HITL routing may use custom HITL/Action Center. If `spec.md` or
+`plan.md` explicitly mandates **UiPath Flow** for HITL, treat that as an
+authorized override and route to `[skill:uipath-maestro-flow]`. Note the
+override explicitly in both `plan.md` and `tasks.md`.
+
 ### Hard gate before implementation
 
 Do **not** start implementation (workflow writes, package installs, deploy) until:

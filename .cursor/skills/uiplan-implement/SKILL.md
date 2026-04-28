@@ -61,10 +61,32 @@ the smoke + log validation tasks for that story before moving to the next.
    (the CLI adds `run_to_completion_blocked` when `acceptance_ready` is false).
 3. Read `spec.md`, `plan.md`, and `tasks.md`, including **Source routing** and
    `Planner Route & Specialist Handoff` in `plan.md`.
+   - Run a 360 preflight crosswalk before edits:
+     - every `spec.md` 360 visibility row has a matching plan inventory row;
+     - every plan workflow/resource/dependency row has at least one task ID;
+     - every implementation task names artifact path, build surface, skill/MCP route,
+       verification command, and evidence path;
+     - every in-scope workflow artifact has a per-workflow internal diagram.
+   - Before source edits, confirm `tasks.md` includes:
+     - `### Executor context` sections,
+     - task-card tables (`| Field | Content |`) for implementation tasks,
+     - per-workflow internal-step diagrams for each in-scope `.xaml`, `.flow`,
+       LangGraph entry, and DMN artifact.
+   - If these are missing, stop and request task regeneration/fix instead of
+     implementing from an under-specified bundle.
 4. Run or request `uipath_plan_review` with `stage=all` before any source
    changes. Use `acceptance_ready` / `routing_metadata` from the tool response in
    the handoff ledger.
-5. If review has error-severity findings, stop and report the blockers.
+5. If review has error-severity findings, stop and report blockers. Treat these
+   as hard stops before any source edits:
+   - `RULE_SPEC_NO_360`
+   - `RULE_SPEC_ARTIFACT_MISSING`
+   - `RULE_PLAN_NO_CONNECTOR_INV`
+   - `RULE_PLAN_NO_SURFACE_BOUNDARY`
+   - `RULE_PLAN_NO_LOG_CONTRACT`
+   - `RULE_TASKS_STUB_XAML`
+   - `RULE_TASKS_NO_DIAGRAM`
+   - `RULE_ANY_TEMPLATE_RESIDUE`
 6. If review passes, ask the user before starting implementation unless the
    user explicitly supplied `--run-to-completion`, `--yes`, `--no-stop`, or
    clearly asked to run the accepted task plan end to end without stopping.
@@ -96,6 +118,9 @@ the smoke + log validation tasks for that story before moving to the next.
    - For **Maestro/Flow** and **coded app/action** surfaces, use the matched
      specialist skill and CLI (`uip` / `uip codedapp`) and verify the declared
      flow/app artifact, not only bindings or docs.
+   - If `spec.md` / `plan.md` explicitly states Flow-owned HITL, implement HITL
+     via Flow routing (`[skill:uipath-maestro-flow]`) and do not silently switch
+     to custom HITL-only handling.
 
    **Task atomicity:** if a bullet mixes unrelated concerns without a clear split
    or `[HANDOFF:…]` where only secrets/deploy/robot apply, **stop** and get

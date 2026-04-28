@@ -154,6 +154,106 @@ def _clip_one_line(text: str, limit: int = 220) -> str:
     return text[: limit - 14].rstrip() + " ... (truncated)"
 
 
+def _needs_clarification(topic: str) -> str:
+    return f"[NEEDS CLARIFICATION: {topic}]"
+
+
+def _format_decision_logic_inventory(paradigm: str, pack: dict[str, Any]) -> dict[str, str]:
+    if paradigm == "solution":
+        return {
+            "DECISION_1": "RouteAndExecutionDecision",
+            "DECISION_1_OWNER": "Flow + DMN + agent boundary",
+            "DECISION_1_WHY": "separate deterministic policy from semantic reasoning",
+            "DECISION_1_INPUTS": "normalized request + confidence + policy fields",
+            "DECISION_1_OUTPUTS": "route target + review flag + execution mode",
+            "DECISION_1_REVIEW_TRIGGER": "policy requires review or low confidence",
+        }
+    if paradigm in ("modern-rpa", "coded-automation"):
+        return {
+            "DECISION_1": "WorkflowBranchDecision",
+            "DECISION_1_OWNER": "Main workflow",
+            "DECISION_1_WHY": "route deterministic branches with auditability",
+            "DECISION_1_INPUTS": "workflow inputs + queue/asset context",
+            "DECISION_1_OUTPUTS": "selected branch + status update",
+            "DECISION_1_REVIEW_TRIGGER": "business-rule exception",
+        }
+    if paradigm == "coded-agent":
+        return {
+            "DECISION_1": "AgentRouteDecision",
+            "DECISION_1_OWNER": "LangGraph entrypoint",
+            "DECISION_1_WHY": "classify intent and choose executable path",
+            "DECISION_1_INPUTS": "request payload + retrieval/tool outputs",
+            "DECISION_1_OUTPUTS": "typed response schema + route metadata",
+            "DECISION_1_REVIEW_TRIGGER": "unsafe response or low confidence",
+        }
+    if paradigm == "maestro-flow":
+        return {
+            "DECISION_1": "FlowRoutingDecision",
+            "DECISION_1_OWNER": "Flow route node",
+            "DECISION_1_WHY": "control orchestration paths across systems",
+            "DECISION_1_INPUTS": "trigger payload + branch conditions",
+            "DECISION_1_OUTPUTS": "selected branch + downstream task",
+            "DECISION_1_REVIEW_TRIGGER": "human approval branch selected",
+        }
+    return {
+        "DECISION_1": _needs_clarification("primary decision name"),
+        "DECISION_1_OWNER": _needs_clarification("owner surface"),
+        "DECISION_1_WHY": _needs_clarification("decision rationale"),
+        "DECISION_1_INPUTS": _needs_clarification("decision inputs"),
+        "DECISION_1_OUTPUTS": _needs_clarification("decision outputs"),
+        "DECISION_1_REVIEW_TRIGGER": _needs_clarification("human review trigger"),
+    }
+
+
+def _format_visibility_defaults(paradigm: str) -> dict[str, str]:
+    build_family = cli_family(paradigm)
+    return {
+        "ALLOWED_SURFACES": {
+            "solution": ".xaml, .flow, .dmn, coded-agent modules, bindings/resources",
+            "modern-rpa": ".xaml workflows, queues/assets, project descriptors",
+            "coded-automation": ".cs workflows, project descriptors, tests",
+            "coded-agent": "langgraph/agent code, descriptors, tests, bindings",
+            "maestro-flow": ".flow/.bpmn, bindings, invoked surfaces",
+        }.get(paradigm, _needs_clarification("allowed build surfaces")),
+        "EXPLICIT_EXCLUSIONS": "Legacy/VB/Classic/Production deploy from assistant session",
+        "EVIDENCE_PATHS": "store gate evidence under `out/` per surface",
+        "NAMING_CONVENTIONS": "align project/workflow names with descriptors and bindings",
+        "ARTIFACT_1_PATH": _needs_clarification("primary artifact path"),
+        "ARTIFACT_1_TYPE": _needs_clarification("artifact type/surface"),
+        "ARTIFACT_1_STORY": "US1",
+        "ARTIFACT_1_ENTRYPOINT": _needs_clarification("artifact entrypoint"),
+        "ARTIFACT_1_ANTISTUB": "placeholder-only scaffold (no real activity/node wiring)",
+        "ARTIFACT_1_EVIDENCE": "analyze/test/smoke evidence file in `out/`",
+        "DEP_1_PACKAGE": _needs_clarification("package or tool name"),
+        "DEP_1_ACTIVITY_CONNECTOR": _needs_clarification("activity/connector id"),
+        "DEP_1_ARTIFACT": _needs_clarification("artifact path using dependency"),
+        "DEP_1_REASON": "required for in-scope behavior",
+        "DEP_1_VERSION_SOURCE": "descriptor or library resolution",
+        "DEP_1_EVIDENCE": "validation/test output path",
+        "SURFACE_1_NAME": _needs_clarification("surface/resource name"),
+        "SURFACE_1_DESCRIPTOR": _needs_clarification("descriptor file"),
+        "SURFACE_1_BOUNDARY": _needs_clarification("invocation boundary"),
+        "SURFACE_1_IO": _needs_clarification("typed inputs/outputs"),
+        "SURFACE_1_OWNER": _needs_clarification("owner skill/project"),
+        "SURFACE_1_EVIDENCE": "runtime or test evidence path",
+        "LOG_1_SURFACE": _needs_clarification("workflow surface for logging"),
+        "LOG_1_PHASES": "start, input summary, decision, status transition, exception, terminal",
+        "LOG_1_CORRELATION": "propagate one correlation id across invoked boundaries",
+        "LOG_1_ASSERTIONS": "assert correlation id and phase markers in logs",
+        "LOG_1_EVIDENCE": "log capture path in `out/`",
+        "SCAFFOLD_1_ARTIFACT": _needs_clarification("artifact path"),
+        "SCAFFOLD_1_SOURCE": _needs_clarification("starter template/scaffold source"),
+        "SCAFFOLD_1_PRESERVE": "descriptor files and generated structure required by template",
+        "SCAFFOLD_1_REQUIRED": "real workflow/node implementation for scoped story",
+        "SCAFFOLD_1_REJECT_SIGNAL": "stub marker text (placeholder/contract-only/would invoke)",
+        "VERIFY_1_SURFACE": _needs_clarification("surface being verified"),
+        "VERIFY_1_FAMILY": build_family,
+        "VERIFY_1_COMMAND": _needs_clarification("concrete verification command"),
+        "VERIFY_1_DONE_WHEN": "command succeeds and expected assertions pass",
+        "VERIFY_1_EVIDENCE": "command output path under `out/`",
+    }
+
+
 def _source_documents_markdown(pack: dict[str, Any]) -> str:
     """Append source paths only; source text is context, not generated document body."""
     docs = pack.get("source_documents") or []
@@ -695,7 +795,13 @@ def call_uiplan_spec_new(arguments: dict[str, Any]) -> dict[str, Any]:
         "CLI_FAMILY": cli_family(paradigm),
         "DEPLOY_GATE": deploy_gate(paradigm),
         "SOURCE_ROUTING_SNIPPET": _format_source_routing_snippet(repo, pack),
+        "PROJECT_TYPE": project_type,
+        "LANG_VERSION": stack_line(paradigm),
+        "TARGET_PLATFORM": "Automation Cloud / Windows robots (confirm folder and permissions).",
+        "DEPS": _dependency_hint(pack),
     }
+    mapping.update(_format_decision_logic_inventory(paradigm, pack))
+    mapping.update(_format_visibility_defaults(paradigm))
     spec_body = _insert_source_documents(_fill(tpl, mapping), pack)
 
     folder.mkdir(parents=True)

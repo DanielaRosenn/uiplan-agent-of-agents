@@ -10,6 +10,7 @@ Each entry includes:
 - **Required activities / nodes** (resolve names via `uipath_doc_get_activity`).
 - **CLI verbs** for build/verify.
 - **Skills, subagents, and MCP tools** to route through.
+- **Verification evidence** expected in `tasks.md`.
 
 ---
 
@@ -114,8 +115,9 @@ sequenceDiagram
 - **When to use**: any human approval / data-enrichment / write-back gate where
   the org wants Slack-based UX with audit trail.
 - **When not to use**: Action Center forms only (use plain LRW + WaitForForm).
-- **Do not use UiPath Flow** as the HITL canvas; UiPath Flow is the visual
-  orchestration canvas, not the HITL surface here.
+- **Flow-owned HITL override**: if accepted spec/plan explicitly assigns HITL to
+  Flow, use the `Flow-owned HITL` pattern below and document the override in
+  `plan.md` routing.
 - **Required activities**: `CreateExternalTask`, `WaitForExternalTaskAndResume`,
   HITL_Application webhook config (Slack channel, card schema, callback URL).
 - **CLI**: `uipcli package analyze | pack`; HITL_Application deployed
@@ -123,6 +125,8 @@ sequenceDiagram
 - **Skills**: `[skill:uipath-custom-hitl]`, `[skill:uipath-rpa]`.
 - **MCP**: `uipath_doc_get_activity` (External Task activities),
   `uipath_library_search` (`Action Center External Tasks`).
+- **Verification evidence**: external-task creation log + resume outcome log +
+  audit correlation id.
 
 ---
 
@@ -165,6 +169,7 @@ Studio Web BPMN flow (`.bpmn` / `.flow`).
 - **When to use**: cross-system process orchestration with explicit BPMN events.
 - **When not to use**: simple worker loops — use Sequence/Flowchart.
 - **Skills**: `[skill:uipath-maestro-flow]`.
+- **Verification evidence**: flow validate output + runtime debug/smoke trace.
 
 ---
 
@@ -194,6 +199,8 @@ UiPath.Mail.Activities or Integration Service Email connector.
 - **When to use**: mailbox polling for Dispatcher.
 - **Required activities**: `GetIMAPMailMessages` /
   `UiPath.Email.Activities.Office365.GetMailMessages`.
+- **Verification evidence**: connector auth check + intake sample evidence with
+  non-stub message identifiers.
 
 ---
 
@@ -205,3 +212,87 @@ Platform-level data planes.
 - **Buckets**: `UiPath.Storage.Activities` for blob I/O.
 - **Data Fabric**: `uip df` for entity/record CRUD;
   `[skill:uipath-data-fabric]`.
+
+---
+
+## Flow-owned HITL
+
+Use Flow itself as the HITL canvas when the accepted spec explicitly requires
+it (override of custom HITL default).
+
+```mermaid
+flowchart TD
+  Route[Flow route gate] --> HumanTask[Flow human task]
+  HumanTask --> Decision{Approve?}
+  Decision --> Approve[Continue automation]
+  Decision --> Reject[Escalate or close]
+```
+
+- **When to use**: plan/spec explicitly requires HITL inside Flow.
+- **When not to use**: standard org custom HITL via Action Center + Slack app.
+- **Required artifacts**: `.flow` task node schema, assignee mapping, timeout/escalation.
+- **CLI**: `uip flow validate` and flow runtime smoke where safe.
+- **Skills**: `[skill:uipath-maestro-flow]`, `[skill:uipath-human-in-the-loop]`.
+- **Verification evidence**: validation log + approve/reject path evidence.
+
+---
+
+## Agent Invocation Boundary (hosted by RPA or Flow)
+
+Explicit boundary between host workflow and coded agent runtime.
+
+```mermaid
+flowchart LR
+  Host[Host surface Main.xaml or it-support.flow] --> Req[Request schema mapping]
+  Req --> Invoke[Invoke coded agent graph]
+  Invoke --> Resp[Response schema validation]
+  Resp --> Branch[Host branch update]
+```
+
+- **When to use**: RPA/Flow invokes LangGraph/LlamaIndex for semantic decisions.
+- **When not to use**: deterministic-only branches that do not require LLM reasoning.
+- **Required artifacts**: host invocation step, `langgraph.json` or `llama_index.json`,
+  request/response schema mapping in plan/tasks.
+- **CLI**: host verify command + `uipath run` or pytest for agent surface.
+- **Skills**: `[skill:uipath-rpa]`, `[skill:uipath-maestro-flow]`, `[skill:uipath-agents]`.
+- **Verification evidence**: host logs + agent run output + mapped schema assertions.
+
+---
+
+## DMN Policy Decision Boundary
+
+Deterministic decision layer separating policy from semantic reasoning.
+
+```mermaid
+flowchart TD
+  Inputs[Policy inputs] --> Table[DMN decision table]
+  Table --> Decision[Deterministic decision output]
+  Decision --> Host[Flow or RPA route gate]
+```
+
+- **When to use**: approval/escalation/compliance routing that must be deterministic.
+- **When not to use**: fuzzy classification better handled by agent.
+- **Required artifacts**: `.dmn` file + policy IO schema + host invocation row.
+- **CLI**: DMN test command (`pytest` or equivalent policy test harness).
+- **Skills**: `[skill:dmn-business-rules]`, `[skill:uipath-maestro-flow]`.
+- **Verification evidence**: DMN test report + host branch evidence for each decision path.
+
+---
+
+## Studio-visible Logging Contract
+
+Cross-surface logging pattern that must be visible in Studio/job logs.
+
+```mermaid
+flowchart LR
+  Start[Run start log] --> Input[Input summary log]
+  Input --> Decide[Decision log]
+  Decide --> Write[Writeback/status log]
+  Write --> End[Terminal summary log]
+```
+
+- **When to use**: all executable workflow surfaces (`.xaml`, `.flow`, hosted agent boundaries).
+- **Required logs**: start, input summary (non-PII), decision branch, status transition,
+  exceptions, terminal summary.
+- **Correlation**: propagate one correlation id across invoked surfaces.
+- **Verification evidence**: log assertions for correlation id + expected phase markers.

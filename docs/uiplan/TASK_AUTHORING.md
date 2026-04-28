@@ -4,6 +4,19 @@ Use this guide when writing or reviewing `tasks.md`. The goal is to make
 `/uiplan-implement` follow instructions instead of inventing architecture during
 coding.
 
+## 360 tasking objective
+
+`tasks.md` must execute the `spec.md` 360 visibility contract without gaps. For
+every in-scope artifact/surface declared in spec/plan, there must be:
+
+- an explicit task ID (or task group) that builds it;
+- a verification command;
+- an evidence output path;
+- an internal-step workflow diagram for executable workflow artifacts.
+
+If any artifact cannot be mapped to those four elements, stop and fix `spec.md`
+or `plan.md` before continuing.
+
 ## Capability inventory first
 
 Before tasking non-trivial work, record which project capabilities are relevant:
@@ -59,9 +72,15 @@ Every non-trivial UiPath task set must name the build surface and workflow shape
   Dispatcher/scheduled intake, Performer/queue worker, HITL handler, or another
   named Studio template.
 - Coded agent: LangGraph / LlamaIndex descriptor, graph entry point, nodes,
-  request/response schema, and host invocation boundary.
-- Maestro / Flow: `.flow` / BPMN artifact, trigger, data mappings, and solution
-  packaging boundary.
+  request/response schema, host invocation boundary, pytest/JUnit evidence,
+  direct graph/function smoke output, and `uipath run` evidence or a documented
+  platform-runtime blocker after auth/folder resolution.
+- Maestro / Flow: `.flow` / BPMN artifact, trigger, data mappings, solution
+  packaging boundary, and `uip flow debug` runtime evidence unless debug is
+  unsafe or unavailable.
+  On Windows, tasks must also verify `zip` availability for `uip flow debug`
+  and keep the solution project folder, `project.uiproj` name, and `.flow`
+  filename consistent with the installed CLI's expectations.
 - Coded app/action: `app.config.json`, `action-schema.json`, TypeScript entry
   points, and `uip codedapp` build path.
 - Platform/config: queues, assets, folders, connections, bindings, policies, and
@@ -85,6 +104,9 @@ Each non-parallel implementation task must include:
   help, or subagent;
 - exact verification command;
 - runtime evidence path or artifact.
+- prerequisites (task IDs and required pre-existing artifacts);
+- external dependencies (systems, permissions, policies);
+- tooling/access requirements (CLI/runtime/cloud/studio access needed).
 
 Each story block should also include:
 
@@ -92,6 +114,62 @@ Each story block should also include:
 - **Workflow/task diagram**: Mermaid visual showing tests, implementation,
   verification, and evidence outputs.
 - **Dependencies note**: what must be done before this story starts.
+- **Executor context**: compact role/scope + environment + workflow +
+  guardrails + tools + pattern anchors + output style block.
+
+## 360 traceability row (required)
+
+Near the top of `tasks.md`, include a visibility execution matrix:
+
+| Artifact path | Surface | Owning story | Build task IDs | Verify command | Evidence path |
+| --- | --- | --- | --- | --- | --- |
+| `projects/<Name>/Main.xaml` | RPA | US1 | `T011A` | `uipcli package analyze ...` | `out/analyze.json` |
+
+This matrix is the fastest check for under-specification and should align with
+`spec.md` 360 visibility rows and `plan.md` inventories.
+
+## Deployment task minimum contract
+
+Deployment/publish tasks must never be considered complete from local pack
+output alone. For any task that includes `deploy`, `publish`, `activate`,
+`upload-package`, `job run`, or `test run`, require:
+
+- explicit target tenant/folder and non-Production boundary;
+- required auth inputs (or explicit `[HANDOFF:Secrets]` if withheld);
+- exact tenant mutation command(s), not just local build commands;
+- activation/setup branch (`download-config` + bindings) when Solutions are used;
+- runtime resource provisioning commands for required assets, queues, storage
+  buckets, and connections before smoke; non-secret assets/queues should use
+  `uip resource`, while credential/secret assets remain `[HANDOFF:Secrets]`
+  unless values are explicitly provided;
+- evidence that resources exist in the same folder path used by deployed
+  processes, plus queue item evidence when queue workflows are in scope;
+- runtime evidence from tenant execution (deployment id, job id, final state);
+- tenant log evidence after execution (`uip or jobs logs`, `uipcli` job result,
+  or equivalent), including deployed package version/dependency evidence for
+  coded agents when available;
+- blocker class + handoff evidence when tenant mutation is not possible.
+
+If only local evidence exists (restore/analyze/test/pack), mark the task as
+`local-ready` and keep deploy/smoke tasks open.
+
+## Placeholder completion is forbidden
+
+Tasks must not treat scaffold-only or placeholder artifacts as implemented
+workflow behavior.
+
+- Flow nodes labeled or behaving as `placeholder`, `would invoke`, or
+  `contract only` are not complete unless a real callable resource is unavailable
+  after registry/process discovery and a remediation task remains open.
+- Agent-backed Flow tasks must prove both sides: the agent graph runs locally,
+  the deployed entrypoint can be invoked when deployment is in scope, and the
+  Flow host has `uip flow debug` evidence for the branch that consumes the
+  agent-shaped response.
+- RPA tasks with `LogMessage` markers only are scaffold evidence, not production
+  behavior, unless the task explicitly says scaffold-only and a production
+  wiring task remains open.
+- Any platform limitation must include command evidence, searched resource names,
+  blocker class, and the closest safe executable smoke test.
 
 Good task:
 
@@ -151,6 +229,53 @@ flowchart LR
 Pair each diagram with a short explanatory paragraph so readers understand why
 the checklist exists, not only what to run.
 
+For large bundles, also add one phase-level dependency diagram using task IDs
+only (for example `T001 -> T010 -> T020`) to make ordering and parallelization
+readable at a glance.
+
+## Actual workflow diagrams are mandatory
+
+`tasks.md` is not only a checklist. It is the executable visual build sheet.
+For each workflow artifact named in `plan.md` (`.xaml`, `.flow`, LangGraph
+graph, DMN decision), include a corresponding Mermaid diagram that captures the
+**target internal flow**:
+
+- entry/input trigger;
+- step-by-step processing sequence;
+- branch/decision outcomes;
+- external calls/resources;
+- terminal outcomes/write-backs.
+
+Reject task bundles that provide only high-level topology boxes without
+workflow-level step diagrams.
+
+## Executor context block (required)
+
+Add this before tasks for each phase or story:
+
+```markdown
+### Executor context for <phase/story>
+- **Role/scope**: what to build and what not to touch.
+- **Environment**: required CLIs/runtimes/access + evidence locations.
+- **Workflow**: read/explore -> implement minimal scope -> verify -> parse output -> safe fix -> rerun.
+- **Guardrails**: non-negotiable constraints.
+- **Tools**: skills/MCP/CLI sequence for this slice.
+- **Pattern anchors**: existing files to mirror.
+- **Return/evidence**: exact artifacts expected in completion output.
+```
+
+Use imperative wording for required behaviors (`always`, `never`), not soft
+phrasing (`consider`, `try`).
+
+## HITL routing override rule
+
+Default HITL routing can remain Action Center/custom HITL, but if `spec.md` or
+`plan.md` explicitly mandates UiPath Flow as the HITL canvas, `tasks.md` must:
+
+1. Include a visible override note near the top of the document.
+2. Route implementation tasks through `[skill:uipath-maestro-flow]`.
+3. Keep the reasoning traceability to the spec/plan override text.
+
 ## Failure review
 
 Do not call a failed analyzer/test/Studio/CLI run "blocked" until the failure has
@@ -164,6 +289,17 @@ been diagnosed and rerun. A blocker report must include:
 - rerun result;
 - blocker class: tenant-only, human UI-only, missing credentials, generated
   descriptor required, unsupported local tooling, or unsafe action.
+
+Additionally, the review/implement preflight now hard-blocks the bundle for:
+
+- missing spec 360 contract,
+- missing spec->plan->tasks artifact chain,
+- missing connector/resource inventory,
+- missing invocation boundaries,
+- missing logging phase/correlation/assertion contract,
+- stub-only XAML completion wording,
+- missing per-workflow diagrams,
+- leftover template tokens (`{{...}}`).
 
 ## Handoff tags
 
