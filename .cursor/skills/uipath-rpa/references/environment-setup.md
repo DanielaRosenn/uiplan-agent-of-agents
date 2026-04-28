@@ -42,7 +42,10 @@ uip rpa open-project --project-dir "{projectRoot}"```
 3. If Studio is running but IPC fails, the user may need to restart Studio
 4. Inform the user and ask them to ensure Studio Desktop is open and responsive
 
-**Note:** If `start-studio` fails with a registry key error, pass `--studio-dir` explicitly pointing to the Studio installation directory.
+**Note:** If `start-studio`, `get-errors`, or `build` fails with a registry key
+error or cannot resolve Studio, pass `--studio-dir` explicitly pointing to the
+Studio installation directory, for example
+`--studio-dir "C:\Program Files\UiPath\Studio"`.
 
 ## Step 0.3: Close the project when Studio work is finished
 
@@ -54,6 +57,11 @@ uip rpa close-project --project-dir "{projectRoot}" --output json
 
 - Run **after** the last `get-errors` / `run-file` / manual check for that session, and **before** switching to another project, running pack/analyze that needs an exclusive lock, or ending the turn if no further edits are planned.
 - Keeps the project database unlocked (avoids “already opened in another Studio instance”) and reduces leftover Studio instances. For full-process cleanup after heavy tests, still follow `docs/Testing_Guide.md`.
+
+If `uip rpa build` reports that the project is already open in another Studio
+instance, close the project with the command above and rerun the build. Do not
+substitute an Orchestrator smoke run for this build gate; runtime success can
+miss Studio Designer diagnostics.
 
 ## Step 0.4: Authentication (If Needed)
 

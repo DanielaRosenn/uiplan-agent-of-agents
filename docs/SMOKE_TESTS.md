@@ -70,6 +70,42 @@ UiPath build "done" without it.
    `uipath_workflow_install_package` (or `create_project`) instead of
    re-editing `project.json`.
 
+## Studio Designer validation guard
+
+Use this smoke whenever a task creates, copies, or heavily edits a Studio/RPA
+project, especially when layering a use case on top of a template.
+
+1. Run Studio-aware per-file validation on every edited `.xaml`:
+
+   ```powershell
+   uip rpa get-errors --file-path "<file.xaml>" --project-dir "<projectDir>" --studio-dir "C:\Program Files\UiPath\Studio" --output json
+   ```
+
+   Expected result: `No diagnostics found`.
+
+2. Run a full Studio build before pack/deploy:
+
+   ```powershell
+   uip rpa build --project-path "<projectDir>" --studio-dir "C:\Program Files\UiPath\Studio" --output json
+   ```
+
+   Expected result: `Success: true`.
+
+3. If the build reports that the project is already open in Studio, close it and
+   rerun the build:
+
+   ```powershell
+   uip rpa close-project --project-dir "<projectDir>" --studio-dir "C:\Program Files\UiPath\Studio" --output json
+   ```
+
+4. Only after Studio Designer validation and Studio build pass, run
+   `uipcli package analyze`, pack/deploy, and Orchestrator smoke.
+
+Reason: `uipcli package analyze`, solution pack, deployment, and a successful
+Orchestrator job can still miss Studio Designer diagnostics. Copied
+VisualBasic templates are especially sensitive to missing imports/references
+for types such as `Dictionary` and `List`.
+
 Two focused smoke tests that exercise the full surface: knowledge pipeline,
 unified Ask AI, library proposals + chapters, book manifests, skills
 auto-refresh, upstream scan, harvest, and MCP parity.

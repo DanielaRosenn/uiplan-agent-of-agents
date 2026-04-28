@@ -88,9 +88,12 @@ For the full decision flowchart, InvokeCode extraction rules, and detailed hybri
 
 1. **NEVER create a project without confirming none exists.** Follow Step 0 resolution: check explicit path, project name, running Studio instances, then CWD. Only create when confirmed no project matches AND user explicitly requests creation.
 2. **ALWAYS use `uip rpa create-project`** to create new projects — never write `project.json` or scaffolding manually.
-3. **ALWAYS validate files as you go AND verify the project builds before declaring done.** Two-phase validation:
-   - **Per-file** (after every create or edit): `uip rpa get-errors --file-path "<FILE>" --project-dir "<PROJECT_DIR>" --output json` until 0 errors. Cap at 5 fix attempts.
-   - **Project-level end-goal** (before reporting done): `uip rpa build "<PROJECT_DIR>" --output json`. Projects returned to the user must compile. `get-errors` is static analysis and misses compile-time failures — notably attribute-form XAML expressions in projects with `expressionLanguage: CSharp`. A successful `uip rpa run-file` smoke test covers this; if no smoke test runs, `uip rpa build` is mandatory.
+3. **ALWAYS validate files as you go AND verify the project builds before declaring done.** Three-phase validation:
+   - **Per-file Studio designer validation** (after every create or edit): `uip rpa get-errors --file-path "<FILE>" --project-dir "<PROJECT_DIR>" --studio-dir "<STUDIO_DIR>" --output json` until 0 errors. Cap at 5 fix attempts. If Studio auto-discovery fails, locate Studio and pass `--studio-dir` explicitly. This gate catches designer-only errors such as missing `Dictionary` / `List` imports that `uipcli package analyze` and Orchestrator runtime can miss.
+   - **Project-level Studio build** (before reporting done): `uip rpa build --project-path "<PROJECT_DIR>" --studio-dir "<STUDIO_DIR>" --output json`. If the project is open in Studio and the build reports a project-database lock, run `uip rpa close-project --project-dir "<PROJECT_DIR>" --studio-dir "<STUDIO_DIR>" --output json` and rerun the build.
+   - **Package/analyzer gate**: run `uipcli package analyze "<PROJECT_DIR>" --resultPath "<OUT_JSON>"` before pack/deploy and parse the result for errors. A deployed Orchestrator job is not proof that Studio Designer is clean.
+
+   Projects returned to the user must be clean in Studio Designer, compile in the Studio build path, and pass package analyze. `get-errors` is static analysis and misses compile-time failures — notably attribute-form XAML expressions in projects with `expressionLanguage: CSharp`. A successful `uip rpa run-file` smoke test covers runtime behavior but does not replace designer validation or build.
 
    See [references/validation-guide.md](references/validation-guide.md).
 4. **Prefer UiPath built-in activities** for Orchestrator integration, UI automation, and document handling. Prefer plain .NET / third-party packages for pure data transforms, HTTP calls, parsing.

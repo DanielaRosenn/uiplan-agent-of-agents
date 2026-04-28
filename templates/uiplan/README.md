@@ -40,5 +40,9 @@ If you want usage/onboarding instructions, start with:
 
 1. Generate a sample bundle from templates.
 2. Confirm no unresolved placeholder tokens remain unexpectedly.
-3. Run UiPlan review tests.
-4. Verify docs links still point to canonical usage docs.
+3. For any RPA/Studio task template changes, confirm the generated tasks require
+   both Studio Designer validation (`uip rpa get-errors --studio-dir ...`) and a
+   Studio build (`uip rpa build --project-path ... --studio-dir ...`) before
+   package analyze, deploy, or Orchestrator smoke can close the task.
+4. Run UiPlan review tests.
+5. Verify docs links still point to canonical usage docs.

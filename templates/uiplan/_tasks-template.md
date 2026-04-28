@@ -155,6 +155,14 @@ Every generated task list MUST include project facts from `spec.md` / `plan.md`,
 - **Existing descriptors** (`solution.uipx`, `project.json`, `langgraph.json`, `app.config.json`, `.flow` / BPMN, `caseplan.json`) and whether they are existing, generated, or to be created.
 - **Environment bindings**: queue names, asset names, connection names, schedules/triggers, folder/workspace defaults, and which values are tenant-only.
 - **Studio/tooling facts** for RPA: Studio path or `uip rpa` discovery evidence, `uip rpa create-project` / default activity XAML evidence when creating or wiring Studio activities, `uipcli` restore/analyze/pack commands, and analyzer policy exceptions.
+- **Studio designer validation gate** for RPA: every generated or edited `.xaml`
+  artifact must have a task-level `uip rpa get-errors --file-path ... --project-dir ... --studio-dir ... --output json`
+  check that returns `No diagnostics found`. The project must also run
+  `uip rpa build --project-path ... --studio-dir ... --output json` before pack
+  or deploy. If Studio is holding the project open, close it with
+  `uip rpa close-project --project-dir ... --studio-dir ... --output json` and
+  rerun the build. `uipcli package analyze`, solution pack, deployment, or a
+  successful Orchestrator job does **not** replace this gate.
 - **Studio template decisions** for each RPA project: Dispatcher/scheduled intake, Performer/queue
   worker, Long Running Workflow/HITL, Sequence/Flowchart/State Machine, or project-specific custom
   template. Each row must include why that template fits the use case and what generated structure
@@ -215,9 +223,15 @@ For **RPA / Studio** tasks:
   `project.uiproj`, workflow type, and preserved generated control-flow structure. A generic
   hand-written `Main.xaml` with `LogMessage` markers is scaffold-only and cannot satisfy a Studio
   project implementation task unless a follow-up template remediation task remains open.
+- Template-copy evidence must include Studio Designer validation after use-case
+  layering. This is required because copied VisualBasic templates can still run
+  or pass package analyze while Studio flags missing imports/references such as
+  `Dictionary` or `List` resolution errors.
 - Non-trivial activities must come from `uipath_doc_get_activity` plus Studio/default-activity evidence (`uip rpa get-default-activity-xaml`, Studio-generated XAML, or documented package-local activity XAML). Do not hand-invent activity XML when a tool can generate it.
 - Each activity-level task must name the package/activity, inputs, outputs, variables/arguments, connection/asset names, and analyze command.
-- Studio validation evidence can be from Studio Desktop or CLI (`uipcli package analyze`), but source artifacts still need to be built in-repo.
+- Studio validation evidence must come from Studio Designer or `uip rpa get-errors`
+  / `uip rpa build` with `--studio-dir`; `uipcli package analyze` is a separate
+  package/analyzer gate, not a substitute for designer validation.
 
 For **agent-backed** tasks:
 

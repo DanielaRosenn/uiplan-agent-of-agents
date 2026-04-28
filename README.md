@@ -147,6 +147,7 @@ flowchart LR
 - **Fast test path:** `pytest -m "not integration"` from repo root; see [docs/TESTING.md](docs/TESTING.md) for the full matrix and markers.
 - **MCP regression tests** live under **`framework/tests/mcp_tests/`**. Do not add a `framework/tests/mcp` package: it shadows the PyPI **`mcp`** dependency (`mcp.types`, etc.) and breaks MCP server imports under pytest.
 - **Generated tool catalog:** when you add or change MCP tools, run `python ops/scripts/generate_mcp_tools_doc.py` and commit [docs/MCP_TOOLS.md](docs/MCP_TOOLS.md).
+- **Studio/RPA validation:** before any RPA project is called done, validate edited `.xaml` files with `uip rpa get-errors --studio-dir ...`, run `uip rpa build --project-path ... --studio-dir ...`, then run `uipcli package analyze`. Orchestrator smoke proves runtime behavior, but it does not replace Studio Designer validation.
 - **Orchestrator packaging / deploy** (compatibility preflight, personal workspace vs shared folders, assistant-session boundaries): **[docs/ORCHESTRATOR_DEPLOYMENT.md](docs/ORCHESTRATOR_DEPLOYMENT.md)**. `uipath_workflow_deploy` / `uipath_workflow_publish` tool text matches that runbook.
 
 ---
