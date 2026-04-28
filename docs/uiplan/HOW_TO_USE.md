@@ -135,12 +135,15 @@ Do not start build execution until all are true:
    implementation behind review plus human approval.
 
 5. Generated docs are visual-first, but detail increases by stage. Expect:
-   - `spec.md`: simple business-scope and story-journey diagrams only. It should
-     stay readable beside the formal PDD / SDD and should not copy their prose.
+   - `spec.md`: business-readable scope plus a concrete 360 visibility contract
+     (artifact inventory, workflow-surface catalog, dependencies/connectors,
+     boundary decisions, and verification expectations). It should stay readable
+     beside formal PDD / SDD docs and should not copy their prose.
    - `plan.md`: story visual map, capability/ownership map, data-contract map,
      architecture, and build-loop diagrams for Solution Engineer planning.
-   - `tasks.md`: execution map, story workflow/task map(s), and build/diagnostics
-     loop diagram for LLM/executor implementation.
+   - `tasks.md`: execution map, story workflow/task maps, per-workflow internal
+     step diagrams, activity conformance rows, and build/diagnostics loop
+     evidence for LLM/executor implementation.
 
 **Implementation validation:** `/uiplan-implement` must prove behavior with
 **runtime evidence**, not only static checks. Expect a **validation evidence ledger**
@@ -193,7 +196,7 @@ document; review flags persona leakage.
 
 | Document | Audience | Owns | Avoids |
 | --- | --- | --- | --- |
-| `spec.md` | BA <-> Developer | Lightweight business intent, user stories, acceptance criteria, NFRs, SME items, PDD / SDD traceability | `.xaml` / `.cs` / `.py` filenames, CLI verbs, `[skill:...]`, activity wiring, copied PDD / SDD prose |
+| `spec.md` | BA <-> Developer | Business intent, user stories, acceptance criteria, NFRs, SME items, PDD / SDD traceability, and 360 artifact/surface/dependency/logging scope contracts | Per-activity implementation micro-steps, generated placeholder text, copied PDD / SDD prose |
 | `plan.md` | Developer <-> Solution Engineer | Architecture, paradigm, project topology, workflow catalog, activity inventory, bindings, capability routing, stack policy, coded-surface justification | Per-activity micro-instructions, per-line CLI recipes |
 | `tasks.md` | Solution Engineer -> Developer / Executor | Artifact paths, exact CLI commands, evidence paths, `[skill:]`/`[agent:]`/`[subagent:]`/`[library:]`/`[askai:]` tags, acceptance gates, build/verify/diagnose/fix loop | Re-opening architectural decisions |
 
@@ -202,9 +205,39 @@ before asking the user: `uipath_library_search` / `uipath_library_lookup` ->
 `uipath_doc_get_activity` -> `query_uipath_docs` -> specialist skill or
 `[agent:uipath-project-discovery-agent]` -> user.
 
-The plan/tasks generator routes the HITL surface to the org Custom HITL skill
-(`[skill:uipath-custom-hitl]` + `HITL_Application` Adaptive Cards/Slack +
-Action Center External Tasks). Do **not** use UiPath Flow as the HITL canvas.
+HITL routing is a required design decision, not a hidden default. Use the route
+declared in accepted `spec.md`/`plan.md`:
+
+- Flow/Maestro-owned HITL: route through `[skill:uipath-maestro-flow]` and
+  `[skill:uipath-human-in-the-loop]`.
+- Action Center/native HITL: route through `[skill:uipath-human-in-the-loop]`
+  with explicit task/payload/audit fields.
+- Org custom HITL (for example Slack + Adaptive Card + Action Center External
+  Task): route through the approved custom process and include explicit
+  callback/resume, timeout/escalation, and secret/asset contracts.
+
+Embedded email forms are compatibility-risky and must not be the only approval
+path. Use email as a notification/entry point with a fallback CTA link to the
+hosted approval surface.
+
+## HITL contract block (required when HITL is in scope)
+
+For each HITL-enabled story or phase, include:
+
+- `channel` (Flow HITL, Action Center, Slack/custom, Coded App page);
+- `approval actor` and ownership;
+- `payload schema` (human-visible fields and hidden metadata);
+- `decision values` and validation rules;
+- `resume target`/callback contract;
+- `timeout` and escalation behavior;
+- `audit evidence` (task/approval id, job id, correlation id, log assertion);
+- `required secrets/assets` and handoff expectations;
+- `verification command/evidence` (local + tenant/runtime where available).
+
+If any required HITL dependency is unavailable (Slack app, OAuth consent,
+Action Center permissions, callback endpoint), record a blocker class and the
+closest safe executable local/schema smoke evidence.
+
 The stack policy is **Modern Studio + activity-first** (latest Studio, C#,
 Windows, .NET 8); coded `.cs` workflows are allowed only when justified in
 `plan.md` -> `## Coded Surface Justification`.

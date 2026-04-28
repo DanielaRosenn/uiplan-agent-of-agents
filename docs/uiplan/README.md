@@ -62,12 +62,15 @@ UiPlan now enforces a 360 build-visibility contract across the bundle:
 - `uipath_plan_review` is the hard gate: under-specified bundles fail before
   acceptance.
 - `/uiplan-implement` runs a preflight and refuses thin accepted bundles before
-  source edits.
+  source edits (accepted status does not bypass quality gates).
 
 Recent lessons are now part of the default contract: dispatcher-template
 provenance for mailbox intake, real connector-read evidence, per-workflow
 diagram + activity checklist coverage, and Studio-visible correlation/log
 assertions.
+Capture additional durable retrospectives through the
+[library learning loop](../LIBRARY_LEARNING.md) so transcript-derived lessons
+can be reviewed, approved, and reused across future bundles.
 
 Use `--paradigm` to override detection when needed (for example, forcing
 `coded-agent` or `solution` in mixed repositories).

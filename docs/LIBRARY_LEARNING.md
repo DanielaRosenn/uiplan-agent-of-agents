@@ -48,6 +48,21 @@ Use this loop when reviewing captured lessons:
 Doctor is read-only. It reports library health but never applies, rejects, or
 rewrites proposals.
 
+## Retrospective sources (transcripts and postmortems)
+
+Agent transcripts and project postmortems are valid proposal sources when they
+surface repeated delivery gaps (for example recurring HITL routing ambiguity,
+placeholder completion, or missing runtime evidence contracts).
+
+When proposing retrospective lessons:
+
+1. Cite the parent conversation/transcript clearly (not only local notes).
+2. Separate one-off project remediation from reusable builder-agent guidance.
+3. Convert observations into durable rules ("always/never/required"), not raw
+   logs or chat dumps.
+4. Include confidence and scope boundaries when evidence is partial.
+5. Reject proposals that cannot be verified beyond a single session.
+
 ### Review decision map
 
 ```mermaid

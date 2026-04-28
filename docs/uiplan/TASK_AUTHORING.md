@@ -283,14 +283,42 @@ Add this before tasks for each phase or story:
 Use imperative wording for required behaviors (`always`, `never`), not soft
 phrasing (`consider`, `try`).
 
-## HITL routing override rule
+## HITL routing contract (required when HITL is in scope)
 
-Default HITL routing can remain Action Center/custom HITL, but if `spec.md` or
-`plan.md` explicitly mandates UiPath Flow as the HITL canvas, `tasks.md` must:
+HITL routing must come from accepted `spec.md`/`plan.md`, not implementer
+assumptions. `tasks.md` must state the chosen route explicitly:
 
-1. Include a visible override note near the top of the document.
-2. Route implementation tasks through `[skill:uipath-maestro-flow]`.
-3. Keep the reasoning traceability to the spec/plan override text.
+- Flow/Maestro-owned HITL route: `[skill:uipath-maestro-flow]` plus
+  `[skill:uipath-human-in-the-loop]`.
+- Action Center/native HITL route: `[skill:uipath-human-in-the-loop]`.
+- Org custom route (for example Slack + Adaptive Card + Action Center External
+  Task): the approved custom process/skill path with callback/resume wiring.
+
+If Flow HITL is explicitly mandated, include a visible override note near the
+top of the document and maintain traceability back to the spec/plan statement.
+
+### HITL task card requirements
+
+Each HITL task card must include:
+
+- trigger condition taxonomy (`low_confidence`, `policy_exception`,
+  `missing_data`, `manual_approval`, `escalation`, `audit_review`);
+- human-facing payload schema plus hidden metadata fields;
+- channel owner (`Flow`, `ActionCenter`, `SlackCustom`, `CodedApp`);
+- decision values and validation rules;
+- resume target/callback contract;
+- timeout and escalation behavior;
+- required assets/secrets and explicit handoff tags where values are withheld;
+- verification commands and evidence paths;
+- audit assertions (`approvalOrTaskId`, `jobId`, `correlationId`, decision log).
+
+Embedded email forms are compatibility-risky and must not be the only HITL
+interaction path. If email is used, task cards must include a fallback CTA link
+to the hosted approval surface and verification against the target email client.
+
+If required dependencies are unavailable (Slack app setup, OAuth consent,
+Action Center permissions, callback endpoint), record blocker class, command
+evidence, and the closest safe executable schema/local smoke test.
 
 ## Failure review
 

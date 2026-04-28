@@ -206,7 +206,7 @@ Cursor uses the `uipath-rpa` skill and generates:
 | `uipath-rpa` | XAML and coded RPA workflow authoring, validation, package setup, UI automation authoring |
 | `uipath-interact` | Live desktop/browser inspection, screenshots, click/type actions, post-build verification |
 | `uipath-planner` | Multi-skill planning and ambiguous UiPath requests |
-| `uiplan` | Cursor-first spec/plan/tasks bundle under `.cursor/plans/` |
+| `uiplan` | Cursor-first spec/plan/tasks bundle under `.cursor/plans/`; standards in [uiplan/README.md](uiplan/README.md) and [uiplan/TASK_AUTHORING.md](uiplan/TASK_AUTHORING.md) |
 | `uipath-platform` | Orchestrator, folders, queues, assets, Integration Service, package publish/deploy |
 | `uipath-maestro-flow` | Maestro `.flow` orchestration |
 | `uipath-human-in-the-loop` | Action Center and approval gates in Flow/Maestro/agents |
@@ -283,6 +283,9 @@ Or run the staged flow:
 `--paradigm <value>` to force scaffold type when auto-detection is ambiguous.
 `/uiplan-review` now checks feasibility gates (paradigm, descriptor files,
 CLI-family consistency, artifact-level tasks, and deploy gate language).
+Use [uiplan/README.md](uiplan/README.md) for the 360 visibility contract and
+[uiplan/TASK_AUTHORING.md](uiplan/TASK_AUTHORING.md) for executor-grade task
+cards, per-workflow diagrams, and HITL routing requirements.
 
 After review passes and you accept the bundle, use:
 
