@@ -51,6 +51,27 @@ commands. The status flow is:
 Never publish by manually copying files to `docs/plans/`, and never treat a draft
 as implementation-approved only because it exists on disk.
 
+## Lessons now codified for future builds
+
+These are permanent guardrails from recent build retrospectives and are required
+in new UiPlan bundles:
+
+- **Dispatcher-template fidelity**: if mailbox intake enqueues work, tasks must
+  name the dispatcher template/scaffold source and preserve dispatcher
+  structure (config/assets/queues/exception/logging), not replace it with a
+  generic manual workflow.
+- **Real connector intake evidence**: intake stories must prove real mailbox
+  read behavior (safe sample is fine); stub payloads or fabricated message IDs
+  are not valid completion evidence.
+- **Per-workflow visual contract**: each in-scope `.xaml`, `.flow`, graph, and
+  DMN surface needs its own internal-step diagram and activity checklist row.
+- **Studio-visible observability**: workflow phases and correlation IDs must be
+  visible in runtime logs, and log assertions must be included in verification
+  evidence.
+- **Resource/deploy realism**: local pack success is not enough; tasks must
+  explicitly handle resource/binding provisioning and record tenant/runtime
+  evidence or an explicit blocker class.
+
 ## Human approval gate
 
 Do **not** treat `generate-docs` output as approved scope by default.

@@ -143,6 +143,8 @@ reasoning, and Flow/process branching.
 - [ ] Test fixtures identified for each story.
 - [ ] DMN explicitly marked in-scope or out-of-scope.
 - [ ] Human approval gates called out where required.
+- [ ] If mailbox intake is in scope, dispatcher-template provenance is explicit
+  and completion criteria require real mailbox read evidence (not stub IDs).
 - [ ] If coded agents are in scope, acceptance includes deployed invocation,
   output review, and Orchestrator trace/graph verification (entrypoint,
   package version, graph node spans), not only a successful job state.

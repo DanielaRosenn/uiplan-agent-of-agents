@@ -119,7 +119,8 @@ When generating or reviewing `tasks.md`, enforce:
 Prefer explicit imperative wording (`always`, `never`) for hard requirements.
 
 For mailbox dispatcher work, always enforce the dispatcher scaffold guardrail:
-tasks must cite the scaffold/template source, preserve config/assets/queues,
+tasks must cite the template catalog root (`scaffold/template`), record
+`dispatcher` as the selected template type, preserve config/assets/queues,
 exception handling, logging, mailbox read, and idempotency/cursor behavior, and
 must not close with stub-only `PullMailbox`, fabricated `stub-*` message IDs, or
 hardcoded queue payloads.

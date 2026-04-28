@@ -42,6 +42,11 @@ UiPlan now enforces a 360 build-visibility contract across the bundle:
 - `/uiplan-implement` runs a preflight and refuses thin accepted bundles before
   source edits.
 
+Recent lessons are now part of the default contract: dispatcher-template
+provenance for mailbox intake, real connector-read evidence, per-workflow
+diagram + activity checklist coverage, and Studio-visible correlation/log
+assertions.
+
 Use `--paradigm` to override detection when needed (for example, forcing
 `coded-agent` or `solution` in mixed repositories).
 

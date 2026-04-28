@@ -164,8 +164,10 @@ Every generated task list MUST include project facts from `spec.md` / `plan.md`,
   and record `dispatcher` as the selected template type. It must preserve
   config/assets/queues/exception/logging concepts and include concrete tasks for
   real connector mailbox reads, non-stub queue payloads, idempotency/cursor
-  behavior, and Studio-visible phase logs. A `PullMailbox` workflow that only
-  logs or fabricates `stub-*` message IDs cannot close the story.
+  behavior, and Studio-visible phase logs. Evidence must include one real
+  connector-read smoke log (safe sample scope is acceptable), queue item proof,
+  and correlation-id log assertions. A `PullMailbox` workflow that only logs or
+  fabricates `stub-*` message IDs cannot close the story.
 - **Agent facts** for agent-backed features: `langgraph.json` / `llama_index.json`, graph entry point, node list, model/gateway assumptions, local `uipath run` or pytest command, and host invocation schema.
 - **Agent deployment acceptance** for coded agents: after publish/deploy, invoke
   the deployed entrypoint with safe input, read job output and logs, fetch traces

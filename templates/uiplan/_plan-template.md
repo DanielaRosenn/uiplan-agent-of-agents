@@ -119,6 +119,15 @@ and which activities/nodes must exist before implementation is considered done.
 | --- | --- | --- | --- | --- | --- |
 | `projects/<Name>/Main.xaml` | `## Surface execution visuals` | Sequence, Switch, If, Assign, Log Message, Try Catch | `uipath_doc_get_activity` + package source | `[skill:uipath-rpa]` | `uipcli package analyze ... --resultPath out/analyze-<name>.json` |
 
+If workflow intake is mailbox-driven, add explicit rows for dispatcher intake
+surfaces and include:
+
+- scaffold/template provenance (dispatcher template root or existing dispatcher
+  project source),
+- real connector read activity boundary (safe sample allowed),
+- idempotency/cursor behavior,
+- non-stub queue payload evidence.
+
 ## Activity Inventory
 
 Only entries resolved via `uipath_doc_get_activity` / `uipath_library_search` /

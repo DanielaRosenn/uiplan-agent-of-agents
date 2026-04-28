@@ -48,6 +48,17 @@ Discovery is a precondition to task authoring, not a task output.
 
 `tasks.md` should begin when the team already knows what to build.
 
+## Retrospective carry-forward checks
+
+When prior project transcripts expose delivery gaps, encode them directly in the
+next `tasks.md` contract instead of treating them as one-off fixes. At minimum:
+
+- require explicit scaffold/template provenance for workflow families (especially
+  dispatcher-style mailbox intake);
+- require runtime evidence from real connector intake, not fabricated payloads;
+- require one diagram + one activity checklist row per workflow artifact;
+- require Studio-visible phase + correlation logging assertions in final evidence.
+
 ## Persona checkpoints
 
 Before acceptance, review a non-trivial UiPlan bundle through these lenses:
