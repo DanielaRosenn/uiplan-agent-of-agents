@@ -100,6 +100,11 @@ def _visibility_defaults(paradigm: str) -> dict[str, str]:
         "VERIFY_1_COMMAND": _needs_clarification("verify command"),
         "VERIFY_1_DONE_WHEN": "verification command succeeds and assertions pass",
         "VERIFY_1_EVIDENCE": "evidence output path",
+        "WF_1_PATH": _needs_clarification("workflow artifact path"),
+        "WF_1_DIAGRAM_SECTION": "`spec.md` `### Workflow surface visual catalog (required)`",
+        "WF_1_MANDATORY_ACTIVITIES": _needs_clarification("mandatory activities/nodes"),
+        "WF_1_SKILL_TOOL_ROUTE": "[skill:uipath-rpa] + uipath_doc_get_activity (or matching specialist)",
+        "WF_1_EVIDENCE": "analyze/validate/test evidence path",
     }
 
 

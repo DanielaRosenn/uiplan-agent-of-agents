@@ -458,6 +458,23 @@ def review_spec_text(spec: str, repo: Path | None = None) -> list[dict[str, Any]
                         "spec.md",
                     )
                 )
+    if "## 360 Build Visibility Contract" in spec:
+        spec_workflow_paths = _spec_workflow_artifacts(spec)
+        if spec_workflow_paths:
+            missing_visual = _missing_spec_visual_catalog_paths(spec, spec_workflow_paths)
+            if missing_visual:
+                findings.append(
+                    _finding(
+                        "error",
+                        "spec",
+                        "RULE_SPEC_NO_WORKFLOW_VISUAL",
+                        "spec.md must include `### Workflow surface visual catalog (required)` with one "
+                        "dedicated `#### `<artifact>` section and Mermaid diagram per in-scope workflow "
+                        "artifact. Missing visual coverage for: "
+                        + ", ".join(missing_visual),
+                        "spec.md",
+                    )
+                )
     if repo is not None:
         ctx = repo / ".claude" / "rules" / "project-context.md"
         if not ctx.is_file() and "uipath-project-discovery-agent" not in spec.lower():
@@ -857,6 +874,16 @@ _PER_WORKFLOW_ACTIVITY_CHECKLIST_HEADING_RE = re.compile(
     r"##\s*Per-workflow activity checklist",
     re.IGNORECASE,
 )
+_SPEC_360_HEADING_RE = re.compile(r"##\s*360\s+Build\s+Visibility\s+Contract", re.IGNORECASE)
+_SPEC_WORKFLOW_VISUAL_CATALOG_HEADING_RE = re.compile(
+    r"###\s*Workflow\s+surface\s+visual\s+catalog",
+    re.IGNORECASE,
+)
+_PLAN_SPEC_ARTIFACT_CHAIN_HEADING_RE = re.compile(r"##\s*Spec\s+artifact\s+chain\s+map", re.IGNORECASE)
+_PLAN_WORKFLOW_CONFORMANCE_HEADING_RE = re.compile(
+    r"##\s*Workflow\s+diagram\s*\+\s*activity\s+conformance\s+matrix",
+    re.IGNORECASE,
+)
 _SPEC_ARTIFACT_TOKEN_RE = re.compile(
     r"[A-Za-z0-9_./-]+\.(?:xaml|flow|py|dmn|json|uipx|uiproj)",
     re.IGNORECASE,
@@ -886,6 +913,34 @@ def _extract_section(text: str, heading_pattern: re.Pattern[str]) -> str:
     if not next_heading:
         return rest
     return rest[: next_heading.start()]
+
+
+def _spec_workflow_artifacts(spec: str) -> set[str]:
+    """Return workflow artifacts declared in spec 360 section."""
+    contract = _extract_section(spec, _SPEC_360_HEADING_RE)
+    if not contract.strip():
+        return set()
+    return {
+        p.strip()
+        for p in _WORKFLOW_PATH_TOKEN_RE.findall(contract)
+        if any(ext in p.lower() for ext in (".xaml", ".flow", ".py", ".dmn"))
+    }
+
+
+def _missing_spec_visual_catalog_paths(spec: str, paths: set[str]) -> list[str]:
+    """Return spec workflow artifacts that do not have a dedicated visual section + mermaid."""
+    catalog = _extract_section(spec, _SPEC_WORKFLOW_VISUAL_CATALOG_HEADING_RE)
+    if not catalog.strip():
+        return sorted(paths)
+    missing: list[str] = []
+    for path in sorted(paths):
+        pattern = re.compile(
+            rf"####\s*`{re.escape(path)}`.*?```mermaid",
+            re.IGNORECASE | re.DOTALL,
+        )
+        if not pattern.search(catalog):
+            missing.append(path)
+    return missing
 
 
 def _review_task_section_contracts(tasks: str, paradigm: str | None) -> list[dict[str, Any]]:
@@ -1279,6 +1334,7 @@ def review_tasks_text(tasks: str, spec: str) -> list[dict[str, Any]]:
             )
         )
     if workflow_paths:
+        has_rule_tasks_no_diagram = False
         if not _MINI_TOPOLOGY_RE.search(tasks):
             findings.append(
                 _finding(
@@ -1289,6 +1345,7 @@ def review_tasks_text(tasks: str, spec: str) -> list[dict[str, Any]]:
                     "tasks.md",
                 )
             )
+            has_rule_tasks_no_diagram = True
             findings.append(
                 _finding(
                     "error",
@@ -1342,15 +1399,16 @@ def review_tasks_text(tasks: str, spec: str) -> list[dict[str, Any]]:
                     "tasks.md",
                 )
             )
-            findings.append(
-                _finding(
-                    "error",
-                    "tasks",
-                    "RULE_TASKS_NO_DIAGRAM",
-                    "Per-workflow diagram coverage is incomplete for one or more referenced artifacts.",
-                    "tasks.md",
+            if not has_rule_tasks_no_diagram:
+                findings.append(
+                    _finding(
+                        "error",
+                        "tasks",
+                        "RULE_TASKS_NO_DIAGRAM",
+                        "Per-workflow diagram coverage is incomplete for one or more referenced artifacts.",
+                        "tasks.md",
+                    )
                 )
-            )
     if _ANALYZER_POLICY_TRIGGER_RE.search(tasks) and not _ANALYZER_POLICY_DIAGNOSIS_RE.search(tasks):
         findings.append(
             _finding(
@@ -1559,6 +1617,7 @@ def review_duplicate_uiplan_slug(repo: Path, slug: str) -> list[dict[str, Any]]:
 
 def review_cross(spec: str, plan: str, tasks: str) -> list[dict[str, Any]]:
     findings: list[dict[str, Any]] = []
+    spec_workflow_paths = _spec_workflow_artifacts(spec)
     if "## 360 Build Visibility Contract" in spec:
         spec_artifacts = {m.group(0) for m in _SPEC_ARTIFACT_TOKEN_RE.finditer(spec)}
         missing = [a for a in sorted(spec_artifacts) if a not in plan and a not in tasks]
@@ -1570,6 +1629,48 @@ def review_cross(spec: str, plan: str, tasks: str) -> list[dict[str, Any]]:
                     "RULE_SPEC_ARTIFACT_MISSING",
                     "Artifacts declared in spec 360 contract are missing from plan/tasks: "
                     + ", ".join(missing[:8]),
+                    "cross",
+                )
+            )
+    if spec_workflow_paths:
+        plan_chain = _extract_section(plan, _PLAN_SPEC_ARTIFACT_CHAIN_HEADING_RE)
+        plan_conformance = _extract_section(plan, _PLAN_WORKFLOW_CONFORMANCE_HEADING_RE)
+        tasks_checklist = _extract_section(tasks, _PER_WORKFLOW_ACTIVITY_CHECKLIST_HEADING_RE)
+        missing_chain = [p for p in sorted(spec_workflow_paths) if p not in plan_chain]
+        if missing_chain:
+            findings.append(
+                _finding(
+                    "error",
+                    "cross",
+                    "RULE_SPEC_VISUAL_CHAIN_MISSING",
+                    "Spec workflow artifacts must appear in `plan.md` `## Spec artifact chain map`. "
+                    "Missing: " + ", ".join(missing_chain),
+                    "cross",
+                )
+            )
+        missing_plan_conformance = [p for p in sorted(spec_workflow_paths) if p not in plan_conformance]
+        if missing_plan_conformance:
+            findings.append(
+                _finding(
+                    "error",
+                    "cross",
+                    "RULE_SPEC_VISUAL_CHAIN_MISSING",
+                    "Spec workflow artifacts must appear in `plan.md` "
+                    "`## Workflow diagram + activity conformance matrix (required)`. Missing: "
+                    + ", ".join(missing_plan_conformance),
+                    "cross",
+                )
+            )
+        missing_tasks_checklist = [p for p in sorted(spec_workflow_paths) if p not in tasks_checklist]
+        if missing_tasks_checklist:
+            findings.append(
+                _finding(
+                    "error",
+                    "cross",
+                    "RULE_SPEC_VISUAL_CHAIN_MISSING",
+                    "Spec workflow artifacts must appear in `tasks.md` "
+                    "`## Per-workflow activity checklist (required)`. Missing: "
+                    + ", ".join(missing_tasks_checklist),
                     "cross",
                 )
             )

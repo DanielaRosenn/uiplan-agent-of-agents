@@ -199,6 +199,22 @@ activities/nodes (no generic placeholders).
 | --- | --- | --- | --- | --- |
 | {{WF_1_PATH}} | {{WF_1_DIAGRAM_SECTION}} | {{WF_1_MANDATORY_ACTIVITIES}} | {{WF_1_SKILL_TOOL_ROUTE}} | {{WF_1_EVIDENCE}} |
 
+### Workflow surface visual catalog (required)
+
+For every in-scope workflow artifact listed above, add a dedicated subsection
+and Mermaid internal-step flow. Keep one subsection per artifact path.
+
+#### `{{WF_1_PATH}}`
+
+```mermaid
+flowchart TD
+  Trigger[Trigger_or_input] --> Work[Internal_steps_and_branches]
+  Work --> Output[Terminal_outcome_or_writeback]
+```
+
+Repeat this pattern for each workflow artifact (`.xaml`, `.flow`, workflow
+`.py`, `.dmn`) in scope.
+
 ### Clarification resolution ledger
 
 Track unresolved business/technical facts so `plan.md` and `tasks.md` can map

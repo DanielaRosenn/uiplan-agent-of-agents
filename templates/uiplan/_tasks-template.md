@@ -366,7 +366,7 @@ Use this map when executing `tasks.md` with an LLM.
 | evidence requirements | task card + log assertion checklist | command + artifact + evidence path |
 | unresolved blockers | clarification ledger + diagnosis contract | closure task or blocker class evidence |
 
-## Per-workflow actual flow diagrams (required)
+## Workflow surface visual catalog (required)
 
 For every workflow artifact listed in `plan.md` workflow catalog (for example
 `.xaml`, `.flow`, LangGraph entrypoints, DMN decisions), include a diagram in
@@ -380,10 +380,11 @@ For every workflow artifact listed in `plan.md` workflow catalog (for example
 Do not use placeholder boxes only. The implementer should be able to build the
 artifact directly from the diagram + task card.
 
-For each listed workflow artifact, include an alias line immediately before its
-diagram:
+For each listed workflow artifact, include:
 
-- `<artifact alias> -> <full repo path>`
+- an alias line (`<artifact alias> -> <full repo path>`);
+- a dedicated subsection such as `### Mini-topology: \`<full repo path>\``;
+- one Mermaid diagram showing internal step flow for that artifact.
 
 ## Per-workflow activity checklist (required)
 

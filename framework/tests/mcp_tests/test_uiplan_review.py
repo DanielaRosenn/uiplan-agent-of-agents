@@ -464,6 +464,67 @@ def test_review_requires_spec_360_visibility_contract():
     assert any(f.get("rule") == "RULE_SPEC_NO_360" for f in findings)
 
 
+def test_review_requires_spec_workflow_visual_catalog():
+    spec = (
+        "### User Story 1 - A (Priority: P1)\n"
+        "**Given** a **When** b **Then** c\n"
+        "## Requirements\n### Functional Requirements\n**FR-001**: System MUST x\n"
+        "## Success Criteria\n### Measurable Outcomes\n**SC-001**: y\n"
+        "## 360 Build Visibility Contract\n"
+        "### Workflow and artifact visibility inventory\n"
+        "| Artifact path | Type/surface | Owns user story | Invocation entrypoint | Cannot be stubbed by | Evidence required |\n"
+        "| --- | --- | --- | --- | --- | --- |\n"
+        "| `projects/A/Main.xaml` | xaml | US1 | Main | placeholder | out/a.json |\n"
+        "### Workflow-level visual and activity conformance\n"
+        "| Workflow artifact | Diagram section (spec/plan/tasks) | Mandatory activities/nodes | Skill/tool route | Verification evidence |\n"
+        "| --- | --- | --- | --- | --- |\n"
+        "| `projects/A/Main.xaml` | `spec.md` visual section | Sequence, Log Message | [skill:uipath-rpa] | out/analyze.json |\n"
+        "## LLM / Executor Readiness Contract\n"
+        "### Role and scope\n- x\n"
+        "### Environment and conventions\n- x\n"
+        "### Skill routing matrix\n|a|b|c|d|\n|---|---|---|---|\n|x|y|z|w|\n"
+        "### Decision logic inventory\n|a|b|c|d|e|f|\n|---|---|---|---|---|---|\n|x|y|z|w|q|r|\n"
+        "### Build readiness checklist\n- [ ] x\n"
+        "## Development Handoff\n"
+        "**Implementation paradigm**: modern-rpa\n**CLI family**: uipcli\n"
+        "uipath_library_search uipath_library_lookup query_uipath_docs uipath_doc_get_activity tasks.md uipath_plan_review\n"
+    )
+    findings = review_spec_text(spec, None)
+    assert any(f.get("rule") == "RULE_SPEC_NO_WORKFLOW_VISUAL" for f in findings)
+
+
+def test_review_accepts_spec_workflow_visual_catalog_when_complete():
+    spec = (
+        "### User Story 1 - A (Priority: P1)\n"
+        "**Given** a **When** b **Then** c\n"
+        "## Requirements\n### Functional Requirements\n**FR-001**: System MUST x\n"
+        "## Success Criteria\n### Measurable Outcomes\n**SC-001**: y\n"
+        "## 360 Build Visibility Contract\n"
+        "### Workflow and artifact visibility inventory\n"
+        "| Artifact path | Type/surface | Owns user story | Invocation entrypoint | Cannot be stubbed by | Evidence required |\n"
+        "| --- | --- | --- | --- | --- | --- |\n"
+        "| `projects/A/Main.xaml` | xaml | US1 | Main | placeholder | out/a.json |\n"
+        "### Workflow-level visual and activity conformance\n"
+        "| Workflow artifact | Diagram section (spec/plan/tasks) | Mandatory activities/nodes | Skill/tool route | Verification evidence |\n"
+        "| --- | --- | --- | --- | --- |\n"
+        "| `projects/A/Main.xaml` | `spec.md` visual section | Sequence, Log Message | [skill:uipath-rpa] | out/analyze.json |\n"
+        "### Workflow surface visual catalog (required)\n"
+        "#### `projects/A/Main.xaml`\n"
+        "```mermaid\nflowchart TD\nA[Start] --> B[Work]\n```\n"
+        "## LLM / Executor Readiness Contract\n"
+        "### Role and scope\n- x\n"
+        "### Environment and conventions\n- x\n"
+        "### Skill routing matrix\n|a|b|c|d|\n|---|---|---|---|\n|x|y|z|w|\n"
+        "### Decision logic inventory\n|a|b|c|d|e|f|\n|---|---|---|---|---|---|\n|x|y|z|w|q|r|\n"
+        "### Build readiness checklist\n- [ ] x\n"
+        "## Development Handoff\n"
+        "**Implementation paradigm**: modern-rpa\n**CLI family**: uipcli\n"
+        "uipath_library_search uipath_library_lookup query_uipath_docs uipath_doc_get_activity tasks.md uipath_plan_review\n"
+    )
+    findings = review_spec_text(spec, None)
+    assert not any(f.get("rule") == "RULE_SPEC_NO_WORKFLOW_VISUAL" for f in findings)
+
+
 def test_review_requires_plan_connector_boundary_and_log_contract():
     findings = review_plan_text(
         "## Planner Route & Specialist Handoff\n[skill:uipath-planner]\n"
@@ -512,6 +573,42 @@ def test_review_flags_spec_artifact_missing_chain():
     assert any(f.get("rule") == "RULE_SPEC_ARTIFACT_MISSING" for f in out["findings"])
 
 
+def test_review_flags_spec_visual_chain_missing():
+    spec = (
+        "## 360 Build Visibility Contract\n"
+        "### Workflow and artifact visibility inventory\n"
+        "| Artifact path | Type/surface | Owns user story | Invocation entrypoint | Cannot be stubbed by | Evidence required |\n"
+        "| --- | --- | --- | --- | --- | --- |\n"
+        "| `projects/A/Main.xaml` | xaml | US1 | Main | placeholder | out/a.json |\n"
+        "### Workflow-level visual and activity conformance\n"
+        "| Workflow artifact | Diagram section (spec/plan/tasks) | Mandatory activities/nodes | Skill/tool route | Verification evidence |\n"
+        "| --- | --- | --- | --- | --- |\n"
+        "| `projects/A/Main.xaml` | `spec.md` visual section | Sequence, Log Message | [skill:uipath-rpa] | out/analyze.json |\n"
+        "### Workflow surface visual catalog (required)\n"
+        "#### `projects/A/Main.xaml`\n"
+        "```mermaid\nflowchart TD\nA[Start] --> B[Work]\n```\n"
+    )
+    out = run_uiplan_review(
+        spec=spec,
+        plan=(
+            "## Spec artifact chain map\n| Spec artifact path | Plan section owning design | Planned task area | Verify/evidence owner |\n"
+            "| --- | --- | --- | --- |\n"
+            "| `projects/B/Main.xaml` | `## Workflow Catalog` | `tasks.md` | `## CLI Command Matrix` |\n"
+        ),
+        tasks=(
+            "## Per-workflow activity checklist (required)\n"
+            "| Workflow artifact | Activity/node checklist (must exist) | How to confirm | Skill/tool route | Evidence path |\n"
+            "| --- | --- | --- | --- | --- |\n"
+            "| `projects/B/Main.xaml` | Sequence | analyze | [skill:uipath-rpa] | out/analyze.json |\n"
+        ),
+        stage="all",
+        gate_ids=[],
+        repo=None,
+        slug="spec-visual-chain-missing",
+    )
+    assert any(f.get("rule") == "RULE_SPEC_VISUAL_CHAIN_MISSING" for f in out["findings"])
+
+
 def test_review_flags_stub_xaml_and_missing_diagram_rules():
     findings = review_tasks_text(
         "## Phase 3: User Story 1 - A (Priority: P1)\n"
@@ -544,3 +641,19 @@ def test_review_flags_missing_activity_checklist_for_workflow_artifacts():
         "### User Story 1 - A (Priority: P1)\n**Implementation paradigm**: solution\n",
     )
     assert any(f.get("rule") == "RULE_TASKS_NO_ACTIVITY_CHECKLIST" for f in findings)
+
+
+def test_review_emits_single_rule_tasks_no_diagram_finding():
+    findings = review_tasks_text(
+        "## Phase 3: User Story 1 - A (Priority: P1)\n"
+        "### Tests for User Story 1\n"
+        "- [ ] T010 [US1] test `tests/t.py` uipath_library_search uv run pytest tests/t.py -q\n"
+        "### Implementation for User Story 1\n"
+        "- [ ] T011 [US1] implement `projects/A/Main.xaml` [skill:uipath-rpa] "
+        "uipath_library_search personal workspace Production\n"
+        "## Phase 5: Build, Verify, and Handoff\n"
+        "- [ ] T030 build `out/pkg.nupkg` pytest junit analyzer resultPath robot log\n",
+        "### User Story 1 - A (Priority: P1)\n**Implementation paradigm**: solution\n",
+    )
+    count = sum(1 for f in findings if f.get("rule") == "RULE_TASKS_NO_DIAGRAM")
+    assert count == 1

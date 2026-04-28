@@ -23,6 +23,11 @@ explicitly asks for the next step after seeing review output.
 - `spec.md` must include user stories, acceptance scenarios, FR/SC sections.
 - `spec.md` must include `## 360 Build Visibility Contract`. Missing section is a
   blocking error (`RULE_SPEC_NO_360`).
+- When workflow artifacts are declared in the 360 section (`.xaml`, `.flow`,
+  workflow `.py`, `.dmn`), `spec.md` must include
+  `### Workflow surface visual catalog (required)` with one dedicated
+  `#### <artifact path>` subsection and Mermaid diagram per artifact. Missing or
+  incomplete coverage is a blocking error (`RULE_SPEC_NO_WORKFLOW_VISUAL`).
 - `spec.md` must include `## LLM / Executor Readiness Contract` with:
   - `### Role and scope`,
   - `### Environment and conventions`,
@@ -151,6 +156,9 @@ explicitly asks for the next step after seeing review output.
   (`RULE_ANY_TEMPLATE_RESIDUE`).
 - Reject spec artifacts declared in the 360 contract when they do not appear in
   plan/tasks (`RULE_SPEC_ARTIFACT_MISSING`).
+- Reject bundle drift when spec workflow artifacts are missing from
+  `plan.md` artifact-chain/conformance sections or `tasks.md` per-workflow
+  checklist (`RULE_SPEC_VISUAL_CHAIN_MISSING`).
 
 ### Stack and policy checks
 

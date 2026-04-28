@@ -119,6 +119,22 @@ and which activities/nodes must exist before implementation is considered done.
 | --- | --- | --- | --- | --- | --- |
 | `projects/<Name>/Main.xaml` | `## Surface execution visuals` | Sequence, Switch, If, Assign, Log Message, Try Catch | `uipath_doc_get_activity` + package source | `[skill:uipath-rpa]` | `uipcli package analyze ... --resultPath out/analyze-<name>.json` |
 
+## Surface execution visuals (required)
+
+For each workflow artifact listed in `## Workflow Catalog`, add one dedicated
+subsection and Mermaid diagram.
+
+#### `projects/<Name>/Main.xaml`
+
+```mermaid
+flowchart TD
+  Trigger[Trigger_or_input] --> Work[Internal_steps_and_branches]
+  Work --> Output[Terminal_outcome_or_writeback]
+```
+
+Repeat this pattern for every `.xaml`, `.flow`, workflow `.py`, and `.dmn`
+artifact referenced by this plan.
+
 If workflow intake is mailbox-driven, add explicit rows for dispatcher intake
 surfaces and include:
 
