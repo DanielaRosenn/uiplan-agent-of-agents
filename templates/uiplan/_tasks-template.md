@@ -168,14 +168,23 @@ Every generated task list MUST include project facts from `spec.md` / `plan.md`,
   template. Each row must include why that template fits the use case and what generated structure
   must be preserved.
 - **Mailbox dispatcher guardrail**: if a task builds or remediates mailbox intake
-  that queues work, it must cite the template catalog root (`scaffold/template`)
-  and record `dispatcher` as the selected template type. It must preserve
-  config/assets/queues/exception/logging concepts and include concrete tasks for
-  real connector mailbox reads, non-stub queue payloads, idempotency/cursor
-  behavior, and Studio-visible phase logs. Evidence must include one real
-  connector-read smoke log (safe sample scope is acceptable), queue item proof,
-  and correlation-id log assertions. A `PullMailbox` workflow that only logs or
-  fabricates `stub-*` message IDs cannot close the story.
+  that queues work, it must physically copy or export the dispatcher project
+  from `scaffold/template/dispatcher` (or name the exact Studio template export
+  path) into the target dispatcher project folder before any customization.
+  Citation-only provenance is not enough. The dispatcher template is a shell
+  that hosts the actual business process; it is not complete just because it was
+  copied. The copied project must retain the dispatcher structure (`Data/`,
+  `Framework/`, `Logical/`, `Templates/`, `Main.xaml`, `Process.xaml`, and the
+  queue push workflow) unless the accepted plan records an approved equivalent
+  template. Follow-on mailbox read, non-stub queue payload, idempotency/cursor,
+  and phase log tasks must customize that host shell in place by wiring the
+  business-specific intake logic into its config, process workflow, logical
+  components, and queue handoff. Do not replace it with standalone log-only
+  workflows. Evidence must include the copy/export source, target path, copied
+  file inventory, business-specific config diff, customized workflow evidence,
+  one real connector-read smoke log (safe sample scope is acceptable), queue item
+  proof, and correlation-id log assertions. A `PullMailbox` workflow that only
+  logs or fabricates `stub-*` message IDs cannot close the story.
 - **Agent facts** for agent-backed features: `langgraph.json` / `llama_index.json`, graph entry point, node list, model/gateway assumptions, local `uipath run` or pytest command, and host invocation schema.
 - **Agent deployment acceptance** for coded agents: after publish/deploy, invoke
   the deployed entrypoint with safe input, read job output and logs, fetch traces
@@ -297,7 +306,7 @@ flowchart LR
   subgraph Skills["Specialist skills"]
     RPA["uipath-rpa"]
     Agents["uipath-agents"]
-    HITL["uipath-custom-hitl"]
+    HITL["HITL route from plan.md"]
     Platform["uipath-platform"]
     Diag["uipath-diagnostics"]
     Test["uipath-test"]
@@ -318,6 +327,7 @@ flowchart LR
   RPA --> Library
   Agents --> AskAI
   HITL --> ActivityDoc
+  HITL --> Library
   classDef skill fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.25px
   classDef tool  fill:#ECFEFF,stroke:#0891B2,color:#164E63,stroke-width:1.25px
   class RPA,Agents,HITL,Platform,Diag,Test,Mermaid skill
@@ -367,6 +377,9 @@ flowchart TD
   T020[T020_implementation]
   T030[T030_verify]
   T001 --> T010 --> T020 --> T030
+  classDef task fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  class T001,T010,T020,T030 task
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
 ```
 
 ## LLM execution navigation guide
@@ -414,17 +427,19 @@ row that names the required activities/nodes and how they are verified.
 
 ```mermaid
 flowchart TD
-  Start([Per-workflow review]):::start --> HasDiagram{Diagram exists?}:::decision
-  HasDiagram -- No --> AddDiagram[Add workflow diagram]:::process
-  HasDiagram -- Yes --> HasChecklist{Activity checklist complete?}:::decision
-  AddDiagram --> HasChecklist
-  HasChecklist -- No --> PatchWorkflow[Patch activities/nodes]:::process
-  HasChecklist -- Yes --> VerifyGate[Run validate/test/analyze gate]:::service
-  PatchWorkflow --> VerifyGate
-  VerifyGate --> Pass{Gate passed?}:::decision
-  Pass -- No --> Diagnose[Rerun diagnose + fix loop]:::human
-  Pass -- Yes --> Evidence(((Record evidence path))):::endOk
-  Diagnose --> VerifyGate
+  subgraph ActivityGate["Activity conformance"]
+    Start([Per-workflow review]):::start --> HasDiagram{Diagram exists?}:::decision
+    HasDiagram -- No --> AddDiagram[Add workflow diagram]:::process
+    HasDiagram -- Yes --> HasChecklist{Activity checklist complete?}:::decision
+    AddDiagram --> HasChecklist
+    HasChecklist -- No --> PatchWorkflow[Patch activities/nodes]:::process
+    HasChecklist -- Yes --> VerifyGate[Run validate/test/analyze gate]:::service
+    PatchWorkflow --> VerifyGate
+    VerifyGate --> Pass{Gate passed?}:::decision
+    Pass -- No --> Diagnose[Rerun diagnose + fix loop]:::human
+    Pass -- Yes --> Evidence(((Record evidence path))):::endOk
+    Diagnose --> VerifyGate
+  end
 
   classDef start fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:2px
   classDef endOk fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:2px

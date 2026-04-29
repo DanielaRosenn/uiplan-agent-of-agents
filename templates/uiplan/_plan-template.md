@@ -92,6 +92,11 @@ task execution.
 ## Project Inventory
 
 Every project in scope, its kind, descriptor, starter template, and scaffold command.
+When `spec.md` names a template-backed surface (for example Dispatcher,
+Performer, Long Running Workflow, Flow HITL, or coded-agent scaffold), the plan
+must name that exact starter template and preserve its intended runtime shape.
+Do not replace a named template with a blank project scaffold unless `plan.md`
+records the reason and the equivalent runtime behavior.
 
 | Project | Kind | Repo path | Descriptor | Starter template | Scaffold command |
 | --- | --- | --- | --- | --- | --- |
@@ -130,6 +135,9 @@ subsection and Mermaid diagram.
 flowchart TD
   Trigger[Trigger_or_input] --> Work[Internal_steps_and_branches]
   Work --> Output[Terminal_outcome_or_writeback]
+  classDef node fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  class Trigger,Work,Output node
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
 ```
 
 Repeat this pattern for every `.xaml`, `.flow`, workflow `.py`, and `.dmn`
@@ -138,8 +146,16 @@ artifact referenced by this plan.
 If workflow intake is mailbox-driven, add explicit rows for dispatcher intake
 surfaces and include:
 
-- scaffold/template provenance (dispatcher template root or existing dispatcher
-  project source),
+- scaffold/template provenance (dispatcher template root, Studio template name,
+  or existing dispatcher project source),
+- physical copy/export requirement: name the exact source folder or Studio
+  export and the target folder that will receive it before customization,
+- dispatcher host-shell role: state explicitly that the copied dispatcher
+  template hosts the actual business process and still requires
+  business-specific configuration, workflow customization, queue payload mapping,
+  and smoke evidence,
+- copied structure that must remain intact (`Data/`, `Framework/`, `Logical/`,
+  `Templates/`, `Main.xaml`, `Process.xaml`, queue push workflow),
 - real connector read activity boundary (safe sample allowed),
 - idempotency/cursor behavior,
 - non-stub queue payload evidence.

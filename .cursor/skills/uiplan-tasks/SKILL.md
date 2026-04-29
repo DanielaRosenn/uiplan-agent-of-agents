@@ -74,6 +74,31 @@ Tasks must reflect actual build targets for the declared paradigm:
 - coded-app: `app.config.json`, `action-schema.json`, `src/`, `uip codedapp`.
 - api-workflow / case / library / tests: matching descriptor files and CLI verbs.
 
+### Named template copy/export contract
+
+When `spec.md` or `plan.md` names a concrete repo or Studio project template,
+tasks must require a physical copy/export of that template into the target
+project folder before customization. A citation, hand-written placeholder, or
+"shape-compatible" scaffold does not satisfy the template requirement.
+
+For mailbox dispatcher work, the task must copy or export
+`scaffold/template/dispatcher` into the target dispatcher folder and verify the
+copied inventory includes `Data/`, `Framework/`, `Logical/`, `Templates/`,
+`Main.xaml`, `Process.xaml`, and the queue push workflow. Follow-on mailbox,
+queue, idempotency, and logging tasks must modify that copied template rather
+than replacing it with standalone workflows.
+
+The dispatcher template is a host shell, not the finished business process.
+Tasks must separate:
+
+1. template copy/export and inventory verification;
+2. business-specific customization inside that copied shell (`Data/Config.json`,
+   `Process.xaml`, `Logical/*`, queue payload mapping, connector boundary,
+   idempotency/cursor logic, and log markers);
+3. evidence proving the customized shell runs the business process safely.
+
+Do not allow a dispatcher story to close after only copying the template.
+
 ## Visuals contract (mandatory)
 
 Generated `tasks.md` must include all of these diagrams (Pro Standard Mermaid;
@@ -115,14 +140,19 @@ When the executor hits a knowledge gap during a task: `uipath_library_search` /
 specialist skill -> ask user. Record attempted steps next to any
 `[NEEDS CLARIFICATION]`.
 
-## Custom HITL default
+## HITL route source
 
-For any HITL surface in scope, route through `[skill:uipath-custom-hitl]`
-(Action Center External Tasks + HITL_Application Adaptive Cards / Slack).
+For any HITL surface in scope, follow the route selected in accepted `spec.md`
+and `plan.md`; do not fall back to a different HITL canvas during task
+generation.
 
-**Override rule:** if accepted `spec.md` / `plan.md` explicitly choose UiPath
-Flow as HITL canvas, route HITL tasks through `[skill:uipath-maestro-flow]`
-and cite the override near the top of `tasks.md`.
+- If accepted `spec.md` / `plan.md` explicitly choose UiPath Flow as HITL
+  canvas, route HITL tasks through `[skill:uipath-maestro-flow]` and
+  `[skill:uipath-human-in-the-loop]`, and cite the override near the top of
+  `tasks.md`.
+- If no route is selected, default to `[skill:uipath-custom-hitl]` (Action
+  Center External Tasks + HITL_Application Adaptive Cards / Slack) and record
+  that default explicitly in `tasks.md`.
 
 ## Hard rules
 

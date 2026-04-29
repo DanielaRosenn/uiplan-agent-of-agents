@@ -18,7 +18,7 @@ If you want usage/onboarding instructions, start with:
 
 | File | Purpose |
 | --- | --- |
-| `_spec-template.md` | `spec.md` scaffold (`what`) with 360 scope contract |
+| `_spec-template.md` | `spec.md` scaffold (`what`) with 360 scope and visual documentation contracts |
 | `_plan-template.md` | `plan.md` scaffold (`how`) for architecture and routing |
 | `_tasks-template.md` | `tasks.md` scaffold (`build`) with executable evidence gates |
 | `_workflow-catalog.md` | reusable workflow archetypes and references |
@@ -34,6 +34,15 @@ If you want usage/onboarding instructions, start with:
   - [framework/tests/mcp_tests/test_uiplan_review.py](../../framework/tests/mcp_tests/test_uiplan_review.py)
   - [.cursor/skills/uiplan-review/SKILL.md](../../.cursor/skills/uiplan-review/SKILL.md)
 - When adding new required sections/markers, update template + generator defaults + review rules + tests in the same change.
+- Visual standards are part of the template contract. If `_spec-template.md`
+  changes required visuals, update `_diagram-patterns.md`,
+  [docs/uiplan/README.md](../../docs/uiplan/README.md),
+  [docs/uiplan/HOW_TO_USE.md](../../docs/uiplan/HOW_TO_USE.md), and
+  [docs/uiplan/TASK_AUTHORING.md](../../docs/uiplan/TASK_AUTHORING.md).
+- Named project templates are host shells unless documented otherwise. If a
+  template task names `scaffold/template/dispatcher`, the generated tasks must
+  require both the physical copy/export and the subsequent business-process
+  customization inside the copied shell.
 - Do not put user onboarding or command walkthroughs here; keep this file maintenance-focused.
 
 ## Validation checklist for template changes
@@ -44,5 +53,12 @@ If you want usage/onboarding instructions, start with:
    both Studio Designer validation (`uip rpa get-errors --studio-dir ...`) and a
    Studio build (`uip rpa build --project-path ... --studio-dir ...`) before
    package analyze, deploy, or Orchestrator smoke can close the task.
-4. Run UiPlan review tests.
-5. Verify docs links still point to canonical usage docs.
+4. For dispatcher-style tasks, confirm the generated tasks do not stop at
+   "template copied"; they must also require business-specific config, workflow,
+   logical component, queue payload, logging, and smoke evidence inside the
+   copied dispatcher shell.
+5. Confirm generated specs include business process, solution architecture,
+   runtime sequence, decision tree, and evidence coverage visuals or explicit
+   instructions for downstream stages to provide them.
+6. Run UiPlan review tests.
+7. Verify docs links still point to canonical usage docs.

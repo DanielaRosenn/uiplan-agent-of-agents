@@ -248,6 +248,27 @@ If the remaining issue is truly external, mark only the local implementation
 subtask complete and leave a separate diagnosis/handoff task open with the
 blocker report.
 
+## Authoring contract (task cards, QA/UAT, CLI templates)
+
+`docs/uiplan/TASK_AUTHORING.md` is normative for bundle authors. Implementers
+must enforce it during `/uiplan-implement`:
+
+- **Task card table** per implementation task: ID, story, build surface, paths,
+  prerequisites, verification + structured outputs, pass criteria, diagnosis,
+  rerun, evidence ledger line (see TASK_AUTHORING).
+- **QA/UAT block** per production-bound story: scenario, fixtures, happy + failure
+  paths, automation vs manual, owning test artifact, assertion/evidence rule.
+- **Project-type CLI templates**: RPA (`uipcli package …`), coded agent (`uv run
+  pytest`, `uipath run`, `uipath pack`), Solution (`uipcli solution …`), Flow
+  (`uip flow debug` when safe), coded app (`uip codedapp …`). Confirm flags
+  against `docs/uipath-cli.md` and `--help` before execution.
+- **Coded-agent readiness:** identity rows + LangGraph design rows + deploy
+  handoff tags when Orchestrator scope exists; default framework is LangGraph
+  unless spec/plan documents otherwise.
+- **Test Manager:** only when tasks require TM-linked evidence; use `uip tm`
+  with `--output json`, bounded retries, and `[HANDOFF:UAT]` when tenant blocks
+  execution.
+
 ## Artifact Completeness Rules
 
 - **No scaffold completion rule**: scaffolding can complete scaffold/layout
