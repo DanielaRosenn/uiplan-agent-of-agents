@@ -45,15 +45,28 @@ When prior project transcripts expose delivery gaps, encode them directly in the
 next `tasks.md` contract instead of treating them as one-off fixes. At minimum:
 
 - require explicit scaffold/template provenance for workflow families
-  (especially dispatcher-style mailbox intake), including a physical copy/export
-  source and target path when a named project template exists;
+  (especially dispatcher-style mailbox intake, long-running AnalyzerRunner, and
+  HITL review surfaces), including a physical copy/export source and target path
+  when a named project template exists;
 - treat named templates as build constraints: tasks must preserve the runtime
   shape of Dispatcher, Performer, Long Running Workflow, Flow HITL, or coded
   agent scaffolds unless the accepted plan records an equivalent replacement;
+- require the named-template lifecycle in the task sheet: copy/export the
+  template, read/inspect the copied workflows/config/arguments/variables/
+  dependencies/extension points, preserve generated control flow, customize the
+  copied shell in place for the specific business process, and verify the
+  customized shell;
 - treat dispatcher templates as host shells: copying the template is only the
   first task, and the task sheet must then wire the specific business process
   into the copied shell's config, process workflow, logical components, queue
   payload, logging, and smoke evidence;
+- treat Long Running Workflow / AnalyzerRunner templates as host shells: after
+  copying or scaffolding, tasks must wire queue item handling, wait/resume,
+  coded-agent invocation, response mapping, status transitions, and
+  correlation-aware logging into the copied shell;
+- treat HITL templates as host shells: after copying or scaffolding, tasks must
+  wire review schema, allowed outcomes, timeout/escalation behavior, return path,
+  and downstream update logic into the copied shell;
 - require runtime evidence from real connector intake, not fabricated payloads;
 - require one diagram + one activity checklist row per workflow artifact;
 - require the standard visual set to carry forward from `spec.md` and
@@ -103,11 +116,11 @@ For each workflow shape, state why it fits the process and what evidence proves
 the scaffold/template is correct: Studio-generated files, `uip rpa create-project`
 output, existing `project.json` / `project.uiproj`, default activity XAML,
 package-local examples, or documented library/skill guidance. If the workflow
-shape names a repo template such as `scaffold/template/dispatcher`, the task
-must copy or export that project into the target folder first and list the
-copied structure that must remain intact before customization. The next tasks
-must be business-process tasks inside the copied shell, not generic "template
-copied" closure.
+shape names a repo or Studio template, the task must copy/export or scaffold
+that project into the target folder first, read the copied template, list the
+structure and extension points that must remain intact, and then define the
+business-process customization tasks inside that copied shell. Do not close a
+story with generic "template copied" evidence.
 
 ## Task bullet contract
 

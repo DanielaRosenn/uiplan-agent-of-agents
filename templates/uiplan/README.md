@@ -40,9 +40,15 @@ If you want usage/onboarding instructions, start with:
   [docs/uiplan/HOW_TO_USE.md](../../docs/uiplan/HOW_TO_USE.md), and
   [docs/uiplan/TASK_AUTHORING.md](../../docs/uiplan/TASK_AUTHORING.md).
 - Named project templates are host shells unless documented otherwise. If a
-  template task names `scaffold/template/dispatcher`, the generated tasks must
-  require both the physical copy/export and the subsequent business-process
-  customization inside the copied shell.
+  template task names a repo or Studio template, the generated tasks must require
+  the full lifecycle: copy/export the template, read/inspect the copied
+  project's real workflows/config/arguments/dependencies/extension points,
+  preserve the generated runtime shape, customize the copied shell for the
+  specific business process, and verify the customized shell.
+- Dispatcher, Long Running Workflow / AnalyzerRunner, and HITL templates must
+  never close as "template copied" only. They require business-specific
+  customization inside the copied template and runtime evidence for the
+  customized behavior.
 - Do not put user onboarding or command walkthroughs here; keep this file maintenance-focused.
 
 ## Validation checklist for template changes
@@ -53,10 +59,14 @@ If you want usage/onboarding instructions, start with:
    both Studio Designer validation (`uip rpa get-errors --studio-dir ...`) and a
    Studio build (`uip rpa build --project-path ... --studio-dir ...`) before
    package analyze, deploy, or Orchestrator smoke can close the task.
-4. For dispatcher-style tasks, confirm the generated tasks do not stop at
-   "template copied"; they must also require business-specific config, workflow,
-   logical component, queue payload, logging, and smoke evidence inside the
-   copied dispatcher shell.
+4. For named-template tasks, confirm the generated tasks do not stop at
+   "template copied"; they must require inspection of the copied template and
+   business-specific customization inside the shell. Dispatcher tasks require
+   config, workflow, logical component, queue payload, logging, and smoke
+   evidence. Long Running Workflow / AnalyzerRunner tasks require wait/resume,
+   queue, agent invocation, status transition, and log evidence. HITL tasks
+   require review schema, outcomes, timeout/escalation, return path, and
+   downstream update evidence.
 5. Confirm generated specs include business process, solution architecture,
    runtime sequence, decision tree, and evidence coverage visuals or explicit
    instructions for downstream stages to provide them.

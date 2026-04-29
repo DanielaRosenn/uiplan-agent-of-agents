@@ -74,11 +74,13 @@ UiPlan now enforces a 360 build-visibility contract across the bundle:
 - `/uiplan-implement` runs a preflight and refuses thin accepted bundles before
   source edits (accepted status does not bypass quality gates).
 
-Recent lessons are now part of the default contract: dispatcher-template
-provenance for mailbox intake, dispatcher-as-host-shell customization (copy the
-template, then wire the business process into it), real connector-read evidence,
-per-workflow diagram + activity checklist coverage, richer cross-surface
-visuals, and Studio-visible correlation/log assertions.
+Recent lessons are now part of the default contract: named-template provenance
+for every Studio/repo template, the `copy/export -> read/inspect -> preserve ->
+customize in place -> verify` host-shell lifecycle, dispatcher-template
+provenance for mailbox intake, long-running AnalyzerRunner and HITL template
+customization, real connector-read evidence, per-workflow diagram + activity
+checklist coverage, richer cross-surface visuals, and Studio-visible
+correlation/log assertions.
 Capture additional durable retrospectives through the
 [library learning loop](../LIBRARY_LEARNING.md) so transcript-derived lessons
 can be reviewed, approved, and reused across future bundles.

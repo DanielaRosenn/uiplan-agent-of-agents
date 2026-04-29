@@ -143,10 +143,19 @@ reasoning, and Flow/process branching.
 - [ ] Test fixtures identified for each story.
 - [ ] DMN explicitly marked in-scope or out-of-scope.
 - [ ] Human approval gates called out where required.
+- [ ] If any named project/workflow template is in scope, template provenance is
+  explicit and completion criteria require the full template lifecycle:
+  copy/export the selected template, read/inspect the copied project structure,
+  preserve the generated runtime shape, customize the copied shell for the
+  business process, and verify the customized shell.
 - [ ] If mailbox intake is in scope, dispatcher-template provenance is explicit,
   the dispatcher template is described as a host shell for the business process,
   and completion criteria require both business-specific customization inside
   that shell and real mailbox read evidence (not stub IDs).
+- [ ] If long-running workflow or HITL templates are in scope, AnalyzerRunner and
+  HumanReview surfaces are described as host shells that must be copied/exported,
+  inspected, customized in place, and verified with wait/resume, outcome, and
+  correlation-log evidence.
 - [ ] If coded agents are in scope, acceptance includes deployed invocation,
   output review, and Orchestrator trace/graph verification (entrypoint,
   package version, graph node spans), not only a successful job state.
@@ -189,11 +198,22 @@ unknown, use `[NEEDS CLARIFICATION: ...]` and keep the row.
 | --- | --- | --- | --- | --- |
 | {{SCAFFOLD_1_ARTIFACT}} | {{SCAFFOLD_1_SOURCE}} | {{SCAFFOLD_1_PRESERVE}} | {{SCAFFOLD_1_REQUIRED}} | {{SCAFFOLD_1_REJECT_SIGNAL}} |
 
-If the scaffold is a dispatcher template, treat it as a **host shell**: copying
+If the scaffold names a concrete project/workflow template, treat it as a
+**host shell** unless the accepted plan documents otherwise. Copying or exporting
 the template proves only the starting runtime shape. Acceptance still requires
-business-specific configuration, connector intake, queue payload mapping,
-idempotency/cursor behavior, phase logging, and smoke evidence inside the copied
-dispatcher shell.
+the executor to read/inspect the copied template's workflows, config, arguments,
+variables, dependencies, and extension points; preserve the generated control
+flow; customize the business-specific logic inside the copied shell; and verify
+the customized shell rather than the copied baseline.
+
+For dispatcher templates, that means business-specific configuration, connector
+intake, queue payload mapping, idempotency/cursor behavior, phase logging, and
+smoke evidence inside the copied dispatcher shell. For Long Running Workflow /
+AnalyzerRunner templates, that means queue item handling, wait/resume behavior,
+coded-agent invocation, response mapping, status transitions, and log evidence.
+For HITL templates, that means the review schema, outcomes, timeout/escalation
+rules, return path, and downstream update logic are implemented in the copied
+HITL shell.
 
 ### Verification and evidence visibility
 

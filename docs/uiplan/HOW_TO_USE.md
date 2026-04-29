@@ -75,6 +75,12 @@ as implementation-approved only because it exists on disk.
 These are permanent guardrails from recent build retrospectives and are required
 in new UiPlan bundles:
 
+- **Named-template lifecycle**: when a UiPlan names a concrete repo or Studio
+  template, tasks must require `copy/export -> read/inspect -> preserve ->
+  customize in place -> verify`. The executor must inspect the copied
+  template's workflows, config, arguments, variables, dependencies, and extension
+  points before changing it. A copied template is only a host shell for the
+  business process; it is not completion evidence by itself.
 - **Dispatcher-template fidelity**: if mailbox intake enqueues work, tasks must
   physically copy or export the dispatcher template project from
   `scaffold/template/dispatcher` (or a named Studio template export) into the
@@ -86,6 +92,12 @@ in new UiPlan bundles:
   business process: the UiPlan must also require business-specific config,
   connector intake, queue payload mapping, idempotency/cursor behavior, logging,
   and smoke evidence inside that copied shell.
+- **Long-running and HITL templates are host shells too**: AnalyzerRunner,
+  performer, and human-review projects that use Long Running Workflow or HITL
+  templates must copy/export or scaffold those templates, read the copied
+  project, preserve generated wait/resume/review control flow, and customize the
+  specific queue, coded-agent invocation, review schema, outcomes, timeout,
+  return path, and status-transition logic in place.
 - **Template provenance is mandatory**: when `spec.md` names a project template
   or starter pattern, `plan.md` must carry that template into `## Project
   Inventory`, `## Workflow Catalog`, and `## Workflow diagram + activity

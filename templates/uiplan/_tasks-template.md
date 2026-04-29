@@ -167,6 +167,15 @@ Every generated task list MUST include project facts from `spec.md` / `plan.md`,
   worker, Long Running Workflow/HITL, Sequence/Flowchart/State Machine, or project-specific custom
   template. Each row must include why that template fits the use case and what generated structure
   must be preserved.
+- **Named template lifecycle**: when a task says to use a concrete template,
+  generated tasks must require this sequence before the story can close:
+  copy/export the selected template into the target project folder; read/inspect
+  the copied project's workflows, config, arguments, variables, dependencies,
+  and extension points; preserve the generated runtime shape; customize the
+  copied shell in place for the specific business process; and verify the
+  customized shell. A template copy/export task is never the final business
+  implementation task unless the task is explicitly scaffold-only and a named
+  customization task remains open.
 - **Mailbox dispatcher guardrail**: if a task builds or remediates mailbox intake
   that queues work, it must physically copy or export the dispatcher project
   from `scaffold/template/dispatcher` (or name the exact Studio template export
@@ -185,11 +194,31 @@ Every generated task list MUST include project facts from `spec.md` / `plan.md`,
   one real connector-read smoke log (safe sample scope is acceptable), queue item
   proof, and correlation-id log assertions. A `PullMailbox` workflow that only
   logs or fabricates `stub-*` message IDs cannot close the story.
+- **Long-running AnalyzerRunner guardrail**: if a task builds an
+  AnalyzerRunner, performer, or queue-worker host that waits for coded-agent or
+  human-review outcomes, it must use the accepted Long Running Workflow template
+  (or name the exact approved equivalent), copy/export or scaffold it into the
+  target project folder, read the copied workflow structure, and customize its
+  wait/resume, queue item, agent invocation, response mapping, status
+  transition, and log phases in place. A standalone `Main.xaml` that only logs
+  "invoke agent" is not a valid long-running workflow implementation.
+- **HITL template guardrail**: if a task builds a HumanReview/HITL surface, it
+  must use the accepted HITL template/canvas, copy/export or scaffold it into the
+  target project folder, read the copied review workflow/schema structure, and
+  customize review inputs, outcomes, timeout/escalation handling, return path,
+  and downstream update logic in place. Evidence must cover completed,
+  cancelled, and timeout/exception routing unless the accepted plan explicitly
+  defers a path.
 - **Agent facts** for agent-backed features: `langgraph.json` / `llama_index.json`, graph entry point, node list, model/gateway assumptions, local `uipath run` or pytest command, and host invocation schema.
 - **Agent deployment acceptance** for coded agents: after publish/deploy, invoke
   the deployed entrypoint with safe input, read job output and logs, fetch traces
   where supported, and verify Orchestrator shows the expected graph/node spans
-  and package version. A green job with placeholder output is not complete.
+  and package version. Use the coded-agent lifecycle when the environment uses
+  the unified CLI: `uip codedagent init`, local `uip codedagent run`, `uip
+  codedagent push` with `UIPATH_PROJECT_ID` when Studio Web project binding is
+  required, `uip codedagent deploy --my-workspace`, then `uip codedagent invoke
+  <ENTRYPOINT> '<safe-json>'`. A green job with placeholder output is not
+  complete.
 - **RPA-to-agent host boundary acceptance**: when an RPA workflow, Flow, or app is
   expected to call a coded agent, local `uipath invoke` evidence is not enough.
   Tasks must prove the host can call the agent from the target Orchestrator
@@ -228,6 +257,11 @@ For **RPA / Studio** tasks:
   for human waits, Sequence for deterministic linear work, Flowchart for branching, State Machine
   for stateful transitions. If template selection is still uncertain, stop and return to
   `/uiplan-plan`; do not emit discovery-question tasks in `tasks.md`.
+- When a starter template is named, the task must require the executor to copy or
+  scaffold that template, then read/inspect the copied template before changing
+  it. The task must list the copied workflows/configs/arguments/extension points
+  that drive the customization. The implementation task then modifies the copied
+  shell in place for the specific business process.
 - Template evidence is part of the done gate: generated files, command output, `project.json` /
   `project.uiproj`, workflow type, and preserved generated control-flow structure. A generic
   hand-written `Main.xaml` with `LogMessage` markers is scaffold-only and cannot satisfy a Studio

@@ -110,11 +110,32 @@ the smoke + log validation tasks for that story before moving to the next.
      **`uipcli`** restore/analyze/pack. Do not satisfy production workflow bullets
      with `LogMessage`-only XAML unless the task explicitly says **scaffold-only**
      and names the follow-up activity task.
+   - For **named Studio/repo templates**, enforce the lifecycle in the task
+     sheet before editing workflow behavior: copy/export or scaffold the selected
+     template into the target project; read the copied template's workflows,
+     config, arguments, variables, dependencies, and extension points; preserve
+     the generated runtime shape; customize the business-specific behavior
+     inside the copied shell; and verify the customized shell. Do not close a
+     Dispatcher, AnalyzerRunner / Long Running Workflow, or HumanReview / HITL
+     task after only copying the template.
+   - For **AnalyzerRunner / Long Running Workflow hosts**, implement queue item
+     handling, wait/resume behavior, coded-agent invocation, response mapping,
+     status transitions, and correlation-aware logging inside the copied or
+     scaffolded template.
+   - For **HumanReview / HITL hosts**, implement the review schema, outcomes,
+     timeout/escalation behavior, return path, and downstream queue/process
+     updates inside the copied or scaffolded HITL template/canvas.
    - For **agent-backed features**, build the agent artifact (`langgraph.json`,
      `llama_index.json`, graph entry point, graph nodes/tools) and verify it with
      `uv run pytest`, `uipath run`, or the task-specific command. If an RPA/Flow/app
      host invokes the agent, implement and verify the host invocation boundary and
      request/response schema as part of the same feature slice.
+     When the task requires deployed coded-agent acceptance, follow the coded
+     agent lifecycle: initialize metadata, run locally, push with
+     `UIPATH_PROJECT_ID` when Studio Web project binding is required, deploy to
+     the personal workspace, invoke the deployed entrypoint with safe input, and
+     verify package version, output, logs, and graph/node trace evidence where
+     supported.
    - For **Maestro/Flow** and **coded app/action** surfaces, use the matched
      specialist skill and CLI (`uip` / `uip codedapp`) and verify the declared
      flow/app artifact, not only bindings or docs.

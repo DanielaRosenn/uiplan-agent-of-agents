@@ -49,7 +49,7 @@ belong in `## Open Grounding Questions` inside `plan.md`, not in chat.
 2. `uipath_doc_get_activity` / `uipath_doc_list_packages` for activity
    semantics.
 3. `query_uipath_docs` (AskAI) for runtime / CLI fallback.
-4. Specialist skill (`uipath-rpa`, `uipath-agents`, `uipath-custom-hitl`,
+4. Specialist skill (`uipath-rpa`, `uipath-agents`, `uipath-human-in-the-loop`,
    `uipath-platform`, `uipath-diagnostics`, `uipath-test`, `uipath-coded-apps`,
    `uipath-data-fabric`, `uipath-maestro-flow`).
 5. `[agent:uipath-project-discovery-agent]` for project-local context.
@@ -96,16 +96,20 @@ Record any remaining gaps under `## Open Grounding Questions` in `plan.md` as
   that proved activities cannot cover the case. Prompt the user before
   introducing a coded surface and record their justification.
 
-## Custom HITL routing
+## HITL template routing
 
 When the plan needs a human approval / data-enrichment / write-back gate,
-default to `[skill:uipath-custom-hitl]` (Action Center External Tasks +
-HITL_Application Adaptive Cards / Slack).
+choose and record the HITL host template explicitly: RPA Long Running Workflow,
+UiPath Flow, coded agent escalation, or another accepted template. The plan must
+state the template source, target project/folder, copied structure to inspect,
+and in-place customization points.
 
 **Override rule:** if accepted `spec.md` or user instructions explicitly mandate
 UiPath Flow as the HITL canvas, plan around Flow and route through
-`[skill:uipath-maestro-flow]`. Record the override in `plan.md` so
-`tasks.md` and `/uiplan-implement` can follow the same contract.
+`[skill:uipath-maestro-flow]` plus `[skill:uipath-human-in-the-loop]`. For RPA
+Long Running Workflow HITL, route through `[skill:uipath-rpa]` plus
+`[skill:uipath-human-in-the-loop]`. Record the route in `plan.md` so `tasks.md`
+and `/uiplan-implement` can follow the same contract.
 
 ## Do / Don't
 
