@@ -1,5 +1,10 @@
 # How to use UiPlan
 
+This file is the **canonical procedural reference** for UiPlan: slash commands, CLI
+(`uipath-claude plan uiplan …`), MCP tool names, folder layout, and lifecycle. Other
+docs (for example [README.md](README.md), repo-level [USER_GUIDE.md](../USER_GUIDE.md))
+should link here instead of copying command matrices.
+
 ## Canonical paths
 
 - **Kit:** `templates/uiplan/` at repo root (MCP and `generate-docs` resolve here).
@@ -70,15 +75,43 @@ as implementation-approved only because it exists on disk.
 These are permanent guardrails from recent build retrospectives and are required
 in new UiPlan bundles:
 
+- **Named-template lifecycle**: when a UiPlan names a concrete repo or Studio
+  template, tasks must require `copy/export -> read/inspect -> preserve ->
+  customize in place -> verify`. The executor must inspect the copied
+  template's workflows, config, arguments, variables, dependencies, and extension
+  points before changing it. A copied template is only a host shell for the
+  business process; it is not completion evidence by itself.
 - **Dispatcher-template fidelity**: if mailbox intake enqueues work, tasks must
-  name the dispatcher template/scaffold source and preserve dispatcher
-  structure (config/assets/queues/exception/logging), not replace it with a
-  generic manual workflow.
+  physically copy or export the dispatcher template project from
+  `scaffold/template/dispatcher` (or a named Studio template export) into the
+  target dispatcher folder before customization. Naming the source in prose is
+  not enough. The copied project must preserve dispatcher structure
+  (`Data/`, `Framework/`, `Logical/`, `Templates/`, `Main.xaml`,
+  `Process.xaml`, queue push workflow), not be replaced with a generic manual
+  workflow. The dispatcher template is only the host shell for the actual
+  business process: the UiPlan must also require business-specific config,
+  connector intake, queue payload mapping, idempotency/cursor behavior, logging,
+  and smoke evidence inside that copied shell.
+- **Long-running and HITL templates are host shells too**: AnalyzerRunner,
+  performer, and human-review projects that use Long Running Workflow or HITL
+  templates must copy/export or scaffold those templates, read the copied
+  project, preserve generated wait/resume/review control flow, and customize the
+  specific queue, coded-agent invocation, review schema, outcomes, timeout,
+  return path, and status-transition logic in place.
+- **Template provenance is mandatory**: when `spec.md` names a project template
+  or starter pattern, `plan.md` must carry that template into `## Project
+  Inventory`, `## Workflow Catalog`, and `## Workflow diagram + activity
+  conformance matrix`. Templates exist to preserve runtime shape, not just file
+  names.
 - **Real connector intake evidence**: intake stories must prove real mailbox
   read behavior (safe sample is fine); stub payloads or fabricated message IDs
   are not valid completion evidence.
 - **Per-workflow visual contract**: each in-scope `.xaml`, `.flow`, graph, and
   DMN surface needs its own internal-step diagram and activity checklist row.
+- **Visual-first spec standard**: `spec.md` must include or require the full
+  visual set: business process flow, solution architecture, runtime sequence,
+  decision tree, workflow/artifact inventory, and evidence coverage map. Use
+  these visuals to expose handoffs and build proof, not as decoration.
 - **Studio-visible observability**: workflow phases and correlation IDs must be
   visible in runtime logs, and log assertions must be included in verification
   evidence.
@@ -114,7 +147,7 @@ Do not start build execution until all are true:
 | Review failure | Fastest fix |
 | --- | --- |
 | `RULE_SPEC_NO_360` | Add `## 360 Build Visibility Contract` and fill required inventory tables. |
-| `RULE_SPEC_NO_WORKFLOW_VISUAL` | Add `### Workflow surface visual catalog (required)` with one `#### <artifact>` + Mermaid per in-scope workflow artifact. |
+| `RULE_SPEC_NO_WORKFLOW_VISUAL` | Add `### Workflow surface visual catalog (required)` with one `#### <artifact>` + Mermaid per in-scope workflow artifact, plus the visual set from `templates/uiplan/_diagram-patterns.md`. |
 | `RULE_TASKS_NO_ACTIVITY_CHECKLIST` | Add `## Per-workflow activity checklist (required)` and include every workflow path from scope. |
 | `RULE_TASKS_NO_DIAGRAM` | Add dedicated per-workflow mini-topology sections and ensure each scoped path has concrete internal-step coverage. |
 | `RULE_ANY_TEMPLATE_RESIDUE` | Remove unresolved `{{...}}` template tokens from `spec.md`, `plan.md`, and `tasks.md`. |

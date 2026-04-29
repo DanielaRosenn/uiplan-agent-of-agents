@@ -44,10 +44,34 @@ Discovery is a precondition to task authoring, not a task output.
 When prior project transcripts expose delivery gaps, encode them directly in the
 next `tasks.md` contract instead of treating them as one-off fixes. At minimum:
 
-- require explicit scaffold/template provenance for workflow families (especially
-  dispatcher-style mailbox intake);
+- require explicit scaffold/template provenance for workflow families
+  (especially dispatcher-style mailbox intake, long-running AnalyzerRunner, and
+  HITL review surfaces), including a physical copy/export source and target path
+  when a named project template exists;
+- treat named templates as build constraints: tasks must preserve the runtime
+  shape of Dispatcher, Performer, Long Running Workflow, Flow HITL, or coded
+  agent scaffolds unless the accepted plan records an equivalent replacement;
+- require the named-template lifecycle in the task sheet: copy/export the
+  template, read/inspect the copied workflows/config/arguments/variables/
+  dependencies/extension points, preserve generated control flow, customize the
+  copied shell in place for the specific business process, and verify the
+  customized shell;
+- treat dispatcher templates as host shells: copying the template is only the
+  first task, and the task sheet must then wire the specific business process
+  into the copied shell's config, process workflow, logical components, queue
+  payload, logging, and smoke evidence;
+- treat Long Running Workflow / AnalyzerRunner templates as host shells: after
+  copying or scaffolding, tasks must wire queue item handling, wait/resume,
+  coded-agent invocation, response mapping, status transitions, and
+  correlation-aware logging into the copied shell;
+- treat HITL templates as host shells: after copying or scaffolding, tasks must
+  wire review schema, allowed outcomes, timeout/escalation behavior, return path,
+  and downstream update logic into the copied shell;
 - require runtime evidence from real connector intake, not fabricated payloads;
 - require one diagram + one activity checklist row per workflow artifact;
+- require the standard visual set to carry forward from `spec.md` and
+  `plan.md`: business process, architecture, runtime sequence, decision tree,
+  workflow internals, and evidence coverage;
 - require Studio-visible phase + correlation logging assertions in final evidence.
 
 ## Persona checkpoints
@@ -91,7 +115,12 @@ Every non-trivial UiPath task set must name the build surface and workflow shape
 For each workflow shape, state why it fits the process and what evidence proves
 the scaffold/template is correct: Studio-generated files, `uip rpa create-project`
 output, existing `project.json` / `project.uiproj`, default activity XAML,
-package-local examples, or documented library/skill guidance.
+package-local examples, or documented library/skill guidance. If the workflow
+shape names a repo or Studio template, the task must copy/export or scaffold
+that project into the target folder first, read the copied template, list the
+structure and extension points that must remain intact, and then define the
+business-process customization tasks inside that copied shell. Do not close a
+story with generic "template copied" evidence.
 
 ## Task bullet contract
 
@@ -115,6 +144,8 @@ Each story block should also include:
 - **Why this exists**: one sentence explaining business/workflow purpose.
 - **Workflow/task diagram**: Mermaid visual showing tests, implementation,
   verification, and evidence outputs.
+- **Evidence coverage visual**: when the task group spans multiple commands or
+  surfaces, show how each command produces an output path and review gate.
 - **Dependencies note**: what must be done before this story starts.
 - **Executor context**: compact role/scope + environment + workflow +
   guardrails + tools + pattern anchors + output style block.
@@ -209,6 +240,99 @@ For every task, `/uiplan-implement` should run this loop:
    or remains.
 9. Mark complete only with runtime evidence; otherwise leave an explicit blocker
    or handoff.
+
+## Task card table (required for each implementation task)
+
+Use a **task card** immediately before or after each `- [ ] Txxx` bullet for
+non-trivial work. Minimum columns:
+
+| Field | Content |
+| --- | --- |
+| Task ID | Matches checkbox (`T014`). |
+| Owning user story | `USn` from `spec.md`. |
+| Project type / build surface | RPA/XAML, Flow/Maestro, coded agent, coded app, Solution slice, platform/config. |
+| Artifact path(s) | Repo paths in backticks. |
+| Workflow / node / activity / resource | Exact construct being built or changed. |
+| Prerequisite task IDs | Blocking IDs or `none`. |
+| Verification command(s) | Exact CLI; include `--resultPath` for analyze when applicable. |
+| Structured output path(s) | Analyzer JSON, JUnit, pytest log, CLI transcript, job log path. |
+| Expected pass criteria | What “green” means vs spec acceptance. |
+| Failure diagnosis steps | Parse output, consult docs/skills, safe local fix scope. |
+| Rerun command | Usually same as verification after fix. |
+| Evidence ledger entry | One line describing what to archive for sign-off. |
+
+Optional but recommended: **Allowed local fix scope** (files/packages touchable without
+handoff) and **Forbidden actions** (deploy, tenant mutation, Production).
+
+## QA/UAT section (required per production-bound user story)
+
+For each user story that ships behavior to users/Orchestrator, add a **QA/UAT**
+subsection (can live under the story header in `tasks.md`):
+
+| Topic | Include |
+| --- | --- |
+| Scenario name | Short UAT title tied to `spec.md`. |
+| Acceptance criteria | Pointer to spec bullets this story proves. |
+| Test data / fixtures | Paths or `[HANDOFF:Secrets]` / synthetic rules. |
+| Happy-path test | Automated case, manual steps, or smoke script ID. |
+| Failure / exception path | At least one negative or edge case. |
+| Execution mode | Automated (`uipcli test`, pytest), manual UAT, or external-gated. |
+| Owning artifact | `Tests/...`, pytest module, Test Manager case key, eval set name. |
+| Assertions / evidence | Log substrings, job state, analyzer clean, report path. |
+| Review rule | Pass only when actual outputs/logs match expected behavior—not when analyze/pack alone succeeds. |
+
+QA build tasks must produce **real test artifacts** when the project type supports it:
+UiPath test workflows under `Tests/` for RPA; pytest/eval fixtures for coded agents;
+documented smoke/UAT for Flow/Solution branches that need platform-only gates.
+
+## Project-type CLI templates
+
+Verify every flag against `docs/uipath-cli.md`, relevant skills, and live `--help`
+before copying into `tasks.md`.
+
+- **Modern RPA / XAML:** `uipcli package restore`, `uipcli package analyze <projectPath> --resultPath out/<name>-analyze.json`, `uipcli test run -a <projectKey> <projectPath>` when tests exist, `uipcli package pack <projectPath> -o out`. Optional Studio-adjacent checks from `[skill:uipath-rpa]` when safe (for example `uip rpa get-errors`).
+- **Coded agent / LangGraph:** Default graph framework is **LangGraph** unless `spec.md` / `plan.md` documents LlamaIndex/OpenAI Agents with justification. Before coding the graph, skim `[skill:uipath-agents]` and LangGraph docs for state, nodes/edges, persistence, interrupts/HITL. Typical loop: `uv run pytest …`, `uipath run <fixture>`, `uipath pack` after tests pass; `uipath eval` only when a task names an eval set. Record project identity (`project.uiproj`, `uipath.json`, Orchestrator folder, package/process name) before any deploy; deploy only after explicit approval and never to Production from assistant sessions.
+- **Solution / mixed:** `uipcli solution restore`, `uipcli solution analyze <solutionPath> --resultPath out/<name>-solution-analyze.json`, `uipcli solution pack <solutionPath> -o out -v <version>`. Activation/bindings steps only with explicit approval.
+- **Maestro / Flow:** Validate `.flow` / BPMN / `project.uiproj` references; use `uip flow debug` or the current safe flow validation command when available and non-destructive.
+- **Coded app / action app:** Follow `[skill:uipath-coded-apps]` and `uip codedapp` help for build/validate; verify `app.config.json` and `action-schema.json`.
+- **Platform/config:** Folder/asset/queue commands only when the task names tenant/folder scope and the action is safe; secrets stay `[HANDOFF:Secrets]`.
+
+## Coded-agent Orchestrator readiness
+
+When tasks include deploy/publish/invoke for a coded agent, `tasks.md` must still
+list **project identity**: package/process/agent name, descriptor path
+(`langgraph.json` by default), `pyproject.toml`, Orchestrator folder target,
+bindings/assets placeholders, and **LangGraph design facts**: entry module, state
+schema, nodes, conditional edges, tools, persistence/checkpointer decision,
+interrupt/HITL decision, failure/retry policy. Use `[HANDOFF:CodedAgentDeploy]`
+when auth, folder id, bindings, or secrets are missing after local validation passes.
+
+Authoritative references (cite in `plan.md` when relevant): `[skill:uipath-agents]`,
+UiPath Python SDK (`https://uipath.github.io/uipath-python/`), evaluations
+(`https://uipath.github.io/uipath-python/eval/`), LangGraph docs
+(`https://langchain-ai.github.io/langgraph/`), HITL concepts
+(`https://langchain-ai.github.io/langgraph/concepts/human_in_the_loop/`).
+Do not claim production readiness from pytest or `uipath run` alone when deploy
+evidence is in scope.
+
+## Formal QA / Test Manager (when tasks require TM-linked evidence)
+
+When `tasks.md` names Test Manager, formal test sets, or TM execution IDs:
+
+1. Check auth: `uip login status --output json`.
+2. Discover/create projects: `uip tm project list --filter <name> --output json` (create only with approval).
+3. Cases: `uip tm testcase create ... --output json`; link automations after entry points exist.
+4. Sets: `uip tm testset create`, `uip tm testset add-testcases`.
+5. Execute: `uip tm testset execute ... --output json`; wait via `uip tm wait --execution-id <uuid> --output json`.
+6. Inspect: `uip tm execution list-testcaselogs`, assertions, reports; prefer `--output json` for parsing.
+
+Cap retries at three; stop on auth failures, empty results, missing folder keys, or
+unsafe deletes. Never delete TM resources without explicit confirmation.
+
+**UAT verification rule:** map execution results back to user-story acceptance
+criteria; record execution ID, test set key, logs/assertions, package version.
+If tenant constraints block UAT, mark `[HANDOFF:UAT]` and keep tasks open.
+Analyze/pack success alone is not UAT success.
 
 ## Visual task authoring
 

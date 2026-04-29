@@ -23,7 +23,7 @@ def _pro_standard_issues(body: str) -> list[str]:
     lowered = body.lower()
     is_seq = "sequencediagram" in lowered
     is_state = "statediagram" in lowered
-    if "classDef" not in body:
+    if not (is_seq or is_state) and "classDef" not in body:
         issues.append("missing classDef")
     if not (is_seq or is_state) and "linkStyle" not in body:
         issues.append("missing linkStyle (expected on flowchart / graph diagrams)")

@@ -92,6 +92,11 @@ task execution.
 ## Project Inventory
 
 Every project in scope, its kind, descriptor, starter template, and scaffold command.
+When `spec.md` names a template-backed surface (for example Dispatcher,
+Performer, Long Running Workflow, Flow HITL, or coded-agent scaffold), the plan
+must name that exact starter template and preserve its intended runtime shape.
+Do not replace a named template with a blank project scaffold unless `plan.md`
+records the reason and the equivalent runtime behavior.
 
 | Project | Kind | Repo path | Descriptor | Starter template | Scaffold command |
 | --- | --- | --- | --- | --- | --- |
@@ -130,19 +135,47 @@ subsection and Mermaid diagram.
 flowchart TD
   Trigger[Trigger_or_input] --> Work[Internal_steps_and_branches]
   Work --> Output[Terminal_outcome_or_writeback]
+  classDef node fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  class Trigger,Work,Output node
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
 ```
 
 Repeat this pattern for every `.xaml`, `.flow`, workflow `.py`, and `.dmn`
 artifact referenced by this plan.
 
-If workflow intake is mailbox-driven, add explicit rows for dispatcher intake
-surfaces and include:
+If a workflow artifact uses a named Studio/repo template, add explicit rows for
+that template surface and include:
 
-- scaffold/template provenance (dispatcher template root or existing dispatcher
-  project source),
-- real connector read activity boundary (safe sample allowed),
-- idempotency/cursor behavior,
-- non-stub queue payload evidence.
+- scaffold/template provenance (repo template root, Studio template name, or
+  existing project source),
+- physical copy/export requirement: name the exact source folder or Studio
+  export and the target folder that will receive it before customization,
+- copied-template inspection requirement: after copy/export, read the copied
+  project's workflows, config, arguments, variables, dependencies, and extension
+  points before customization,
+- host-shell role: state explicitly that the copied template hosts the actual
+  business process and still requires business-specific workflow customization
+  and smoke evidence,
+- copied structure and generated control flow that must remain intact unless the
+  accepted plan records an approved equivalent,
+- customization points inside the copied shell, not standalone replacement
+  workflows,
+- verification evidence for the customized shell, not merely the copied
+  baseline.
+
+For mailbox-driven intake, include dispatcher-specific rows for copied
+structure (`Data/`, `Framework/`, `Logical/`, `Templates/`, `Main.xaml`,
+`Process.xaml`, queue push workflow), real connector read activity boundary
+(safe sample allowed), idempotency/cursor behavior, and non-stub queue payload
+evidence.
+
+For AnalyzerRunner / Long Running Workflow surfaces, include rows for queue item
+acquisition, wait/resume or persistence behavior, coded-agent invocation
+boundary, response mapping, status transitions, and correlation-aware logging.
+
+For HumanReview / HITL surfaces, include rows for the copied HITL template
+source, review schema, allowed outcomes, timeout/escalation behavior, return
+path, downstream queue/process update, and completed/cancelled/timeout evidence.
 
 ## Activity Inventory
 
@@ -210,9 +243,14 @@ This table is a deterministic navigation contract for LLMs and implementers.
 | Which command verifies completion? | `## CLI Command Matrix` | restore/analyze/test/pack/smoke | `## Logging and verification contract` |
 | Which evidence proves done? | `## Logging and verification contract` | expected logs/assertions | task evidence paths in `tasks.md` |
 
-HITL routing defaults to `[skill:uipath-custom-hitl]`. If accepted `spec.md`
-explicitly requires Flow as HITL canvas, mark the override in this section and
-route through `[skill:uipath-maestro-flow]` instead.
+HITL routing defaults to the accepted plan's chosen template surface. If the
+HITL host is an RPA/Long Running Workflow project, route through
+`[skill:uipath-rpa]` plus `[skill:uipath-human-in-the-loop]`; if accepted
+`spec.md` explicitly requires Flow as the HITL canvas, mark the override in this
+section and route through `[skill:uipath-maestro-flow]` plus
+`[skill:uipath-human-in-the-loop]` instead. In both cases, the tasks must copy or
+scaffold the named HITL template, read the copied template, customize it in
+place, and verify the customized review workflow.
 
 ## Capability Routing Map
 
@@ -228,7 +266,7 @@ flowchart LR
     Agents[uipath-agents]:::skill
     Flow[uipath-maestro-flow]:::skill
     Apps[uipath-coded-apps]:::skill
-    HITL[uipath-custom-hitl]:::skill
+    HITL[uipath-human-in-the-loop]:::skill
     Platform[uipath-platform]:::skill
     Diagnostics[uipath-diagnostics]:::skill
     Test[uipath-test]:::skill

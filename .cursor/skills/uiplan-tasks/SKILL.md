@@ -74,6 +74,51 @@ Tasks must reflect actual build targets for the declared paradigm:
 - coded-app: `app.config.json`, `action-schema.json`, `src/`, `uip codedapp`.
 - api-workflow / case / library / tests: matching descriptor files and CLI verbs.
 
+### Named template copy/read/customize contract
+
+When `spec.md` or `plan.md` names a concrete repo or Studio project template,
+tasks must require a physical copy/export of that template into the target
+project folder before customization. A citation, hand-written placeholder, or
+"shape-compatible" scaffold does not satisfy the template requirement.
+
+After copy/export, tasks must require the executor to read/inspect the copied
+template's real workflows, config files, arguments, variables, dependencies, and
+extension points before changing it. The generated control flow must be
+preserved unless the accepted plan records an approved equivalent. Business
+logic must then be customized inside the copied shell, and verification must
+prove the customized shell, not merely the copied baseline.
+
+For mailbox dispatcher work, the task must copy or export
+`scaffold/template/dispatcher` into the target dispatcher folder and verify the
+copied inventory includes `Data/`, `Framework/`, `Logical/`, `Templates/`,
+`Main.xaml`, `Process.xaml`, and the queue push workflow. Follow-on mailbox,
+queue, idempotency, and logging tasks must modify that copied template rather
+than replacing it with standalone workflows.
+
+For AnalyzerRunner / Long Running Workflow work, the task must copy/export or
+scaffold the accepted Long Running Workflow template, read the copied wait/resume
+structure, and customize queue item handling, coded-agent invocation, response
+mapping, status transitions, and correlation-aware logs inside that shell.
+
+For HumanReview / HITL work, the task must copy/export or scaffold the accepted
+HITL template/canvas, read the copied review workflow/schema structure, and
+customize review inputs, outcomes, timeout/escalation behavior, return path, and
+downstream queue/process update inside that shell.
+
+Named templates are host shells, not finished business processes. Tasks must
+separate:
+
+1. template copy/export and inventory verification;
+2. copied-template inspection (workflows, config, arguments, variables,
+   dependencies, extension points);
+3. business-specific customization inside that copied shell (`Data/Config.json`,
+   `Process.xaml`, `Logical/*`, queue payload mapping, connector boundary,
+   idempotency/cursor logic, wait/resume behavior, review schema, status
+   transitions, and log markers as applicable);
+4. evidence proving the customized shell runs the business process safely.
+
+Do not allow a named-template story to close after only copying the template.
+
 ## Visuals contract (mandatory)
 
 Generated `tasks.md` must include all of these diagrams (Pro Standard Mermaid;
@@ -115,14 +160,22 @@ When the executor hits a knowledge gap during a task: `uipath_library_search` /
 specialist skill -> ask user. Record attempted steps next to any
 `[NEEDS CLARIFICATION]`.
 
-## Custom HITL default
+## HITL route source
 
-For any HITL surface in scope, route through `[skill:uipath-custom-hitl]`
-(Action Center External Tasks + HITL_Application Adaptive Cards / Slack).
+For any HITL surface in scope, follow the route selected in accepted `spec.md`
+and `plan.md`; do not fall back to a different HITL canvas during task
+generation. The HITL route is still subject to the named-template lifecycle:
+copy/export or scaffold the chosen HITL template, read the copied template,
+customize it in place, and verify completed/cancelled/timeout behavior.
 
-**Override rule:** if accepted `spec.md` / `plan.md` explicitly choose UiPath
-Flow as HITL canvas, route HITL tasks through `[skill:uipath-maestro-flow]`
-and cite the override near the top of `tasks.md`.
+- If accepted `spec.md` / `plan.md` explicitly choose UiPath Flow as HITL
+  canvas, route HITL tasks through `[skill:uipath-maestro-flow]` and
+  `[skill:uipath-human-in-the-loop]`, and cite the override near the top of
+  `tasks.md`.
+- If no route is selected, keep a planning correction open rather than inventing
+  a HITL canvas in `tasks.md`. The task sheet must name whether the host is RPA
+  Long Running Workflow, UiPath Flow, coded agent escalation, or another
+  accepted template.
 
 ## Hard rules
 

@@ -143,11 +143,25 @@ reasoning, and Flow/process branching.
 - [ ] Test fixtures identified for each story.
 - [ ] DMN explicitly marked in-scope or out-of-scope.
 - [ ] Human approval gates called out where required.
-- [ ] If mailbox intake is in scope, dispatcher-template provenance is explicit
-  and completion criteria require real mailbox read evidence (not stub IDs).
+- [ ] If any named project/workflow template is in scope, template provenance is
+  explicit and completion criteria require the full template lifecycle:
+  copy/export the selected template, read/inspect the copied project structure,
+  preserve the generated runtime shape, customize the copied shell for the
+  business process, and verify the customized shell.
+- [ ] If mailbox intake is in scope, dispatcher-template provenance is explicit,
+  the dispatcher template is described as a host shell for the business process,
+  and completion criteria require both business-specific customization inside
+  that shell and real mailbox read evidence (not stub IDs).
+- [ ] If long-running workflow or HITL templates are in scope, AnalyzerRunner and
+  HumanReview surfaces are described as host shells that must be copied/exported,
+  inspected, customized in place, and verified with wait/resume, outcome, and
+  correlation-log evidence.
 - [ ] If coded agents are in scope, acceptance includes deployed invocation,
   output review, and Orchestrator trace/graph verification (entrypoint,
   package version, graph node spans), not only a successful job state.
+- [ ] Visual documentation is complete: business process, solution
+  architecture, runtime sequence, decision tree, workflow/artifact inventory,
+  and verification/evidence map.
 
 ## 360 Build Visibility Contract
 
@@ -184,6 +198,23 @@ unknown, use `[NEEDS CLARIFICATION: ...]` and keep the row.
 | --- | --- | --- | --- | --- |
 | {{SCAFFOLD_1_ARTIFACT}} | {{SCAFFOLD_1_SOURCE}} | {{SCAFFOLD_1_PRESERVE}} | {{SCAFFOLD_1_REQUIRED}} | {{SCAFFOLD_1_REJECT_SIGNAL}} |
 
+If the scaffold names a concrete project/workflow template, treat it as a
+**host shell** unless the accepted plan documents otherwise. Copying or exporting
+the template proves only the starting runtime shape. Acceptance still requires
+the executor to read/inspect the copied template's workflows, config, arguments,
+variables, dependencies, and extension points; preserve the generated control
+flow; customize the business-specific logic inside the copied shell; and verify
+the customized shell rather than the copied baseline.
+
+For dispatcher templates, that means business-specific configuration, connector
+intake, queue payload mapping, idempotency/cursor behavior, phase logging, and
+smoke evidence inside the copied dispatcher shell. For Long Running Workflow /
+AnalyzerRunner templates, that means queue item handling, wait/resume behavior,
+coded-agent invocation, response mapping, status transitions, and log evidence.
+For HITL templates, that means the review schema, outcomes, timeout/escalation
+rules, return path, and downstream update logic are implemented in the copied
+HITL shell.
+
 ### Verification and evidence visibility
 
 | Surface | Command family | Concrete command to run | Done-when condition | Evidence output path |
@@ -210,6 +241,9 @@ and Mermaid internal-step flow. Keep one subsection per artifact path.
 flowchart TD
   Trigger[Trigger_or_input] --> Work[Internal_steps_and_branches]
   Work --> Output[Terminal_outcome_or_writeback]
+  classDef node fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  class Trigger,Work,Output node
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
 ```
 
 Repeat this pattern for each workflow artifact (`.xaml`, `.flow`, workflow
@@ -230,6 +264,145 @@ Add one concise example mapping:
 `user story -> plan phase -> task card -> verification evidence`.
 The example must reference one concrete row from the 360 visibility tables.
 
+## Visual Documentation Contract
+
+The spec, downstream `plan.md`, and downstream `tasks.md` must use visuals as
+build instructions, not decoration. Every diagram must follow
+`[skill:mermaid-diagram-builder]` Pro Standard: meaningful shapes, `classDef`
+styling on flowcharts, muted default links, highlighted critical paths, and no
+inline `style ... fill` overrides.
+
+Required visual set:
+
+| Visual | Required in | Purpose | Must show | Done when |
+| --- | --- | --- | --- | --- |
+| Business process flow | `spec.md` | stakeholder-readable outcome path | actors, trigger, major decisions, terminal outcomes | all user stories represented |
+| Solution architecture | `spec.md` and `plan.md` | artifact and system boundaries | workflows, agents, flows, queues/assets, connectors | each artifact maps to 360 table rows |
+| Runtime sequence | `plan.md` | message handoff timing | caller/callee, inputs/outputs, HITL callback/writeback | each handoff has an input/output contract |
+| Decision tree | `spec.md` and `plan.md` | routing ownership | deterministic rules, agent decisions, human-review triggers, exceptions | each branch maps to status and owner |
+| Workflow internals | `plan.md` and `tasks.md` | executor build guidance | one internal-step diagram per executable workflow | no workflow is a black box |
+| Evidence map | `tasks.md` | verification completeness | command, output path, pass/fail gate, rerun loop | each task has evidence output |
+
+### Solution architecture diagram (required)
+
+```mermaid
+flowchart TB
+  subgraph Intake["Intake And Orchestration"]
+    Entry[/Input or trigger/]:::external --> Orchestrator[Primary orchestrator]:::service
+    Orchestrator --> WorkQueue[(Work queue or state store)]:::data
+  end
+  subgraph Processing["Processing And Decisions"]
+    WorkQueue --> Worker[Worker workflow or agent host]:::service
+    Worker --> Decision{Decision boundary}:::decision
+    Decision -->|Automated| System[/External system/]:::external
+    Decision -->|Human needed| Human[Human review surface]:::human
+  end
+  subgraph Evidence["Configuration And Evidence"]
+    Worker --> Audit[(Audit evidence)]:::data
+    Human --> Audit
+    System --> Audit
+    Assets[(Assets and bindings)]:::data --> Orchestrator
+    Assets --> Worker
+  end
+
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef data fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.5px
+  classDef external fill:#FAFAFA,stroke:#94A3B8,color:#334155,stroke-width:1.25px
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+  linkStyle 0,1,2 stroke:#3B82F6,stroke-width:2px
+  linkStyle 5,7 stroke:#8B5CF6,stroke-width:2px
+```
+
+### Runtime sequence diagram (required)
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Source as Source
+  participant Intake as Intake workflow
+  participant Queue as Queue or state
+  participant Worker as Worker or agent host
+  participant Review as Human review
+  participant Audit as Audit evidence
+
+  Source->>Intake: Trigger or read input
+  Intake->>Intake: Normalize and validate
+  Intake->>Queue: Add/update work item
+  Queue->>Worker: Work item available
+  Worker->>Worker: Apply deterministic and semantic decisions
+  alt automated route
+    Worker->>Audit: Record terminal outcome
+  else human review route
+    Worker->>Review: Create review request
+    Review-->>Worker: Decision or timeout
+    Worker->>Audit: Record review outcome
+  end
+```
+
+### Routing decision tree (required)
+
+```mermaid
+flowchart TD
+  subgraph IntakeChecks["Intake Checks"]
+    Start([Work item ready]):::start --> Valid{Input valid?}:::decision
+    Valid -->|No| Exception[Exception or clarification]:::endFail
+    Valid -->|Yes| Duplicate{Duplicate or already handled?}:::decision
+    Duplicate -->|Yes| Skip[Skip and audit]:::endOk
+  end
+  subgraph RouteDecision["Route Decision"]
+    Duplicate -->|No| Confident{Automated decision confident?}:::decision
+    Confident -->|Yes| Auto[Apply automated route]:::endOk
+    Confident -->|No| Human[Human review]:::human
+  end
+  subgraph ReviewClosure["Review Closure"]
+    Human --> Final{Decision received?}:::decision
+    Final -->|Yes| Closed[Apply final outcome]:::endOk
+    Final -->|No| Escalate[Escalate or exception]:::endFail
+  end
+
+  classDef start fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:2px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.5px
+  classDef endOk fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:2px
+  classDef endFail fill:#FEF2F2,stroke:#EF4444,color:#991B1B,stroke-width:2px
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+  linkStyle 0,2,4 stroke:#3B82F6,stroke-width:2px
+  linkStyle 3,5,7 stroke:#10B981,stroke-width:2px
+  linkStyle 1,8 stroke:#EF4444,stroke-width:2px
+```
+
+### Evidence coverage map (required)
+
+```mermaid
+flowchart LR
+  subgraph Planning["Planning Contract"]
+    Spec[Spec visibility rows]:::process --> Plan[Plan phases]:::process
+    Plan --> Tasks[Executable task cards]:::process
+  end
+  subgraph Verification["Verification Loop"]
+    Tasks --> Build[Build surfaces]:::service
+    Build --> Gates[Analyze and test gates]:::service
+    Gates --> Evidence[(Evidence outputs)]:::data
+    Evidence --> Review{Review passes?}:::decision
+    Review -->|No| Fix[Fix and rerun]:::error
+    Fix --> Tasks
+  end
+  Review -->|Yes| Accept[Human acceptance]:::endOk
+
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef data fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef endOk fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:2px
+  classDef error fill:#FEF2F2,stroke:#EF4444,color:#991B1B,stroke-width:1.5px
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+  linkStyle 0,1,2,3,4 stroke:#3B82F6,stroke-width:2px
+  linkStyle 6 stroke:#10B981,stroke-width:2px
+  linkStyle 7,8 stroke:#EF4444,stroke-width:2px
+```
+
 ### Decision boundary map
 
 ```mermaid
@@ -241,6 +414,9 @@ flowchart TD
   Route --> Action[Deterministic_action_workflow]
   Route --> Review[Human_review]
   Route --> Close[Audit_and_close]
+  classDef node fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  class Input,Policy,Reason,Route,Action,Review,Close node
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
 ```
 
 ## Business Scope Map

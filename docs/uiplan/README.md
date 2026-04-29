@@ -4,6 +4,10 @@ UiPlan is the three-file planning-to-build contract used before implementation:
 `spec.md` (what), `plan.md` (how), and `tasks.md` (executable steps + evidence).
 It supports Cursor slash commands, MCP tool calls, and terminal usage.
 
+**Canonical procedures** (command matrix, paths, lifecycle, lessons, review fixes):
+[HOW_TO_USE.md](HOW_TO_USE.md). Use that file for **how** to run each surface; this
+README explains **what** UiPlan is and **when** to use it.
+
 ![UiPlan logo](../assets/uiplan-logo.svg)
 
 ## Choose your path
@@ -41,6 +45,8 @@ Skip UiPlan (direct edit + validate) when:
 - Solution Engineer: [HOW_TO_USE.md](HOW_TO_USE.md)
 - Implementer: [TASK_AUTHORING.md](TASK_AUTHORING.md)
 - Template maintainer: [../../templates/uiplan/README.md](../../templates/uiplan/README.md)
+- Repo hygiene / sample folders: [CLEANUP_CLASSIFICATION.md](CLEANUP_CLASSIFICATION.md)
+- Evaluation rubric scope (deterministic vs LLM): [RUBRIC_POLICY.md](RUBRIC_POLICY.md)
 
 ## 360 visibility standard (2026 update)
 
@@ -59,15 +65,22 @@ UiPlan now enforces a 360 build-visibility contract across the bundle:
 - Template contract now also requires per-workflow activity conformance:
   each workflow row must declare mandatory activities/nodes, skill/tool route,
   and a verification gate proving those activities are truly present.
+- UiPlan is visual-first by standard. New bundles must include a business
+  process flow, solution architecture, runtime sequence, decision tree,
+  workflow-internal visuals, and an evidence coverage map at the appropriate
+  stage. Visuals are build contracts, not illustrations.
 - `uipath_plan_review` is the hard gate: under-specified bundles fail before
   acceptance.
 - `/uiplan-implement` runs a preflight and refuses thin accepted bundles before
   source edits (accepted status does not bypass quality gates).
 
-Recent lessons are now part of the default contract: dispatcher-template
-provenance for mailbox intake, real connector-read evidence, per-workflow
-diagram + activity checklist coverage, and Studio-visible correlation/log
-assertions.
+Recent lessons are now part of the default contract: named-template provenance
+for every Studio/repo template, the `copy/export -> read/inspect -> preserve ->
+customize in place -> verify` host-shell lifecycle, dispatcher-template
+provenance for mailbox intake, long-running AnalyzerRunner and HITL template
+customization, real connector-read evidence, per-workflow diagram + activity
+checklist coverage, richer cross-surface visuals, and Studio-visible
+correlation/log assertions.
 Capture additional durable retrospectives through the
 [library learning loop](../LIBRARY_LEARNING.md) so transcript-derived lessons
 can be reviewed, approved, and reused across future bundles.
