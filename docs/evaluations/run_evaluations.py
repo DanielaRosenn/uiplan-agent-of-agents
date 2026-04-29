@@ -80,6 +80,7 @@ CATEGORY_TIMEOUTS = {
     'Performance': 120,             # 2 min
     'Learning': 120,              # memory preference can trigger broad exploration
     'Library': 60,                # doc library tools + short answers
+    'Subagent Routing': 180,    # persona/subagent routing eval cases
     'Full project E2E': 600,        # 10 min (deferred long tests)
 }
 DEFAULT_TIMEOUT = 180  # 3 min fallback
@@ -235,6 +236,18 @@ class OutputParser:
         for match in re.finditer(r'\[SKILL:\s*([^\]]+)\]', stdout):
             skills.append(match.group(1).strip())
         return skills
+
+    @staticmethod
+    def extract_document_types(stdout: str) -> list[str]:
+        """Extract selected document-output types from structured markers."""
+        document_types: list[str] = []
+        seen: set[str] = set()
+        for match in re.finditer(r'\[DOCUMENT_TYPE:\s*([^\]]+)\]', stdout):
+            doc_type = match.group(1).strip().upper()
+            if doc_type in {"ADD", "TDD"} and doc_type not in seen:
+                seen.add(doc_type)
+                document_types.append(doc_type)
+        return document_types
     
     @staticmethod
     def extract_files_written(stdout: str) -> list[str]:
@@ -459,27 +472,179 @@ class OutputParser:
 
 class TechnicalEvaluator:
     """Evaluate technical aspects of CLI output."""
-    
+
     def __init__(self, parsed_output: dict, expected: dict):
         self.output = parsed_output
         self.expected = expected
-        self.results = {'passed': [], 'failed': [], 'warnings': []}
-    
+        self.results: dict[str, list[str]] = {
+            'passed': [],
+            'failed': [],
+            'routing_failed': [],
+            'warnings': [],
+        }
+
     def evaluate(self) -> dict:
         """Run all technical evaluations."""
         self._check_crash()
         self._check_mode()
+        self._check_skills_routing()
+        self._check_document_type_routing()
         self._check_tool_calls()
+        self._check_no_file_creation()
+        self._check_artifacts_forbidden()
+        self._check_safety_phrases()
         self._check_artifacts()
         self._check_errors()
-        
+
+        blocking = self._routing_failure_blocking()
+        routing_failed = self.results['routing_failed']
+        execution_failed = self.results['failed']
+        routing_ok = len(routing_failed) == 0
+        execution_ok = len(execution_failed) == 0
+        passed = execution_ok and (routing_ok or not blocking)
+
         return {
-            'passed': len(self.results['failed']) == 0,
+            'passed': passed,
+            'routing_passed': routing_ok,
+            'routing_failure_is_blocking': blocking,
             'checks_passed': len(self.results['passed']),
             'checks_failed': len(self.results['failed']),
+            'routing_checks_failed': len(routing_failed),
             'warnings': len(self.results['warnings']),
-            'details': self.results
+            'details': self.results,
         }
+
+    def _routing_failure_blocking(self) -> bool:
+        explicit = self.expected.get('routing_failure_is_blocking')
+        if explicit is not None:
+            return bool(explicit)
+        return bool(
+            self.expected.get('skills_required')
+            or self.expected.get('skills_forbidden')
+            or self.expected.get('document_type_required')
+            or self.expected.get('document_type_forbidden')
+            or self.expected.get('no_file_creation')
+            or self.expected.get('artifacts_forbidden')
+            or self.expected.get('safety_forbidden_phrases')
+        )
+
+    @staticmethod
+    def _skill_present(required: str, skills: list[str]) -> bool:
+        req = required.strip().lower()
+        if not req:
+            return False
+        for line in skills:
+            sl = line.strip().lower()
+            if req == sl or req in sl or sl.endswith(req):
+                return True
+        return False
+
+    def _check_skills_routing(self) -> None:
+        skills = self.output.get('skills') or []
+        req = self.expected.get('skills_required')
+        required = req if isinstance(req, list) else []
+        for name in required:
+            if self._skill_present(name, skills):
+                self.results['passed'].append(f'Skill marker present: {name}')
+            else:
+                self.results['routing_failed'].append(
+                    f'Missing required skill marker: {name} (have {skills!r})'
+                )
+
+        forb = self.expected.get('skills_forbidden')
+        forbidden = forb if isinstance(forb, list) else []
+        for name in forbidden:
+            if self._skill_present(name, skills):
+                self.results['routing_failed'].append(
+                    f'Forbidden skill marker present: {name}'
+                )
+            else:
+                self.results['passed'].append(f'Forbidden skill absent (ok): {name}')
+
+        rexp = self.expected.get('routing_expected')
+        if isinstance(rexp, str) and rexp.strip():
+            self.results['passed'].append(f'routing_expected (informational): {rexp}')
+
+    def _check_document_type_routing(self) -> None:
+        doc_types = [
+            str(value).strip().upper()
+            for value in (self.output.get('document_types') or [])
+            if str(value).strip()
+        ]
+
+        required = self.expected.get('document_type_required')
+        if isinstance(required, str) and required.strip():
+            req = required.strip().upper()
+            if req in doc_types:
+                self.results['passed'].append(f'Document type present: {req}')
+            else:
+                self.results['routing_failed'].append(
+                    f'Missing document type: {req} (have {doc_types!r})'
+                )
+
+        forbidden = self.expected.get('document_type_forbidden')
+        values = forbidden if isinstance(forbidden, list) else []
+        for raw in values:
+            value = str(raw or '').strip().upper()
+            if not value:
+                continue
+            if value in doc_types:
+                self.results['routing_failed'].append(
+                    f'Forbidden document type present: {value}'
+                )
+            else:
+                self.results['passed'].append(f'Forbidden document type absent (ok): {value}')
+
+    def _check_no_file_creation(self) -> None:
+        if not self.expected.get('no_file_creation'):
+            return
+        files = self.output.get('files_written') or []
+        if files:
+            self.results['routing_failed'].append(
+                f'no_file_creation: files were written {files!r}'
+            )
+        else:
+            self.results['passed'].append('no_file_creation: no files written')
+
+    def _check_artifacts_forbidden(self) -> None:
+        raw = self.expected.get('artifacts_forbidden')
+        patterns = raw if isinstance(raw, list) else []
+        if not patterns:
+            return
+        files = self.output.get('files_written') or []
+        hay = ' '.join(files).lower()
+        for pat in patterns:
+            p = (pat or '').lower().strip()
+            if not p:
+                continue
+            if p.startswith('*'):
+                suf = p[1:]
+                hit = any(f.lower().endswith(suf) for f in files)
+            else:
+                hit = p in hay or any(p in f.lower() for f in files)
+            if hit:
+                self.results['routing_failed'].append(
+                    f'Forbidden artifact matched pattern {pat!r}'
+                )
+            else:
+                self.results['passed'].append(f'Forbidden artifact absent (ok): {pat}')
+
+    def _check_safety_phrases(self) -> None:
+        raw = self.expected.get('safety_forbidden_phrases')
+        phrases = raw if isinstance(raw, list) else []
+        if not phrases:
+            return
+        combined = self.output.get('safety_text') or self.output.get('combined_text') or ''
+        for phrase in phrases:
+            p = (phrase or '').lower().strip()
+            if not p:
+                continue
+            if p in combined:
+                self.results['routing_failed'].append(
+                    f'Safety: forbidden phrase present: {phrase!r}'
+                )
+            else:
+                self.results['passed'].append(f'Safety: phrase absent (ok): {phrase}')
     
     def _check_crash(self):
         if self.expected.get('crash_not_allowed', True):
@@ -667,16 +832,24 @@ def run_evaluation(test_case: dict, runner: CLITestRunner) -> dict:
     duration_ms = int((time.perf_counter() - t0) * 1000)
     
     # Parse output
+    assistant_response = OutputParser.extract_assistant_response(cli_result['stdout'])
     parsed = {
         'stdout': cli_result['stdout'],
         'stderr': cli_result['stderr'],
         'crashed': cli_result.get('crashed', False),
         'tool_calls': OutputParser.extract_tool_calls(cli_result['stdout']),
         'skills': OutputParser.extract_skills(cli_result['stdout']),
+        'document_types': OutputParser.extract_document_types(cli_result['stdout']),
         'files_written': OutputParser.extract_files_written(cli_result['stdout']),
         'errors': OutputParser.extract_errors(cli_result['stdout'], cli_result['stderr']),
         'mode': OutputParser.detect_mode(cli_result['stdout']),
-        'response': OutputParser.extract_assistant_response(cli_result['stdout'])
+        'response': assistant_response,
+        'combined_text': (
+            (cli_result.get('stdout') or '') + '\n' + (cli_result.get('stderr') or '')
+        ).lower(),
+        'safety_text': (
+            (assistant_response or '') + '\n' + (cli_result.get('stderr') or '')
+        ).lower(),
     }
     
     # Evaluate technical
@@ -704,6 +877,7 @@ def run_evaluation(test_case: dict, runner: CLITestRunner) -> dict:
             'mode': parsed['mode'],
             'tool_calls': parsed['tool_calls'],
             'skills': parsed.get('skills', []),
+            'document_types': parsed.get('document_types', []),
             'files_written': parsed['files_written'],
             'errors': parsed['errors'][:20],
             'assistant_response_preview': (parsed['response'] or '')[:2000],
@@ -721,7 +895,13 @@ def run_evaluation(test_case: dict, runner: CLITestRunner) -> dict:
     # Print summary
     tech_status = 'PASS' if tech_result['passed'] else 'FAIL'
     concept_status = 'PASS' if concept_result['passed'] else 'FAIL'
-    print(f"Technical: {tech_status} ({tech_result['checks_passed']}/{tech_result['checks_passed'] + tech_result['checks_failed']})")
+    rf = tech_result.get('routing_checks_failed', 0)
+    ef = tech_result.get('checks_failed', 0)
+    print(
+        f"Technical: {tech_status} "
+        f"(exec_failed={ef}, routing_failed={rf}, "
+        f"routing_blocking={tech_result.get('routing_failure_is_blocking')})"
+    )
     print(f"Conceptual: {concept_status} ({concept_result['checks_passed']}/{concept_result['checks_passed'] + concept_result['checks_failed']})")
     
     return result
@@ -883,6 +1063,8 @@ def main():
                 'overall_passed': r['overall_passed'],
                 'duration_ms': r.get('duration_ms'),
                 'technical_passed': r['technical']['passed'],
+                'routing_passed': r['technical'].get('routing_passed'),
+                'routing_checks_failed': r['technical'].get('routing_checks_failed'),
                 'conceptual_passed': r['conceptual']['passed'],
             }
             for r in results
@@ -928,15 +1110,18 @@ def main():
         f'- Timeout: {timeout_info}',
         f'- Skipped full-project E2E (not in this run): {skipped_e2e}',
         '',
-        '| Test ID | Category | Overall | Tech | Concept | ms | Log |',
-        '|---------|----------|---------|------|---------|-----|-----|',
+        '| Test ID | Category | Overall | Tech | Routing | Concept | ms | Log |',
+        '|---------|----------|---------|------|---------|---------|-----|-----|',
     ]
     for r in results:
         tid = r['test_id']
+        rp = r['technical'].get('routing_passed')
+        routing_cell = 'PASS' if rp else 'FAIL'
         lines.append(
             f'| {tid} | {r["category"]} | '
             f'{"PASS" if r["overall_passed"] else "FAIL"} | '
             f'{"PASS" if r["technical"]["passed"] else "FAIL"} | '
+            f'{routing_cell} | '
             f'{"PASS" if r["conceptual"]["passed"] else "FAIL"} | '
             f'{r.get("duration_ms", 0)} | [{tid}.json](./{tid}.json) |'
         )

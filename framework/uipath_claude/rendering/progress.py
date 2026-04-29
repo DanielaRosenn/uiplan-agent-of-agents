@@ -218,6 +218,17 @@ class AgenticProgressReporter:
         self.console.print(f"[dim]Skills in context:[/dim] [cyan]{line}[/cyan]{extra}")
         self.console.print()
 
+    def document_type(self, value: str | None) -> None:
+        """Print selected document output type once per agentic run."""
+        doc_type = str(value or "").strip().upper()
+        if doc_type not in {"ADD", "TDD"}:
+            return
+
+        # Structured marker for evaluation parser
+        self.console.print(f"[dim][DOCUMENT_TYPE: {doc_type}][/dim]")
+        self.console.print(f"[dim]Document output type:[/dim] [cyan]{doc_type}[/cyan]")
+        self.console.print()
+
     def iteration_start(self, n: int, max_iter: int) -> None:
         """
         Show iteration header with progress bar.

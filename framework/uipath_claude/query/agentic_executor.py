@@ -519,6 +519,9 @@ class AgenticExecutor:
                     [str(s) for s in raw_skills],
                     skill_name,
                 )
+            progress.document_type(
+                context.get("selected_document_type") or context.get("document_type")
+            )
 
         preflight_project_dir = _resolve_project_dir_from_context(context)
         preflight_approved = False

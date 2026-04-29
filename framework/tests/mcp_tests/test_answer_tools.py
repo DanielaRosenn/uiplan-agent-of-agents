@@ -16,8 +16,11 @@ class TestGetAnswerTools:
         assert tools[0].name == "uipath_answer"
         schema = tools[0].inputSchema
         assert schema["required"] == ["question"]
-        assert set(schema["properties"]["persona"]["enum"]) >= {
-            "ba", "sa", "developer", "qa", "add", "tdd"
+        assert set(schema["properties"]["persona"]["enum"]) == {
+            "ba",
+            "sa",
+            "developer",
+            "qa",
         }
 
 

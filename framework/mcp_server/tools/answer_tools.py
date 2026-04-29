@@ -1,8 +1,11 @@
 """MCP tool ``uipath_answer`` — persona-based Q&A.
 
-Routes a general UiPath question to one of the existing personas (BA, SA,
-Developer, QA, ADD, TDD) and answers it using only the read-only library and
-activity-documentation tools.
+Routes a general UiPath question to one of the role personas (BA, SA,
+Developer, QA). Agent Design (ADD) and Technical Design (TDD) requests are
+handled under the Solution Architect persona with an internal document type,
+not as separate persona enum values.
+
+Answers use only the read-only library and activity-documentation tools.
 """
 from __future__ import annotations
 
@@ -24,9 +27,12 @@ def get_answer_tools() -> list[Tool]:
         Tool(
             name="uipath_answer",
             description=(
-                "Answer a general UiPath question under a specific persona "
-                "(business analyst, solution architect, developer, QA, ADD, "
-                "or TDD). Read-only: the persona can only call the "
+                "Answer a general UiPath question under a role persona "
+                "(business analyst, solution architect, developer, or QA). "
+                "Agent Design (ADD) and Technical Design (TDD) prompts are "
+                "routed through the solution architect persona with the "
+                "appropriate document template. "
+                "Read-only: the persona can only call the "
                 "uipath_library_* and uipath_doc_* tools — it cannot modify "
                 "the workspace. For BUILD requests use uipath_plan_build "
                 "instead."

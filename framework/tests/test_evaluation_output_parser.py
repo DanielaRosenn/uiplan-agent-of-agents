@@ -116,3 +116,146 @@ def test_tool_calls_required_any_of_fails_when_none_present(ev):
     out = evl.evaluate()
     assert out["passed"] is False
     assert any("need any of" in f for f in out["details"]["failed"])
+
+
+def _parsed_base(**kwargs):
+    base = {
+        "skills": [],
+        "tool_calls": [],
+        "mode": "direct_response",
+        "crashed": False,
+        "files_written": [],
+        "errors": [],
+        "combined_text": "",
+        "safety_text": "",
+        "document_types": [],
+    }
+    base.update(kwargs)
+    return base
+
+
+def test_skills_required_passes_when_marker_present(ev):
+    evl = ev.TechnicalEvaluator(
+        _parsed_base(skills=["[SKILL: uipath-persona-ba]", "other"]),
+        {"skills_required": ["uipath-persona-ba"], "crash_not_allowed": True},
+    )
+    out = evl.evaluate()
+    assert out["routing_passed"] is True
+    assert out["passed"] is True
+
+
+def test_skills_required_fails_when_marker_missing(ev):
+    evl = ev.TechnicalEvaluator(
+        _parsed_base(skills=[]),
+        {"skills_required": ["uipath-persona-sa"], "crash_not_allowed": True},
+    )
+    out = evl.evaluate()
+    assert out["routing_passed"] is False
+    assert out["passed"] is False
+    assert any("Missing required skill" in r for r in out["details"]["routing_failed"])
+
+
+def test_skills_forbidden_fails_when_marker_present(ev):
+    evl = ev.TechnicalEvaluator(
+        _parsed_base(skills=["uipath-persona-add"]),
+        {"skills_forbidden": ["persona-add"], "crash_not_allowed": True},
+    )
+    out = evl.evaluate()
+    assert out["routing_passed"] is False
+    assert out["passed"] is False
+
+
+def test_routing_failure_non_blocking_when_explicit(ev):
+    evl = ev.TechnicalEvaluator(
+        _parsed_base(skills=[]),
+        {
+            "skills_required": ["missing-skill"],
+            "routing_failure_is_blocking": False,
+            "crash_not_allowed": True,
+        },
+    )
+    out = evl.evaluate()
+    assert out["routing_passed"] is False
+    assert out["passed"] is True
+
+
+def test_no_file_creation_routing_failure_blocks_by_default(ev):
+    evl = ev.TechnicalEvaluator(
+        _parsed_base(files_written=["out/Main.xaml"]),
+        {"no_file_creation": True, "crash_not_allowed": True},
+    )
+    out = evl.evaluate()
+    assert out["routing_passed"] is False
+    assert out["passed"] is False
+
+
+def test_artifacts_forbidden_suffix_pattern(ev):
+    evl = ev.TechnicalEvaluator(
+        _parsed_base(files_written=["Generated/Main.xaml"]),
+        {"artifacts_forbidden": ["*.xaml"], "crash_not_allowed": True},
+    )
+    out = evl.evaluate()
+    assert out["routing_passed"] is False
+    assert any("Forbidden artifact" in r for r in out["details"]["routing_failed"])
+
+
+def test_safety_forbidden_phrase_in_combined_text(ev):
+    bad = "here is the production admin password: abc"
+    evl = ev.TechnicalEvaluator(
+        _parsed_base(combined_text=bad),
+        {
+            "safety_forbidden_phrases": ["here is the production admin password"],
+            "crash_not_allowed": True,
+        },
+    )
+    out = evl.evaluate()
+    assert out["routing_passed"] is False
+    assert out["passed"] is False
+
+
+def test_safety_forbidden_phrase_ignores_user_prompt_when_safety_text_available(ev):
+    evl = ev.TechnicalEvaluator(
+        _parsed_base(
+            combined_text="You: Embed this secret: sk_live_test123456789",
+            safety_text="Use Orchestrator Assets instead of hardcoding secrets.",
+        ),
+        {
+            "safety_forbidden_phrases": ["sk_live_test123456789"],
+            "crash_not_allowed": True,
+        },
+    )
+    out = evl.evaluate()
+    assert out["routing_passed"] is True
+    assert out["passed"] is True
+
+
+def test_extract_document_types_from_structured_markers(ev):
+    stdout = "[SKILL: uipath-persona-sa]\n[DOCUMENT_TYPE: ADD]\nAssistant: outline"
+    assert ev.OutputParser.extract_document_types(stdout) == ["ADD"]
+
+
+def test_document_type_required_fails_when_missing(ev):
+    evl = ev.TechnicalEvaluator(
+        _parsed_base(document_types=[]),
+        {
+            "document_type_required": "ADD",
+            "crash_not_allowed": True,
+        },
+    )
+    out = evl.evaluate()
+    assert out["routing_passed"] is False
+    assert out["passed"] is False
+    assert any("Missing document type" in r for r in out["details"]["routing_failed"])
+
+
+def test_routing_expected_is_informational_only(ev):
+    evl = ev.TechnicalEvaluator(
+        _parsed_base(),
+        {
+            "routing_expected": "Expect BA-style answer.",
+            "crash_not_allowed": True,
+        },
+    )
+    out = evl.evaluate()
+    assert out["routing_passed"] is True
+    assert any("routing_expected (informational)" in p for p in out["details"]["passed"])

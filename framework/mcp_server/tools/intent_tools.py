@@ -61,13 +61,14 @@ def classify(text: str, project_root: str | None = None) -> dict[str, Any]:
     emits from MCP.
     """
     intent, reason = classify_intent(text or "")
-    persona, persona_reason = select_persona_for_text(text or "", intent)
+    persona, persona_reason, document_type = select_persona_for_text(text or "", intent)
     return {
         "intent": intent.value,
         "reason": reason,
         "recommended_next_tool": _recommended_next_tool(intent),
         "persona": persona,
         "persona_reason": persona_reason,
+        "document_type": document_type,
         "library_hints": _library_hints(text or ""),
         "project_root": project_root,
     }

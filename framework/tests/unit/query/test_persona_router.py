@@ -8,6 +8,8 @@ import pytest
 
 from uipath_claude.query import persona_router
 from uipath_claude.query.agentic_executor import AgenticResult
+from uipath_claude.query.intent_classifier import IntentType
+from uipath_claude.query.persona_selection import select_persona_for_text
 
 
 class TestPersonaResolution:
@@ -26,7 +28,7 @@ class TestPersonaResolution:
 
 
 class TestSystemPrompt:
-    @pytest.mark.parametrize("persona", ["ba", "sa", "developer", "qa", "add", "tdd"])
+    @pytest.mark.parametrize("persona", ["ba", "sa", "developer", "qa"])
     def test_includes_readonly_guardrail(self, persona: str):
         prompt = persona_router.build_system_prompt(persona)
         assert "READ-ONLY Q&A MODE" in prompt
@@ -38,6 +40,36 @@ class TestSystemPrompt:
         assert ba != sa
         assert "Business Analyst" in ba
         assert "Solution Architect" in sa
+
+    def test_sa_with_add_document_type_uses_add_template(self):
+        prompt = persona_router.build_system_prompt("sa", document_type="ADD")
+        assert "Architecture Design Document (ADD)" in prompt
+        assert "READ-ONLY Q&A MODE" in prompt
+
+    def test_sa_with_tdd_document_type_uses_tdd_template(self):
+        prompt = persona_router.build_system_prompt("sa", document_type="TDD")
+        assert "Technical Design Document (TDD)" in prompt
+        assert "READ-ONLY Q&A MODE" in prompt
+
+
+class TestPersonaSelectionDocumentTypes:
+    def test_agent_design_keywords_resolve_to_sa_and_add(self):
+        p, reason, doc = select_persona_for_text(
+            "Write an agent design document for my support agent.",
+            IntentType.QUESTION,
+        )
+        assert p == "sa"
+        assert doc == "ADD"
+        assert reason == "agent_design_document"
+
+    def test_technical_design_keywords_resolve_to_sa_and_tdd(self):
+        p, reason, doc = select_persona_for_text(
+            "I need a technical design document for Excel validation.",
+            IntentType.QUESTION,
+        )
+        assert p == "sa"
+        assert doc == "TDD"
+        assert reason == "technical_design_document"
 
 
 class TestQATools:
@@ -108,6 +140,24 @@ class TestAnswerQuestion:
         )
         assert result.persona == "qa"
         assert result.persona_reason == "quality/testing keyword"
+
+    def test_auto_selects_sa_add_and_passes_document_type_context(self):
+        exe = MagicMock()
+        exe.execute = AsyncMock(
+            return_value=AgenticResult(success=True, final_response="A")
+        )
+        result = asyncio.run(
+            persona_router.answer_question(
+                "Draft an Agent Design Document for a support triage agent.",
+                executor=exe,
+            )
+        )
+        assert result.persona == "sa"
+        assert result.document_type == "ADD"
+        _, kwargs = exe.execute.call_args
+        assert kwargs["project_context"]["document_type"] == "ADD"
+        assert kwargs["project_context"]["selected_document_type"] == "ADD"
+        assert kwargs["project_context"]["selected_skill_names"] == ["uipath-persona-sa"]
 
     def test_explicit_persona_override_wins(self):
         exe = MagicMock()

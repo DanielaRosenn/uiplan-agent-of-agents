@@ -93,6 +93,12 @@ python docs/evaluations/run_evaluations.py --category "Workflow Building"
 # Documentation library (LIB-001 … LIB-006); see test_cases.json
 python docs/evaluations/run_evaluations.py --category Library
 
+# Subagent Routing (SUB-* seeds; LLM-heavy). Seed cases set skip_in_default_batch — still runnable explicitly:
+python docs/evaluations/run_evaluations.py --category "Subagent Routing"
+
+# Single SUB case (example)
+python docs/evaluations/run_evaluations.py --test SUB-DISC-001
+
 # Custom project dir (timeout auto-set by category: e.g. Workflow Building=300s,
 # Question=180s, Learning=120s, Validation=180s; see CATEGORY_TIMEOUTS in run_evaluations.py)
 python docs/evaluations/run_evaluations.py --project-dir tests\fixtures\sample_project
@@ -212,6 +218,7 @@ The runner automatically selects an appropriate timeout based on test category:
 | Error Handling | 90s (1.5 min) | Error detection scenarios |
 | Code Generation | 240s (4 min) | Planning + code generation |
 | Library | 60s (1 min) | Documentation library tools (`list_library_books`, `search_library`, etc.); see `CATEGORY_TIMEOUTS` in `run_evaluations.py` |
+| Subagent Routing | 180s (3 min) | Persona/subagent/document-output seeds; optional routing assertions on `[SKILL: …]` markers |
 | (other) | 180s (3 min) | Default fallback |
 
 Use `--timeout N` to override all category defaults with a fixed value.
@@ -294,6 +301,7 @@ The CLI emits structured markers that the evaluation parser uses:
 | `[ANSWERING]` | Direct answer turn (no plan/execute loop); maps to technical mode **`direct_response`** |
 | `[TOOL_CALL: name]` | Tool `name` was invoked |
 | `[SKILL: name]` | Skill `name` is in context |
+| `[DOCUMENT_TYPE: ADD]` / `[DOCUMENT_TYPE: TDD]` | SA-routed document output type selected for ADD/TDD-style prompts |
 
 These markers appear in CLI output and are parsed by `run_evaluations.py` to determine test pass/fail.
 

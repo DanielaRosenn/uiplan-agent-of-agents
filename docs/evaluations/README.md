@@ -56,6 +56,18 @@ This folder contains the evaluation framework for testing the `uipath-claude cha
 | `artifacts.files_created` | Files that must be created (glob patterns) |
 | `artifacts.xaml_must_contain` | Strings that must appear in generated XAML |
 | `crash_not_allowed` | Test fails if unhandled exception occurs |
+| **Routing (Subagent / persona)** | |
+| `skills_required` | Substrings that must appear in parsed `[SKILL: ...]` lines (case-insensitive; flexible matching) |
+| `skills_forbidden` | Skill markers that must **not** appear |
+| `document_type_required` | Document-output marker (`ADD` or `TDD`) that must appear in parsed `[DOCUMENT_TYPE: ...]` lines |
+| `document_type_forbidden` | Document-output markers (`ADD` / `TDD`) that must **not** appear |
+| `routing_expected` | Informational note only (logged as pass detail; does not fail tests) |
+| `no_file_creation` | Fail routing if any file write was detected |
+| `artifacts_forbidden` | Glob-like patterns (`*.xaml`) or substrings against written paths |
+| `safety_forbidden_phrases` | Phrases that must **not** appear in assistant response + stderr (case-insensitive). This intentionally ignores the user's prompt so tests can include unsafe examples without failing on the input itself. |
+| `routing_failure_is_blocking` | If `true`, routing failures fail the technical stage. If omitted: blocking when any routing key above is set except `routing_expected`. |
+
+Routing failures are counted separately (`routing_checks_failed`, `routing_passed` in JSON) from execution/tool failures.
 
 ### Conceptual Stage
 
@@ -100,3 +112,7 @@ python run_evaluations.py --output results/run_$(date +%Y%m%d).json
 - **Complex Scenario**: Multi-step workflows
 - **Edge Case**: Unusual inputs
 - **Modification**: Editing existing workflows
+- **Library**: Documentation library MCP tools (`list_library_books`, `search_library`, …)
+- **Subagent Routing**: Persona/subagent/document-output scenarios; uses routing fields plus conceptual checks. Seed cases use **`skip_in_default_batch`: true** — run with `--category "Subagent Routing"` or `--test SUB-…`
+
+See [`SUBAGENT_PERSONA_MATRIX.md`](SUBAGENT_PERSONA_MATRIX.md) for cohort IDs and Academy-aligned roles vs document outputs (ADD/TDD under SA).

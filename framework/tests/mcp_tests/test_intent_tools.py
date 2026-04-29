@@ -44,7 +44,8 @@ def test_documentation_intent_defaults_to_sa_persona():
     payload = classify("Create a SDD for the RPC approval agent.")
     assert payload["intent"] == "documentation"
     assert payload["recommended_next_tool"] == "uipath_answer"
-    assert payload["persona"] in {"sa", "tdd", "add"}
+    assert payload["persona"] == "sa"
+    assert payload.get("document_type") is None
 
 
 def test_ambiguous_stays_ambiguous():

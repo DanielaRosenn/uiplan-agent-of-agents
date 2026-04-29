@@ -1,9 +1,14 @@
 """Persona-based Q&A router for UiPath Claude Code.
 
 The router takes a user question, a persona key (``ba`` / ``sa`` / ``developer``
-/ ``qa`` / ``add`` / ``tdd``), builds a read-only tool surface composed of the
-library and activity-documentation MCP tools, and hands the request to the
+/ ``qa``), builds a read-only tool surface composed of the library and
+activity-documentation MCP tools, and hands the request to the
 ``AgenticExecutor`` under the persona's system prompt.
+
+Agent Design (ADD) and Technical Design (TDD) prompts are routed through the
+Solution Architect persona (``sa``) with an optional ``document_type`` of
+``ADD`` or ``TDD`` so the correct document template is used; they are not
+separate personas.
 
 Personas are NEVER given write/execute tools from here; answering a general
 UiPath question must not mutate the workspace. BUILD-intent requests belong on
@@ -23,7 +28,10 @@ from uipath_claude.agents.sa import SAAgent
 from uipath_claude.agents.tdd import TDDAgent
 from uipath_claude.query.agentic_executor import AgenticExecutor, AgenticResult
 from uipath_claude.query.intent_classifier import IntentType
-from uipath_claude.query.persona_selection import select_persona_for_text
+from uipath_claude.query.persona_selection import (
+    detect_document_type_for_prompt,
+    select_persona_for_text,
+)
 from uipath_claude.tools.doc_tools import get_doc_tools
 from uipath_claude.tools.library_tools import get_library_tools
 
@@ -33,8 +41,6 @@ _PERSONAS: dict[str, type[BaseAgent]] = {
     "sa": SAAgent,
     "developer": DeveloperAgent,
     "qa": QAAgent,
-    "add": ADDAgent,
-    "tdd": TDDAgent,
 }
 
 DEFAULT_PERSONA = "sa"
@@ -59,14 +65,20 @@ class PersonaAnswer:
     tokens_in: int
     tokens_out: int
     persona_reason: str | None = None
+    document_type: str | None = None
 
     @classmethod
     def from_result(
-        cls, persona: str, result: AgenticResult, persona_reason: str | None = None
+        cls,
+        persona: str,
+        result: AgenticResult,
+        persona_reason: str | None = None,
+        document_type: str | None = None,
     ) -> "PersonaAnswer":
         return cls(
             persona=persona,
             persona_reason=persona_reason,
+            document_type=document_type,
             final_response=result.final_response,
             tool_calls_made=list(result.tool_calls_made),
             iterations=result.iterations,
@@ -91,8 +103,20 @@ def resolve_persona(persona: str | None) -> str:
     return key
 
 
-def build_system_prompt(persona: str) -> str:
+def build_system_prompt(persona: str, document_type: str | None = None) -> str:
+    """Build system prompt for persona Q&A.
+
+    When ``persona`` is ``sa`` and ``document_type`` is ``ADD`` or ``TDD``,
+    use the corresponding document-authoring prompt body (still under the SA
+    role, not separate personas).
+    """
     key = resolve_persona(persona)
+    if key == "sa" and document_type == "ADD":
+        agent = ADDAgent()
+        return agent.get_system_prompt() + _READ_ONLY_GUARDRAIL
+    if key == "sa" and document_type == "TDD":
+        agent = TDDAgent()
+        return agent.get_system_prompt() + _READ_ONLY_GUARDRAIL
     agent = _PERSONAS[key]()
     return agent.get_system_prompt() + _READ_ONLY_GUARDRAIL
 
@@ -129,12 +153,17 @@ async def answer_question(
         raise ValueError("'user_question' must be a non-empty string")
 
     persona_reason = "explicit" if persona else None
+    document_type: str | None = None
     if persona:
         key = resolve_persona(persona)
+        if key == "sa":
+            document_type = detect_document_type_for_prompt(user_question)
     else:
-        selected, persona_reason = select_persona_for_text(user_question, IntentType.QUESTION)
+        selected, persona_reason, document_type = select_persona_for_text(
+            user_question, IntentType.QUESTION
+        )
         key = resolve_persona(selected)
-    system_prompt = build_system_prompt(key)
+    system_prompt = build_system_prompt(key, document_type=document_type)
     exe = executor or AgenticExecutor()
 
     result = await exe.execute(
@@ -143,12 +172,14 @@ async def answer_question(
         tools=get_qa_tools(),
         project_context={
             "selected_skill_names": [f"uipath-persona-{key}"],
+            "selected_document_type": document_type,
             "persona": key,
             "persona_reason": persona_reason,
+            "document_type": document_type,
             "mode": "qa",
         },
         skill_name=f"uipath-persona-{key}",
         prior_messages=history,
     )
 
-    return PersonaAnswer.from_result(key, result, persona_reason)
+    return PersonaAnswer.from_result(key, result, persona_reason, document_type)
