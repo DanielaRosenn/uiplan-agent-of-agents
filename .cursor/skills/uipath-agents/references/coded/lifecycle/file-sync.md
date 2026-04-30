@@ -35,6 +35,7 @@ uip codedagent pull --overwrite
 | Error | Cause | Solution |
 |-------|-------|----------|
 | `UIPATH_PROJECT_ID environment variable not found` | Missing project ID in `.env` | Create a Coded Agent project in Studio Web, copy its ID, add `UIPATH_PROJECT_ID=<id>` to `.env` |
+| `403 unauthorized` or `project not found` with a valid-looking UUID | ID came from deployment/solution URL (`agents_/deployed/...`) or low-code solution list, not coded project details | Open `.../studio_/projects`, open the coded project, copy project ID from project details, and retry |
 | `Your local version is behind the remote version. Aborted!` | Push requires interactive confirmation that CLI cannot provide | Use `uip codedagent push --overwrite` to force push |
 | Push deleted unexpected files | Push mirrors local state — removes remote files not present locally | This is by design. Review local files before pushing |
 | `Conflict on pull` | Remote and local both changed | Use `uip codedagent pull --overwrite` to force remote, or manually resolve differences |
@@ -76,6 +77,10 @@ The `UIPATH_PROJECT_ID` is required for both push and pull operations. Create a 
 ```env
 UIPATH_PROJECT_ID=12345
 ```
+
+Get this value from the **Studio Web coded project details** page under `.../studio_/projects`.
+Do **not** use IDs from `agents_/deployed/...` URLs or `uip agent list` output (those represent
+different resources and fail for coded sync commands).
 
 Alternatively, set it as an environment variable:
 

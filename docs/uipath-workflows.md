@@ -358,12 +358,17 @@ Developers using Cursor/Claude Code locally can sync with a Studio Web project:
 ```bash
 # In the local project dir
 export UIPATH_PROJECT_ID=<studio-web-project-uuid>
-uipath pull                  # bring remote state down
+uip codedagent pull          # bring remote state down
 # ... edit locally in Cursor ...
-uipath push                  # push up to Studio Web
+uip codedagent push --overwrite  # push up to Studio Web
 ```
 
 This enables a hybrid model: business users collaborate in Studio Web; developers work in Cursor with the full CLI toolchain.
+
+Important for coded agents:
+- `UIPATH_PROJECT_ID` must come from the Studio Web coded project details (`.../studio_/projects`).
+- Do not reuse IDs from `.../agents_/deployed/...` links.
+- Do not use low-code `uip agent list` IDs for `uip codedagent push/pull`.
 
 ### Studio Web source control policies
 

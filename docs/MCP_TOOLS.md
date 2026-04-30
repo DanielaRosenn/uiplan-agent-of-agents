@@ -4729,7 +4729,7 @@ flowchart LR
 
 #### Audience guide
 
-**Answer a UiPath question (persona-routed, read-only).** Answer a general UiPath question under a specific persona (business analyst, solution architect, developer, QA, ADD, or TDD). Read-only: the persona can only call the uipath_library_* and uipath_doc_* tools — it cannot modify the workspace. For BUILD requests use uipath_plan_build instead.
+**Answer a UiPath question (persona-routed, read-only).** Answer a general UiPath question under a role persona (business analyst, solution architect, developer, or QA). Agent Design (ADD) and Technical Design (TDD) prompts are routed through the solution architect persona with the appropriate document template. Read-only: the persona can only call the uipath_library_* and uipath_doc_* tools — it cannot modify the workspace. For BUILD requests use uipath_plan_build instead.
 
 **Required MCP arguments:**
 
@@ -4743,7 +4743,7 @@ flowchart LR
 
 #### Author registration (`Tool.description` verbatim)
 
-> Answer a general UiPath question under a specific persona (business analyst, solution architect, developer, QA, ADD, or TDD). Read-only: the persona can only call the uipath_library_* and uipath_doc_* tools — it cannot modify the workspace. For BUILD requests use uipath_plan_build instead.
+> Answer a general UiPath question under a role persona (business analyst, solution architect, developer, or QA). Agent Design (ADD) and Technical Design (TDD) prompts are routed through the solution architect persona with the appropriate document template. Read-only: the persona can only call the uipath_library_* and uipath_doc_* tools — it cannot modify the workspace. For BUILD requests use uipath_plan_build instead.
 
 #### Input schema (JSON Schema)
 
@@ -4761,9 +4761,7 @@ flowchart LR
         "ba",
         "sa",
         "developer",
-        "qa",
-        "add",
-        "tdd"
+        "qa"
       ],
       "description": "Which persona should answer. Defaults to 'sa' (Solution Architect). Use uipath_intent_classify to pick a persona automatically."
     }
