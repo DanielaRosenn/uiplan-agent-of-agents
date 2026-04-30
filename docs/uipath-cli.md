@@ -593,6 +593,9 @@ uipath push      # push local files -> Studio Web project
 ```
 
 Use when collaborating with non-coders who edit in Studio Web browser UI.
+For coded-agent sync, set `UIPATH_PROJECT_ID` from Studio Web coded project details
+(`.../studio_/projects`). Do not use IDs copied from `.../agents_/deployed/...`
+or low-code `uip agent list` output.
 
 ---
 

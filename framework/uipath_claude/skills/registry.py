@@ -13,14 +13,12 @@ AGENT_SKILLS = {
     "ba": [
         "uipath-planner",
         "uipath-human-in-the-loop",
-        "uipath-case-management",
         "uipath-platform",
         "uipath-feedback",
     ],
     "sa": [
         "uipath-planner",
         "uipath-maestro-flow",
-        "uipath-case-management",
         "uipath-platform",
         "uipath-diagnostics",
     ],

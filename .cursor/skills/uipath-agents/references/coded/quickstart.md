@@ -33,6 +33,7 @@ If `uip` is not found, install it with `npm install -g @uipath/cli`. If `npm` is
 - **Correct SDK import: `from uipath.platform import UiPath`** — not `from uipath import UiPath` (that path does not exist and will cause `ImportError`). Always instantiate `UiPath()` inside functions/nodes, never at module level.
 - **NEVER run `uip login` without `--tenant`.** The interactive tenant picker does not work from Claude's Bash tool. Always ask the user for environment, organization, and tenant name first, then run `uip login --output json` then `uip login tenant set "<TENANT>" --output json`.
 - **Skip auth if already authenticated.** Before asking for credentials, check if `.env` contains `UIPATH_URL` and `UIPATH_ACCESS_TOKEN` (or run `uip login status --output json` if available). If auth is already configured, skip the Auth step entirely and continue the flow.
+- **Never infer `UIPATH_PROJECT_ID` from `agents_/deployed/...` URLs or `uip agent list`.** For coded agents, `UIPATH_PROJECT_ID` must come from Studio Web Coded Agent project details at `.../studio_/projects`.
 - **Auth MUST be an interactive question (when needed).** If auth is NOT configured, your ENTIRE response must be a single direct question. Do NOT wrap it in bullet points, "Next Steps" headers, or status summaries. Just ask and stop:
 
   > What is your UiPath **environment** (cloud/staging/alpha), **organization name**, and **tenant name**?
@@ -68,7 +69,7 @@ When the user asks to create and deploy an agent end-to-end, follow these steps 
 
 Then STOP and wait for the user to reply. After they reply, run `uip login --output json followed by uip login tenant set "<TENANT>" --output json` and continue the flow. Never run `uip login` without `--tenant`.
 6. **Run** — Test locally with `uip codedagent run <ENTRYPOINT> '<input>'` (use the entrypoint name from `entry-points.json`, e.g., `main`).
-7. **Push** — Tell the user to navigate to `{UIPATH_URL with the tenant segment removed}/studio_/projects` (Studio Web is an organization-level service, so the URL should only include the organization, e.g. `https://alpha.uipath.com/OrgName/studio_/projects`), create a new **Coded Agent** project, and paste the project ID. Add `UIPATH_PROJECT_ID=<id>` to `.env`, then run `uip codedagent push`. Required before evals. *(This step requires user input — wait for the project ID, then resume immediately.)*
+7. **Push** — Tell the user to navigate to `{UIPATH_URL with the tenant segment removed}/studio_/projects` (Studio Web is an organization-level service, so the URL should only include the organization, e.g. `https://alpha.uipath.com/OrgName/studio_/projects`), create/open a **Coded Agent** project, copy its project ID from Studio project details, add `UIPATH_PROJECT_ID=<id>` to `.env`, then run `uip codedagent push --overwrite`. Never derive this ID from `agents_/deployed/...` links or low-code `uip agent list`. Required before evals. *(This step requires user input — wait for the project ID, then resume immediately.)*
 8. **Evaluate** — Create **both** the evaluator config and the eval set, then run evals.
 
    **First**, create `evaluations/evaluators/llm-judge-trajectory.json`:
