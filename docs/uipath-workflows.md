@@ -327,6 +327,31 @@ uipath eval agent --eval-set evals/eval-set.json --output-file evals/results.jso
 
 Gate CI promotion on eval score threshold (for example, >= 0.85 on the golden set).
 
+### Cloud-Serverless tenant prerequisite (Shared folders) {#cloud-serverless-shared-folder-prereq}
+
+**Symptom:** a coded agent packs, publishes, and binds to a Shared folder, but Orchestrator refuses to execute it from that folder. The diagnostic surfaces as: *"The Shared-folder process exists, but that folder currently has no configured Cloud Serverless runtime, so Orchestrator will not execute the agent from that folder."* The same package will run successfully from the user's Personal Workspace and return its expected output.
+
+**Why it happens:** coded agents (Python LangGraph / LlamaIndex / generic) execute on Orchestrator's Cloud-Serverless runtime kind (`Runtime: Serverless`, `ProcessType: Agent`). Personal Workspace folders inherit a default Cloud-Serverless template automatically. Shared folders do **not** - each Shared folder requires an explicit one-time tenant-side configuration step before it can host any coded-agent process.
+
+**One-time fix (operator-driven, in the Orchestrator UI):**
+
+1. Open Orchestrator -> target tenant (e.g. `Test`) -> Tenant -> Folders -> select the Shared folder (e.g. `Shared/ZipEmailAutomationDemo`).
+2. Open the folder's **Templates** tab (older Orchestrator UI versions label this **Machine templates** - cite both names so the reader can find it regardless of UI version).
+3. Add a Cloud-Serverless runtime template entry, mapped to the tenant's available serverless capacity.
+4. Save.
+
+**Pre-flight check before publishing to a Shared folder** (lists processes already bound; serves as a sanity probe that the folder is reachable, while the canonical templates check remains the Orchestrator UI):
+
+```powershell
+uip or processes list --folder-path "<Shared/Folder>" --output json
+```
+
+The `uip` CLI does not currently surface a tenant-templates list directly, so the Orchestrator UI is the source of truth for whether Cloud-Serverless is configured on a folder.
+
+**Fall-back:** if Cloud-Serverless cannot be configured on the Shared folder (lab restriction, lack of permissions), publish and run the same agent from the user's Personal Workspace - which has a default Cloud-Serverless template - to verify the package itself, then ask a tenant admin to configure the Shared folder before running the agent there for real work.
+
+See also the Step-11 smoke section earlier in this chapter and §11 [Agent runtime failures](#agent-runtime-failures) below for the matching troubleshooting bullet.
+
 ---
 
 ## 5. §StudioWeb - Studio Web (browser) {#studioweb}
@@ -822,6 +847,8 @@ Report to the user:
 **"bindings.json invalid"** -> re-run `uipath init` to regenerate structure; fill in environment-specific values manually.
 
 **"uipath init fails with Authorization required"** -> the CLI cannot parse the graph without a valid session. Run `uipath auth` or set `UIPATH_BASE_URL`/`UIPATH_CLIENT_ID`/`UIPATH_CLIENT_SECRET` in `.env` first.
+
+**"There are no Cloud - Serverless runtimes configured on the templates in this folder."** -> the target Shared folder is missing a Cloud-Serverless runtime template. See [Cloud-Serverless tenant prerequisite (Shared folders)](#cloud-serverless-shared-folder-prereq) above. Either configure runtime templates on the folder (one-time, requires tenant admin), or publish/run the agent from your Personal Workspace which has the default serverless template configured.
 
 ### Solutions failures
 
