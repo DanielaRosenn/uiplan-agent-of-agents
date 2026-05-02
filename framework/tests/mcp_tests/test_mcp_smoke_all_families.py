@@ -25,7 +25,9 @@ from mcp_server.server import call_tool as _call_tool
 from mcp_server.server import list_tools as _list_tools
 
 
-# (prefix, tool_name, args)
+# Each row: (family_prefix, tool_name_to_call, args).
+# This list MUST mirror the dispatch chain in framework/mcp_server/server.py:call_tool.
+# When a new tool family is added there, add one row here so this smoke covers it.
 #
 # Notes on specific choices:
 #   - uipath_doc_list_packages may legitimately return ``[]`` depending on
@@ -33,9 +35,11 @@ from mcp_server.server import list_tools as _list_tools
 #     family's read path are intact, which is what the smoke is scoped to.
 #   - uipath_plan_list defaults to scope='published'; on a working tree with
 #     accepted plans whose YAML frontmatter has ``date:`` fields, the inner
-#     ``json.dumps`` in the dispatcher fails on ``datetime.date`` (a real but
-#     out-of-scope defect). We pass scope='drafts' to keep this smoke
-#     deterministic without papering over real bugs in the published path.
+#     ``json.dumps`` in mcp_server/tools/plan_tools.py fails on
+#     ``datetime.date``. Tracked separately as
+#     BUG_PLAN_LIST_DATETIME_SERIALISE; this smoke intentionally does NOT
+#     exercise the published path. When that bug is fixed, switch this row
+#     back to {} or scope='published' to widen coverage.
 FAMILIES = [
     ("uipath_workflow_", "uipath_workflow_environment_probe", {}),
     ("uipath_skill_",    "uipath_skill_list",                {}),
@@ -74,6 +78,16 @@ def _decode_text_result(result) -> str:
     return text
 
 
+# Empty-state contract notes for the smoke test:
+# - uipath_library_list returns the prose string "No books found." when the
+#   library is empty.
+# - uipath_design_list returns "No design proposals match the filter." when
+#   no proposals exist.
+# Both prose strings are non-empty, so they pass the "text != ''" / non-empty
+# checks below. uipath_doc_list_packages explicitly handles an empty list.
+# If a family is later rewritten to return an empty JSON [] / {} on the
+# empty path, add it to the explicit-empty branch instead of relying on
+# this prose escape hatch.
 def _looks_non_empty(payload) -> bool:
     """True if the parsed payload is a non-empty dict/list/string, or an
     object that's not obviously empty. Used as a generous shape check."""
@@ -149,13 +163,27 @@ async def test_family_smoke(prefix: str, tool_name: str, args: dict):
     )
 
     if tool_name == "uipath_agent_classify_intent":
-        assert isinstance(payload, dict) and "intent" in payload
+        assert isinstance(payload, dict) and "intent" in payload, (
+            f"{tool_name} payload missing 'intent' key: {payload!r}"
+        )
     elif tool_name == "uipath_intent_classify":
-        assert isinstance(payload, dict)
-        assert any(k in payload for k in ("intent", "category"))
+        assert isinstance(payload, dict), (
+            f"{tool_name} expected dict payload, got "
+            f"{type(payload).__name__}: {payload!r}"
+        )
+        assert any(k in payload for k in ("intent", "category")), (
+            f"{tool_name} payload missing both 'intent' and 'category' "
+            f"keys: {payload!r}"
+        )
     elif tool_name == "uipath_assistant_context":
-        assert isinstance(payload, dict)
-        assert payload.get("status") == "ok" or "context" in payload
+        assert isinstance(payload, dict), (
+            f"{tool_name} expected dict payload, got "
+            f"{type(payload).__name__}: {payload!r}"
+        )
+        assert payload.get("status") == "ok" or "context" in payload, (
+            f"{tool_name} payload missing 'context' key and status != 'ok': "
+            f"{payload!r}"
+        )
 
 
 @pytest.mark.asyncio
