@@ -329,14 +329,14 @@ Gate CI promotion on eval score threshold (for example, >= 0.85 on the golden se
 
 ### Cloud-Serverless tenant prerequisite (Shared folders) {#cloud-serverless-shared-folder-prereq}
 
-**Symptom:** a coded agent packs, publishes, and binds to a Shared folder, but Orchestrator refuses to execute it from that folder. The diagnostic surfaces as: *"The Shared-folder process exists, but that folder currently has no configured Cloud Serverless runtime, so Orchestrator will not execute the agent from that folder."* The same package will run successfully from the user's Personal Workspace and return its expected output.
+**Symptom:** a coded agent packs, publishes, and binds to a Shared folder, but Orchestrator refuses to execute it from that folder. The CLI / job log surfaces the literal error `"There are no Cloud - Serverless runtimes configured on the templates in this folder."`, and analysis confirms: *"The Shared-folder process exists, but that folder currently has no configured Cloud Serverless runtime, so Orchestrator will not execute the agent from that folder."* The same package will run successfully from the user's Personal Workspace and return its expected output.
 
 **Why it happens:** coded agents (Python LangGraph / LlamaIndex / generic) execute on Orchestrator's Cloud-Serverless runtime kind (`Runtime: Serverless`, `ProcessType: Agent`). Personal Workspace folders inherit a default Cloud-Serverless template automatically. Shared folders do **not** - each Shared folder requires an explicit one-time tenant-side configuration step before it can host any coded-agent process.
 
 **One-time fix (operator-driven, in the Orchestrator UI):**
 
 1. Open Orchestrator -> target tenant (e.g. `Test`) -> Tenant -> Folders -> select the Shared folder (e.g. `Shared/ZipEmailAutomationDemo`).
-2. Open the folder's **Templates** tab (older Orchestrator UI versions label this **Machine templates** - cite both names so the reader can find it regardless of UI version).
+2. Open the folder's **Templates** tab (older Orchestrator UI versions label this **Machine templates**).
 3. Add a Cloud-Serverless runtime template entry, mapped to the tenant's available serverless capacity.
 4. Save.
 
@@ -473,6 +473,17 @@ Reference pattern (from UiPath docs):
 - AI can help write DMN decision tables in XML.
 - AI can write the code for any Service task that points to a coded agent or workflow.
 - AI should NOT hand-edit `.bpmn` structure (easy to break layout / validation). Propose changes in words; let the human drag-and-drop.
+
+### RPA host -> coded agent call pattern
+
+When an RPA/long-running host must invoke a coded agent in Orchestrator, do not
+leave a boundary workflow as comments or `LogMessage` placeholders.
+
+- Prefer `Run Job` against the deployed process when available.
+- Populate invocation arguments explicitly (e.g. `correlationId`, routing keys).
+- Bind typed Input/Output models if exposed by the process contract.
+- Persist output evidence (output argument, job/traces reference, or durable log)
+  and propagate route/status fields downstream.
 
 ### Maestro + REFramework
 

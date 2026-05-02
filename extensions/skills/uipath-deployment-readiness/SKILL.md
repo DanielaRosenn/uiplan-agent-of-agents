@@ -59,7 +59,7 @@ Coded agents need a Cloud-Serverless runtime template on the target folder.
 
 - Personal Workspace folders inherit a default Cloud-Serverless template; Shared folders DO NOT, and require a one-time tenant-admin configuration step.
 - Pre-flight: confirm the target Shared folder has a Cloud-Serverless template configured (Orchestrator UI -> Folder -> Templates) before running `uipath publish` against it. If the operator cannot confirm this, fall back to publishing in the Personal Workspace and route the Shared-folder activation to a tenant admin.
-- Cross-link: see [`docs/uipath-workflows.md`#cloud-serverless-shared-folder-prereq](../../../docs/uipath-workflows.md#cloud-serverless-shared-folder-prereq).
+- Cross-link: see [`docs/uipath-workflows.md#cloud-serverless-shared-folder-prereq`](../../../docs/uipath-workflows.md#cloud-serverless-shared-folder-prereq) for the operator UI steps and the Personal Workspace fall-back.
 
 ## Authentication preflight
 
