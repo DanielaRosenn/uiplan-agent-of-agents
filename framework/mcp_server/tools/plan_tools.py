@@ -945,16 +945,23 @@ def _collect_plans(directory: Path, scope_label: str) -> list[dict[str, Any]]:
             entry["parse_error"] = True
             items.append(entry)
             continue
+        
+        def _serialize_date_field(val):
+            """Convert datetime/date objects to ISO strings for JSON serialization."""
+            if isinstance(val, (_dt.datetime, _dt.date)):
+                return val.isoformat()
+            return val
+        
         entry.update(
             {
                 "slug": meta.get("slug"),
                 "title": meta.get("title"),
-                "date": meta.get("date"),
+                "date": _serialize_date_field(meta.get("date")),
                 "status": meta.get("status"),
                 "owner": meta.get("owner"),
                 "project_type": meta.get("project_type"),
-                "accepted_at": meta.get("accepted_at"),
-                "published_at": meta.get("published_at"),
+                "accepted_at": _serialize_date_field(meta.get("accepted_at")),
+                "published_at": _serialize_date_field(meta.get("published_at")),
             }
         )
         items.append(entry)

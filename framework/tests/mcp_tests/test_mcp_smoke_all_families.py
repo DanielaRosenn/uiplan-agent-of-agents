@@ -33,13 +33,8 @@ from mcp_server.server import list_tools as _list_tools
 #   - uipath_doc_list_packages may legitimately return ``[]`` depending on
 #     local activity-doc fixtures; an empty list still proves dispatch + the
 #     family's read path are intact, which is what the smoke is scoped to.
-#   - uipath_plan_list defaults to scope='published'; on a working tree with
-#     accepted plans whose YAML frontmatter has ``date:`` fields, the inner
-#     ``json.dumps`` in mcp_server/tools/plan_tools.py fails on
-#     ``datetime.date``. Tracked separately as
-#     BUG_PLAN_LIST_DATETIME_SERIALISE; this smoke intentionally does NOT
-#     exercise the published path. When that bug is fixed, switch this row
-#     back to {} or scope='published' to widen coverage.
+#   - uipath_plan_list now properly serializes datetime.date objects from YAML
+#     frontmatter to ISO strings before JSON encoding (fixed BUG_PLAN_LIST_DATETIME_SERIALISE).
 FAMILIES = [
     ("uipath_workflow_", "uipath_workflow_environment_probe", {}),
     ("uipath_skill_",    "uipath_skill_list",                {}),
@@ -50,7 +45,7 @@ FAMILIES = [
     ("uipath_design_",   "uipath_design_list",               {}),
     ("uipath_intent_",   "uipath_intent_classify",
         {"user_input": "how does GetQueueItem work"}),
-    ("uipath_plan_",     "uipath_plan_list",                 {"scope": "drafts"}),
+    ("uipath_plan_",     "uipath_plan_list",                 {}),
     ("uipath_assistant_", "uipath_assistant_context",
         {"request": "list available skills"}),
 ]
@@ -59,6 +54,12 @@ FAMILIES = [
 # LLM-backed (Bedrock). Verify it's listed, but never call it from the
 # smoke - that would make the test depend on cloud credentials.
 LISTED_ONLY = ["uipath_answer"]
+
+# Legacy alias for uipath_doc_ family (dispatches to call_doc_tool).
+# Tested separately to ensure the alias path doesn't regress.
+ALIAS_TOOLS = [
+    ("query_uipath_docs", {"question": "What is GetQueueItem?"}),
+]
 
 
 async def _catalog_names() -> list[str]:
@@ -193,4 +194,35 @@ async def test_listed_only_tools(name: str):
     assert name in names, (
         f"Singleton tool {name!r} not in catalog; check that "
         f"get_answer_tools() is still extended into list_tools()"
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "tool_name,args",
+    ALIAS_TOOLS,
+    ids=[t[0] for t in ALIAS_TOOLS],
+)
+async def test_alias_tools(tool_name: str, args: dict):
+    """Test legacy alias tools (e.g. query_uipath_docs) that dispatch to families."""
+    names = await _catalog_names()
+    assert tool_name in names, (
+        f"Alias {tool_name} not in catalog -- may have been removed from "
+        f"the aggregator's list_tools() in framework/mcp_server/server.py"
+    )
+    
+    result = await _call_tool(tool_name, args)
+    text = _decode_text_result(result)
+    
+    if text.startswith("Error: "):
+        pytest.fail(
+            f"{tool_name} alias returned error from call_tool dispatcher: {text}"
+        )
+    if text.startswith("Unknown tool: "):
+        pytest.fail(
+            f"{tool_name} alias not dispatched correctly (got {text!r})"
+        )
+    
+    assert _looks_non_empty(text), (
+        f"{tool_name} alias returned empty/error-like result: {text[:300]}"
     )
