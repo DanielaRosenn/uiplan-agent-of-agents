@@ -223,9 +223,11 @@ Every generated task list MUST include project facts from `spec.md` / `plan.md`,
   expected to call a coded agent, local `uipath invoke` evidence is not enough.
   Tasks must prove the host can call the agent from the target Orchestrator
   folder through a supported surface (`Call Agent`, `Invoke Process` / `Run Job`
-  with returned output, or documented platform API wrapper). If the agent package
-  deploys but is not visible as a callable process/resource in the target folder,
-  keep a named remediation task open and do not mark the host invocation complete.
+  with returned output, or documented platform API wrapper). For `Run Job`,
+  populate business arguments and bind non-empty typed `Input`/`Output` objects
+  whenever the process exposes typed bundles. If the agent package deploys but is
+  not visible as a callable process/resource in the target folder, keep a named
+  remediation task open and do not mark the host invocation complete.
 - **No placeholder completion**: Flow, agent, RPA, app, and HITL tasks are not
   done when nodes only say "placeholder", "would invoke", "contract only", or
   "scaffold". If the installed CLI/platform cannot expose a real callable node,

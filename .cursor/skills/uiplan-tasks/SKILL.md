@@ -185,6 +185,9 @@ customize it in place, and verify completed/cancelled/timeout behavior.
   registry does not expose it, require command evidence, a named remediation
   task, and the closest executable smoke (`uip flow debug`, `uipath invoke`,
   analyzer/job logs, or equivalent).
+- For `*Invoke*Agent*Boundary*.xaml` tasks, require `Run Job` with explicit
+  business argument mapping and non-empty typed `Input`/`Output` binding when
+  the process contract exposes typed bundles.
 - Keep `Phase 5: Build, Verify, and Handoff` with the Dev <-> SE loop.
 - Build phase must include restore -> analyze -> test -> pack (or paradigm equivalent).
 - Include explicit deploy gate text: personal workspace default, Production approval-required.

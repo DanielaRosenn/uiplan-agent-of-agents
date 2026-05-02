@@ -481,7 +481,8 @@ leave a boundary workflow as comments or `LogMessage` placeholders.
 
 - Prefer `Run Job` against the deployed process when available.
 - Populate invocation arguments explicitly (e.g. `correlationId`, routing keys).
-- Bind typed Input/Output models if exposed by the process contract.
+- Bind typed Input/Output models if exposed by the process contract; do not
+  leave `Run Job.Input` / `Run Job.Output` as empty arguments.
 - Persist output evidence (output argument, job/traces reference, or durable log)
   and propagate route/status fields downstream.
 

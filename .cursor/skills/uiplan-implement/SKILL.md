@@ -299,6 +299,10 @@ must enforce it during `/uiplan-implement`:
 - **XAML runtime rule**: XAML with only `LogMessage`, an empty `Sequence`, or no
   invoked workflow/business activity is incomplete unless the task is explicitly
   a scaffold/logging task.
+- **Agent boundary invoke rule**: `*Invoke*Agent*Boundary*.xaml` is incomplete if
+  it uses `Run Job`/`Invoke Process` without explicit business argument mapping
+  (at minimum correlation id) or leaves typed `Input`/`Output` arguments empty
+  when a typed process contract is available.
 - **LangGraph runtime rule**: Python graphs containing `noop`, `pass`,
   placeholder comments, or disconnected pipeline functions are incomplete for
   graph-flow tasks.
