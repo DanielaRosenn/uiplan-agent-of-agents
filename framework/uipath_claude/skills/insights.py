@@ -2,7 +2,7 @@
 import hashlib
 import json
 from dataclasses import dataclass, field, asdict
-from datetime import datetime
+from datetime import datetime, UTC
 from enum import Enum
 from pathlib import Path
 from typing import Optional, List, Dict, Any
@@ -37,7 +37,7 @@ class SkillInsight:
     insight_type: InsightType
     content: str
     context: Optional[str] = None
-    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
+    created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat().replace("+00:00", "Z"))
     source: str = "agent"
     success_count: int = 0
     failure_count: int = 0
@@ -176,7 +176,7 @@ class SkillInsightsStore:
             "total_insights": len(file.insights),
             "total_uses": total,
             "success_rate": total_success / total if total > 0 else None,
-            "last_updated": datetime.utcnow().isoformat() + "Z",
+            "last_updated": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             "by_type": {},
         }
         

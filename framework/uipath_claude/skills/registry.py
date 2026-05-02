@@ -1,5 +1,5 @@
 """Skill registry with multi-source loading, filtering, and provenance tracking."""
-from datetime import datetime
+from datetime import datetime, UTC
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Union
 
@@ -173,7 +173,7 @@ class SkillRegistry:
         counts = {origin: len(names) for origin, names in by_origin.items() if names}
         
         return {
-            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "generated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             "submodule_commit": submodule_commit,
             "total_skills": len(self.skills),
             "counts": counts,

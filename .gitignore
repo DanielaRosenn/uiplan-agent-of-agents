@@ -157,3 +157,17 @@ tests/fixtures/sample_project/*
 
 # Locally scaffolded example projects (build artifacts, not source)
 examples/InvoiceQueueProcessor/
+
+# Local working artifacts and demo project trees from prior assistant runs
+# (Zip Email, ITSupport, OutlookSubjectLogger, etc.). These are intermediate
+# logs, JSON dumps, scripts, and complete UiPath sub-projects that were never
+# meant to be committed. Canonical references for those runs live in
+# .cursor/plans/ and docs/.
+/out/
+/projects/
+/bindings/
+/solution.uipx
+/ITSupportFlowDemo/
+/ITSupportFlowDemo.uis
+/ITSupportFlowDemoBuilt/
+/OutlookSubjectLogger/
