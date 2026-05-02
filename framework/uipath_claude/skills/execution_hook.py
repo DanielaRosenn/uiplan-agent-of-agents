@@ -1,5 +1,5 @@
 """Post-skill-execution hook for automatic insight capture."""
-from datetime import datetime
+from datetime import datetime, UTC
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Callable
 
@@ -39,7 +39,7 @@ class SkillExecutionContext:
     ):
         self.skill_name = skill_name
         self.tracker = tracker or create_usage_tracker()
-        self.started_at = datetime.utcnow().isoformat() + "Z"
+        self.started_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         self.tool_calls = 0
         self.error_message: Optional[str] = None
         self.context_summary: Optional[str] = None
@@ -50,7 +50,7 @@ class SkillExecutionContext:
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
-        ended_at = datetime.utcnow().isoformat() + "Z"
+        ended_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         success = exc_type is None and self.error_message is None
         
         if exc_val:
@@ -126,8 +126,8 @@ def post_skill_execution_hook(
     
     event = SkillUsageEvent(
         skill_name=skill_name,
-        started_at=datetime.utcnow().isoformat() + "Z",
-        ended_at=datetime.utcnow().isoformat() + "Z",
+        started_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        ended_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         success=success,
         tool_calls=tool_calls,
         error_message=error[:500] if error else None,
