@@ -66,6 +66,129 @@ flowchart LR
 
 ---
 
+## Community Readiness
+
+This project is ready to share with community members as a **preview / reference
+workspace**, not as a polished one-click product.
+
+Share it if the audience is comfortable with Cursor, Python environments, UiPath
+Studio/Automation Cloud, and CLI-driven validation. The strongest parts are the
+UiPlan planning flow, specialist skill routing, MCP tool contracts, activity-first
+RPA guidance, and runtime evidence gates.
+
+Be explicit about these current caveats:
+
+- Some capabilities depend on local UiPath Studio, Automation Cloud permissions,
+  Integration Service connections, or Orchestrator folders that the repo cannot
+  create for every user.
+- Tenant deploy, connector OAuth, Test Manager execution, and Production promotion
+  require human setup and approval.
+- The `skills/` submodule is the upstream source of truth for specialist skills.
+  Do not edit it directly unless you are intentionally reviewing/updating the
+  pinned submodule.
+- Treat generated UiPlan files as drafts until review passes and a human accepts
+  the scope.
+
+Recommended community framing:
+
+1. Start with `docs/uiplan/HOW_TO_USE.md`.
+2. Run local tests before demos: `uv run pytest framework/tests/uiplan framework/tests/mcp_tests/test_uiplan_review.py -q`.
+3. For RPA examples, show the InvoiceProcessor runtime fixture and explain that
+   it uses pre-built activities first, not `InvokeCode`.
+4. Do not promise unattended tenant deployment unless the user has configured
+   Automation Cloud credentials, folders, resources, and connector connections.
+
+## Using UiPlan By Domain
+
+UiPlan is the shared planning contract across UiPath domains. The flow is always:
+
+```text
+ground -> spec -> plan -> tasks -> review -> accept -> implement
+```
+
+Use these surfaces:
+
+- Cursor: `/uiplan-ground`, `/uiplan-spec`, `/uiplan-plan`,
+  `/uiplan-tasks`, `/uiplan-review`, `/uiplan-implement`
+- MCP: `uipath_plan_ground`, `uipath_plan_spec_new`,
+  `uipath_plan_plan_new`, `uipath_plan_tasks_new`, `uipath_plan_review`,
+  `uipath_plan_accept`
+- CLI: `uipath-claude plan uiplan ground|spec|plan|tasks|review|accept`
+
+Domain guidance:
+
+- **RPA / Studio workflows (`.xaml`)**
+  - Route to `uipath-rpa`.
+  - Prefer pre-built UiPath activities. Use `InvokeCode` only as a justified
+    fallback after activity lookup fails.
+  - Required evidence: activity docs/default XAML, `uip rpa get-errors`,
+    `uip rpa build`, `uipcli package analyze`, and a safe local or tenant smoke.
+
+- **Orchestrator resources and deployment**
+  - Route to `uipath-platform`.
+  - Plan queues, assets, folders, triggers, processes, and bindings explicitly.
+  - Required evidence: provisioning command, existence verification, target
+    folder, package/process version, job id, final state, and logs. If tenant
+    access is unavailable, record a structured blocker instead of claiming done.
+
+- **Integration Service connectors**
+  - Route to `uipath-platform` for connection/resource setup and the relevant
+    build skill for runtime usage.
+  - Create or verify connections with `uip is connectors ...` and
+    `uip is connections ...`; connector OAuth remains a human/browser step when
+    required.
+  - Required evidence: connector key, connection name/id, environment, secret
+    boundary, ping/test-call result, and runtime activity or SDK usage.
+
+- **Maestro / Flow**
+  - Route to `uipath-maestro-flow`.
+  - Plan `.flow` artifacts, triggers, BPMN/process steps, connector mappings,
+    HITL nodes, and solution packaging boundaries.
+  - Required evidence: flow debug/run output where safe, connector/resource
+    bindings, solution pack/analyze evidence, and tenant blocker if cloud access
+    is unavailable.
+
+- **Case Management**
+  - Route to `uipath-case-management`.
+  - Start from the SDD or process description, then generate tasks that build
+    `caseplan.json`, task definitions, statuses, SLAs, roles, and data mappings.
+  - Required evidence: generated case artifacts, CLI validation/build output,
+    role/resource mapping, and tenant setup blocker or deployment evidence.
+
+- **Coded agents**
+  - Route to `uipath-agents`.
+  - Plan `langgraph.json`, `agent_framework.json`, `pyproject.toml`, graph nodes,
+    tools, eval data, and runtime bindings.
+  - Required evidence: `pytest`, local `uipath run`, optional `uipath eval`,
+    pack/publish blocker or deployment evidence, and connector/tool binding
+    proof.
+
+- **Coded apps and action apps**
+  - Route to `uipath-coded-apps`.
+  - Plan `app.config.json`, `action-schema.json`, TypeScript entry points,
+    user-facing flows, and solution packaging.
+  - Required evidence: local build, type check/test output, action schema review,
+    solution packaging evidence, and tenant deployment blocker or smoke result.
+
+- **Testing / UAT**
+  - Route to `uipath-test` for Test Manager/test execution and to the build skill
+    for test automation artifacts.
+  - Plan test cases alongside implementation tasks, not after the fact.
+  - Required evidence: test artifact path, acceptance-criteria mapping, execution
+    command such as `uipcli test run`, result file, and log/output assertions.
+
+- **Governance / AOps policy**
+  - Route to `uipath-gov-aops-policy`.
+  - Plan policy intent, target users/groups/tenants, enforcement mode, and
+    rollback/handoff.
+  - Required evidence: generated policy JSON, validation output, deployment target,
+    and explicit human approval before tenant-wide changes.
+
+For all domains, use `docs/uiplan/ACTIVITY_AND_RUNTIME_EVIDENCE.md` as the
+evidence checklist. A UiPlan is not implementation-ready until
+`uipath_plan_review` has no error-severity findings and the user accepts the
+bundle.
+
 ## Capability Map
 
 | Area | What It Gives You | Primary Files |
