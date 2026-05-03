@@ -100,10 +100,53 @@ Recommended community framing:
 
 ## Using UiPlan By Domain
 
-UiPlan is the shared planning contract across UiPath domains. The flow is always:
+UiPlan is the core operating model in this repo. It is the shared planning
+contract that turns a request into three reviewable files:
+
+- `spec.md`: business scope, user stories, acceptance criteria, visuals, and
+  build visibility.
+- `plan.md`: architecture, project topology, domain routing, activity/resource
+  choices, and verification strategy.
+- `tasks.md`: executable build steps, evidence paths, validation commands, and
+  handoff blockers.
+
+The flow is always:
 
 ```text
 ground -> spec -> plan -> tasks -> review -> accept -> implement
+```
+
+### UiPlan Lifecycle
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
+flowchart LR
+  Request([User request]):::start --> Ground[Ground context<br/>docs, repo, skill route]:::service
+  Ground --> Spec[spec.md<br/>business + visibility]:::process
+  Spec --> Plan[plan.md<br/>architecture + evidence design]:::process
+  Plan --> Tasks[tasks.md<br/>ordered build steps]:::process
+  Tasks --> Review{Review passes?}:::decision
+  Review -- No --> Fix[Fix gaps<br/>scope, diagrams, evidence]:::error
+  Fix --> Spec
+  Review -- Yes --> Accept[Human accepts scope]:::human
+  Accept --> Implement[Implement from tasks]:::service
+  Implement --> Validate{Runtime evidence?}:::decision
+  Validate -- Missing --> Blocker[Structured blocker<br/>or rerun validation]:::error
+  Blocker --> Implement
+  Validate -- Complete --> Handoff(((Handoff))):::endOk
+
+  classDef start fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:2px
+  classDef endOk fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:2px
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.5px
+  classDef error fill:#FEF2F2,stroke:#EF4444,color:#991B1B,stroke-width:1.5px
+
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+  linkStyle 0,1,2,3 stroke:#3B82F6,stroke-width:2px
+  linkStyle 5,8 stroke:#10B981,stroke-width:2px
+  linkStyle 4,6,10 stroke:#EF4444,stroke-width:2px
 ```
 
 Use these surfaces:
@@ -114,6 +157,94 @@ Use these surfaces:
   `uipath_plan_plan_new`, `uipath_plan_tasks_new`, `uipath_plan_review`,
   `uipath_plan_accept`
 - CLI: `uipath-claude plan uiplan ground|spec|plan|tasks|review|accept`
+
+### What UiPlan Builds
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
+flowchart TB
+  UiPlan[[UiPlan bundle]]:::service
+
+  subgraph Files["Generated planning files"]
+    SpecFile[spec.md<br/>scope and acceptance]:::process
+    PlanFile[plan.md<br/>architecture and routing]:::process
+    TasksFile[tasks.md<br/>implementation checklist]:::process
+  end
+
+  subgraph Evidence["Required evidence"]
+    Activity[(Activity docs<br/>default XAML)]:::data
+    Resource[(Queues, assets,<br/>connections, folders)]:::data
+    Runtime[(Studio, CLI,<br/>tenant smoke)]:::data
+    UAT[(Test/UAT<br/>results)]:::data
+  end
+
+  subgraph Gates["Safety gates"]
+    ReviewGate{uipath_plan_review}:::decision
+    HumanGate[Human accept]:::human
+    DeployGate{Deploy allowed?}:::decision
+  end
+
+  UiPlan --> SpecFile
+  UiPlan --> PlanFile
+  UiPlan --> TasksFile
+  PlanFile --> Activity
+  PlanFile --> Resource
+  TasksFile --> Runtime
+  TasksFile --> UAT
+  Activity --> ReviewGate
+  Resource --> ReviewGate
+  Runtime --> ReviewGate
+  UAT --> ReviewGate
+  ReviewGate --> HumanGate
+  HumanGate --> DeployGate
+
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef data fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.5px
+
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+  linkStyle 0,1,2 stroke:#3B82F6,stroke-width:2px
+  linkStyle 11,12 stroke:#10B981,stroke-width:2px
+```
+
+### Domain Routing
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'primaryColor':'#E2E8F0','primaryTextColor':'#0F172A','primaryBorderColor':'#94A3B8','lineColor':'#94A3B8','secondaryColor':'#F1F5F9','tertiaryColor':'#F8FAFC','background':'#FFFFFF','clusterBkg':'#F8FAFC','clusterBorder':'#CBD5E1','titleColor':'#0F172A','edgeLabelBackground':'#FFFFFF','fontFamily':'Inter, ui-sans-serif, system-ui'}}}%%
+flowchart LR
+  Request([Request]):::start --> UiPlan[UiPlan route]:::service
+  UiPlan --> RPA[RPA / Studio<br/>uipath-rpa]:::process
+  UiPlan --> Platform[Orchestrator + IS<br/>uipath-platform]:::service
+  UiPlan --> Flow[Maestro / Flow<br/>uipath-maestro-flow]:::process
+  UiPlan --> Case[Case Management<br/>uipath-case-management]:::process
+  UiPlan --> Agents[Coded agents<br/>uipath-agents]:::process
+  UiPlan --> Apps[Coded apps<br/>uipath-coded-apps]:::process
+  UiPlan --> Test[Test / UAT<br/>uipath-test]:::human
+  UiPlan --> Gov[Governance<br/>uipath-gov-aops-policy]:::human
+
+  RPA --> Evidence[(Studio validation<br/>activity evidence)]:::data
+  Platform --> Evidence
+  Flow --> Evidence
+  Case --> Evidence
+  Agents --> Evidence
+  Apps --> Evidence
+  Test --> Evidence
+  Gov --> Evidence
+  Evidence --> Done(((Validated handoff))):::endOk
+
+  classDef start fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:2px
+  classDef endOk fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:2px
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.5px
+  classDef data fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+  linkStyle 0,1 stroke:#3B82F6,stroke-width:2px
+  linkStyle 10,11,12,13,14,15,16,17 stroke:#10B981,stroke-width:2px
+```
 
 Domain guidance:
 
