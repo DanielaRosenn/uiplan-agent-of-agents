@@ -1,0 +1,8 @@
+{
+  "command": "uip rpa get-default-activity-xaml --activity-class-name \"UiPath.Core.Activities.ReadTextFile, UiPath.System.Activities, Version=26.2.4.0, Culture=neutral, PublicKeyToken=null\" --output json",
+  "result": "Success",
+  "package": "UiPath.System.Activities",
+  "version": "26.2.4",
+  "activity": "ReadTextFile",
+  "required_bindings": ["FileName", "Content"]
+}

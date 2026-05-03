@@ -67,11 +67,15 @@ Record any remaining gaps under `## Open Grounding Questions` in `plan.md` as
 - `## Workflow Catalog` (one row per workflow file; cross-link
   `templates/uiplan/_workflow-catalog.md`)
 - `## Activity Inventory` (only entries resolved via `uipath_doc_get_activity`
-  or library lookup)
+  or library lookup; must include package, version, required scope, inputs/outputs,
+  and default XAML evidence for non-trivial activities)
 - `## Code Module Inventory` (agents / apps)
-- `## Bindings and Environment` (queues, assets, connections, folders)
+- `## Bindings and Environment` (queues, assets, connections, folders; must include
+  provisioning commands, verification commands, evidence paths, and secret boundaries
+  per resource type)
 - `## Dependency Matrix`
-- `## CLI Command Matrix`
+- `## CLI Command Matrix` (must include local validation, tenant deploy/smoke, and
+  UAT/test evidence columns)
 - `## Skill and Subagent Routing` (project x phase -> capability)
 - `## Capability Routing Map` (Mermaid)
 - `## AskAI / Library Escalation Ladder`
@@ -84,6 +88,11 @@ Record any remaining gaps under `## Open Grounding Questions` in `plan.md` as
 - `## Development execution contract`
 - `## Build and verify gates` (Mermaid)
 - `## Deployment policy`
+
+**Evidence requirements** (see `docs/uiplan/ACTIVITY_AND_RUNTIME_EVIDENCE.md`):
+- Activity Inventory must prove activity choices with doc lookups and default XAML
+- Bindings and Environment must include resource provisioning and verification commands
+- CLI Command Matrix must distinguish local validation from tenant runtime proof
 
 ## Stack Policy enforcement
 

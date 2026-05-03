@@ -14,6 +14,9 @@ should link here instead of copying command matrices.
 - **Pytest (UiPlan):** `framework/tests/uiplan/`. Example: `uv run pytest framework/tests/uiplan/ -q`.
 - **Task authoring:** [TASK_AUTHORING.md](TASK_AUTHORING.md) for workflow design,
   capability routing, examples, and the implementation loop.
+- **Activity and runtime evidence:** [ACTIVITY_AND_RUNTIME_EVIDENCE.md](ACTIVITY_AND_RUNTIME_EVIDENCE.md)
+  for the canonical contract on activity grounding, Orchestrator resource
+  provisioning, local Studio validation, tenant runtime proof, and UAT/test evidence.
 
 ## Default flow (recommended)
 
@@ -141,6 +144,23 @@ Do not start build execution until all are true:
 - `spec.md` includes 360 visibility contract and workflow visual catalog coverage.
 - `plan.md` includes artifact chain map, conformance matrix, connector/boundary/log contracts.
 - `tasks.md` includes per-workflow activity checklist and executable evidence gates.
+- **Activity/resource/runtime/UAT evidence contracts** are present for all
+  relevant tasks (see [ACTIVITY_AND_RUNTIME_EVIDENCE.md](ACTIVITY_AND_RUNTIME_EVIDENCE.md)).
+  This includes:
+  - Activity doc lookups and default XAML for non-trivial activities.
+  - Resource provisioning and verification for queues/assets/folders/connections.
+  - Local validation evidence (`uip rpa get-errors`, `uip rpa build`, `uipcli package analyze`).
+  - Tenant evidence (folder, package version, job ID, logs, queue/asset proof) or structured blocker.
+  - UAT/test evidence (test artifacts, execution commands, results, AC mapping).
+
+**Local-ready vs tenant-verified:** a task marked `local-ready` has passed
+analyzer and local validation but lacks tenant deployment/smoke evidence. This
+is acceptable for tasks where tenant credentials, folder permissions, or runtime
+environment are unavailable at implementation time. However, such tasks must
+record a structured blocker explaining the missing tenant evidence and must not
+be considered complete for production sign-off. Tenant-verified tasks include
+full runtime evidence (job logs, queue items, deployed package version) and are
+the only acceptable completion state for production-bound stories.
 
 ## Top review failures and fastest fixes
 

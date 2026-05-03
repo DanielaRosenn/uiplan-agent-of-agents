@@ -1,0 +1,18 @@
+{
+  "blocker_class": "missing_tenant_auth_or_folder_permission",
+  "attempted_commands": [
+    "checked presence of UIPATH_BASE_URL",
+    "checked presence of UIPATH_CLIENT_ID",
+    "checked presence of UIPATH_CLIENT_SECRET",
+    "checked presence of UIPATH_ORCHESTRATOR_URL",
+    "checked presence of UIPATH_TENANT",
+    "checked presence of UIPATH_FOLDER"
+  ],
+  "target_folder": "non-production fixture folder not configured",
+  "safe_local_evidence": [
+    "get-errors",
+    "build",
+    "analyze",
+    "local smoke"
+  ]
+}

@@ -8,6 +8,14 @@ Prerequisite: read [README.md](README.md) and [HOW_TO_USE.md](HOW_TO_USE.md)
 first for onboarding, path selection (Cursor/CLI/MCP), and lifecycle flow.
 This document is the advanced execution-quality contract.
 
+**Evidence contract:** every task involving activities, Orchestrator resources,
+deployment/smoke, or UAT/test-case claims must follow the guidance in
+[ACTIVITY_AND_RUNTIME_EVIDENCE.md](ACTIVITY_AND_RUNTIME_EVIDENCE.md). That
+document defines the canonical grounding, provisioning, validation, and proof
+requirements. This document (TASK_AUTHORING.md) focuses on task structure,
+ordering, and execution loops; ACTIVITY_AND_RUNTIME_EVIDENCE.md is the detailed
+evidence playbook.
+
 ## 360 tasking objective
 
 `tasks.md` must execute the `spec.md` 360 visibility contract without gaps. For
@@ -388,6 +396,52 @@ checklist row describing:
 For XAML surfaces, list concrete activity names (for example `Sequence`,
 `Switch`, `Assign`, `If`, `Log Message`, `Try Catch`) and verify them through
 `uipath_doc_get_activity` plus analyzer evidence.
+
+**Activity evidence requirements** (see [ACTIVITY_AND_RUNTIME_EVIDENCE.md](ACTIVITY_AND_RUNTIME_EVIDENCE.md) §Activity selection grounding):
+
+Every non-trivial activity (beyond basic `Sequence`, `Flowchart`, `If`, `Assign`, `Log Message`, `Try Catch`) must include:
+- Package ID and version (from activity doc or scaffold dependencies)
+- Activity display name
+- Required scope (parent container, if any)
+- Required inputs/outputs (key properties)
+- Default XAML or Studio-generated evidence (from `uip rpa get-default-activity-xaml` or scaffold)
+
+**Resource provisioning requirements** (see [ACTIVITY_AND_RUNTIME_EVIDENCE.md](ACTIVITY_AND_RUNTIME_EVIDENCE.md) §Orchestrator resource lifecycle):
+
+Every Orchestrator resource (queue, asset, folder, connection) must include:
+- Resource name and type
+- Target folder (must be non-Production)
+- Provisioning command (e.g., `uip or queues create ...`)
+- Existence verification command (e.g., `uip or queues list ...`)
+- Evidence output paths
+- Secret boundary marker (`[HANDOFF:Secrets]` for credential assets)
+
+**Local validation requirements** (see [ACTIVITY_AND_RUNTIME_EVIDENCE.md](ACTIVITY_AND_RUNTIME_EVIDENCE.md) §Local Studio evidence):
+
+Every build/pack task must include:
+- `uip rpa get-errors` output (0 errors)
+- `uip rpa build` output (success)
+- `uipcli package analyze` output (0 errors, warnings accepted or blocked)
+- Optional local smoke run evidence (when safe)
+
+**Tenant evidence requirements** (see [ACTIVITY_AND_RUNTIME_EVIDENCE.md](ACTIVITY_AND_RUNTIME_EVIDENCE.md) §Tenant evidence):
+
+Every deploy/smoke task must include:
+- Target folder (non-Production)
+- Package/process version deployed
+- Job/agent invocation ID
+- Final state (Successful, Faulted, Stopped)
+- Job logs with expected markers (phase, correlation ID, business outputs)
+- Queue item or asset proof (when applicable)
+- OR a structured blocker JSON explaining why tenant evidence is unavailable
+
+**UAT/test evidence requirements** (see [ACTIVITY_AND_RUNTIME_EVIDENCE.md](ACTIVITY_AND_RUNTIME_EVIDENCE.md) §UAT/test evidence):
+
+Every production-bound user story must include:
+- Test artifact path (`Tests/` for RPA, `tests/` for agents, or UAT doc)
+- Test execution command (`uipcli test run`, `pytest`, `uipath eval`, or manual UAT steps)
+- Test results output path (JUnit XML, pytest summary, eval JSON, or UAT checklist)
+- Acceptance criteria mapping (which tests prove which AC bullets)
 
 ## Executor context block (required)
 

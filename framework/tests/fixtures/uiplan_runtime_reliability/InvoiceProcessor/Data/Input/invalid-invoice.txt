@@ -1,0 +1,4 @@
+InvoiceNumber:
+InvoiceDate: not-a-date
+VendorName: Broken Vendor
+TotalAmount: -42

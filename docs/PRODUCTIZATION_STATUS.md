@@ -54,28 +54,27 @@ All Phase 0 deliverables completed and verified:
 - **Change**: Added `test_alias_tools` with parameterized test for legacy alias
 - **Result**: Ensures alias dispatch doesn't regress
 
-### ✅ End-to-End Automation Demo (COMPLETE)
+### ✅ End-to-End Automation Demo (REBUILT)
 
 #### Invoice Processor Automation
-- **Status**: ✅ Complete (commits 3f41d19, 1cb7d8c)
-- **Location**: `projects/InvoiceProcessor/` (gitignored)
+- **Status**: ✅ Rebuilt as a real runtime fixture
+- **Location**: `framework/tests/fixtures/uiplan_runtime_reliability/InvoiceProcessor/`
 - **Documentation**: `docs/E2E_AUTOMATION_DEMO.md`
 
 **Deliverables:**
 1. **Complete UiPlan**:
-   - `spec.md`: 4 FRs, 3 NFRs, clear acceptance criteria
-   - `plan.md`: Mermaid architecture diagram, 8 implementation steps
-   - `tasks.md`: 10 tasks, each with acceptance criteria, activity checklists, diagrams, evidence requirements
+   - `spec.md`: runtime reliability requirements for the fixture
+   - `plan.md`: scaffold, activity, local evidence, and tenant evidence contract
+   - `tasks.md`: checked execution trail for scaffold, activity grounding, validation, and smoke
 
 2. **Project Implementation**:
-   - `project.json`: Modern experience (.NET 8, C#, Windows)
-   - `Main.xaml`: Working workflow demonstrating pattern
-   - Proper folder structure (Data/Input, Data/Output, Tests)
+   - `project.json`: generated through `uip rpa create-project`
+   - `Main.xaml`: activity-backed workflow using pre-built UiPath activities, not `InvokeCode`
+   - Deterministic input/output fixture data
 
 3. **Comprehensive Testing**:
-   - 13 E2E tests in `framework/tests/integration/test_invoice_processor_e2e.py`
-   - Tests cover: artifacts, structure, FR coverage, documentation, quality standards
-   - All 13 tests passing
+   - Runtime fixture tests in `framework/tests/uiplan/test_real_studio_fixture.py`
+   - Tests cover: scaffold evidence, current dependencies, no unresolved activities, no `InvokeCode`, local outputs, analyzer governance blocker, and tenant blocker evidence
 
 **Demonstrated Workflow:**
 - Research → UiPlan (ground/spec/plan/tasks) → Implementation → Testing → Documentation
@@ -119,28 +118,26 @@ All Phase 0 deliverables completed and verified:
 - **Failing**: 0
 - **Skipped**: 1 (intentional: xfail test)
 - **Coverage**:
-  - UiPlan tests: 71
-  - MCP tests: 507
-  - Integration tests (including Invoice Processor): 13
+  - UiPlan tests include the InvoiceProcessor runtime fixture gate
+  - MCP tests cover review rules and tool dispatch
+  - Runtime fixture tests cover Studio validation, local run output, and tenant blocker evidence
 
 ### Test Distribution
 - MCP smoke tests: 12 (11 families + 1 alias)
 - UiPlan scaffolding: 25
 - UiPlan validation: 20
-- Integration tests: 13
+- Runtime fixture tests: 7
 - Unit tests: 521
 
 ## Files Changed
 
-### New Files (8)
+### New Files
 1. `framework/tests/mcp_tests/test_mcp_smoke_all_families.py` (197 lines)
-2. `framework/tests/integration/test_invoice_processor_e2e.py` (191 lines)
-3. `docs/E2E_AUTOMATION_DEMO.md` (152 lines)
-4. `docs/PRODUCTIZATION_STATUS.md` (this file)
-5. `projects/InvoiceProcessor/.cursor/plans/2026-05-02-invoice-processor/spec.md`
-6. `projects/InvoiceProcessor/.cursor/plans/2026-05-02-invoice-processor/plan.md`
-7. `projects/InvoiceProcessor/.cursor/plans/2026-05-02-invoice-processor/tasks.md`
-8. `extensions/skills/uipath-deployment-readiness/SKILL.md` (175 lines)
+2. `framework/tests/uiplan/test_real_studio_fixture.py`
+3. `framework/tests/fixtures/uiplan_runtime_reliability/`
+4. `docs/E2E_AUTOMATION_DEMO.md`
+5. `docs/PRODUCTIZATION_STATUS.md` (this file)
+6. `extensions/skills/uipath-deployment-readiness/SKILL.md` (175 lines)
 
 ### Modified Files (5)
 1. `framework/mcp_server/tools/plan_tools.py` (+13 lines: datetime serialization)

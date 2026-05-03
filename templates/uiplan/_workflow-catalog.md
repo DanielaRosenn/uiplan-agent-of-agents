@@ -296,3 +296,95 @@ flowchart LR
   exceptions, terminal summary.
 - **Correlation**: propagate one correlation id across invoked surfaces.
 - **Verification evidence**: log assertions for correlation id + expected phase markers.
+
+---
+
+## Platform Resource Provisioning
+
+Orchestrator resource lifecycle for queues, assets, folders, connections, and bindings.
+
+```mermaid
+flowchart TD
+  Declare[Declare resource in plan.md] --> Provision[Provision via CLI]
+  Provision --> Verify[Verify existence]
+  Verify --> Bind[Bind in workflow/config]
+  Bind --> Deploy[Deploy process]
+  Deploy --> Smoke[Smoke test with resource]
+```
+
+- **When to use**: any automation that uses Orchestrator queues, assets, folders,
+  connections, or bindings.
+- **When not to use**: local-only tests with no Orchestrator dependency.
+- **Required steps** (see [ACTIVITY_AND_RUNTIME_EVIDENCE.md](../../docs/uiplan/ACTIVITY_AND_RUNTIME_EVIDENCE.md)
+  §Orchestrator resource lifecycle):
+  1. Declare in `plan.md` Bindings and Environment with target folder, provisioning
+     command, verification command, evidence path, and secret boundary.
+  2. Provision:
+     - Queues: `uip or queues create --name <name> --folder-id <id> --output json`
+     - Assets (non-secret): `uip or assets create --name <name> --type Text --value <value> --folder-id <id> --output json`
+     - Assets (secret): mark `[HANDOFF:Secrets]` and document expected asset name/type
+     - Folders: usually pre-existing; if new folder required, `uip or folders create` with approval
+     - Connections: Integration Service or Studio Web connectors; record connection name and OAuth handoff
+  3. Verify existence:
+     - `uip or queues list --folder-id <id> --filter "name eq '<name>'" --output json`
+     - `uip or assets list --folder-id <id> --filter "name eq '<name>'" --output json`
+     - `uip or folders get --id <id> --output json`
+  4. Bind in workflow/config (queue name in `AddQueueItem`, asset name in `GetAsset`,
+     connection ID in `.flow` or bindings file)
+  5. Deploy process to same folder where resources exist
+  6. Smoke test and verify queue items/asset values appear in evidence
+- **CLI**: `uip or queues|assets|folders create|list|get`, `uipcli package deploy`, `uip or jobs start`, `uip or jobs logs`
+- **Skills**: `[skill:uipath-platform]`, `[skill:uipath-rpa]`, `[skill:uipath-maestro-flow]`
+- **MCP**: `uipath_library_search` for queue/asset guidance
+- **Verification evidence**:
+  - Provisioning output: `out/queue-create.json`, `out/asset-create.json`, etc.
+  - Verification output: `out/queue-verify.json`, `out/asset-verify.json`, etc.
+  - Deployment output: `out/deploy.json` with process key
+  - Job logs: `out/job-logs.json` with queue item IDs or asset references
+  - Queue items: `out/queue-items.json` showing items added by the process
+  - OR structured blocker: `out/tenant-blocker.json` when credentials/permissions unavailable
+
+---
+
+## UAT / UiPath Test-Case Validation
+
+Automated or manual test evidence for production-bound stories.
+
+```mermaid
+flowchart TD
+  Story[User story AC] --> Tests[Write test workflows or pytest]
+  Tests --> Execute[Run tests]
+  Execute --> Parse[Parse results]
+  Parse --> Map[Map to AC bullets]
+  Map --> Evidence[Record evidence]
+```
+
+- **When to use**: every production-bound user story in `spec.md`.
+- **When not to use**: analyzer/pack-only validation (not sufficient for UAT).
+- **Test artifact types** (see [ACTIVITY_AND_RUNTIME_EVIDENCE.md](../../docs/uiplan/ACTIVITY_AND_RUNTIME_EVIDENCE.md)
+  §UAT/test evidence):
+  1. **UiPath Testing Activities** (RPA/XAML):
+     - Create test workflows under `Tests/` using `UiPath.Testing.Activities` package
+     - Use `Test Case`, `Given`, `When`, `Then`, `Verify Expression`, `Run Test Case` activities
+     - Run via `uipcli test run -a <projectKey> <projectPath>`
+     - Capture JUnit/NUnit XML or JSON output
+  2. **pytest / eval** (coded agents):
+     - Write pytest modules under `tests/` for happy-path and failure-path scenarios
+     - Run `uv run pytest tests/test_<agent>.py -q --tb=short`
+     - For agents with eval sets, run `uipath eval --eval-set <set> --output-file out/eval.json`
+  3. **Manual Studio UAT** (when automated tests not feasible):
+     - Document manual UAT scenario in `tasks.md` with step-by-step instructions
+     - Execute scenario and capture evidence (screenshots, log files, Studio session recording)
+     - Record results in `out/uat-manual-results.md` or `out/uat-session-log.json`
+- **CLI**:
+  - RPA: `uipcli test run -a <projectKey> <projectPath>`
+  - Agents: `uv run pytest <test-module> -q`, `uipath eval --eval-set <set>`
+  - Manual: documented steps + evidence capture
+- **Skills**: `[skill:uipath-test]`, `[skill:uipath-rpa]`, `[skill:uipath-agents]`
+- **Verification evidence**:
+  - Test results: `out/test-results.xml` (RPA), `out/pytest-results.txt` (agents), `out/eval.json` (agent eval)
+  - AC mapping table: which tests prove which acceptance criteria from `spec.md`
+  - Test execution logs: `out/test-execution.log` with pass/fail counts and failure messages
+  - Manual UAT: `out/uat-manual-results.md` with completed checklist and attached evidence files
+- **Forbidden**: claiming UAT complete from analyzer/pack success alone; test workflows
+  with only `LogMessage "Test placeholder"` are not valid UAT evidence

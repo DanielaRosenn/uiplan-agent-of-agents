@@ -1,0 +1,13 @@
+{
+  "command": "uip rpa run-file --project-dir \"framework/tests/fixtures/uiplan_runtime_reliability/InvoiceProcessor\" --file-path \"Main.xaml\" --command StartExecution --log-level Information --output json",
+  "result": "Success",
+  "errors": [],
+  "log_markers": [
+    "Invoice Processor fixture started",
+    "Invoice Processor fixture completed"
+  ],
+  "outputs": [
+    "InvoiceProcessor/Data/Output/invoice-report.csv",
+    "InvoiceProcessor/Data/Output/smoke-result.json"
+  ]
+}

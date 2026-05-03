@@ -182,9 +182,15 @@ path, downstream queue/process update, and completed/cancelled/timeout evidence.
 Only entries resolved via `uipath_doc_get_activity` / `uipath_library_search` /
 `uipath_library_lookup`. Unresolved entries belong in `## Open Grounding Questions`.
 
-| Workflow | Package | Activity | Inputs | Outputs | Connection / asset |
-| --- | --- | --- | --- | --- | --- |
-| _Main.xaml_ | _UiPath.Mail.Activities_ | _GetIMAPMailMessages_ | _server, port, filter_ | _List<MailMessage>_ | _MailConnection_ |
+Every non-trivial activity (beyond basic `Sequence`, `Flowchart`, `If`, `Assign`,
+`Log Message`, `Try Catch`) must include package ID, version, required scope,
+required properties, and default XAML or Studio-generated evidence. See
+[ACTIVITY_AND_RUNTIME_EVIDENCE.md](../../docs/uiplan/ACTIVITY_AND_RUNTIME_EVIDENCE.md)
+§Activity selection grounding for the complete contract.
+
+| Workflow | Package | Activity | Version | Required Scope | Inputs | Outputs | Default XAML / Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| _Main.xaml_ | _UiPath.Mail.Activities_ | _GetIMAPMailMessages_ | _1.23.11_ | _Use Outlook 365_ | _server, port, filter_ | _List<MailMessage>_ | `uip rpa get-default-activity-xaml` output or Studio scaffold |
 
 ## Code Module Inventory (agents / apps)
 
@@ -194,16 +200,40 @@ Only entries resolved via `uipath_doc_get_activity` / `uipath_library_search` /
 
 ## Bindings and Environment
 
-| Resource | Name | Folder | Tenant-only? | Notes |
-| --- | --- | --- | --- | --- |
-| Queue | _IntakeQueue_ | _Dev_ | no | _stores intake items_ |
-| Asset | _MailConnection_ | _Dev_ | yes | _credential, set per env_ |
+Every Orchestrator resource (queue, asset, folder, connection, binding) must be
+explicitly declared with provisioning commands, verification commands, and evidence
+paths. See [ACTIVITY_AND_RUNTIME_EVIDENCE.md](../../docs/uiplan/ACTIVITY_AND_RUNTIME_EVIDENCE.md)
+§Orchestrator resource lifecycle for the complete contract.
 
-Include connectors and external connection IDs when applicable:
+### Queues
 
-| Resource type | Name/id | Environment file | Owner surface | Verification evidence |
+| Name | Target Folder | Environment | Provisioning Command | Verification Command | Evidence Path | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| _IntakeQueue_ | _Shared/Dev_ | dev | `uip or queues create --name IntakeQueue --folder-id <id> --output json` | `uip or queues list --filter "name eq 'IntakeQueue'" --output json` | `out/queue-create.json`, `out/queue-verify.json` | _stores intake items_ |
+
+### Assets
+
+| Name | Type | Target Folder | Environment | Secret Boundary | Provisioning Command | Verification Command | Evidence Path | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| _MailConnection_ | Text (secret) | _Shared/Dev_ | dev | Credential | `[HANDOFF:Secrets]` | `uip or assets list --filter "name eq 'MailConnection'" --output json` | `out/asset-verify.json` | _credential, set per env_ |
+
+### Folders
+
+| Name | Parent | Target Folder ID | Environment | Provisioning Command | Verification Command | Evidence Path | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| _Dev_ | _Shared_ | (pre-existing) | dev | (not required if pre-existing) | `uip or folders get --id <folder-id> --output json` | `out/folder-verify.json` | _dev environment folder_ |
+
+### Connections (Integration Service / Studio Web Connectors)
+
+| Resource type | Name/id | Environment file | Owner surface | Provisioning / OAuth handoff | Verification evidence |
+| --- | --- | --- | --- | --- | --- |
+| _Connector connection_ | _connection-id_ | `bindings/dev.json` | _Flow or XAML host_ | `[HANDOFF:OAuth]` or pre-configured | _connectivity check + run log_ |
+
+### Bindings (Solutions only)
+
+| Binding key | Environment file | Bound resource | Target Folder | Notes |
 | --- | --- | --- | --- | --- |
-| _Connector connection_ | _connection-id_ | `bindings/dev.json` | _Flow or XAML host_ | _connectivity check + run log_ |
+| _queueName_ | `bindings/dev.json` | _IntakeQueue_ | _Shared/Dev_ | Maps logical queue name to tenant queue |
 
 ## Dependency Matrix
 
@@ -216,9 +246,30 @@ Include connectors and external connection IDs when applicable:
 
 Per project, the exact commands the Solution Engineer runs in the build loop.
 
-| Project | Restore | Analyze | Test | Pack | Smoke |
-| --- | --- | --- | --- | --- | --- |
-| _Process.Dispatcher_ | `uipcli package restore` | `uipcli package analyze --resultPath out/dispatcher-analyze.json` | `uipcli test run -a <key> .` | `uipcli package pack` | `uipcli job run` (personal workspace) |
+**Local validation** (required before pack/deploy):
+- `uip rpa get-errors --file-path <workflow>.xaml --project-dir <project-root> --output json`
+- `uip rpa build <project-root> --output json`
+- `uipcli package analyze <project-root>/project.json --resultPath out/<name>-analyze.json`
+
+**Package validation** (required before deploy):
+- `uipcli package pack <project-root> -o out`
+
+**Tenant deploy/smoke** (required for production-bound stories, or record structured blocker):
+- Deploy to non-Production folder (personal workspace, Dev, or Test)
+- Start job with safe fixture input
+- Read job logs and assert expected markers
+- Verify queue items / asset values (when applicable)
+
+**UAT/test-case validation** (required for production-bound stories):
+- Automated tests: `uipcli test run -a <projectKey> <project-root>` (RPA), `uv run pytest tests/ -q` (agents), `uipath eval --eval-set <set>` (agent evals)
+- Manual UAT: documented scenario, observed outcomes, attached evidence
+
+**Log validation** (required):
+- Assert Studio-visible phase markers and correlation IDs appear in job logs
+
+| Project | Restore | Local Validation | Analyze | Test | Pack | Tenant Deploy | Tenant Smoke | UAT/Test Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| _Process.Dispatcher_ | `uipcli package restore` | `uip rpa get-errors`, `uip rpa build` | `uipcli package analyze --resultPath out/dispatcher-analyze.json` | `uipcli test run -a <key> .` | `uipcli package pack` | `uipcli package deploy --folder Shared/Dev` | `uip or jobs start --process-key <key> ...`, `uip or jobs logs --job-id <id>` | `uipcli test run` results + AC mapping |
 
 ## Skill and Subagent Routing
 

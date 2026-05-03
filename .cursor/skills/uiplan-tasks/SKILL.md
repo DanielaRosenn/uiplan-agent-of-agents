@@ -47,6 +47,20 @@ Every story-level block must also include:
 - at least one Mermaid workflow/task map for that story;
 - explicit evidence expectations (command output paths/log artifacts).
 
+**Evidence contracts** (see `docs/uiplan/ACTIVITY_AND_RUNTIME_EVIDENCE.md`):
+- Activity evidence: every non-trivial activity must include package, version, required
+  scope, inputs/outputs, and default XAML from `uip rpa get-default-activity-xaml` or
+  Studio scaffold.
+- Resource provisioning: every queue/asset/folder/connection must include provisioning
+  command, verification command, evidence path, and secret boundary; use
+  `[skill:uipath-platform]` for resource tasks.
+- Local validation: every build/pack task must include `uip rpa get-errors`, `uip rpa build`,
+  and `uipcli package analyze` evidence.
+- Tenant evidence: every deploy/smoke task must include target folder, package version,
+  job ID, final state, logs, queue/asset proof, OR a structured blocker JSON.
+- UAT/test evidence: every production-bound story must include test artifacts, execution
+  commands, results, and AC mapping.
+
 ### Mandatory task fields
 
 Each **non-[P]** implementation or paradigm-specific task must include:

@@ -1,0 +1,7 @@
+{
+  "command": "uip rpa get-errors --project-dir \"framework/tests/fixtures/uiplan_runtime_reliability/InvoiceProcessor\" --file-path \"Main.xaml\" --min-severity error --output json",
+  "result": "Success",
+  "data": {
+    "message": "No diagnostics found."
+  }
+}

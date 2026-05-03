@@ -657,3 +657,198 @@ def test_review_emits_single_rule_tasks_no_diagram_finding():
     )
     count = sum(1 for f in findings if f.get("rule") == "RULE_TASKS_NO_DIAGRAM")
     assert count == 1
+
+
+def test_review_flags_missing_activity_doc_evidence():
+    """Test that RULE_TASKS_NO_ACTIVITY_DOC_EVIDENCE triggers when activity evidence is missing."""
+    findings = review_tasks_text(
+        "## Phase 3: User Story 1 - A (Priority: P1)\n"
+        "### Tests for User Story 1\n"
+        "- [ ] T010 [US1] test `tests/t.py` uv run pytest tests/t.py -q\n"
+        "### Implementation for User Story 1\n"
+        "- [ ] T011 [US1] implement `projects/A/Main.xaml` [skill:uipath-rpa]\n"
+        "### Mini-topology: `projects/A/Main.xaml`\n"
+        "```mermaid\nflowchart LR\nA[Start] --> B[End]\n```\n"
+        "## Per-workflow activity checklist (required)\n"
+        "| Workflow | Activity | Package |\n"
+        "| --- | --- | --- |\n"
+        "| `Main.xaml` | Log Message | UiPath.System.Activities |\n",
+        "### User Story 1 - A (Priority: P1)\n**Implementation paradigm**: modern-rpa\n",
+    )
+    assert any(f.get("rule") == "RULE_TASKS_NO_ACTIVITY_DOC_EVIDENCE" for f in findings)
+
+
+def test_review_passes_with_activity_doc_evidence():
+    """Test that RULE_TASKS_NO_ACTIVITY_DOC_EVIDENCE passes when evidence is present."""
+    findings = review_tasks_text(
+        "## Phase 3: User Story 1 - A (Priority: P1)\n"
+        "### Tests for User Story 1\n"
+        "- [ ] T010 [US1] test `tests/t.py` uv run pytest tests/t.py -q\n"
+        "### Implementation for User Story 1\n"
+        "- [ ] T011 [US1] implement `projects/A/Main.xaml` using uipath_doc_get_activity "
+        "for package UiPath.Mail.Activities version 1.23.11 required scope Use Outlook 365 "
+        "default XAML from uip rpa get-default-activity-xaml [skill:uipath-rpa]\n"
+        "### Mini-topology: `projects/A/Main.xaml`\n"
+        "```mermaid\nflowchart LR\nA[Start] --> B[End]\n```\n"
+        "## Per-workflow activity checklist (required)\n"
+        "| Workflow | Activity | Package | Version | Required Scope |\n"
+        "| --- | --- | --- | --- | --- |\n"
+        "| `Main.xaml` | Get Mail Messages | UiPath.Mail.Activities | 1.23.11 | Use Outlook 365 |\n",
+        "### User Story 1 - A (Priority: P1)\n**Implementation paradigm**: modern-rpa\n",
+    )
+    assert not any(f.get("rule") == "RULE_TASKS_NO_ACTIVITY_DOC_EVIDENCE" for f in findings)
+
+
+def test_review_flags_missing_resource_provisioning_evidence():
+    """Test that RULE_TASKS_NO_RESOURCE_PROVISIONING_EVIDENCE triggers when resource evidence is missing."""
+    findings = review_tasks_text(
+        "## Phase 3: User Story 1 - A (Priority: P1)\n"
+        "### Tests for User Story 1\n"
+        "- [ ] T010 [US1] test `tests/t.py` uv run pytest tests/t.py -q\n"
+        "### Implementation for User Story 1\n"
+        "- [ ] T011 [US1] implement queue intake using IntakeQueue [skill:uipath-rpa]\n"
+        "### Mini-topology\n"
+        "```mermaid\nflowchart LR\nA[Start] --> B[Add Queue Item]\n```\n"
+        "## Per-workflow activity checklist (required)\n"
+        "| Workflow | Activity | Package |\n"
+        "| --- | --- | --- |\n"
+        "| `Main.xaml` | Add Queue Item | UiPath.System.Activities |\n",
+        "### User Story 1 - A (Priority: P1)\n**Implementation paradigm**: modern-rpa\n",
+    )
+    assert any(f.get("rule") == "RULE_TASKS_NO_RESOURCE_PROVISIONING_EVIDENCE" for f in findings)
+
+
+def test_review_passes_with_resource_provisioning_evidence():
+    """Test that RULE_TASKS_NO_RESOURCE_PROVISIONING_EVIDENCE passes when evidence is present."""
+    findings = review_tasks_text(
+        "## Phase 3: User Story 1 - A (Priority: P1)\n"
+        "### Tests for User Story 1\n"
+        "- [ ] T010 [US1] test `tests/t.py` uv run pytest tests/t.py -q\n"
+        "### Implementation for User Story 1\n"
+        "- [ ] T011 [US1] provision IntakeQueue via uip or queues create --name IntakeQueue "
+        "--folder-id <id> --output json, verify with uip or queues list, evidence in "
+        "out/queue-create.json [skill:uipath-platform]\n"
+        "- [ ] T012 [US1] implement queue intake using IntakeQueue [skill:uipath-rpa]\n"
+        "### Mini-topology\n"
+        "```mermaid\nflowchart LR\nA[Start] --> B[Add Queue Item]\n```\n"
+        "## Per-workflow activity checklist (required)\n"
+        "| Workflow | Activity | Package |\n"
+        "| --- | --- | --- |\n"
+        "| `Main.xaml` | Add Queue Item | UiPath.System.Activities |\n",
+        "### User Story 1 - A (Priority: P1)\n**Implementation paradigm**: modern-rpa\n",
+    )
+    assert not any(f.get("rule") == "RULE_TASKS_NO_RESOURCE_PROVISIONING_EVIDENCE" for f in findings)
+
+
+def test_review_flags_missing_tenant_runtime_evidence():
+    """Test that RULE_TASKS_NO_TENANT_RUNTIME_EVIDENCE triggers when tenant evidence is missing."""
+    findings = review_tasks_text(
+        "## Phase 3: User Story 1 - A (Priority: P1)\n"
+        "### Tests for User Story 1\n"
+        "- [ ] T010 [US1] test `tests/t.py` uv run pytest tests/t.py -q\n"
+        "### Implementation for User Story 1\n"
+        "- [ ] T011 [US1] implement `Main.xaml` [skill:uipath-rpa]\n"
+        "## Phase 5: Build, Verify, and Handoff\n"
+        "- [ ] T030 deploy to Test folder and smoke test\n"
+        "### Mini-topology\n"
+        "```mermaid\nflowchart LR\nA[Start] --> B[End]\n```\n"
+        "## Per-workflow activity checklist (required)\n"
+        "| Workflow | Activity | Package |\n"
+        "| --- | --- | --- |\n"
+        "| `Main.xaml` | Log Message | UiPath.System.Activities |\n",
+        "### User Story 1 - A (Priority: P1)\n**Implementation paradigm**: modern-rpa\n",
+    )
+    assert any(f.get("rule") == "RULE_TASKS_NO_TENANT_RUNTIME_EVIDENCE" for f in findings)
+
+
+def test_review_passes_with_tenant_runtime_evidence():
+    """Test that RULE_TASKS_NO_TENANT_RUNTIME_EVIDENCE passes when evidence is present."""
+    findings = review_tasks_text(
+        "## Phase 3: User Story 1 - A (Priority: P1)\n"
+        "### Tests for User Story 1\n"
+        "- [ ] T010 [US1] test `tests/t.py` uv run pytest tests/t.py -q\n"
+        "### Implementation for User Story 1\n"
+        "- [ ] T011 [US1] implement `Main.xaml` [skill:uipath-rpa]\n"
+        "## Phase 5: Build, Verify, and Handoff\n"
+        "- [ ] T030 deploy to Shared/Test folder target folder via uipcli package deploy, "
+        "start job via uip or jobs start, record job id and final state Successful, "
+        "retrieve job logs via uip or jobs logs --job-id <id> evidence in out/job-logs.json\n"
+        "### Mini-topology\n"
+        "```mermaid\nflowchart LR\nA[Start] --> B[End]\n```\n"
+        "## Per-workflow activity checklist (required)\n"
+        "| Workflow | Activity | Package |\n"
+        "| --- | --- | --- |\n"
+        "| `Main.xaml` | Log Message | UiPath.System.Activities |\n",
+        "### User Story 1 - A (Priority: P1)\n**Implementation paradigm**: modern-rpa\n",
+    )
+    assert not any(f.get("rule") == "RULE_TASKS_NO_TENANT_RUNTIME_EVIDENCE" for f in findings)
+
+
+def test_review_passes_with_tenant_blocker():
+    """Test that RULE_TASKS_NO_TENANT_RUNTIME_EVIDENCE passes when structured blocker is present."""
+    findings = review_tasks_text(
+        "## Phase 3: User Story 1 - A (Priority: P1)\n"
+        "### Tests for User Story 1\n"
+        "- [ ] T010 [US1] test `tests/t.py` uv run pytest tests/t.py -q\n"
+        "### Implementation for User Story 1\n"
+        "- [ ] T011 [US1] implement `Main.xaml` [skill:uipath-rpa]\n"
+        "## Phase 5: Build, Verify, and Handoff\n"
+        "- [ ] T030 deploy smoke: record tenant-blocker.json when credentials unavailable, "
+        "mark task local-ready\n"
+        "### Mini-topology\n"
+        "```mermaid\nflowchart LR\nA[Start] --> B[End]\n```\n"
+        "## Per-workflow activity checklist (required)\n"
+        "| Workflow | Activity | Package |\n"
+        "| --- | --- | --- |\n"
+        "| `Main.xaml` | Log Message | UiPath.System.Activities |\n",
+        "### User Story 1 - A (Priority: P1)\n**Implementation paradigm**: modern-rpa\n",
+    )
+    assert not any(f.get("rule") == "RULE_TASKS_NO_TENANT_RUNTIME_EVIDENCE" for f in findings)
+
+
+def test_review_flags_missing_uat_test_evidence():
+    """Test that RULE_TASKS_NO_UAT_TEST_EVIDENCE triggers when UAT evidence is missing."""
+    findings = review_tasks_text(
+        "## Phase 3: User Story 1 - A (Priority: P1)\n"
+        "### Tests for User Story 1\n"
+        "- [ ] T010 [US1] test local build uv sync\n"
+        "### Implementation for User Story 1\n"
+        "- [ ] T011 [US1] implement `Main.xaml` user story acceptance criteria "
+        "production [skill:uipath-rpa]\n"
+        "## Phase 5: Build, Verify, and Handoff\n"
+        "- [ ] T030 build and deploy to production\n"
+        "### Mini-topology\n"
+        "```mermaid\nflowchart LR\nA[Start] --> B[End]\n```\n"
+        "## Per-workflow activity checklist (required)\n"
+        "| Workflow | Activity | Package |\n"
+        "| --- | --- | --- |\n"
+        "| `Main.xaml` | Log Message | UiPath.System.Activities |\n",
+        "### User Story 1 - A (Priority: P1)\n**Implementation paradigm**: modern-rpa\n",
+    )
+    assert any(f.get("rule") == "RULE_TASKS_NO_UAT_TEST_EVIDENCE" for f in findings)
+
+
+def test_review_passes_with_uat_test_evidence():
+    """Test that RULE_TASKS_NO_UAT_TEST_EVIDENCE passes when UAT evidence is present."""
+    findings = review_tasks_text(
+        "## Phase 3: User Story 1 - A (Priority: P1)\n"
+        "### Tests for User Story 1\n"
+        "- [ ] T010 [US1] test `tests/t.py` uv run pytest tests/t.py -q\n"
+        "### UAT for User Story 1\n"
+        "- [ ] T015 [US1] execute UAT via uipcli test run -a <projectKey> Tests/ValidInvoice.xaml, "
+        "test artifact Tests/ValidInvoice.xaml, results in out/test-results.xml, "
+        "maps to AC1 and AC2 from spec [skill:uipath-test]\n"
+        "### Implementation for User Story 1\n"
+        "- [ ] T011 [US1] implement `Main.xaml` user story acceptance criteria "
+        "production [skill:uipath-rpa]\n"
+        "## Phase 5: Build, Verify, and Handoff\n"
+        "- [ ] T030 build and deploy to production\n"
+        "### Mini-topology\n"
+        "```mermaid\nflowchart LR\nA[Start] --> B[End]\n```\n"
+        "## Per-workflow activity checklist (required)\n"
+        "| Workflow | Activity | Package |\n"
+        "| --- | --- | --- |\n"
+        "| `Main.xaml` | Log Message | UiPath.System.Activities |\n",
+        "### User Story 1 - A (Priority: P1)\n**Implementation paradigm**: modern-rpa\n",
+    )
+    assert not any(f.get("rule") == "RULE_TASKS_NO_UAT_TEST_EVIDENCE" for f in findings)

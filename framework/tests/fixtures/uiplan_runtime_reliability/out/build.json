@@ -1,0 +1,7 @@
+{
+  "command": "uip rpa close-project --project-dir \"framework/tests/fixtures/uiplan_runtime_reliability/InvoiceProcessor\" --output json; uip rpa build --project-path \"framework/tests/fixtures/uiplan_runtime_reliability/InvoiceProcessor\" --output json",
+  "result": "Success",
+  "data": {
+    "Success": true
+  }
+}

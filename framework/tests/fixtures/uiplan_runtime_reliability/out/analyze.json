@@ -1,0 +1,41 @@
+[
+  {
+    "ErrorCode": "ST-USG-034",
+    "Description": "Your organization requires your project to have an Automation Hub URL defined.",
+    "RuleName": "Automation Hub URL",
+    "FilePath": null,
+    "ActivityId": null,
+    "ActivityDisplayName": null,
+    "WorkflowDisplayName": null,
+    "Item": null,
+    "ErrorSeverity": 1,
+    "Recommendation": "Use \"Project Settings\" to add the missing information. [Learn more.](https://docs.uipath.com//studio/standalone/latest/user-guide/st-usg-034)",
+    "DocumentationLink": "https://docs.uipath.com//studio/standalone/latest/user-guide/st-usg-034"
+  },
+  {
+    "ErrorCode": "ST-ANA-009",
+    "Description": "Expand to see details",
+    "RuleName": "File Activities Stats",
+    "FilePath": "C:\\Users\\DanielaRosenstein\\projects\\uipath-builder-agent\\framework\\tests\\fixtures\\uiplan_runtime_reliability\\InvoiceProcessor\\Main.xaml",
+    "ActivityId": null,
+    "ActivityDisplayName": null,
+    "WorkflowDisplayName": null,
+    "Item": null,
+    "ErrorSeverity": 3,
+    "Recommendation": "Activities: 17",
+    "DocumentationLink": "https://docs.uipath.com//studio/standalone/latest/user-guide/st-ana-009"
+  },
+  {
+    "ErrorCode": "ST-ANA-003",
+    "Description": "Expand to see details",
+    "RuleName": "Project Workflow Count",
+    "FilePath": "project.json",
+    "ActivityId": null,
+    "ActivityDisplayName": null,
+    "WorkflowDisplayName": null,
+    "Item": null,
+    "ErrorSeverity": 3,
+    "Recommendation": "Project workflow count:\r\n* Totals: 1 Folders and 1 workflows\r\n",
+    "DocumentationLink": "https://docs.uipath.com//studio/standalone/latest/user-guide/st-ana-003"
+  }
+]

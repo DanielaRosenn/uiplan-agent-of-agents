@@ -1,0 +1,3 @@
+FileName,InvoiceNumber,InvoiceDate,TotalAmount,Status,ValidationErrors
+invalid-invoice.txt,,not-a-date,-42,Invalid,missing invoice number; invalid invoice date; invalid total amount
+valid-invoice.txt,INV-1001,2026-05-03,1250.50,Valid,

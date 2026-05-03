@@ -1506,6 +1506,95 @@ def review_tasks_text(tasks: str, spec: str) -> list[dict[str, Any]]:
                     "tasks.md",
                 )
             )
+    
+    # RULE_TASKS_NO_ACTIVITY_DOC_EVIDENCE: check for activity evidence
+    if paradigm in _xaml_paradigms:
+        activity_doc_pattern = re.compile(
+            r"(uipath_doc_get_activity|uipath_doc_list_packages|\[activity:[A-Za-z0-9_.]+:[A-Za-z][A-Za-z0-9_]*\]|"
+            r"default\s+xaml|studio\s+scaffold|package.*version|required\s+scope|required\s+props)",
+            re.IGNORECASE
+        )
+        if not activity_doc_pattern.search(tasks):
+            findings.append(
+                _finding(
+                    "error",
+                    "tasks",
+                    "RULE_TASKS_NO_ACTIVITY_DOC_EVIDENCE",
+                    "tasks.md must include activity doc lookups (uipath_doc_get_activity) and evidence "
+                    "(package, version, required scope, inputs/outputs, default XAML) for non-trivial activities. "
+                    "See docs/uiplan/ACTIVITY_AND_RUNTIME_EVIDENCE.md §Activity selection grounding.",
+                    "tasks.md",
+                )
+            )
+    
+    # RULE_TASKS_NO_RESOURCE_PROVISIONING_EVIDENCE: check for resource provisioning evidence
+    has_orchestrator_resources = bool(re.search(r"\b(queue|asset|folder|connection|binding)\b", tasks, re.IGNORECASE))
+    if has_orchestrator_resources:
+        resource_provisioning_pattern = re.compile(
+            r"(uip\s+or\s+queues\s+create|uip\s+or\s+assets\s+create|uip\s+or\s+folders\s+create|"
+            r"provisioning\s+command|verification\s+command|evidence\s+path|out/queue-|out/asset-|"
+            r"\[HANDOFF:Secrets\]|\[skill:uipath-platform\])",
+            re.IGNORECASE
+        )
+        if not resource_provisioning_pattern.search(tasks):
+            findings.append(
+                _finding(
+                    "error",
+                    "tasks",
+                    "RULE_TASKS_NO_RESOURCE_PROVISIONING_EVIDENCE",
+                    "tasks.md references queues/assets/folders/connections but lacks provisioning commands, "
+                    "verification commands, evidence paths, and [skill:uipath-platform] routing. "
+                    "See docs/uiplan/ACTIVITY_AND_RUNTIME_EVIDENCE.md §Orchestrator resource lifecycle.",
+                    "tasks.md",
+                )
+            )
+    
+    # RULE_TASKS_NO_TENANT_RUNTIME_EVIDENCE: check for tenant runtime evidence or structured blocker
+    has_deploy_language = bool(re.search(r"\b(deploy|publish|activate|job\s+run|job\s+start|smoke)\b", tasks, re.IGNORECASE))
+    if has_deploy_language:
+        tenant_evidence_pattern = re.compile(
+            r"(target\s+folder|package.*version|job\s+id|final\s+state|job\s+logs|uip\s+or\s+jobs\s+logs|"
+            r"queue.*item.*proof|asset.*proof|tenant-blocker\.json|local-ready|"
+            r"uip\s+or\s+jobs\s+start|uipcli\s+package\s+deploy)",
+            re.IGNORECASE
+        )
+        if not tenant_evidence_pattern.search(tasks):
+            findings.append(
+                _finding(
+                    "error",
+                    "tasks",
+                    "RULE_TASKS_NO_TENANT_RUNTIME_EVIDENCE",
+                    "tasks.md includes deploy/smoke language but lacks tenant runtime evidence "
+                    "(target folder, package version, job ID, final state, logs, queue/asset proof) "
+                    "or a structured blocker (tenant-blocker.json) explaining why tenant evidence is unavailable. "
+                    "See docs/uiplan/ACTIVITY_AND_RUNTIME_EVIDENCE.md §Tenant evidence.",
+                    "tasks.md",
+                )
+            )
+    
+    # RULE_TASKS_NO_UAT_TEST_EVIDENCE: check for UAT/test evidence
+    has_production_stories = bool(re.search(r"\b(user\s+story|production|acceptance\s+criteria)\b", tasks, re.IGNORECASE))
+    if has_production_stories or has_deploy_language:
+        uat_evidence_pattern = re.compile(
+            r"(uipcli\s+test\s+run|pytest|uipath\s+eval|test\s+artifact|test\s+execution\s+command|"
+            r"test\s+results|Tests/.*\.xaml|tests/test_.*\.py|out/test-results|"
+            r"UAT|manual\s+uat|AC\s+mapping|acceptance\s+criteria\s+mapping|"
+            r"\[skill:uipath-test\]|UiPath\.Testing\.Activities)",
+            re.IGNORECASE
+        )
+        if not uat_evidence_pattern.search(tasks):
+            findings.append(
+                _finding(
+                    "error",
+                    "tasks",
+                    "RULE_TASKS_NO_UAT_TEST_EVIDENCE",
+                    "tasks.md appears to include production-bound stories but lacks UAT/test evidence "
+                    "(test artifacts, execution commands, results, AC mapping, or [skill:uipath-test] routing). "
+                    "See docs/uiplan/ACTIVITY_AND_RUNTIME_EVIDENCE.md §UAT/test evidence.",
+                    "tasks.md",
+                )
+            )
+    
     flow_hitl_override = (
         "flow" in spec.lower()
         and "hitl" in spec.lower()

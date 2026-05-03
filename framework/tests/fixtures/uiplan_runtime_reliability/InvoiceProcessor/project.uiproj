@@ -1,0 +1,6 @@
+{
+  "Name": "InvoiceProcessor",
+  "ProjectType": "Process",
+  "Description": "Runtime reliability fixture for invoice processing",
+  "MainFile": "Main.xaml"
+}

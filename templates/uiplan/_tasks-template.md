@@ -98,6 +98,40 @@ List expected runtime log assertions by surface before implementation.
 | --- | --- | --- | --- | --- |
 | `<artifact path>` | start, input, decision, terminal | `<correlation field>` | `T0xx` | `out/<log-file>.log` |
 
+## Resource provisioning checklist (required for Orchestrator-dependent tasks)
+
+Every queue, asset, folder, connection, or binding used by the automation must be
+provisioned and verified before deployment smoke tests. See
+[ACTIVITY_AND_RUNTIME_EVIDENCE.md](../../docs/uiplan/ACTIVITY_AND_RUNTIME_EVIDENCE.md)
+§Orchestrator resource lifecycle for the complete contract.
+
+| Resource | Type | Target Folder | Provisioning Command | Verification Command | Evidence Path | Provisioning Task ID | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| _IntakeQueue_ | Queue | _Shared/Dev_ | `uip or queues create --name IntakeQueue --folder-id <id> --output json` | `uip or queues list --filter "name eq 'IntakeQueue'" --output json` | `out/queue-create.json`, `out/queue-verify.json` | `T0xx` | _stores intake items_ |
+| _LLMApiKey_ | Asset (text secret) | _Shared/Dev_ | `[HANDOFF:Secrets]` | `uip or assets list --filter "name eq 'LLMApiKey'" --output json` | `out/asset-verify.json` | `T0xx` | _secret credential_ |
+
+## Activity evidence checklist (required for RPA/XAML tasks)
+
+Every non-trivial activity (beyond basic `Sequence`, `Flowchart`, `If`, `Assign`,
+`Log Message`, `Try Catch`) must be grounded in activity docs before implementation.
+See [ACTIVITY_AND_RUNTIME_EVIDENCE.md](../../docs/uiplan/ACTIVITY_AND_RUNTIME_EVIDENCE.md)
+§Activity selection grounding for the complete contract.
+
+| Workflow | Activity | Package | Version | Required Scope | Required Props | Default XAML / Evidence | Activity Lookup Task ID |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| _Main.xaml_ | _Get Mail Messages_ | _UiPath.Mail.Activities_ | _1.23.11_ | _Use Outlook 365_ | _MailFolder, Top, Messages_ | `uip rpa get-default-activity-xaml` output or Studio scaffold | `T0xx` |
+
+## UAT/test evidence checklist (required for production-bound stories)
+
+Every production-bound user story must include automated test workflows or documented
+manual UAT. See [ACTIVITY_AND_RUNTIME_EVIDENCE.md](../../docs/uiplan/ACTIVITY_AND_RUNTIME_EVIDENCE.md)
+§UAT/test evidence for the complete contract.
+
+| User Story | Scenario | Test Artifact | Execution Command | Evidence Path | AC Mapping | UAT Task ID |
+| --- | --- | --- | --- | --- | --- | --- |
+| _US1_ | _Happy path: valid invoice_ | `Tests/ValidInvoice.xaml` | `uipcli test run -a <key> .` | `out/test-results.xml` | AC1, AC2 from spec | `T0xx` |
+| _US1_ | _Failure path: invalid date_ | `Tests/InvalidDate.xaml` | `uipcli test run -a <key> .` | `out/test-results.xml` | AC3 from spec | `T0xx` |
+
 ## Executor context template (required per phase or story)
 
 ```markdown
@@ -247,6 +281,37 @@ Every checklist line must be **fully completable** under a single, explicit **Do
 - **When the use case includes coded app / action app**, tasks must name `app.config.json`, `action-schema.json`, TypeScript entry points, `uip codedapp` build/test commands, and Solution packaging boundary.
 - **When the use case is coded-agent / Python-only** (no XAML in the plan): the workflow surface is **graph / code** — do not invent RPA-only tasks.
 - **When RPA / Flow / app invokes an agent**, tasks must include both sides: the host artifact (`Main.xaml`, `.flow`, app action) and the agent artifact (`langgraph.json` / `llama_index.json`) plus request/response schema and local execution evidence.
+
+### Local validation and tenant evidence requirements
+
+Every build/pack task must include **local validation evidence** before deployment.
+See [ACTIVITY_AND_RUNTIME_EVIDENCE.md](../../docs/uiplan/ACTIVITY_AND_RUNTIME_EVIDENCE.md)
+§Local Studio evidence for the complete contract.
+
+**Required local validation steps** (before pack/deploy):
+1. `uip rpa get-errors --file-path <workflow>.xaml --project-dir <project-root> --output json` (0 errors)
+2. `uip rpa build <project-root> --output json` (success)
+3. `uipcli package analyze <project-root>/project.json --resultPath out/<name>-analyze.json` (0 errors, warnings accepted or blocked)
+4. Optional local smoke run (when safe and non-destructive)
+
+Every deploy/smoke task must include **tenant evidence** or a structured blocker.
+See [ACTIVITY_AND_RUNTIME_EVIDENCE.md](../../docs/uiplan/ACTIVITY_AND_RUNTIME_EVIDENCE.md)
+§Tenant evidence for the complete contract.
+
+**Required tenant evidence components** (for deploy/smoke tasks):
+1. Target folder (must be non-Production: personal workspace, Dev, or Test)
+2. Package/process version deployed
+3. Job or agent invocation ID
+4. Final state (Successful, Faulted, Stopped)
+5. Job logs with expected markers (phase, correlation ID, business outputs)
+6. Queue item or asset proof (when applicable)
+7. OR a structured blocker JSON explaining why tenant evidence is unavailable
+
+**Local-ready vs tenant-verified:** a task marked `local-ready` has passed analyzer
+and local validation but lacks tenant deployment/smoke evidence. This is acceptable
+when tenant credentials, folder permissions, or runtime environment are unavailable.
+However, such tasks must record a structured blocker and must not be considered
+complete for production sign-off.
 
 ### Studio and agent execution contracts
 

@@ -1,0 +1,8 @@
+{
+  "command": "uip rpa get-default-activity-xaml --activity-class-name \"UiPath.Core.Activities.CreateDirectory\" --output json",
+  "result": "Success",
+  "package": "UiPath.System.Activities",
+  "version": "26.2.4",
+  "activity": "CreateDirectory",
+  "required_bindings": ["Path"]
+}

@@ -72,6 +72,14 @@ the smoke + log validation tasks for that story before moving to the next.
      - task-card tables (`| Field | Content |`) for implementation tasks,
      - per-workflow internal-step diagrams for each in-scope `.xaml`, `.flow`,
        LangGraph entry, and DMN artifact.
+     - Activity evidence rows for non-trivial activities (package, version, required
+       scope, inputs/outputs, default XAML).
+     - Resource provisioning rows for queues/assets/folders/connections (provisioning
+       command, verification command, evidence path, secret boundary).
+     - Local validation and tenant evidence requirements (see
+       `docs/uiplan/ACTIVITY_AND_RUNTIME_EVIDENCE.md`).
+     - UAT/test evidence rows for production-bound stories (test artifacts, execution
+       commands, results, AC mapping).
    - If these are missing, stop and request task regeneration/fix instead of
      implementing from an under-specified bundle.
 4. Run or request `uipath_plan_review` with `stage=all` before any source
@@ -87,6 +95,10 @@ the smoke + log validation tasks for that story before moving to the next.
    - `RULE_TASKS_STUB_XAML`
    - `RULE_TASKS_NO_DIAGRAM`
    - `RULE_ANY_TEMPLATE_RESIDUE`
+   - `RULE_TASKS_NO_ACTIVITY_DOC_EVIDENCE` (missing activity grounding)
+   - `RULE_TASKS_NO_RESOURCE_PROVISIONING_EVIDENCE` (missing Orchestrator resource provisioning/verification)
+   - `RULE_TASKS_NO_TENANT_RUNTIME_EVIDENCE` (missing tenant deployment/smoke evidence)
+   - `RULE_TASKS_NO_UAT_TEST_EVIDENCE` (missing UAT/test-case proof)
 6. If review passes, ask the user before starting implementation unless the
    user explicitly supplied `--run-to-completion`, `--yes`, `--no-stop`, or
    clearly asked to run the accepted task plan end to end without stopping.
@@ -180,6 +192,46 @@ The following **do not** satisfy "validated" or "working" by themselves:
 If the only honest proof needs **human UI** (for example Cursor slash picker
 after reload), **stop and ask** the human to confirm; record that as explicit
 **human validation** in the ledger instead of implying end-to-end proof.
+
+## Evidence completion criteria
+
+Do not mark any task complete without runtime evidence. See
+`docs/uiplan/ACTIVITY_AND_RUNTIME_EVIDENCE.md` for the full contract.
+
+**Activity grounding** (for tasks involving non-trivial activities):
+- Must include `uipath_doc_get_activity` or library search evidence
+- Must record package, version, required scope, inputs/outputs, default XAML
+- Must pass `uip rpa get-errors` (0 errors)
+
+**Resource provisioning** (for tasks involving queues/assets/folders/connections):
+- Must include provisioning command (`uip or queues create`, `uip or assets create`, etc.)
+- Must include verification command (`uip or queues list`, `uip or assets list`, etc.)
+- Must record evidence paths (`out/queue-create.json`, `out/queue-verify.json`, etc.)
+- Must use `[skill:uipath-platform]` for resource tasks
+
+**Local validation** (for all build/pack tasks):
+- Must pass `uip rpa get-errors` (0 errors)
+- Must pass `uip rpa build` (success)
+- Must pass `uipcli package analyze` (0 errors, warnings accepted or blocked)
+- Optional local smoke run evidence (when safe)
+
+**Tenant evidence** (for all deploy/smoke tasks):
+- Must deploy to non-Production folder (personal workspace, Dev, or Test)
+- Must record package/process version, job ID, final state
+- Must include job logs with expected markers (phase, correlation ID, business outputs)
+- Must include queue item or asset proof (when applicable)
+- OR must record structured blocker JSON when credentials/permissions unavailable
+
+**UAT/test evidence** (for all production-bound stories):
+- Must include test artifacts (`Tests/` for RPA, `tests/` for agents, or UAT doc)
+- Must include test execution command (`uipcli test run`, `pytest`, `uipath eval`, or manual UAT steps)
+- Must include test results output path and AC mapping
+- Must use `[skill:uipath-test]` for test tasks
+
+**Local-ready vs tenant-verified:** a task marked `local-ready` has passed analyzer
+and local validation but lacks tenant deployment/smoke evidence. This is acceptable
+when tenant credentials/permissions are unavailable, but the task must record a
+structured blocker and must not be considered complete for production sign-off.
 
 ## Per-Task UiPath Loop
 
