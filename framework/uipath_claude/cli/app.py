@@ -845,7 +845,7 @@ def _score_skill(skill: dict, user_input: str, user_tokens: set[str]) -> int:
     # in a file path, or "case" matching "Classic" / "because".
     _specialist_gates: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
         # (single-word tokens to match exactly, multi-word phrases to match as substring)
-        "uipath-case-management": (("case", "cases", "caseplan"), ("case management",)),
+        "uipath-maestro-case": (("case", "cases", "caseplan"), ("case management",)),
         "uipath-coded-apps": (("codedapp",), ("coded app", "coded apps", "action app")),
         "uipath-data-fabric": (("entity", "entities"), ("data fabric",)),
         "uipath-maestro-flow": (("maestro", "bpmn", "flow", "flows"), (".flow",)),

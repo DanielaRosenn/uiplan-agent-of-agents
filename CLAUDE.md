@@ -61,7 +61,7 @@ Before the first tool call, determine what kind of project you're in. This is **
 | `*.bpmn` files under a Studio Web project | Maestro process | Studio Web UI + Solutions CLI | `docs/uipath-workflows.md` §Maestro |
 | `app.config.json` + `action-schema.json` | Coded App / Coded Action App | `uip codedapp` + Solution CLI | `docs/uipath-workflows.md` §CodedApp |
 | `api-workflow.json` or `ApiWorkflow` project type | API Workflow | `uipcli` or Solution CLI | `docs/uipath-workflows.md` §ApiWorkflow |
-| `caseplan.json` | Case Management (preview) | `uip case` | `skills/skills/uipath-case-management/SKILL.md` |
+| `caseplan.json` | Case Management (preview) | `uip case` | `skills/skills/uipath-maestro-case/SKILL.md` |
 
 If **multiple** markers exist, you're in a Solution - treat the repo as such and work at the solution level unless explicitly told to operate on a single sub-project.
 

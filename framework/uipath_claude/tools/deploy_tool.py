@@ -79,6 +79,22 @@ def _extract_nupkg(text: str, search_dir: Optional[Path] = None) -> Optional[str
     return None
 
 
+def _pack_args_for_project(project_type: str, project_dir: Path, out_dir: Path) -> Optional[list[str]]:
+    if project_type == "maestro":
+        return ["flow", "pack", str(project_dir), "--output", str(out_dir), "--output-format", "json"]
+    if project_type == "process":
+        return [
+            "solution",
+            "pack",
+            str(project_dir),
+            "--output",
+            str(out_dir),
+            "--output-format",
+            "json",
+        ]
+    return None
+
+
 def preflight_project(project_dir: str, project_type: str = "process") -> dict[str, Any]:
     """Run the local restore/analyze gate before pack/publish/deploy."""
     pdir = Path(project_dir).resolve()
@@ -141,10 +157,14 @@ def publish_project(
     out_dir = pdir.parent / "_packages"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    if project_type == "maestro":
-        pack = _run_uip(["flow", "pack", str(pdir), "--output", str(out_dir), "--output-format", "json"])
-    else:
-        pack = _run_uip(["solution", "pack", str(pdir), "--output", str(out_dir), "--output-format", "json"])
+    pack_args = _pack_args_for_project(project_type, pdir, out_dir)
+    if pack_args is None:
+        return {
+            "status": "failed",
+            "stage": "project_type",
+            "error": f"unsupported project_type: {project_type}",
+        }
+    pack = _run_uip(pack_args)
 
     if pack["status"] != "ok":
         return {"status": "failed", "stage": "pack", "error": pack.get("error", "pack failed"), "pack": pack}

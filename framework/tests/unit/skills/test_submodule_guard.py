@@ -250,3 +250,21 @@ def test_non_skill_uipath_tokens_are_ignored(tmp_path, monkeypatch):
     result = submodule_guard.verify(strict=True, repo_root=tmp_path)
 
     assert result.ok is True, result.to_report()
+
+
+def test_maestro_case_skill_reference_is_valid(tmp_path, monkeypatch):
+    head = "c9458040aca239f145ed238f2d72b33aa82d8ccd"
+    _make_fake_repo(
+        tmp_path,
+        approved=[head],
+        skill_ids=["uipath-maestro-case", "uipath-rpa"],
+        rule_files={
+            "CLAUDE.md": "Use skills/skills/uipath-maestro-case/SKILL.md for case flows.",
+        },
+    )
+    _install_git_stub(monkeypatch, head=head)
+    _point_submodule(monkeypatch, tmp_path / "skills")
+
+    result = submodule_guard.verify(strict=True, repo_root=tmp_path)
+
+    assert result.ok is True, result.to_report()

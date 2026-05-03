@@ -1,10 +1,12 @@
-"""Hook manager for event-driven shell command execution."""
-import subprocess
+"""Hook manager for event-driven command execution."""
+
 from typing import Dict, List
+
+from uipath_claude.hooks.command_exec import run_command
 
 
 class HookManager:
-    """Manages event hooks and executes shell commands."""
+    """Manages event hooks and executes commands."""
     
     def __init__(self, hooks_config: Dict[str, List[str]]):
         """
@@ -26,13 +28,7 @@ class HookManager:
         
         for cmd in commands:
             try:
-                subprocess.run(
-                    cmd,
-                    shell=True,
-                    capture_output=True,
-                    timeout=30,
-                    stdin=subprocess.DEVNULL,
-                )
+                run_command(cmd, timeout=30, allow_shell_fallback=True)
             except Exception:
                 # Silently ignore hook failures
                 pass

@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 from typing import Optional
 
+from uipath_claude.hooks.command_exec import run_command
+
 
 def get_skills_hooks_path() -> Optional[Path]:
     """Get the path to the skills repo hooks folder."""
@@ -74,15 +76,12 @@ def run_session_start_hooks(verbose: bool = False) -> list[dict]:
             
             try:
                 # Run the hook
-                proc = subprocess.run(
+                proc = run_command(
                     command,
-                    shell=True,
-                    capture_output=True,
                     text=True,
                     timeout=timeout,
                     cwd=str(hooks_path.parent),
                     env={**os.environ, "CLAUDE_PLUGIN_ROOT": str(hooks_path.parent)},
-                    stdin=subprocess.DEVNULL,
                 )
                 result["output"] = proc.stdout or proc.stderr
                 if proc.returncode != 0:

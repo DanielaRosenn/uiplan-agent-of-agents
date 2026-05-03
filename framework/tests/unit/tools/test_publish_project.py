@@ -109,3 +109,21 @@ def test_publish_project_preflight_failure_short_circuits(tmp_path, monkeypatch)
     result = deploy_tool.publish_project(str(pdir), project_type="process")
     assert result["status"] == "failed"
     assert result.get("stage") == "preflight"
+
+
+def test_publish_project_rejects_unsupported_project_type(tmp_path, monkeypatch):
+    pdir = _mk_project(tmp_path)
+
+    def fake_run(cmd, capture_output, text, timeout, cwd=None):
+        if "restore" in cmd or "analyze" in cmd:
+            return _run(0, stdout='{"ok":true}')
+        return _run(1, stderr="unexpected")
+
+    monkeypatch.setattr(deploy_tool.subprocess, "run", fake_run)
+    monkeypatch.setattr(deploy_tool.shutil, "which", lambda _: "uip")
+
+    result = deploy_tool.publish_project(str(pdir), project_type="unknown")
+
+    assert result["status"] == "failed"
+    assert result.get("stage") == "project_type"
+    assert "unsupported project_type: unknown" in result.get("error", "")

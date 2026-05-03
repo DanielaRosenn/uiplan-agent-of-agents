@@ -15,6 +15,7 @@ with a scaffolded UiPath project and a real local run.
 - UiPlan artifacts: `framework/tests/fixtures/uiplan_runtime_reliability/{spec,plan,tasks}.md`
 - Project-level UiPlan copy: `InvoiceProcessor/.cursor/plans/invoice-processor/`
 - Test gate: `framework/tests/uiplan/test_real_studio_fixture.py`
+- Component review: `docs/uiplan/RUNTIME_RELIABILITY_COMPONENT_REVIEW.md`
 
 ## What It Proves
 

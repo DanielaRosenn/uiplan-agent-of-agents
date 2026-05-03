@@ -8,8 +8,9 @@
 
 **Continuation update 2026-04-28**: The next implementation pass must remediate
 the already-built Zip project rather than start from a new scaffold. It must
-ground `ZipEmail.Dispatcher` in
-`C:/Users/DanielaRosenstein/projects/uipath-builder-agent/scaffold/template/dispatcher`,
+ground `ZipEmail.Dispatcher` in the template catalog at
+`C:/Users/DanielaRosenstein/projects/uipath-builder-agent/scaffold/template`
+and record `dispatcher` as the selected template type from that catalog,
 replace stub mailbox intake with real Outlook connector intake using connector
 `7d5f5eb9-dd7d-4807-a08d-ebb7e13cc5aa`, redeploy to tenant `Test` folder
 `Shared/ZipEmailAutomationDemo`, and run a read-only limited live inbox smoke.
@@ -280,6 +281,98 @@ updates the review item, and updates the linked intake item.
 | Analyzer agent | `uv` + `uipath` | `cd projects/ZipEmail.AnalyzerAgent && uv run pytest -q --junitxml=out/junit-agent.xml` + `uipath run --input-file ...` | tests pass and smoke output matches schema | `projects/ZipEmail.AnalyzerAgent/out/junit-agent.xml`, `out/agent-smoke.log` |
 | Flow HITL | `uip` | `uip flow validate projects/ZipEmail.HumanReview/human-review.flow` | validate succeeds and approve/reject branches evidenced | `out/flow-validate.log` |
 | Solution wiring | `uipcli solution` | `uipcli solution restore/analyze/pack ...` | package created with no unresolved analyze blockers | `out/solution-analyze.json`, `.nupkg/.uipx` output path |
+
+### Workflow surface visual catalog (required)
+
+Each in-scope workflow surface has a dedicated internal-step diagram and
+activity/node conformance row.
+
+| Workflow artifact | Diagram below | Mandatory activities/nodes | Skill/tool route | Evidence |
+| --- | --- | --- | --- | --- |
+| `projects/ZipEmail.Dispatcher/Main.xaml` | `Dispatcher: mailbox intake + enqueue` | mailbox read, dedup key normalization, queue add, cursor update, phase logs | `[skill:uipath-rpa]` + `uipath_doc_get_activity` + `uipcli` | `out/analyze-dispatcher.json`, intake smoke log |
+| `projects/ZipEmail.AnalyzerRunner/Main.xaml` | `AnalyzerRunner: dequeue + invoke + apply` | get transaction, invoke analyzer boundary, apply result, queue status update, phase logs | `[skill:uipath-rpa]` + `uipcli` | `out/analyze-runner.json`, runner smoke log |
+| `projects/ZipEmail.AnalyzerAgent/src/graph.py` | `AnalyzerAgent: classify + policy + output` | classify node, deterministic checks, policy application, output schema map | `[skill:uipath-agents]` + `uv`/`uipath` | `out/junit-agent.xml`, `out/agent-smoke.log` |
+| `projects/ZipEmail.HumanReview/human-review.flow` | `Flow HITL: review + closure` | review intake, reviewer decision, linked intake update, terminal status write-back | `[skill:uipath-maestro-flow]` + `uip` | `out/flow-validate.log`, `out/flow-hitl-validate.log` |
+
+#### Dispatcher: mailbox intake + enqueue (`projects/ZipEmail.Dispatcher/Main.xaml`)
+
+```mermaid
+flowchart TD
+  D0([Dispatcher trigger]):::start --> D1[Read mailbox via Email connector]:::service
+  D1 --> D2[Normalize message identity/hash]:::process
+  D2 --> D3{Duplicate?}:::decision
+  D3 -- Yes --> D4[Log duplicate skip + audit]:::success
+  D3 -- No --> D5[Add item to ZipEmailIntakeQueue]:::process
+  D5 --> D6[Persist mailbox cursor state]:::process
+  D6 --> D7[Log phase markers + correlationId]:::success
+
+  classDef start fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:2px
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef success fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:1.5px
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+#### AnalyzerRunner: dequeue + invoke + apply (`projects/ZipEmail.AnalyzerRunner/Main.xaml`)
+
+```mermaid
+flowchart TD
+  R0([Runner trigger]):::start --> R1[Get transaction from Intake queue]:::process
+  R1 --> R2[Invoke analyzer boundary]:::service
+  R2 --> R3{Route outcome}:::decision
+  R3 -- invoice --> R4[Forward/submit to Zip path]:::process
+  R3 -- non-invoice --> R5[Archive/skip path]:::process
+  R3 -- review --> R6[Create HumanReview queue item]:::human
+  R4 --> R7[Apply status update on intake item]:::success
+  R5 --> R7
+  R6 --> R7
+
+  classDef start fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:2px
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.5px
+  classDef success fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:1.5px
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+#### AnalyzerAgent: classify + policy + output (`projects/ZipEmail.AnalyzerAgent/src/graph.py`)
+
+```mermaid
+flowchart LR
+  A0[/Normalized intake payload/]:::data --> A1[classify_invoice_signal]:::service
+  A1 --> A2[apply_policy_and_reason_codes]:::service
+  A2 --> A3[(route/reason/confidence/status)]:::data
+  A3 --> A4[Runner response contract]:::process
+
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef data fill:#ECFEFF,stroke:#0891B2,color:#164E63,stroke-width:1.25px
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+#### Flow HITL: review + closure (`projects/ZipEmail.HumanReview/human-review.flow`)
+
+```mermaid
+flowchart TD
+  H0([Review trigger]):::start --> H1[Load review queue item + evidence]:::process
+  H1 --> H2[Present reviewer decision step]:::human
+  H2 --> H3{Decision}:::decision
+  H3 -- approve --> H4[Apply approved status to linked intake item]:::success
+  H3 -- reject --> H5[Apply rejected status + reason]:::success
+  H3 -- timeout --> H6[Escalate/exception status]:::human
+  H4 --> H7[Close review item + audit]:::success
+  H5 --> H7
+  H6 --> H7
+
+  classDef start fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:2px
+  classDef process fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.5px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef success fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:1.5px
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
 
 ## Architecture diagram
 

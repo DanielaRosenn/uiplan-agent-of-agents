@@ -90,6 +90,28 @@ def test_deploy_v2_failure_in_publish_short_circuits(tmp_path, monkeypatch):
     assert called["run"] is False
 
 
+def test_deploy_v2_unknown_project_type_bubbles_publish_failure(tmp_path, monkeypatch):
+    pdir = tmp_path / "P2"
+    pdir.mkdir()
+    (pdir / "project.json").write_text("{}", encoding="utf-8")
+
+    def fake_run(cmd, capture_output, text, timeout, cwd=None):
+        if "restore" in cmd or "analyze" in cmd:
+            return _run(0, stdout='{"ok":true}')
+        return _run(1, stderr="unexpected")
+
+    monkeypatch.setattr(deploy_tool.subprocess, "run", fake_run)
+    monkeypatch.setattr(deploy_tool.shutil, "which", lambda _: "uip")
+
+    out = deploy_tool.deploy_to_orchestrator_v2(
+        project_dir=str(pdir), project_type="unknown", folder="Dev"
+    )
+
+    assert out["status"] == "failed"
+    assert out["stage"] == "publish"
+    assert out["publish"]["stage"] == "project_type"
+
+
 def test_deploy_v2_blocks_shared_without_human_approval(tmp_path):
     pdir = tmp_path / "P"
     pdir.mkdir()
