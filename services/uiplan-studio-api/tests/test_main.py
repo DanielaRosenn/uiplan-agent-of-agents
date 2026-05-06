@@ -506,6 +506,23 @@ def test_graph_index_endpoint_returns_workspace_with_core_spec(monkeypatch, tmp_
     assert payload["warnings"] == []
 
 
+def test_graph_index_endpoint_returns_warnings_for_missing_allowed_bundle(
+    monkeypatch, tmp_path
+) -> None:
+    plans_root = tmp_path / "plans"
+    missing_bundle_root = plans_root / "missing-bundle"
+    monkeypatch.setattr(main, "PLANS_ROOT", plans_root.resolve())
+
+    client = TestClient(app)
+    response = client.get("/graph/index", params={"bundle_root": str(missing_bundle_root)})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["version"] == "uiplan_graph.v2"
+    assert isinstance(payload["warnings"], list)
+    assert payload["warnings"]
+
+
 def test_diagram_save_and_load_preserves_typed_project_graph_fields(monkeypatch, tmp_path) -> None:
     plans_root = tmp_path / "plans"
     bundle_root = plans_root / "example"

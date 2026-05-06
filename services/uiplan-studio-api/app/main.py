@@ -290,8 +290,6 @@ def diagram_save(payload: SaveDiagramRequest) -> SaveDiagramResponse:
 @app.get("/graph/index", response_model=GraphIndexResponse)
 def graph_index(bundle_root: str) -> GraphIndexResponse:
     root = _resolve_bundle_root(bundle_root)
-    if not root.exists() or not root.is_dir():
-        raise HTTPException(status_code=404, detail=f"Bundle root not found: {root}")
     index_result = index_workspace_sources_with_warnings(root)
     workspace = index_result.workspace
     return GraphIndexResponse(
