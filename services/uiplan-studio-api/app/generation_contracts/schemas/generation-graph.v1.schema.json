@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://uipath.local/uiplan/generation-graph.v1",
+  "title": "UiPlan Generation Graph v1",
+  "type": "object",
+  "x-uiplan-schema-version": "v1",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "graph_id",
+    "bundle_root",
+    "created_from",
+    "nodes",
+    "edges",
+    "context_attachments",
+    "generation_profile"
+  ],
+  "properties": {
+    "schema_id": { "type": "string" },
+    "schema_version": { "const": "v1" },
+    "graph_id": { "type": "string" },
+    "bundle_root": { "type": "string" },
+    "created_from": { "type": "string" },
+    "approval_state_ref": { "type": ["string", "null"] },
+    "generation_profile": {
+      "type": "object",
+      "required": ["allowed_project_types"],
+      "properties": {
+        "target_workspace": { "type": ["string", "null"] },
+        "package_name_prefix": { "type": ["string", "null"] },
+        "allowed_project_types": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "rpa",
+              "coded-automation",
+              "coded-agent",
+              "maestro-flow",
+              "coded-app",
+              "coded-action-app",
+              "api-workflow",
+              "solution",
+              "library",
+              "test",
+              "docs",
+              "platform-resource"
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "role",
+          "output_type",
+          "project_types",
+          "description"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "role": {
+            "type": "string",
+            "enum": [
+              "process_step",
+              "project_component",
+              "generated_artifact",
+              "test",
+              "tool",
+              "asset",
+              "queue",
+              "docs_context",
+              "skill",
+              "deployment_gate",
+              "review_gate"
+            ]
+          },
+          "output_type": {
+            "type": "string",
+            "enum": [
+              "none",
+              "document",
+              "project_scaffold",
+              "source_file",
+              "test_file",
+              "config",
+              "orchestrator_resource",
+              "validation_report",
+              "approval_gate"
+            ]
+          },
+          "project_types": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "rpa",
+                "coded-automation",
+                "coded-agent",
+                "maestro-flow",
+                "coded-app",
+                "coded-action-app",
+                "api-workflow",
+                "solution",
+                "library",
+                "test",
+                "docs",
+                "platform-resource"
+              ]
+            }
+          },
+          "description": { "type": "string" },
+          "x": { "type": "integer" },
+          "y": { "type": "integer" },
+          "source": { "type": ["string", "null"] },
+          "context_attachment_ids": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "from", "to", "edge_type"],
+        "properties": {
+          "id": { "type": "string" },
+          "from": { "type": "string" },
+          "to": { "type": "string" },
+          "edge_type": {
+            "type": "string",
+            "enum": [
+              "drives",
+              "generates",
+              "depends_on",
+              "uses_context",
+              "uses_skill",
+              "validates",
+              "blocks",
+              "deploys",
+              "observes",
+              "documents"
+            ]
+          },
+          "label": { "type": ["string", "null"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "context_attachments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source_kind", "source_id", "scope", "policy", "summary"],
+        "properties": {
+          "source_kind": {
+            "type": "string",
+            "enum": [
+              "repo_doc",
+              "library_book",
+              "skill",
+              "tool",
+              "source_file",
+              "user_note",
+              "validation_output"
+            ]
+          },
+          "source_id": { "type": "string" },
+          "citation": { "type": ["string", "null"] },
+          "scope": {
+            "type": "string",
+            "enum": ["graph", "node", "edge", "file", "stage"]
+          },
+          "policy": { "type": "string", "enum": ["strict", "advisory"] },
+          "summary": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

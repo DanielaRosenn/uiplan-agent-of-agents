@@ -1,0 +1,40 @@
+{
+  "metadata": {
+    "id": "visual-template",
+    "nodeCount": 8,
+    "tags": ["starter", "agent", "n8n-like"],
+    "layoutDirection": "LR",
+    "layers": ["trigger", "agent", "context", "decision", "outcome"],
+    "iconHints": {
+      "chat_trigger": "trigger",
+      "planning_agent": "agent",
+      "if_ready": "decision"
+    }
+  },
+  "nodeIds": [
+    "chat_trigger",
+    "planning_agent",
+    "context_library",
+    "skills",
+    "tools",
+    "if_ready",
+    "success_package",
+    "needs_context"
+  ],
+  "nodeKinds": {
+    "planning_agent": "project_component",
+    "context_library": "docs_context",
+    "skills": "skill",
+    "tools": "tool",
+    "if_ready": "review_gate"
+  },
+  "edgeSignatures": [
+    ["chat_trigger", "planning_agent", "drives", null],
+    ["planning_agent", "context_library", "uses_context", null],
+    ["planning_agent", "skills", "uses_skill", null],
+    ["planning_agent", "tools", "depends_on", null],
+    ["planning_agent", "if_ready", "drives", null],
+    ["if_ready", "success_package", "validates", "ready"],
+    ["if_ready", "needs_context", "blocks", "needs context"]
+  ]
+}

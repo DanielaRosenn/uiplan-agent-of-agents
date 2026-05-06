@@ -72,6 +72,7 @@ async def test_zip_email_fixture_generates_solution_xaml_contract(
     assert "solution.uipx" in plan
     assert "bindings" in plan.lower()
     assert "XAML-first" in plan or ".xaml" in plan.lower()
+    assert "## Project Graph" in plan
     assert "Sequence" in plan or "Flowchart" in plan
     assert "Long Running" in plan or "Long Running Workflow" in plan
     assert "LogMessage" in tasks
@@ -102,6 +103,7 @@ async def test_zip_email_fixture_generates_solution_xaml_contract(
     )
     err_rules = {f.get("rule") for f in review["findings"] if f.get("severity") == "error"}
     assert review.get("ok") is False
+    assert "RULE_PLAN_NO_PROJECT_GRAPH" not in err_rules
     assert "RULE_TASKS_NO_DIAGRAM" in err_rules
     assert "RULE_ANY_TEMPLATE_RESIDUE" in err_rules
 
@@ -195,3 +197,46 @@ def test_plan_warns_when_workflow_types_missing():
     )
     findings = plan_uiplan_review.review_plan_text(plan, [], "solution", None)
     assert any(f.get("rule") == "plan_workflow_types" for f in findings)
+
+
+def test_tasks_generation_requires_project_graph_precondition(
+    repo_with_real_uiplan_templates: Path,
+) -> None:
+    repo = repo_with_real_uiplan_templates
+    slug = "missing-project-graph"
+    folder = repo / ".cursor" / "plans" / f"2026-01-01-{slug}"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / ".meta.yaml").write_text(
+        "\n".join(
+            [
+                f"slug: {slug}",
+                "title: Missing Project Graph",
+                "date: '2026-01-01'",
+                "status: draft",
+                "plan_kind: uiplan",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (folder / "spec.md").write_text(
+        "# Spec\n\n## Development Handoff\n\n**Implementation paradigm**: solution\n",
+        encoding="utf-8",
+    )
+    (folder / "plan.md").write_text(
+        "# Plan\n"
+        "## Stack Policy\nmodern\n"
+        "## Per-project workflow and platform inventory\n| Project | Entry | Contracts |\n| --- | --- | --- |\n"
+        "## Planner Route & Specialist Handoff\n[skill:uipath-planner]\n"
+        "## Project Inventory\n| P |\n| --- |\n"
+        "## Workflow Catalog\n| W |\n| --- |\n"
+        "## Activity Inventory\n| A |\n| --- |\n"
+        "## Bindings and Environment\n| B |\n| --- |\n"
+        "## Skill and Subagent Routing\n| R |\n| --- |\n"
+        "## Project Structure\n### Source Code (repository root)\nsolution.uipx\nbindings\n"
+        "### Paradigm build loop\nuipcli solution analyze\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="## Project Graph"):
+        plan_uiplan.call_uiplan_tasks_new({"project_root": str(repo), "slug": slug})

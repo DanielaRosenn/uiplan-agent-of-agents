@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://uipath.local/uiplan/file-proposal.v1",
+  "title": "UiPlan File Proposal v1",
+  "type": "object",
+  "x-uiplan-schema-version": "v1",
+  "$defs": {
+    "findingRecord": {
+      "type": "object",
+      "required": ["severity", "message", "scope", "target_id", "blocks_apply"],
+      "properties": {
+        "severity": { "type": "string", "enum": ["error", "warning", "note"] },
+        "message": { "type": "string" },
+        "scope": {
+          "type": "string",
+          "enum": ["graph", "stage", "node", "edge", "file", "command"]
+        },
+        "target_id": { "type": ["string", "null"] },
+        "blocks_apply": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_id",
+    "schema_version",
+    "proposal_id",
+    "stage_id",
+    "target_path",
+    "file_kind",
+    "owning_node_ids",
+    "project_type_ids",
+    "proposed_content_hash",
+    "diff_path",
+    "proposal_path",
+    "citations",
+    "findings",
+    "apply_eligible"
+  ],
+  "properties": {
+    "schema_id": { "type": "string" },
+    "schema_version": { "const": "v1" },
+    "proposal_id": { "type": "string" },
+    "stage_id": {
+      "type": "string",
+      "enum": ["01-plan", "02-scaffold", "03-code", "04-tests", "05-validation"]
+    },
+    "target_path": { "type": "string" },
+    "file_kind": {
+      "type": "string",
+      "enum": [
+        "none",
+        "document",
+        "project_scaffold",
+        "source_file",
+        "test_file",
+        "config",
+        "orchestrator_resource",
+        "validation_report",
+        "approval_gate"
+      ]
+    },
+    "owning_node_ids": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "project_type_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "rpa",
+          "coded-automation",
+          "coded-agent",
+          "maestro-flow",
+          "coded-app",
+          "coded-action-app",
+          "api-workflow",
+          "solution",
+          "library",
+          "test",
+          "docs",
+          "platform-resource"
+        ]
+      }
+    },
+    "proposed_content_hash": { "type": "string" },
+    "base_hash": { "type": ["string", "null"] },
+    "diff_path": { "type": "string" },
+    "proposal_path": { "type": "string" },
+    "citations": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/findingRecord" }
+    },
+    "apply_eligible": { "type": "boolean" }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,18 @@
+[project]
+name = "uiplan-studio-api"
+version = "0.1.0"
+description = "Local API for UiPlan Studio"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "pyyaml",
+    "copilotkit>=0.1.88",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "httpx",
+    "jsonschema>=4.26.0",
+]

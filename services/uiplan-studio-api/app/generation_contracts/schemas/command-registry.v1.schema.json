@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://uipath.local/uiplan/command-registry.v1",
+  "title": "UiPlan Command Registry v1",
+  "type": "object",
+  "x-uiplan-schema-version": "v1",
+  "required": ["schema_id", "schema_version", "commands"],
+  "properties": {
+    "schema_id": { "type": "string" },
+    "schema_version": { "const": "v1" },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "command_id",
+          "purpose",
+          "owning_stage",
+          "executable",
+          "fixed_args",
+          "working_directory_rule",
+          "allowed_path_inputs",
+          "mutation_classification",
+          "required_confirmation",
+          "credential_requirements",
+          "output_summary_policy"
+        ],
+        "properties": {
+          "command_id": { "type": "string" },
+          "purpose": { "type": "string" },
+          "owning_stage": {
+            "type": "string",
+            "enum": ["01-plan", "02-scaffold", "03-code", "04-tests", "05-validation"]
+          },
+          "executable": { "type": "string" },
+          "fixed_args": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "working_directory_rule": {
+            "type": "string",
+            "enum": ["bundle_root", "repo_root", "service_root"]
+          },
+          "allowed_path_inputs": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "mutation_classification": {
+            "type": "string",
+            "enum": ["read-only", "local-write", "external-mutation"]
+          },
+          "required_confirmation": { "type": "boolean" },
+          "credential_requirements": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "output_summary_policy": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

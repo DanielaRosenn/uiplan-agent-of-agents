@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://uipath.local/uiplan/approval-state.v1",
+  "title": "UiPlan Approval State v1",
+  "type": "object",
+  "x-uiplan-schema-version": "v1",
+  "$defs": {
+    "approvalStatus": {
+      "type": "string",
+      "enum": [
+        "not_started",
+        "ready_for_review",
+        "changes_requested",
+        "approved",
+        "blocked",
+        "applied",
+        "superseded"
+      ]
+    },
+    "stageId": {
+      "type": "string",
+      "enum": ["01-plan", "02-scaffold", "03-code", "04-tests", "05-validation"]
+    },
+    "proposalState": {
+      "type": "object",
+      "required": [
+        "proposal_id",
+        "stage_id",
+        "review_status",
+        "apply_status",
+        "source_graph_hash",
+        "context_manifest_hash",
+        "proposal_hash",
+        "updated_at"
+      ],
+      "properties": {
+        "proposal_id": { "type": "string" },
+        "stage_id": { "$ref": "#/$defs/stageId" },
+        "review_status": { "$ref": "#/$defs/approvalStatus" },
+        "apply_status": { "$ref": "#/$defs/approvalStatus" },
+        "reviewer": { "type": ["string", "null"] },
+        "reviewer_notes": { "type": ["string", "null"] },
+        "source_graph_hash": { "type": "string" },
+        "context_manifest_hash": { "type": "string" },
+        "proposal_hash": { "type": "string" },
+        "base_file_hash": { "type": ["string", "null"] },
+        "preview_id": { "type": ["string", "null"] },
+        "superseded_by": { "type": ["string", "null"] },
+        "blocked_reason": { "type": ["string", "null"] },
+        "updated_at": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_id",
+    "schema_version",
+    "package_id",
+    "current_stage",
+    "stage_statuses",
+    "proposals",
+    "reviewer_notes",
+    "applied_preview_ids",
+    "superseded_preview_ids",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_id": { "type": "string" },
+    "schema_version": { "const": "v1" },
+    "package_id": { "type": "string" },
+    "current_stage": { "$ref": "#/$defs/stageId" },
+    "stage_statuses": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/stageId" },
+      "additionalProperties": { "$ref": "#/$defs/approvalStatus" }
+    },
+    "proposals": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/proposalState" }
+    },
+    "reviewer_notes": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "applied_preview_ids": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "superseded_preview_ids": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "updated_at": { "type": "string" }
+  },
+  "additionalProperties": false
+}
