@@ -657,6 +657,33 @@ textarea {
   font-size: 12px;
 }
 
+.file-tree {
+  margin: 0;
+  padding: 0;
+}
+
+.file-tree-node {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+}
+
+.file-tree-node:hover {
+  background: #f0f0f0;
+}
+
+.file-tree-node.selected {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.file-tree-children {
+  padding-left: 0;
+}
+
 .graph-builder-summary {
   margin: 0;
   display: grid;
