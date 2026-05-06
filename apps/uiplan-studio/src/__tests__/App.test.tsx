@@ -1018,6 +1018,73 @@ test("drafts plan and scaffold package requests from Copilot controls", async ()
   expect(calledUrls.some((url) => url.includes("/apply"))).toBe(false);
 });
 
+test("applies copilot add-node action and updates graph selection", async () => {
+  const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
+    const url = String(input);
+    if (url.includes("/bundle/load")) {
+      return mockJsonResponse({
+        slug: "example",
+        status: "draft",
+        root: ".cursor/plans/example",
+        documents: {
+          "spec.md": "# Spec\n",
+          "plan.md": "# Plan\n",
+          "tasks.md": "# Tasks\n",
+        },
+      });
+    }
+    if (url.endsWith("/graph/actions/execute")) {
+      const requestBody = typeof init?.body === "string" ? JSON.parse(init.body) : {};
+      expect(requestBody).toEqual(
+        expect.objectContaining({
+          action: "add_node",
+          payload: expect.objectContaining({
+            id: expect.stringMatching(/^copilot-node-/),
+            title: "Copilot Added Node",
+            kind: "workflow",
+          }),
+          workspace: expect.objectContaining({
+            nodes: expect.any(Array),
+            edges: expect.any(Array),
+          }),
+        }),
+      );
+      const addedNode = {
+        id: requestBody.payload.id,
+        title: requestBody.payload.title,
+        kind: requestBody.payload.kind,
+        description: requestBody.payload.description,
+        x: requestBody.payload.x,
+        y: requestBody.payload.y,
+        source: requestBody.payload.source,
+      };
+      return mockJsonResponse({
+        message: "Node added",
+        workspace: {
+          nodes: [...requestBody.workspace.nodes, addedNode],
+          edges: requestBody.workspace.edges,
+        },
+      });
+    }
+    return mockJsonResponse({ categories: [] });
+  });
+
+  render(<App />);
+  await screen.findByText("Build with UiPath context");
+  fireEvent.click(screen.getByRole("button", { name: "Apply Copilot add node" }));
+
+  await waitFor(() =>
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8000/graph/actions/execute",
+      expect.objectContaining({ method: "POST" }),
+    ),
+  );
+  expect(await screen.findByText("Focused on: Copilot Added Node")).toBeInTheDocument();
+  expect(
+    await within(getDiagramCanvas()).findByRole("button", { name: /Copilot Added Node/i }),
+  ).toBeInTheDocument();
+});
+
 test("adds, edits, connects, and deletes a non-core node", async () => {
   const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
     const url = String(input);

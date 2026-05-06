@@ -101,6 +101,16 @@ function unique(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
+function createUniqueCopilotNodeId(existingNodeIds: Set<string>) {
+  let suffix = 0;
+  let candidate = `copilot-node-${Date.now()}`;
+  while (existingNodeIds.has(candidate)) {
+    suffix += 1;
+    candidate = `copilot-node-${Date.now()}-${suffix}`;
+  }
+  return candidate;
+}
+
 function normalizeIds(value: string[] | string | undefined) {
   if (Array.isArray(value)) {
     return unique(value);
@@ -1077,7 +1087,7 @@ export default function App() {
 
   const handleApplyCopilotSuggestion = async () => {
     const existingNodeIds = new Set(nodes.map((node) => node.id));
-    const nextNodeId = `copilot-node-${nodes.length + 1}`;
+    const nextNodeId = createUniqueCopilotNodeId(existingNodeIds);
     const selectedNodePosition = selectedNode
       ? { x: selectedNode.x + 160, y: selectedNode.y + 48 }
       : { x: 760, y: 120 };
