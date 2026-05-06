@@ -21,7 +21,9 @@ from app.generation_contracts.models import (
     ApprovalStatus,
     CommandRegistry,
     FileProposal,
+    GenerationGraph,
     ProposalState,
+    StageId,
     StageManifest,
 )
 from app.generation_contracts.approval_state import apply_transition
@@ -48,7 +50,6 @@ from app.schemas import (
     GraphIndexEdge,
     GraphIndexNode,
     GraphIndexResponse,
-    GenerateApprovalPackageRequest,
     LoadDiagramResponse,
     ContextSourcesResponse,
     HealthResponse,
@@ -79,6 +80,7 @@ PLANS_ROOT = (Path(__file__).resolve().parents[3] / ".cursor" / "plans").resolve
 _PENDING_GENERATION_PREVIEWS: dict[str, dict[str, str]] = {}
 DOCUMENT_TARGETS = {"spec.md", "plan.md", "tasks.md"}
 LEGACY_DIRECT_SAVE_POLICY = "legacy_internal_direct_write"
+APPROVAL_PACKAGE_ONLY_POLICY = "approval_package_only"
 
 
 def _content_hash(content: str) -> str:
@@ -221,6 +223,20 @@ class ProposalPreviewRequest(BaseModel):
 class ProposalApplyRequest(BaseModel):
     bundle_root: str
     preview_id: str
+
+
+class GraphRefRequest(BaseModel):
+    graph_id: str
+    selected_node_id: str | None = None
+
+
+class GenerateApprovalPackageApiRequest(BaseModel):
+    bundle_root: str
+    graph: GenerationGraph
+    stages: list[StageId]
+    reviewer: str | None = None
+    graph_ref: GraphRefRequest | None = None
+    write_policy: str
 
 
 @app.get("/bundle/load")
@@ -487,14 +503,30 @@ def generation_command_registry() -> CommandRegistry:
 
 
 @app.post("/generation/packages", response_model=ApprovalPackageManifest)
-def generation_packages_create(payload: GenerateApprovalPackageRequest) -> ApprovalPackageManifest:
+def generation_packages_create(payload: GenerateApprovalPackageApiRequest) -> ApprovalPackageManifest:
+    if payload.write_policy != APPROVAL_PACKAGE_ONLY_POLICY:
+        raise HTTPException(
+            status_code=400,
+            detail="Only approval_package_only write_policy is supported.",
+        )
     root = _resolve_bundle_root(payload.bundle_root)
     if not root.exists() or not root.is_dir():
         raise HTTPException(status_code=404, detail=f"Bundle root not found: {root}")
+    effective_graph = payload.graph
+    if payload.graph_ref is not None:
+        created_from = payload.graph.created_from
+        if payload.graph_ref.selected_node_id:
+            created_from = f"{created_from}:selected_node:{payload.graph_ref.selected_node_id}"
+        effective_graph = payload.graph.model_copy(
+            update={
+                "graph_id": payload.graph_ref.graph_id,
+                "created_from": created_from,
+            }
+        )
     try:
         return generate_approval_package(
             bundle_root=root,
-            graph=payload.graph,
+            graph=effective_graph,
             requested_stages=payload.stages,
             reviewer=payload.reviewer,
         )

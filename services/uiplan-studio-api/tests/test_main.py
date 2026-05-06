@@ -1027,6 +1027,7 @@ def test_generation_package_endpoint_creates_plan_package_without_target_write(
         json={
             "bundle_root": str(bundle_root),
             "reviewer": "Daniela",
+            "write_policy": "approval_package_only",
             "stages": ["01-plan"],
             "graph": {
                 "graph_id": "graph-api",
@@ -1055,6 +1056,86 @@ def test_generation_package_endpoint_creates_plan_package_without_target_write(
     assert not target_doc.exists()
 
 
+def test_generation_package_endpoint_uses_graph_ref_snapshot_metadata(monkeypatch, tmp_path) -> None:
+    plans_root = tmp_path / "plans"
+    bundle_root = plans_root / "example"
+    bundle_root.mkdir(parents=True)
+    monkeypatch.setattr(main, "PLANS_ROOT", plans_root.resolve())
+
+    client = TestClient(app)
+    response = client.post(
+        "/generation/packages",
+        json={
+            "bundle_root": str(bundle_root),
+            "reviewer": "Daniela",
+            "write_policy": "approval_package_only",
+            "stages": ["01-plan"],
+            "graph_ref": {"graph_id": "workspace-graph-1", "selected_node_id": "plan-node"},
+            "graph": {
+                "graph_id": "different-graph-id",
+                "bundle_root": str(bundle_root),
+                "created_from": "test-client",
+                "nodes": [
+                    {
+                        "id": "plan-node",
+                        "title": "Plan Node",
+                        "role": "process_step",
+                        "output_type": "document",
+                        "project_types": ["docs"],
+                        "description": "Create implementation plan.",
+                    }
+                ],
+                "edges": [],
+                "context_attachments": [],
+                "generation_profile": {"allowed_project_types": ["docs"]},
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    manifest = response.json()
+    assert manifest["graph_id"] == "workspace-graph-1"
+
+    package_root = (
+        bundle_root / ".uiplan" / "generation" / "packages" / manifest["package_id"]
+    )
+    graph_snapshot = json.loads((package_root / "graph.snapshot.json").read_text(encoding="utf-8"))
+    assert graph_snapshot["graph_id"] == "workspace-graph-1"
+    assert graph_snapshot["created_from"] == "test-client:selected_node:plan-node"
+
+
+def test_generation_package_endpoint_rejects_non_preview_first_write_policy(
+    monkeypatch, tmp_path
+) -> None:
+    plans_root = tmp_path / "plans"
+    bundle_root = plans_root / "example"
+    bundle_root.mkdir(parents=True)
+    monkeypatch.setattr(main, "PLANS_ROOT", plans_root.resolve())
+
+    client = TestClient(app)
+    response = client.post(
+        "/generation/packages",
+        json={
+            "bundle_root": str(bundle_root),
+            "reviewer": "Daniela",
+            "write_policy": "direct_write",
+            "stages": ["01-plan"],
+            "graph": {
+                "graph_id": "graph-api",
+                "bundle_root": str(bundle_root),
+                "created_from": "test",
+                "nodes": [],
+                "edges": [],
+                "context_attachments": [],
+                "generation_profile": {"allowed_project_types": ["docs"]},
+            },
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Only approval_package_only write_policy is supported."
+
+
 def test_generation_package_endpoint_rejects_scaffold_without_plan_or_approved_prior(
     monkeypatch, tmp_path
 ) -> None:
@@ -1069,6 +1150,7 @@ def test_generation_package_endpoint_rejects_scaffold_without_plan_or_approved_p
         json={
             "bundle_root": str(bundle_root),
             "reviewer": "Daniela",
+            "write_policy": "approval_package_only",
             "stages": ["02-scaffold"],
             "graph": {
                 "graph_id": "graph-scaffold-missing-plan",
@@ -1130,6 +1212,7 @@ def test_generation_package_endpoint_scaffold_uses_approved_prior_plan_and_never
         json={
             "bundle_root": str(bundle_root),
             "reviewer": "Daniela",
+            "write_policy": "approval_package_only",
             "stages": ["01-plan"],
             "graph": graph_payload,
         },
@@ -1153,6 +1236,7 @@ def test_generation_package_endpoint_scaffold_uses_approved_prior_plan_and_never
         json={
             "bundle_root": str(bundle_root),
             "reviewer": "Daniela",
+            "write_policy": "approval_package_only",
             "stages": ["02-scaffold"],
             "graph": graph_payload,
         },
@@ -1216,6 +1300,7 @@ def test_generation_package_endpoint_rejects_scaffold_with_unrelated_approved_pr
         json={
             "bundle_root": str(bundle_root),
             "reviewer": "Daniela",
+            "write_policy": "approval_package_only",
             "stages": ["01-plan"],
             "graph": prior_graph_payload,
         },
@@ -1239,6 +1324,7 @@ def test_generation_package_endpoint_rejects_scaffold_with_unrelated_approved_pr
         json={
             "bundle_root": str(bundle_root),
             "reviewer": "Daniela",
+            "write_policy": "approval_package_only",
             "stages": ["02-scaffold"],
             "graph": request_graph_payload,
         },
@@ -1261,6 +1347,7 @@ def test_generation_packages_list_and_detail_contract(monkeypatch, tmp_path) -> 
         json={
             "bundle_root": str(bundle_root),
             "reviewer": "Daniela",
+            "write_policy": "approval_package_only",
             "stages": ["01-plan"],
             "graph": {
                 "graph_id": "graph-list-detail",
@@ -1344,6 +1431,7 @@ def test_generation_package_approval_preview_and_apply_routes(monkeypatch, tmp_p
         json={
             "bundle_root": str(bundle_root),
             "reviewer": "Daniela",
+            "write_policy": "approval_package_only",
             "stages": ["01-plan"],
             "graph": graph_payload,
         },
@@ -1417,6 +1505,7 @@ def test_generation_package_endpoint_rejects_deferred_stages(monkeypatch, tmp_pa
         json={
             "bundle_root": str(bundle_root),
             "reviewer": "Daniela",
+            "write_policy": "approval_package_only",
             "stages": [stage_id],
             "graph": {
                 "graph_id": f"graph-{stage_id}",
@@ -1447,6 +1536,7 @@ def test_generation_package_endpoint_rejects_deferred_stage(monkeypatch, tmp_pat
         "/generation/packages",
         json={
             "bundle_root": str(bundle_root),
+            "write_policy": "approval_package_only",
             "stages": ["03-code"],
             "graph": {
                 "graph_id": "graph-api",
