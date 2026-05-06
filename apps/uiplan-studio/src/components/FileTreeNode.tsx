@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { ChevronRight, ChevronDown } from "lucide-react";
 
 import NodeIcon from "./NodeIcon";
@@ -18,32 +18,55 @@ interface FileTreeNodeProps {
   level: number;
   selectedNodeId: string | null;
   onSelectNodeId: (nodeId: string) => void;
+  isExpanded: boolean;
+  onToggleExpanded: (nodeId: string, isExpanded: boolean) => void;
+  expandedNodes: Set<string>;
 }
 
-export default function FileTreeNode({
+const FileTreeNode = React.memo(function FileTreeNode({
   node,
   level,
   selectedNodeId,
   onSelectNodeId,
+  isExpanded,
+  onToggleExpanded,
+  expandedNodes,
 }: FileTreeNodeProps) {
-  const [isExpanded, setIsExpanded] = useState(true);
   const isSelected = node.originalNode?.id === selectedNodeId;
 
   const handleClick = () => {
     if (node.isFolder) {
-      setIsExpanded(!isExpanded);
+      onToggleExpanded(node.id, !isExpanded);
     }
     if (node.originalNode) {
       onSelectNodeId(node.originalNode.id);
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      handleClick();
+    } else if (e.key === "ArrowRight" && node.isFolder && !isExpanded) {
+      e.preventDefault();
+      onToggleExpanded(node.id, true);
+    } else if (e.key === "ArrowLeft" && node.isFolder && isExpanded) {
+      e.preventDefault();
+      onToggleExpanded(node.id, false);
+    }
+  };
+
   return (
     <>
       <div
-        className={`file-tree-node ${isSelected ? "selected" : ""}`}
+        className={`graph-explorer-file-tree-node ${isSelected ? "selected" : ""}`}
         style={{ paddingLeft: `${level * 20 + 8}px` }}
         onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        role="treeitem"
+        aria-expanded={node.isFolder ? isExpanded : undefined}
+        aria-selected={isSelected}
+        tabIndex={0}
       >
         {node.isFolder && (
           <span style={{ display: "inline-flex", width: "16px" }}>
@@ -59,7 +82,7 @@ export default function FileTreeNode({
         <span>{node.title}</span>
       </div>
       {node.isFolder && isExpanded && node.children.length > 0 && (
-        <div className="file-tree-children">
+        <div className="graph-explorer-file-tree-children" role="group">
           {node.children.map((child) => (
             <FileTreeNode
               key={child.id}
@@ -67,10 +90,15 @@ export default function FileTreeNode({
               level={level + 1}
               selectedNodeId={selectedNodeId}
               onSelectNodeId={onSelectNodeId}
+              isExpanded={expandedNodes.has(child.id)}
+              onToggleExpanded={onToggleExpanded}
+              expandedNodes={expandedNodes}
             />
           ))}
         </div>
       )}
     </>
   );
-}
+});
+
+export default FileTreeNode;
