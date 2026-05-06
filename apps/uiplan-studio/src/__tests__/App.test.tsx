@@ -110,9 +110,10 @@ test("renders Graph Explorer and Builder Inspector workspace headings", async ()
   render(<App />);
 
   expect(await screen.findByRole("heading", { name: "Graph Explorer" })).toBeInTheDocument();
-  expect(await screen.findByRole("heading", { name: "Builder Inspector" })).toBeInTheDocument();
-  expect(await screen.findByRole("button", { name: "Select Workflow Plan" })).toBeInTheDocument();
-  expect(await screen.findByRole("button", { name: "Select Ready?" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Builder Inspector" })).toBeInTheDocument();
+  const explorerSection = screen.getByLabelText("Graph Explorer");
+  expect(within(explorerSection).getByText("Workflow Plan")).toBeInTheDocument();
+  expect(within(explorerSection).getByText("Ready?")).toBeInTheDocument();
 });
 
 test("shows inspector fallback summary for empty node description", async () => {
