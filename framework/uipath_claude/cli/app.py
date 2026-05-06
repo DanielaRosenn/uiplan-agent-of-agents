@@ -130,6 +130,10 @@ def _default(ctx: typer.Context) -> None:
 register_library_proposals_command(app)
 register_doctor_command(app)
 
+from uipath_claude.cli.explore import register_explore_command  # noqa: E402
+
+register_explore_command(app)
+
 
 plan_app = typer.Typer(
     help="Plan lifecycle commands (draft -> refine -> accept -> publish).",

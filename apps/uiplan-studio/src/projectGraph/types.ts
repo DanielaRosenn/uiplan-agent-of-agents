@@ -1,238 +1,211 @@
-export type ProjectGraphProjectType =
+export type LayerKey =
+  | "ui"
+  | "api"
+  | "agent"
   | "rpa"
-  | "coded-automation"
-  | "coded-agent"
-  | "maestro-flow"
-  | "coded-app"
-  | "coded-action-app"
-  | "api-workflow"
-  | "solution"
-  | "library"
+  | "maestro"
+  | "app"
+  | "orchestrator"
   | "test"
-  | "docs"
-  | "platform-resource";
+  | "external"
+  | "skills";
 
-export type ProjectGraphNodeKind =
-  | "process_step"
-  | "project_component"
-  | "generated_artifact"
-  | "test"
-  | "tool"
-  | "asset"
+export type EdgeKind =
+  | "import"
+  | "call"
+  | "invokes"
+  | "transition"
+  | "bridge"
   | "queue"
-  | "docs_context"
-  | "skill"
-  | "deployment_gate"
-  | "review_gate";
+  | "publish"
+  | "data"
+  | "covers";
 
-export type ProjectGraphEdgeKind =
-  | "drives"
-  | "generates"
-  | "depends_on"
-  | "uses_context"
-  | "uses_skill"
-  | "validates"
-  | "blocks"
-  | "deploys"
-  | "observes"
-  | "documents";
+/** "Which path of the process this edge belongs to" — drives BA path filter. */
+export type PathClass = "happy" | "exception" | "loopback" | "alt";
 
-export type ProjectGraphIssueSeverity = "error" | "warning" | "note";
-export type ProjectGraphMetadata = Record<string, unknown>;
-type OptionalInput<T> = T | null | undefined;
+/** Technical health of a node. */
+export type NodeStatus = "ok" | "warn" | "error" | "stale" | "draft";
 
-export interface ProjectGraphNode {
-  id: string;
-  label: string;
-  kind: ProjectGraphNodeKind;
-  layer?: string;
-  metadata: ProjectGraphMetadata;
+/** Lifecycle status a BA cares about — independent of technical health. */
+export type BusinessStatus = "drafted" | "approved" | "in-build" | "live" | "retired";
+
+export type NodeRole =
+  | "hitl"
+  | "approval"
+  | "entrypoint"
+  | "exit"
+  | "test"
+  | "deprecated"
+  | "trigger"
+  | "actor";
+
+export interface ProjectCode {
+  path: string;
+  lines: string;
+  snippet: string;
+  language?: string;
 }
 
-export interface ProjectGraphEdge {
+export interface SkillRef {
+  /** Skill id (e.g. "uipath-rpa", "uipath-agents"). Matches `uipath_skill_get` names. */
+  id: string;
+  /** Path inside the repo or skills submodule. */
+  path: string;
+  /** Why this skill applies to this node. */
+  reason?: string;
+  /** Optional origin: which submodule layer the skill came from. */
+  origin?: string;
+  score?: number;
+  tags?: string[];
+  triggers?: string[];
+}
+
+export interface DocCitation {
+  book_id: string;
+  chapter_id: string;
+  section_id: string;
+  snippet: string;
+  /** Optional ranking score (higher = better). */
+  score?: number;
+  /** Optional URL or library href. */
+  href?: string;
+}
+
+/** Anchor pointing back to the PDD/SDD/ADD that authorised this node. */
+export interface PddAnchor {
+  /** Document id, e.g. "PDD-ALPHA-01". */
+  doc_id: string;
+  /** Section heading anchor. */
+  section: string;
+  /** Optional relative path to the source document. */
+  path?: string;
+}
+
+/**
+ * Numbers a BA actually asks about: volume, SLA, business value.
+ * All optional — present only on the nodes a BA marked up.
+ */
+export interface BusinessMeta {
+  /** "How much of this happens?" — units per unit-of-time, e.g. "120 / day". */
+  volume?: string;
+  /** Service-level objective. */
+  sla?: string;
+  /** Business owner / sponsor. */
+  owner?: string;
+  /** Free-form business value note. */
+  value?: string;
+  /** Stakeholders this node serves. */
+  consumers?: string[];
+  /** Risk classification. */
+  risk?: "low" | "medium" | "high";
+}
+
+export interface ProjectNodeBase {
+  id: string;
+  label: string;
+  /** Semantic kind: file, function, agent_node, workflow, activity, endpoint, module, tool,
+   *  flow, case, coded_app, action_app, queue, asset, process, folder, entity, test_case, test_set, ... */
+  kind: string;
+  layer: LayerKey | string;
+  desc?: string;
+  /** Long-form explanation. */
+  concept?: string;
+  code?: ProjectCode;
+  meta?: Record<string, string | number | boolean>;
+  /** Technical status — drives the colored pip on the canvas. */
+  status?: NodeStatus;
+  /** Lifecycle status — what a BA tracks. */
+  business_status?: BusinessStatus;
+  /** Special roles: HITL pause point, entrypoint, actor, trigger, etc. */
+  roles?: NodeRole[];
+  /** Library citations relevant to this node. */
+  citations?: DocCitation[];
+  /** Skills that govern how this node should be authored/reviewed. */
+  skills?: SkillRef[];
+  /** Anchor back to PDD/SDD/ADD section. */
+  pdd_anchor?: PddAnchor;
+  /** Business numbers. */
+  business_meta?: BusinessMeta;
+}
+
+export interface ProjectChildNode extends ProjectNodeBase {
+  children?: ProjectSubGraph;
+}
+
+export interface ProjectNode extends ProjectNodeBase {
+  children?: ProjectSubGraph;
+}
+
+export interface ProjectEdge {
   id: string;
   source: string;
   target: string;
-  kind: ProjectGraphEdgeKind;
+  kind: EdgeKind | string;
   label?: string;
-  metadata: ProjectGraphMetadata;
+  desc?: string;
+  /** Which process path this edge belongs to. Drives the BA path filter. */
+  path_class?: PathClass;
+  /** Optional payload schema reference (e.g. zod schema name, pydantic class). */
+  payload_schema?: string;
+  /** Citations explaining or documenting this edge. */
+  citations?: DocCitation[];
 }
 
-export interface ProjectGraphCluster {
-  id: string;
-  label: string;
-  nodeIds: string[];
-  kind?: string;
-  metadata: ProjectGraphMetadata;
+export interface ProjectSubGraph {
+  nodes: ProjectChildNode[];
+  edges: ProjectEdge[];
 }
 
-export interface ProjectGraphIssue {
-  id: string;
+export interface ProjectError {
+  nodeId: string;
+  severity: "error" | "warn" | "info";
   message: string;
-  severity: ProjectGraphIssueSeverity;
-  targetId?: string;
-  metadata: ProjectGraphMetadata;
+}
+
+/** Project-level overview a BA reads before diving in. */
+export interface ProjectOverview {
+  /** Plain-English process name. */
+  name: string;
+  /** What the process actually does, two-three sentences. */
+  summary: string;
+  /** Business owner / sponsor. */
+  owner?: string;
+  /** Stakeholder groups. */
+  stakeholders?: string[];
+  /** Triggers: scheduled, queue, http, manual, event. */
+  triggers?: { kind: string; description: string }[];
+  /** External actors / systems involved. */
+  actors?: { name: string; role: string }[];
+  /** Headline business numbers. */
+  kpis?: { label: string; value: string }[];
+  /** Where the PDD lives. */
+  pdd?: PddAnchor;
+}
+
+export interface ProjectGraphMeta {
+  worktree_id?: string;
+  branch?: string;
+  revision?: string;
+  indexed_at?: string;
+  /** Project type per CLAUDE.md §1: rpa, coded-agent, langgraph, maestro-flow, solution, mixed... */
+  project_type?: string;
 }
 
 export interface ProjectGraph {
-  projectType: ProjectGraphProjectType;
-  nodes: ProjectGraphNode[];
-  edges: ProjectGraphEdge[];
-  clusters: ProjectGraphCluster[];
-  errors: ProjectGraphIssue[];
+  projectType: string;
+  /** BA-facing project overview. Optional but recommended. */
+  overview?: ProjectOverview;
+  nodes: ProjectNode[];
+  edges: ProjectEdge[];
+  errors?: ProjectError[];
+  meta?: ProjectGraphMeta;
 }
 
-export interface ProjectGraphAdapterInput {
-  projectType: ProjectGraphProjectType;
-  source: unknown;
-  context?: ProjectGraphMetadata;
-}
-
-export interface ProjectGraphAdapterResult {
-  graph: ProjectGraph;
-  issues: ProjectGraphIssue[];
-}
-
-export type ProjectGraphAdapter = (
-  input: ProjectGraphAdapterInput,
-) => ProjectGraphAdapterResult | Promise<ProjectGraphAdapterResult>;
-
-export interface ProjectGraphNodeInput {
+export interface Worktree {
   id: string;
   label: string;
-  kind: ProjectGraphNodeKind;
-  layer?: OptionalInput<string>;
-  metadata?: OptionalInput<ProjectGraphMetadata>;
-}
-
-export interface ProjectGraphEdgeInput {
-  id: string;
-  source: string;
-  target: string;
-  kind: ProjectGraphEdgeKind;
-  label?: OptionalInput<string>;
-  metadata?: OptionalInput<ProjectGraphMetadata>;
-}
-
-export interface ProjectGraphClusterInput {
-  id: string;
-  label: string;
-  nodeIds?: OptionalInput<string[]>;
-  kind?: OptionalInput<string>;
-  metadata?: OptionalInput<ProjectGraphMetadata>;
-}
-
-export interface ProjectGraphIssueInput {
-  id: string;
-  message: string;
-  severity: ProjectGraphIssueSeverity;
-  targetId?: OptionalInput<string>;
-  metadata?: OptionalInput<ProjectGraphMetadata>;
-}
-
-export interface ProjectGraphInput {
-  projectType: ProjectGraphProjectType;
-  nodes?: ProjectGraphNodeInput[];
-  edges?: ProjectGraphEdgeInput[];
-  clusters?: ProjectGraphClusterInput[];
-  errors?: ProjectGraphIssueInput[];
-}
-
-export function normalizeProjectGraph(input: ProjectGraphInput): ProjectGraph {
-  const graph: ProjectGraph = {
-    projectType: input.projectType,
-    nodes: (input.nodes ?? []).map((node) => ({
-      id: node.id,
-      label: node.label,
-      kind: node.kind,
-      ...(node.layer == null ? {} : { layer: node.layer }),
-      metadata: node.metadata ?? {},
-    })),
-    edges: (input.edges ?? []).map((edge) => ({
-      id: edge.id,
-      source: edge.source,
-      target: edge.target,
-      kind: edge.kind,
-      ...(edge.label == null ? {} : { label: edge.label }),
-      metadata: edge.metadata ?? {},
-    })),
-    clusters: (input.clusters ?? []).map((cluster) => ({
-      id: cluster.id,
-      label: cluster.label,
-      nodeIds: cluster.nodeIds ?? [],
-      ...(cluster.kind == null ? {} : { kind: cluster.kind }),
-      metadata: cluster.metadata ?? {},
-    })),
-    errors: (input.errors ?? []).map((error) => ({
-      id: error.id,
-      message: error.message,
-      severity: error.severity,
-      ...(error.targetId == null ? {} : { targetId: error.targetId }),
-      metadata: error.metadata ?? {},
-    })),
-  };
-
-  graph.errors = mergeProjectGraphDiagnostics(graph.errors, findReferenceDiagnostics(graph));
-  return graph;
-}
-
-function mergeProjectGraphDiagnostics(
-  existing: ProjectGraphIssue[],
-  diagnostics: ProjectGraphIssue[],
-): ProjectGraphIssue[] {
-  const issueIds = new Set(existing.map((issue) => issue.id));
-  return [
-    ...existing,
-    ...diagnostics.filter((diagnostic) => {
-      if (issueIds.has(diagnostic.id)) {
-        return false;
-      }
-      issueIds.add(diagnostic.id);
-      return true;
-    }),
-  ];
-}
-
-function findReferenceDiagnostics(graph: ProjectGraph): ProjectGraphIssue[] {
-  const nodeIds = new Set(graph.nodes.map((node) => node.id));
-  const diagnostics: ProjectGraphIssue[] = [];
-
-  graph.edges.forEach((edge) => {
-    if (!nodeIds.has(edge.source)) {
-      diagnostics.push(createMissingEdgeNodeIssue(edge.id, "source", edge.source));
-    }
-    if (!nodeIds.has(edge.target)) {
-      diagnostics.push(createMissingEdgeNodeIssue(edge.id, "target", edge.target));
-    }
-  });
-
-  graph.clusters.forEach((cluster) => {
-    cluster.nodeIds.forEach((nodeId) => {
-      if (!nodeIds.has(nodeId)) {
-        diagnostics.push({
-          id: `cluster:${cluster.id}:missing-member:${nodeId}`,
-          message: `Cluster member references missing node '${nodeId}'.`,
-          severity: "warning",
-          targetId: cluster.id,
-          metadata: { source: "projectGraph.normalize" },
-        });
-      }
-    });
-  });
-
-  return diagnostics;
-}
-
-function createMissingEdgeNodeIssue(
-  edgeId: string,
-  endpoint: "source" | "target",
-  nodeId: string,
-): ProjectGraphIssue {
-  return {
-    id: `edge:${edgeId}:missing-${endpoint}`,
-    message: `Edge ${endpoint} references missing node '${nodeId}'.`,
-    severity: "warning",
-    targetId: edgeId,
-    metadata: { source: "projectGraph.normalize" },
-  };
+  path: string;
+  branch?: string;
+  project_type?: string;
 }

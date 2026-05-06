@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from app.context_sources import get_context_sources, sanitize_diagram_nodes
 from app.context_resolver import resolve_node_context
+from app.explorer import router as explorer_router
 from app.copilot_graph_actions import execute_graph_action
 from app.copilot_runtime import (
     copilot_generate_response_payload,
@@ -73,6 +74,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 register_copilot_runtime(app)
+app.include_router(explorer_router)
 
 PLANS_ROOT = (Path(__file__).resolve().parents[3] / ".cursor" / "plans").resolve()
 # Preview payloads are intentionally process-local for Task 2; they are not shared across

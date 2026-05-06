@@ -1,386 +1,527 @@
-import React, { useEffect, useMemo, useState } from "react";
-// CopilotKit temporarily disabled - causing agent errors
-// import {
-//   CopilotKit,
-//   useCopilotAdditionalInstructions,
-//   useCopilotAction,
-//   useCopilotReadable,
-// } from "@copilotkit/react-core";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, Loader2, RefreshCw } from "lucide-react";
 
-import { createApiClient } from "./api/client";
-import { resolveApiBaseUrl } from "./config";
-import { CleanLayout } from "./components/CleanLayout";
-import DiagramCanvas from "./components/DiagramCanvas";
-import GraphBuilderInspector from "./components/GraphBuilderInspector";
-import GraphExplorerPanel from "./components/GraphExplorerPanel";
-import type { ApprovalPackageDetail, ApprovalStatus } from "./generationTypes";
-import { toDiagramData } from "./graphWorkspace/adapters";
-import { projectGraphToDiagramData } from "./projectGraph/diagramAdapter";
-import { createStarterProjectGraphTemplate } from "./projectGraph/templates";
-import type {
-  AssistantMessage,
-  ContextSource,
-  ContextSourceCategory,
-  DiagramData,
-  DiagramEdge,
-  DiagramNode,
-  DocumentName,
-  Finding,
-  LibraryContextItem,
-  LifecycleReadinessResponse,
-  ReviewResponse,
-} from "./types";
+import Canvas, { type CanvasHandle } from "./components/Canvas";
+import LeftRail from "./components/LeftRail";
+import Inspector from "./components/Inspector";
+import Breadcrumb from "./components/Breadcrumb";
+import { LAYERS, PALETTE } from "./theme";
+import { computeLayout } from "./layout";
+import {
+  loadProjectGraph,
+  loadWorktrees,
+  type LoadGraphResult,
+} from "./projectGraph/api";
+import type { PathClass, ProjectGraph, ProjectNode, Worktree } from "./projectGraph/types";
+
 import "./styles.css";
 
-const DEFAULT_BUNDLE_ROOT = ".cursor/plans/example";
-const STARTER_DIAGRAM = projectGraphToDiagramData(createStarterProjectGraphTemplate());
-const CORE_NODE_IDS = new Set([
-  "spec",
-  "plan",
-  "tasks",
-  "skills",
-  "library",
-  "review",
-  "tools",
-  "success_package",
-  "needs_context",
-]);
-const EMPTY_DOCUMENTS: Record<DocumentName, string> = {
-  "spec.md": "",
-  "plan.md": "",
-  "tasks.md": "",
-};
-const API_BASE_URL = resolveApiBaseUrl(import.meta.env.VITE_UIPLAN_API_URL);
-const COPILOT_RUNTIME_URL = `${API_BASE_URL}/copilotkit`;
-const DEFAULT_NODES: DiagramNode[] = STARTER_DIAGRAM.nodes;
-const DEFAULT_EDGES: DiagramEdge[] = STARTER_DIAGRAM.edges;
-const DEFAULT_MESSAGES: AssistantMessage[] = [
-  {
-    role: "assistant",
-    content:
-      "I can help visualize UiPath flows, connect skills and book context, and turn the diagram into plan edits.",
-  },
-];
-const CONTEXT_EDGE_TYPES = new Set(["uses_context", "uses_skill", "depends_on"]);
-const CONTEXT_NODE_KINDS = new Set<DiagramNode["kind"]>(["library", "skill"]);
-
-type GraphVisualMode = "idle" | "focus" | "trace" | "dependencies" | "context" | "subgraph";
-
-interface GraphVisualState {
-  focusedNodeId: string | null;
-  highlightedNodeIds: string[];
-  highlightedEdgeIds: string[];
-  mode: GraphVisualMode;
-  summary: string | null;
-}
-
-interface ResolvedContextCitation {
-  source_type: string;
-  source_id: string;
-  snippet: string;
-  strict: boolean;
-}
-
-const EMPTY_GRAPH_VISUAL_STATE: GraphVisualState = {
-  focusedNodeId: null,
-  highlightedNodeIds: [],
-  highlightedEdgeIds: [],
-  mode: "idle",
-  summary: null,
-};
-
-function unique(values: string[]) {
-  return Array.from(new Set(values.filter(Boolean)));
-}
-
-function createUniqueCopilotNodeId(existingNodeIds: Set<string>) {
-  let suffix = 0;
-  let candidate = `copilot-node-${Date.now()}`;
-  while (existingNodeIds.has(candidate)) {
-    suffix += 1;
-    candidate = `copilot-node-${Date.now()}-${suffix}`;
-  }
-  return candidate;
-}
-
-function normalizeIds(value: string[] | string | undefined) {
-  if (Array.isArray(value)) {
-    return unique(value);
-  }
-  return typeof value === "string" && value.trim() ? [value.trim()] : [];
-}
-
-function getConnectedEdges(nodeId: string, edges: DiagramEdge[]) {
-  return edges.filter((edge) => edge.from === nodeId || edge.to === nodeId);
-}
-
-function getOutgoingEdges(nodeId: string, edges: DiagramEdge[]) {
-  return edges.filter((edge) => edge.from === nodeId);
-}
-
-function traceEdgeIds(sourceId: string, targetId: string, edges: DiagramEdge[]) {
-  const queue: Array<{ nodeId: string; edgeIds: string[] }> = [{ nodeId: sourceId, edgeIds: [] }];
-  const visited = new Set([sourceId]);
-
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (!current) {
-      continue;
-    }
-    if (current.nodeId === targetId) {
-      return current.edgeIds;
-    }
-
-    for (const edge of getOutgoingEdges(current.nodeId, edges)) {
-      const nextNodeId = edge.to;
-      if (visited.has(nextNodeId)) {
-        continue;
-      }
-      visited.add(nextNodeId);
-      queue.push({ nodeId: nextNodeId, edgeIds: [...current.edgeIds, edge.id] });
-    }
-  }
-
-  return [];
-}
-
-function nodeIdsForEdges(edgeIds: string[], edges: DiagramEdge[]) {
-  const edgeIdSet = new Set(edgeIds);
-  return unique(
-    edges
-      .filter((edge) => edgeIdSet.has(edge.id))
-      .flatMap((edge) => [edge.from, edge.to]),
-  );
-}
-
-function unknownNodeIds(nodeIds: string[], nodes: DiagramNode[]) {
-  const existingNodeIds = new Set(nodes.map((node) => node.id));
-  return unique(nodeIds).filter((id) => !existingNodeIds.has(id));
-}
-
-function invalidNodeResult(nodeIds: string[]) {
-  return {
-    status: "warning",
-    warning: `Unknown node id(s): ${nodeIds.join(", ")}`,
-    highlighted_node_ids: [],
-    highlighted_edge_ids: [],
-    safety: "visual-read-only",
-  };
-}
-
-function explainNode(node: DiagramNode | null, edges: DiagramEdge[]) {
-  if (!node) {
-    return {
-      id: null,
-      title: null,
-      summary: "No ProjectGraph node is selected.",
-      safety: "visual-read-only",
-      connected_edges: [],
-    };
-  }
-
-  const connectedEdges = getConnectedEdges(node.id, edges).map((edge) => ({
-    id: edge.id,
-    from: edge.from,
-    to: edge.to,
-    label: edge.label,
-    edge_type: edge.edge_type ?? null,
-  }));
-
-  return {
-    id: node.id,
-    title: node.title,
-    kind: node.kind,
-    role: node.role ?? null,
-    output_type: node.output_type ?? null,
-    source: node.source ?? null,
-    summary: node.description,
-    context_policy: node.context_policy ?? null,
-    connected_edges: connectedEdges,
-    safety: "visual-read-only",
-  };
-}
-
-// CopilotKit integration removed - see commit 64fdbae for history
-
-function isDiagramData(value: unknown): value is DiagramData {
-  const diagram = value as Partial<DiagramData>;
-  return Array.isArray(diagram?.nodes) && Array.isArray(diagram?.edges);
-}
-
-function getProposalReviewStatus(
-  packageDetail: ApprovalPackageDetail,
-  proposalId: string,
-): ApprovalStatus | null {
-  const proposalState = packageDetail.approval_state.proposals[proposalId];
-  if (typeof proposalState === "string") {
-    return proposalState as ApprovalStatus;
-  }
-  if (
-    typeof proposalState === "object" &&
-    proposalState !== null &&
-    "review_status" in proposalState &&
-    typeof proposalState.review_status === "string"
-  ) {
-    return proposalState.review_status as ApprovalStatus;
-  }
-  if (
-    typeof proposalState === "object" &&
-    proposalState !== null &&
-    "status" in proposalState &&
-    typeof proposalState.status === "string"
-  ) {
-    return proposalState.status as ApprovalStatus;
-  }
-  return null;
-}
+const EMPTY_GRAPH: ProjectGraph = { projectType: "—", nodes: [], edges: [], errors: [] };
 
 export default function App() {
-  const apiClient = useMemo(() => createApiClient({ baseUrl: API_BASE_URL }), []);
-  const [bundleRoot, setBundleRoot] = useState(DEFAULT_BUNDLE_ROOT);
-  const [nodes, setNodes] = useState<DiagramNode[]>(DEFAULT_NODES);
-  const [edges, setEdges] = useState<DiagramEdge[]>(DEFAULT_EDGES);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>("plan");
-  const [isLoadingProject, setIsLoadingProject] = useState(true);
-  const [graphVisualState, setGraphVisualState] = useState<GraphVisualState>(
-    EMPTY_GRAPH_VISUAL_STATE,
-  );
-  const [resolvedContextCitations, setResolvedContextCitations] = useState<ResolvedContextCitation[]>(
-    [],
-  );
-  const [isResolvingContext, setIsResolvingContext] = useState(false);
-  const [contextSourceCategories, setContextSourceCategories] = useState<ContextSourceCategory[]>(
-    [],
-  );
-  const selectedNode = nodes.find((node) => node.id === selectedNodeId) ?? null;
+  // ---- Worktrees + active project ----
+  const [worktrees, setWorktrees] = useState<Worktree[]>([]);
+  const [worktreeId, setWorktreeId] = useState<string>(() => {
+    // Boot URL may carry ?worktree=<path>, set by `uipath-claude explore`.
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const fromUrl = params.get("worktree");
+      if (fromUrl) return fromUrl;
+    }
+    return "demo";
+  });
+  const [worktreesLoading, setWorktreesLoading] = useState(true);
 
-  useEffect(() => {
-    const loadProjectGraph = async () => {
-      setIsLoadingProject(true);
-      try {
-        const workspace = await apiClient.indexWorkspace(DEFAULT_BUNDLE_ROOT);
-        const diagram = toDiagramData(workspace);
-        setNodes(diagram.nodes);
-        setEdges(diagram.edges);
-      } catch {
-        // Fall back to default nodes/edges if indexing fails
-        setNodes(DEFAULT_NODES);
-        setEdges(DEFAULT_EDGES);
-      } finally {
-        setIsLoadingProject(false);
-      }
-    };
-    void loadProjectGraph();
-  }, [apiClient]);
+  // ---- Graph state ----
+  const [rootGraph, setRootGraph] = useState<ProjectGraph>(EMPTY_GRAPH);
+  const [graphSource, setGraphSource] = useState<"api" | "sample" | "loading" | "error">("loading");
+  const [graphError, setGraphError] = useState<string | undefined>();
 
-  useEffect(() => {
-    const loadContextSources = async () => {
-      try {
-        const response = await apiClient.loadContextSources();
-        setContextSourceCategories(Array.isArray(response.categories) ? response.categories : []);
-      } catch {
-        setContextSourceCategories([]);
-      }
-    };
-    void loadContextSources();
-  }, [apiClient]);
+  // ---- View state ----
+  const [trail, setTrail] = useState<ProjectNode[]>([]);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
+  const [layerFilter, setLayerFilter] = useState<Set<string>>(new Set());
+  const [pathFilter, setPathFilter] = useState<Set<PathClass>>(new Set());
+  const [issuesOnly, setIssuesOnly] = useState(false);
+  const [showSkillCoverage, setShowSkillCoverage] = useState(false);
+  const [query, setQuery] = useState("");
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
 
+  const canvasRef = useRef<CanvasHandle | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  // ---- Load worktrees once ----
   useEffect(() => {
-    setSelectedNodeId((currentSelectedNodeId) => {
-      if (
-        currentSelectedNodeId &&
-        nodes.some((node) => node.id === currentSelectedNodeId)
-      ) {
-        return currentSelectedNodeId;
+    let cancelled = false;
+    loadWorktrees().then((res) => {
+      if (cancelled) return;
+      // Deduplicate by id and inject the URL-supplied worktree if it's not in the list.
+      const seen = new Set<string>();
+      const items: Worktree[] = [];
+      for (const w of res.items) {
+        if (seen.has(w.id)) continue;
+        seen.add(w.id);
+        items.push(w);
       }
-      return nodes[0]?.id ?? null;
+      if (worktreeId && !seen.has(worktreeId)) {
+        items.push({ id: worktreeId, label: worktreeId, path: worktreeId });
+      }
+      setWorktrees(items);
+      setWorktreesLoading(false);
     });
-  }, [nodes]);
+    return () => { cancelled = true; };
+  }, [worktreeId]);
+
+  // ---- Load graph when worktreeId changes ----
+  const loadGraph = useCallback(async (id: string) => {
+    setGraphSource("loading");
+    setGraphError(undefined);
+    const res: LoadGraphResult = await loadProjectGraph(id);
+    setRootGraph(res.graph);
+    setGraphSource(res.source);
+    setGraphError(res.error);
+    setTrail([]);
+    setSelectedNodeId(null);
+    setSelectedEdgeId(null);
+    setHovered(null);
+    setHoveredEdgeId(null);
+  }, []);
 
   useEffect(() => {
-    setResolvedContextCitations([]);
-  }, [selectedNodeId]);
+    void loadGraph(worktreeId);
+  }, [worktreeId, loadGraph]);
 
+  // ---- Current graph at the active drill-down depth ----
+  const currentGraph: ProjectGraph = useMemo(() => {
+    if (trail.length === 0) return rootGraph;
+    const parent = trail[trail.length - 1];
+    return {
+      ...rootGraph,
+      nodes: parent.children?.nodes ?? [],
+      edges: parent.children?.edges ?? [],
+      errors: [],
+    };
+  }, [trail, rootGraph]);
 
-  const handleResolveContext = async () => {
-    if (!selectedNodeId) {
-      return;
+  const layout = useMemo(() => computeLayout(currentGraph), [currentGraph]);
+
+  // ---- Drill-down helpers ----
+  const drillInto = useCallback((node: ProjectNode) => {
+    setTrail((t) => [...t, node]);
+    setSelectedNodeId(null);
+    setSelectedEdgeId(null);
+    setHovered(null);
+    setHoveredEdgeId(null);
+    setQuery("");
+  }, []);
+
+  const popOne = useCallback(() => {
+    setTrail((t) => t.slice(0, -1));
+    setSelectedNodeId(null);
+    setSelectedEdgeId(null);
+    setHovered(null);
+    setHoveredEdgeId(null);
+    setQuery("");
+  }, []);
+
+  const navigateTo = useCallback((depth: number) => {
+    setTrail((t) => t.slice(0, depth));
+    setSelectedNodeId(null);
+    setSelectedEdgeId(null);
+    setHovered(null);
+    setHoveredEdgeId(null);
+    setQuery("");
+  }, []);
+
+  // ---- Search-driven navigation ----
+  const submitSearch = useCallback(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return;
+    const match = currentGraph.nodes.find((n) =>
+      n.label.toLowerCase().includes(q) ||
+      n.id.toLowerCase().includes(q) ||
+      (n.desc || "").toLowerCase().includes(q));
+    if (match) {
+      setSelectedNodeId(match.id);
+      canvasRef.current?.centerOn(match.id);
     }
-    setIsResolvingContext(true);
-    const sourceIds = unique(
-      contextSourceCategories
-        .filter((category) => category.sources.some((source) => source.available !== false))
-        .map((category) => category.id),
-    );
-    try {
-      const response = await apiClient.resolveGraphNodeContext(
-        selectedNodeId,
-        selectedNode?.title ?? "",
-        sourceIds.length > 0 ? sourceIds : ["library", "skills"],
-      );
-      setResolvedContextCitations(response.citations ?? []);
-    } catch {
-      setResolvedContextCitations([]);
-    } finally {
-      setIsResolvingContext(false);
-    }
+  }, [query, currentGraph.nodes]);
+
+  // ---- Keyboard navigation ----
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      // ignore typing in inputs/textareas
+      const target = e.target as HTMLElement | null;
+      const isTyping = target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+
+      if (e.key === "Escape" && !isTyping) {
+        if (selectedEdgeId) { setSelectedEdgeId(null); return; }
+        if (selectedNodeId) { setSelectedNodeId(null); return; }
+        if (trail.length > 0) { popOne(); return; }
+      }
+      if (e.key === "/" && !isTyping) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+      if (e.key === "Enter" && selectedNodeId && !isTyping) {
+        const node = currentGraph.nodes.find((n) => n.id === selectedNodeId);
+        if (node?.children && node.children.nodes.length > 0) {
+          drillInto(node);
+        }
+      }
+      // Arrow navigation between connected nodes
+      if (!isTyping && (e.key === "ArrowRight" || e.key === "ArrowLeft" || e.key === "ArrowUp" || e.key === "ArrowDown") && selectedNodeId) {
+        e.preventDefault();
+        const outgoing = currentGraph.edges.filter((edge) => edge.source === selectedNodeId);
+        const incoming = currentGraph.edges.filter((edge) => edge.target === selectedNodeId);
+        let nextId: string | undefined;
+        if (e.key === "ArrowRight" && outgoing[0]) nextId = outgoing[0].target;
+        else if (e.key === "ArrowLeft" && incoming[0]) nextId = incoming[0].source;
+        else if (e.key === "ArrowDown") {
+          // move to next node in same column
+          const cur = currentGraph.nodes.find((n) => n.id === selectedNodeId);
+          if (cur) {
+            const col = currentGraph.nodes.filter((n) => n.layer === cur.layer);
+            const idx = col.findIndex((n) => n.id === cur.id);
+            nextId = col[Math.min(idx + 1, col.length - 1)]?.id;
+          }
+        } else if (e.key === "ArrowUp") {
+          const cur = currentGraph.nodes.find((n) => n.id === selectedNodeId);
+          if (cur) {
+            const col = currentGraph.nodes.filter((n) => n.layer === cur.layer);
+            const idx = col.findIndex((n) => n.id === cur.id);
+            nextId = col[Math.max(idx - 1, 0)]?.id;
+          }
+        }
+        if (nextId && nextId !== selectedNodeId) {
+          setSelectedNodeId(nextId);
+          canvasRef.current?.centerOn(nextId);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedNodeId, selectedEdgeId, trail.length, popOne, drillInto, currentGraph]);
+
+  // Selecting a node clears edge selection and vice-versa
+  const handleSelectNode = (id: string | null) => {
+    setSelectedNodeId(id);
+    if (id) setSelectedEdgeId(null);
+  };
+  const selectNodeAndCenter = (id: string) => {
+    handleSelectNode(id);
+    canvasRef.current?.centerOn(id);
+  };
+  const handleSelectEdge = (id: string | null) => {
+    setSelectedEdgeId(id);
+    if (id) setSelectedNodeId(null);
   };
 
-  const handleMoveNode = (nodeId: string, x: number, y: number) => {
-    setNodes((current) =>
-      current.map((node) => (node.id === nodeId ? { ...node, x, y } : node)),
-    );
+  const toggleLayer = (layer: string) => {
+    setLayerFilter((f) => {
+      const next = new Set(f);
+      if (next.has(layer)) next.delete(layer);
+      else next.add(layer);
+      return next;
+    });
   };
+  const togglePath = (p: PathClass) => {
+    setPathFilter((f) => {
+      const next = new Set(f);
+      if (next.has(p)) next.delete(p);
+      else next.add(p);
+      return next;
+    });
+  };
+
+  const activeWorktree = worktrees.find((w) => w.id === worktreeId);
+  const meta = rootGraph.meta;
+  const errorCount = rootGraph.errors?.filter((e) => e.severity === "error").length ?? 0;
+  const warnCount = rootGraph.errors?.filter((e) => e.severity === "warn").length ?? 0;
 
   return (
-    <CleanLayout>
-      {{
-        explorer: isLoadingProject ? (
-          <div style={{ padding: "20px" }}>
-            <h2>Graph Explorer</h2>
-            <div className="loading-skeleton loading-skeleton-tall"></div>
-            <div className="loading-skeleton"></div>
-            <div className="loading-skeleton loading-skeleton-short"></div>
-            <div className="loading-skeleton"></div>
-            <div className="loading-skeleton loading-skeleton-short"></div>
+    <div style={{
+      width: "100%", height: "100vh",
+      background: PALETTE.bg, color: PALETTE.text,
+      display: "flex", flexDirection: "column", overflow: "hidden",
+      fontFamily: "'Inter', system-ui, sans-serif",
+    }}>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Newsreader:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
+
+      {/* TOP STRIP — real metadata, worktree selector */}
+      <div style={{
+        height: 44, borderBottom: `1px solid ${PALETTE.rule}`,
+        background: PALETTE.panel,
+        display: "flex", alignItems: "center", padding: "0 16px", flexShrink: 0, gap: 16,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ display: "flex", gap: 2 }}>
+            {Object.values(LAYERS).slice(0, 4).map((l, i) => (
+              <div key={i} style={{ width: 5, height: 14, background: l.color, borderRadius: 1 }} />
+            ))}
           </div>
-        ) : (
-          <GraphExplorerPanel
-            nodes={nodes}
-            selectedNodeId={selectedNode?.id ?? null}
-            onSelectNodeId={setSelectedNodeId}
-          />
-        ),
-        canvas: (
-          <DiagramCanvas
-            nodes={nodes}
-            edges={edges}
-            selectedNodeId={selectedNode?.id ?? null}
-            visualState={graphVisualState}
-            edgeTargetId=""
-            edgeLabel=""
-            canDeleteSelectedNode={false}
-            packageDetail={null}
-            selectedProposalId={null}
-            proposalPreviewId={null}
-            onSelectNodeId={setSelectedNodeId}
-            onMoveNode={handleMoveNode}
-            onAddNode={() => {}}
-            onDeleteSelectedNode={() => {}}
-            onChangeEdgeTargetId={() => {}}
-            onChangeEdgeLabel={() => {}}
-            onCreateEdge={() => {}}
-          />
-        ),
-        inspector: (
-          <GraphBuilderInspector
-            selectedNode={selectedNode}
-            resolvedCitations={resolvedContextCitations}
-            isResolvingContext={isResolvingContext}
-            onResolveContext={handleResolveContext}
-          />
-        ),
-      }}
-    </CleanLayout>
+          <div style={{
+            fontSize: 11, letterSpacing: "0.32em", fontWeight: 700, color: PALETTE.text,
+            fontFamily: "'JetBrains Mono', monospace",
+          }}>
+            UIPLAN&nbsp;·&nbsp;EXPLORER
+          </div>
+        </div>
+
+        {/* Worktree dropdown */}
+        <div style={{ position: "relative" }}>
+          <select
+            value={worktreeId}
+            onChange={(e) => setWorktreeId(e.target.value)}
+            disabled={worktreesLoading}
+            style={{
+              appearance: "none",
+              background: PALETTE.bg,
+              border: `1px solid ${PALETTE.rule}`,
+              borderRadius: 4,
+              padding: "6px 28px 6px 10px",
+              fontSize: 11, fontFamily: "'JetBrains Mono', monospace",
+              color: PALETTE.text, fontWeight: 600,
+              cursor: worktreesLoading ? "wait" : "pointer",
+              minWidth: 180,
+            }}
+          >
+            {worktreesLoading && <option>loading…</option>}
+            {worktrees.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.label} {w.branch ? `(${w.branch})` : ""}
+              </option>
+            ))}
+          </select>
+          <ChevronDown size={12} style={{
+            position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+            color: PALETTE.textDim, pointerEvents: "none",
+          }} />
+        </div>
+
+        <button
+          onClick={() => loadGraph(worktreeId)}
+          title="Re-index"
+          style={{
+            background: PALETTE.bg,
+            border: `1px solid ${PALETTE.rule}`,
+            borderRadius: 4, padding: "6px 10px",
+            cursor: "pointer", color: PALETTE.text,
+            display: "flex", alignItems: "center", gap: 6,
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 10, letterSpacing: "0.15em", fontWeight: 600,
+          }}
+        >
+          {graphSource === "loading"
+            ? <Loader2 size={11} className="spin" style={{ animation: "spin 1s linear infinite" }} />
+            : <RefreshCw size={11} />}
+          REFRESH
+        </button>
+
+        <div style={{ flex: 1 }} />
+
+        {/* Real metadata strip */}
+        <div style={{
+          display: "flex", gap: 18, fontSize: 10,
+          color: PALETTE.textDim, letterSpacing: "0.12em",
+          fontFamily: "'JetBrains Mono', monospace",
+          alignItems: "center",
+        }}>
+          {activeWorktree?.branch && (
+            <span title="Git branch">BRANCH&nbsp;·&nbsp;<span style={{ color: PALETTE.text, fontWeight: 600 }}>{activeWorktree.branch}</span></span>
+          )}
+          {meta?.revision && (
+            <span title="Indexer revision">REV&nbsp;·&nbsp;<span style={{ color: PALETTE.text, fontWeight: 600 }}>{meta.revision}</span></span>
+          )}
+          <span title="Source of the loaded graph" style={{
+            color: graphSource === "api" ? "#059669" : graphSource === "sample" ? "#d97706" : PALETTE.textDim,
+            fontWeight: 700,
+          }}>
+            {graphSource === "loading" ? "LOADING" : graphSource === "api" ? "LIVE" : graphSource === "error" ? "ERROR" : "SAMPLE"}
+          </span>
+          {errorCount > 0 && (
+            <span style={{ color: "#dc2626", fontWeight: 700 }}>{errorCount} ERR</span>
+          )}
+          {warnCount > 0 && (
+            <span style={{ color: "#d97706", fontWeight: 700 }}>{warnCount} WARN</span>
+          )}
+        </div>
+      </div>
+
+      {/* MAIN */}
+      <div style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>
+        <LeftRail
+          graph={currentGraph}
+          query={query} setQuery={setQuery}
+          layerFilter={layerFilter} toggleLayer={toggleLayer}
+          pathFilter={pathFilter} togglePath={togglePath}
+          issuesOnly={issuesOnly} setIssuesOnly={setIssuesOnly}
+          showSkillCoverage={showSkillCoverage}
+          setShowSkillCoverage={setShowSkillCoverage}
+          onSelectNode={selectNodeAndCenter}
+          searchInputRef={searchInputRef}
+          onSubmitSearch={submitSearch}
+        />
+
+        <div style={{ flex: 1, position: "relative", minWidth: 0 }}>
+          {graphSource === "loading" && (
+            <LoadingOverlay />
+          )}
+          {graphSource !== "loading" && currentGraph.nodes.length === 0 && (
+            <EmptyState worktreeId={worktreeId} onRefresh={() => loadGraph(worktreeId)} />
+          )}
+          {currentGraph.nodes.length > 0 && (
+            <Canvas
+              ref={canvasRef}
+              key={trail.map((t) => t.id).join("/") || worktreeId}
+              graph={currentGraph}
+              layout={layout}
+              selectedNodeId={selectedNodeId}
+              selectedEdgeId={selectedEdgeId}
+              hovered={hovered}
+              hoveredEdgeId={hoveredEdgeId}
+              query={query}
+              layerFilter={layerFilter}
+              pathFilter={pathFilter}
+              issuesOnly={issuesOnly}
+              showSkillCoverage={showSkillCoverage}
+              onSelectNode={handleSelectNode}
+              onSelectEdge={handleSelectEdge}
+              onHoverNode={setHovered}
+              onHoverEdge={setHoveredEdgeId}
+              onDrillDown={drillInto}
+            />
+          )}
+          <Breadcrumb trail={trail} onNavigate={navigateTo} onBack={popOne} />
+          {graphError && graphSource === "sample" && (
+            <div style={{
+              position: "absolute", top: 12, right: 12,
+              background: "#fffbeb", border: "1px solid #fde68a",
+              borderLeft: "3px solid #d97706",
+              padding: "8px 12px", borderRadius: 4,
+              fontSize: 11, color: "#92400e",
+              fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.1em",
+              maxWidth: 320,
+            }}>
+              indexer offline ({graphError}) — showing sample graph
+            </div>
+          )}
+        </div>
+
+        <Inspector
+          graph={currentGraph}
+          selectedNodeId={selectedNodeId}
+          selectedEdgeId={selectedEdgeId}
+          worktreeId={worktreeId}
+          collapsed={inspectorCollapsed}
+          onToggleCollapsed={() => setInspectorCollapsed((c) => !c)}
+          onSelectNode={handleSelectNode}
+          onSelectEdge={handleSelectEdge}
+          onDrillDown={drillInto}
+        />
+      </div>
+
+      {/* BOTTOM STATUS BAR — actionable signal only */}
+      <div style={{
+        height: 26, borderTop: `1px solid ${PALETTE.rule}`,
+        background: PALETTE.panel,
+        display: "flex", alignItems: "center", padding: "0 16px",
+        fontSize: 9.5, color: PALETTE.textDim, letterSpacing: "0.14em", flexShrink: 0,
+        fontFamily: "'JetBrains Mono', monospace", gap: 18,
+      }}>
+        <span>WORKTREE&nbsp;·&nbsp;<span style={{ color: PALETTE.text, fontWeight: 600 }}>{activeWorktree?.label ?? worktreeId}</span></span>
+        {meta?.indexed_at && (
+          <span>INDEXED&nbsp;·&nbsp;<span style={{ color: PALETTE.text }}>{formatTimestamp(meta.indexed_at)}</span></span>
+        )}
+        <span>NODES&nbsp;·&nbsp;<span style={{ color: PALETTE.text }}>{rootGraph.nodes.length}</span></span>
+        <span>EDGES&nbsp;·&nbsp;<span style={{ color: PALETTE.text }}>{rootGraph.edges.length}</span></span>
+        <span style={{ marginLeft: "auto", color: PALETTE.text, fontWeight: 600 }}>
+          {selectedNodeId
+            ? `→ ${selectedNodeId}`
+            : selectedEdgeId
+              ? `~ ${selectedEdgeId}`
+              : trail.length > 0
+                ? `INSIDE → ${trail[trail.length - 1].id}`
+                : "—"}
+        </span>
+      </div>
+
+      <style>{`
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      `}</style>
+    </div>
   );
+}
+
+function LoadingOverlay() {
+  return (
+    <div style={{
+      position: "absolute", inset: 0,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      background: PALETTE.bg, zIndex: 5,
+      flexDirection: "column", gap: 12,
+      color: PALETTE.textDim,
+      fontFamily: "'JetBrains Mono', monospace",
+      fontSize: 11, letterSpacing: "0.18em",
+    }}>
+      <Loader2 size={20} style={{ animation: "spin 1s linear infinite" }} />
+      <span>INDEXING PROJECT…</span>
+    </div>
+  );
+}
+
+function EmptyState({ worktreeId, onRefresh }: { worktreeId: string; onRefresh: () => void }) {
+  return (
+    <div style={{
+      position: "absolute", inset: 0,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      flexDirection: "column", gap: 16,
+      color: PALETTE.textDim, padding: 32,
+    }}>
+      <div style={{
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: 11, letterSpacing: "0.22em", fontWeight: 700,
+        color: PALETTE.text,
+      }}>
+        NO NODES IN THIS VIEW
+      </div>
+      <div style={{
+        fontFamily: "'Newsreader', Georgia, serif",
+        fontSize: 13, fontStyle: "italic", maxWidth: 360, textAlign: "center", lineHeight: 1.5,
+      }}>
+        The current worktree (<span style={{ color: PALETTE.text }}>{worktreeId}</span>) returned no graph.
+        Either no project files matched the indexer, or the sub-graph has no children.
+      </div>
+      <button onClick={onRefresh} style={{
+        background: PALETTE.panel, border: `1px solid ${PALETTE.rule}`,
+        borderRadius: 4, padding: "8px 16px", cursor: "pointer",
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: 10, letterSpacing: "0.18em", fontWeight: 700,
+        color: PALETTE.text,
+        display: "flex", alignItems: "center", gap: 8,
+      }}>
+        <RefreshCw size={11} />
+        RE-INDEX
+      </button>
+    </div>
+  );
+}
+
+function formatTimestamp(iso: string): string {
+  try {
+    const d = new Date(iso);
+    const diffMs = Date.now() - d.getTime();
+    const sec = Math.floor(diffMs / 1000);
+    if (sec < 5) return "just now";
+    if (sec < 60) return `${sec}s ago`;
+    if (sec < 3600) return `${Math.floor(sec / 60)}m ago`;
+    if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`;
+    return d.toLocaleDateString();
+  } catch {
+    return iso;
+  }
 }
