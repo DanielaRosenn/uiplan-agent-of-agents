@@ -41,13 +41,27 @@ export default function GraphBuilderInspector({
               <span className="kind-badge">{selectedNode.kind}</span>
             </div>
             
+            {selectedNode.concept && (
+              <div className="concept-explanation">
+                <strong>Concept:</strong> {selectedNode.concept}
+              </div>
+            )}
+            
             {summary !== "No summary available." && (
               <div className="concept-explanation">
                 {summary}
               </div>
             )}
             
-            {selectedNode.description && selectedNode.description.includes("```") && (
+            {selectedNode.code && (
+              <CodeSnippetViewer 
+                code={selectedNode.code.snippet}
+                language={selectedNode.code.language}
+                lines={selectedNode.code.lines}
+              />
+            )}
+            
+            {!selectedNode.code && selectedNode.description && selectedNode.description.includes("```") && (
               <CodeSnippetViewer 
                 code={extractCodeFromDescription(selectedNode.description)}
                 language="typescript"
@@ -64,6 +78,12 @@ export default function GraphBuilderInspector({
                 <dt>Layer</dt>
                 <dd>{selectedNode.layer}</dd>
               </div>
+              {selectedNode.code && (
+                <div>
+                  <dt>File</dt>
+                  <dd>{selectedNode.code.path}</dd>
+                </div>
+              )}
             </dl>
           </div>
           

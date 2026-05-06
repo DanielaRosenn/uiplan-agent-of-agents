@@ -22,6 +22,7 @@ import type {
   CommandRegistry,
   StageId,
 } from "../generationTypes";
+import type { GraphWorkspaceV2 } from "../graphWorkspace/types";
 
 interface ApiOptions {
   baseUrl?: string;
@@ -71,6 +72,10 @@ export function createApiClient(options: ApiOptions = {}) {
   }
 
   return {
+    indexWorkspace(bundleRoot: string) {
+      const encodedRoot = encodeURIComponent(bundleRoot);
+      return request<GraphWorkspaceV2>(`/graph/index?bundle_root=${encodedRoot}`);
+    },
     loadBundle(bundleRoot: string) {
       const encodedRoot = encodeURIComponent(bundleRoot);
       return request<BundleData>(`/bundle/load?bundle_root=${encodedRoot}`);

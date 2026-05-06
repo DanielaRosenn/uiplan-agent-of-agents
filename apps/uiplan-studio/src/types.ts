@@ -56,6 +56,13 @@ export interface DiagramNode {
   visual_role?: string;
   status?: "ready" | "needs_context" | "blocked" | "draft" | "approved";
   metadata?: Record<string, unknown>;
+  code?: {
+    path: string;
+    lines: string;
+    snippet: string;
+    language: string;
+  };
+  concept?: string;
 }
 
 export interface DiagramEdge {

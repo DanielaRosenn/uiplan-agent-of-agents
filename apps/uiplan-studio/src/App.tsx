@@ -14,6 +14,7 @@ import DiagramCanvas from "./components/DiagramCanvas";
 import GraphBuilderInspector from "./components/GraphBuilderInspector";
 import GraphExplorerPanel from "./components/GraphExplorerPanel";
 import type { ApprovalPackageDetail, ApprovalStatus } from "./generationTypes";
+import { toDiagramData } from "./graphWorkspace/adapters";
 import { projectGraphToDiagramData } from "./projectGraph/diagramAdapter";
 import { createStarterProjectGraphTemplate } from "./projectGraph/templates";
 import type {
@@ -253,25 +254,19 @@ export default function App() {
   const selectedNode = nodes.find((node) => node.id === selectedNodeId) ?? null;
 
   useEffect(() => {
-    const loadBundle = async () => {
+    const loadProjectGraph = async () => {
       try {
-        const bundle = await apiClient.loadBundle(DEFAULT_BUNDLE_ROOT);
-        setBundleRoot(bundle.root);
-        try {
-          const diagram = await apiClient.loadDiagram(bundle.root);
-          if (isDiagramData(diagram)) {
-            setNodes(diagram.nodes);
-            setEdges(diagram.edges);
-          }
-        } catch {
-          setNodes(DEFAULT_NODES);
-          setEdges(DEFAULT_EDGES);
-        }
+        const workspace = await apiClient.indexWorkspace(DEFAULT_BUNDLE_ROOT);
+        const diagram = toDiagramData(workspace);
+        setNodes(diagram.nodes);
+        setEdges(diagram.edges);
       } catch {
-        // Keep UI usable even if bundle loading fails.
+        // Fall back to default nodes/edges if indexing fails
+        setNodes(DEFAULT_NODES);
+        setEdges(DEFAULT_EDGES);
       }
     };
-    void loadBundle();
+    void loadProjectGraph();
   }, [apiClient]);
 
   useEffect(() => {

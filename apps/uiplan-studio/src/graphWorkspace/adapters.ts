@@ -9,6 +9,8 @@ export function toDiagramData(workspace: GraphWorkspaceV2): DiagramData {
       title: node.title,
       kind: toDiagramNodeKind(node.type),
       description: node.summary ?? "",
+      code: node.code ?? undefined,
+      concept: node.concept ?? undefined,
       x: index * 240,
       y: 80,
     })),

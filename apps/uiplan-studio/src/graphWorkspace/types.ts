@@ -3,6 +3,13 @@ export interface GraphNodeV2 {
   type: string;
   title: string;
   summary?: string;
+  code?: {
+    path: string;
+    lines: string;
+    snippet: string;
+    language: string;
+  } | null;
+  concept?: string | null;
 }
 
 export interface GraphEdgeV2 {
