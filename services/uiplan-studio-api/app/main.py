@@ -194,7 +194,7 @@ class GenerateApplyRequest(BaseModel):
 class GraphContextResolveRequest(BaseModel):
     node_id: str
     query: str
-    sources: list[str] = Field(default_factory=list)
+    sources: list[str] = Field(default_factory=lambda: ["library"])
 
 
 class UpdateApprovalStateRequest(BaseModel):

@@ -130,6 +130,50 @@ def test_agent_library_context_returns_ranked_items(monkeypatch) -> None:
     assert payload["items"][0]["book_id"] == "uipath-cli"
 
 
+def test_graph_context_resolve_returns_node_and_citations(monkeypatch) -> None:
+    monkeypatch.setattr(
+        main,
+        "resolve_node_context",
+        lambda node_id, query, sources: {
+            "node_id": node_id,
+            "query": query,
+            "citations": [],
+        },
+    )
+
+    client = TestClient(app)
+    response = client.post(
+        "/graph/context/resolve",
+        json={"node_id": "plan", "query": "retry scope", "sources": ["library", "skills"]},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["node_id"] == "plan"
+    assert "citations" in payload
+
+
+def test_graph_context_resolve_defaults_sources_to_library(monkeypatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_resolve(node_id: str, query: str, sources: list[str]):
+        calls.append(sources)
+        return {"node_id": node_id, "query": query, "citations": []}
+
+    monkeypatch.setattr(main, "resolve_node_context", fake_resolve)
+
+    client = TestClient(app)
+    response = client.post(
+        "/graph/context/resolve",
+        json={"node_id": "plan", "query": "retry scope"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert "citations" in payload
+    assert calls == [["library"]]
+
+
 def test_agent_context_sources_returns_builder_categories_and_core_skills() -> None:
     client = TestClient(app)
     response = client.get("/agent/context-sources")
