@@ -28,10 +28,11 @@ export default function GraphExplorerPanel({
               </div>
               <button
                 type="button"
+                aria-label={`Select ${node.title}`}
                 aria-pressed={selectedNodeId === node.id}
                 onClick={() => onSelectNodeId(node.id)}
               >
-                Select
+                Select {node.title}
               </button>
             </li>
           ))}

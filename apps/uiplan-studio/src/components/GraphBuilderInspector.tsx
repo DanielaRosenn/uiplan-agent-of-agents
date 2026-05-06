@@ -7,6 +7,11 @@ interface GraphBuilderInspectorProps {
 }
 
 export default function GraphBuilderInspector({ selectedNode }: GraphBuilderInspectorProps) {
+  const summary =
+    selectedNode == null || selectedNode.description.trim().length === 0
+      ? "No summary available."
+      : selectedNode.description;
+
   return (
     <section aria-label="Builder Inspector">
       <h2>Builder Inspector</h2>
@@ -28,7 +33,7 @@ export default function GraphBuilderInspector({ selectedNode }: GraphBuilderInsp
           </div>
           <div>
             <dt>Description</dt>
-            <dd>{selectedNode.description}</dd>
+            <dd>{summary}</dd>
           </div>
         </dl>
       )}

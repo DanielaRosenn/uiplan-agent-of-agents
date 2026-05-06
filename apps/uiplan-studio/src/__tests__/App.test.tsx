@@ -28,6 +28,10 @@ function getLatestCopilotReadable(description: string) {
     .find((payload) => payload?.description === description);
 }
 
+function getDiagramCanvas() {
+  return screen.getByLabelText("UiPath diagram builder");
+}
+
 function mockJsonResponse(body: unknown) {
   return Promise.resolve({
     ok: true,
@@ -107,6 +111,49 @@ test("renders Graph Explorer and Builder Inspector workspace headings", async ()
 
   expect(await screen.findByRole("heading", { name: "Graph Explorer" })).toBeInTheDocument();
   expect(await screen.findByRole("heading", { name: "Builder Inspector" })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Select Workflow Plan" })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Select Ready?" })).toBeInTheDocument();
+});
+
+test("shows inspector fallback summary for empty node description", async () => {
+  vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+    const url = String(input);
+    if (url.includes("/bundle/load")) {
+      return mockJsonResponse({
+        slug: "example",
+        status: "draft",
+        root: ".cursor/plans/example",
+        documents: {
+          "spec.md": "# Spec\n",
+          "plan.md": "# Plan\n",
+          "tasks.md": "# Tasks\n",
+        },
+      });
+    }
+    if (url.includes("/diagram/load")) {
+      return mockJsonResponse({
+        nodes: [
+          {
+            id: "plan",
+            title: "Workflow Plan",
+            kind: "workflow",
+            description: "   ",
+            x: 120,
+            y: 120,
+            source: "plan.md",
+          },
+        ],
+        edges: [],
+        path: ".cursor/plans/example/diagram.json",
+        defaulted: false,
+      });
+    }
+    return mockJsonResponse({ categories: [] });
+  });
+
+  render(<App />);
+
+  expect(await screen.findByText("No summary available.")).toBeInTheDocument();
 });
 
 test("publishes typed graph context with semantic node kind", async () => {
@@ -312,7 +359,7 @@ test("Copilot graph actions synchronize readable selection and visible highlight
     ]),
   );
 
-  fireEvent.click(screen.getByRole("button", { name: /Ready\?/i }));
+  fireEvent.click(within(getDiagramCanvas()).getByRole("button", { name: /Ready\?/i }));
   await waitFor(() =>
     expect(getLatestCopilotReadable("Canonical ProjectGraph visual context")?.value).toEqual(
       expect.objectContaining({
@@ -469,14 +516,14 @@ test("renders starter ProjectGraph canvas with branch badges and node drilldown"
   const { container } = render(<App />);
   await screen.findByText("ProjectGraph canvas");
 
-  expect(screen.getByRole("button", { name: /Chat Trigger/i })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /Needs Context/i })).toBeInTheDocument();
+  expect(within(getDiagramCanvas()).getByRole("button", { name: /Chat Trigger/i })).toBeInTheDocument();
+  expect(within(getDiagramCanvas()).getByRole("button", { name: /Needs Context/i })).toBeInTheDocument();
   expect(screen.getAllByText("ready").length).toBeGreaterThan(0);
   expect(screen.getAllByText("needs context").length).toBeGreaterThan(0);
   expect(container.querySelector(".diagram-edge-success")).not.toBeNull();
   expect(container.querySelector(".diagram-edge-fallback")).not.toBeNull();
 
-  fireEvent.click(screen.getByRole("button", { name: /Needs Context/i }));
+  fireEvent.click(within(getDiagramCanvas()).getByRole("button", { name: /Needs Context/i }));
 
   const drilldown = screen.getByLabelText("Selected node drilldown");
   expect(within(drilldown).getByText("outcome")).toBeInTheDocument();
@@ -973,7 +1020,9 @@ test("adds, edits, connects, and deletes a non-core node", async () => {
     target: { value: "invoice.flow" },
   });
 
-  expect(screen.getByRole("button", { name: /Invoice workflow/i })).toBeInTheDocument();
+  expect(
+    within(getDiagramCanvas()).getByRole("button", { name: /Invoice workflow/i }),
+  ).toBeInTheDocument();
   expect(screen.getAllByText("Routes invoice approvals").length).toBeGreaterThan(0);
 
   fireEvent.change(screen.getByLabelText("Edge target"), {
@@ -1018,7 +1067,9 @@ test("adds, edits, connects, and deletes a non-core node", async () => {
   );
 
   fireEvent.click(screen.getByRole("button", { name: "Delete selected node" }));
-  expect(screen.queryByRole("button", { name: /Invoice workflow/i })).not.toBeInTheDocument();
+  expect(
+    within(getDiagramCanvas()).queryByRole("button", { name: /Invoice workflow/i }),
+  ).not.toBeInTheDocument();
 });
 
 test("prevents deleting core default nodes", async () => {
@@ -1044,7 +1095,7 @@ test("prevents deleting core default nodes", async () => {
     expect(screen.getByRole("textbox", { name: "Document content" })).toHaveValue("# Spec\n"),
   );
 
-  fireEvent.click(screen.getByRole("button", { name: /Workflow Plan/i }));
+  fireEvent.click(within(getDiagramCanvas()).getByRole("button", { name: /Workflow Plan/i }));
   expect(screen.getByRole("button", { name: "Delete selected node" })).toBeDisabled();
   expect(screen.getByText("Core default nodes cannot be deleted.")).toBeInTheDocument();
 });
@@ -1102,7 +1153,7 @@ test("normalizes selection after loading a diagram without the default node", as
   });
 
   render(<App />);
-  await screen.findByRole("button", { name: /Alpha Node/i });
+  await within(getDiagramCanvas()).findByRole("button", { name: /Alpha Node/i });
   expect(screen.getByLabelText("Node title")).toHaveValue("Alpha Node");
 
   fireEvent.change(screen.getByLabelText("Edge target"), {
