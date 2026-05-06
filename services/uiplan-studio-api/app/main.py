@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from app.context_sources import get_context_sources, sanitize_diagram_nodes
 from app.context_resolver import resolve_node_context
+from app.copilot_graph_actions import execute_graph_action
 from app.copilot_runtime import (
     copilot_generate_response_payload,
     copilot_info_payload,
@@ -116,6 +117,7 @@ def health() -> HealthResponse:
             "/diagram/save",
             "/graph/index",
             "/graph/context/resolve",
+            "/graph/actions/execute",
             "/review/run",
             "/lifecycle/readiness",
             "/generate/section-preview",
@@ -195,6 +197,12 @@ class GraphContextResolveRequest(BaseModel):
     node_id: str
     query: str
     sources: list[str] = Field(default_factory=lambda: ["library"])
+
+
+class GraphActionExecuteRequest(BaseModel):
+    action: str
+    payload: dict[str, object] = Field(default_factory=dict)
+    workspace: dict[str, object] = Field(default_factory=dict)
 
 
 class UpdateApprovalStateRequest(BaseModel):
@@ -326,6 +334,15 @@ def graph_context_resolve(payload: GraphContextResolveRequest) -> dict:
         node_id=payload.node_id,
         query=payload.query,
         sources=payload.sources,
+    )
+
+
+@app.post("/graph/actions/execute")
+def graph_actions_execute(payload: GraphActionExecuteRequest) -> dict:
+    return execute_graph_action(
+        action=payload.action,
+        payload=payload.payload,
+        workspace=payload.workspace,
     )
 
 

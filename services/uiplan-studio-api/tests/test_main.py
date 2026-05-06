@@ -174,6 +174,28 @@ def test_graph_context_resolve_defaults_sources_to_library(monkeypatch) -> None:
     assert calls == [["library"]]
 
 
+def test_graph_action_add_node() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/graph/actions/execute",
+        json={
+            "action": "add_node",
+            "payload": {
+                "node": {
+                    "id": "node-hitl",
+                    "title": "HITL",
+                    "kind": "workflow",
+                }
+            },
+            "workspace": {"nodes": [], "edges": []},
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert any(node["id"] == "node-hitl" for node in payload["workspace"]["nodes"])
+
+
 def test_agent_context_sources_returns_builder_categories_and_core_skills() -> None:
     client = TestClient(app)
     response = client.get("/agent/context-sources")

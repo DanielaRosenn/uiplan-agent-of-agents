@@ -47,6 +47,15 @@ export interface GraphNodeContextResponse {
   }>;
 }
 
+export interface GraphActionExecuteResponse {
+  message: string;
+  workspace: {
+    nodes: DiagramNode[];
+    edges: DiagramEdge[];
+    [key: string]: unknown;
+  };
+}
+
 export function createApiClient(options: ApiOptions = {}) {
   const baseUrl = resolveApiBaseUrl(options.baseUrl ?? import.meta.env.VITE_UIPLAN_API_URL);
 
@@ -143,6 +152,20 @@ export function createApiClient(options: ApiOptions = {}) {
           node_id: nodeId,
           query,
           sources,
+        }),
+      });
+    },
+    executeGraphAction(
+      action: string,
+      payload: Record<string, unknown>,
+      workspace: { nodes: DiagramNode[]; edges: DiagramEdge[]; [key: string]: unknown },
+    ) {
+      return request<GraphActionExecuteResponse>("/graph/actions/execute", {
+        method: "POST",
+        body: JSON.stringify({
+          action,
+          payload,
+          workspace,
         }),
       });
     },
