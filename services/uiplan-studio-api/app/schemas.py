@@ -1,4 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field
+from typing import Any
 
 from app.generation_contracts.models import (
     ApprovalPackageManifest,
@@ -116,6 +117,8 @@ class GraphIndexNode(BaseModel):
     type: str
     title: str
     summary: str = ""
+    code: dict[str, Any] | None = None  # {"path": str, "lines": str, "snippet": str, "language": str}
+    concept: str | None = None  # plain-language explanation
 
 
 class GraphIndexEdge(BaseModel):

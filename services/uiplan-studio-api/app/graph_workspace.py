@@ -1,4 +1,5 @@
 from dataclasses import dataclass, replace
+from typing import Any, Optional
 
 CORE_NODE_IDS = {"spec", "plan", "tasks", "skills", "library", "review"}
 
@@ -9,6 +10,8 @@ class GraphNodeV2:
     type: str
     title: str
     summary: str = ""
+    code: Optional[dict[str, Any]] = None  # {"path": str, "lines": str, "snippet": str, "language": str}
+    concept: Optional[str] = None  # plain-language explanation
 
 
 @dataclass(frozen=True)

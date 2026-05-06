@@ -327,7 +327,14 @@ def graph_index(bundle_root: str) -> GraphIndexResponse:
     return GraphIndexResponse(
         version=workspace.version,
         nodes=[
-            GraphIndexNode(id=node.id, type=node.type, title=node.title, summary=node.summary)
+            GraphIndexNode(
+                id=node.id,
+                type=node.type,
+                title=node.title,
+                summary=node.summary,
+                code=node.code,
+                concept=node.concept,
+            )
             for node in workspace.nodes
         ],
         edges=[
