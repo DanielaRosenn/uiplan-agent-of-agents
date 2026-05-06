@@ -124,7 +124,13 @@ export default function GraphExplorerPanel({
         )}
       </div>
       {nodes.length === 0 ? (
-        <p className="muted">No graph nodes available.</p>
+        <div className="empty-state">
+          <div className="empty-state-icon">📊</div>
+          <h3 className="empty-state-title">No Graph Nodes</h3>
+          <p className="empty-state-description">
+            No nodes are available in the project graph. Create a plan or load an existing project to see nodes here.
+          </p>
+        </div>
       ) : (
         <div className="graph-explorer file-tree" role="tree">
           {treeNodes.map((treeNode) => (

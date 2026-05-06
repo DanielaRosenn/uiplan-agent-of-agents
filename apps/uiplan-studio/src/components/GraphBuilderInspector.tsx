@@ -30,9 +30,14 @@ export default function GraphBuilderInspector({
 
   return (
     <section aria-label="Builder Inspector">
-      <h2>Builder Inspector</h2>
       {selectedNode == null ? (
-        <p className="muted">Select a graph node to inspect its builder summary.</p>
+        <div className="empty-state">
+          <div className="empty-state-icon">🔍</div>
+          <h3 className="empty-state-title">No Node Selected</h3>
+          <p className="empty-state-description">
+            Select a node from the graph explorer to view its details, metadata, and context citations.
+          </p>
+        </div>
       ) : (
         <>
           <div className="inspector-section">
@@ -104,8 +109,15 @@ export default function GraphBuilderInspector({
       </div>
       <section aria-label="Resolved context citations" className="inspector-section">
         <h3>Context Citations</h3>
-        {resolvedCitations.length === 0 ? (
-          <p className="muted">No citations resolved yet.</p>
+        {isResolvingContext ? (
+          <div style={{ padding: "20px", textAlign: "center" }}>
+            <div className="loading-spinner" style={{ margin: "0 auto 12px" }}></div>
+            <p className="muted">Resolving context citations...</p>
+          </div>
+        ) : resolvedCitations.length === 0 ? (
+          <div style={{ padding: "20px", textAlign: "center" }}>
+            <p className="muted">No citations resolved yet. Click "Resolve context" to find relevant citations.</p>
+          </div>
         ) : (
           <ul className="citation-list">
             {resolvedCitations.map((citation) => (

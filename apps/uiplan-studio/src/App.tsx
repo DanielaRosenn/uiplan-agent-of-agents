@@ -241,6 +241,7 @@ export default function App() {
   const [nodes, setNodes] = useState<DiagramNode[]>(DEFAULT_NODES);
   const [edges, setEdges] = useState<DiagramEdge[]>(DEFAULT_EDGES);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>("plan");
+  const [isLoadingProject, setIsLoadingProject] = useState(true);
   const [graphVisualState, setGraphVisualState] = useState<GraphVisualState>(
     EMPTY_GRAPH_VISUAL_STATE,
   );
@@ -255,6 +256,7 @@ export default function App() {
 
   useEffect(() => {
     const loadProjectGraph = async () => {
+      setIsLoadingProject(true);
       try {
         const workspace = await apiClient.indexWorkspace(DEFAULT_BUNDLE_ROOT);
         const diagram = toDiagramData(workspace);
@@ -264,6 +266,8 @@ export default function App() {
         // Fall back to default nodes/edges if indexing fails
         setNodes(DEFAULT_NODES);
         setEdges(DEFAULT_EDGES);
+      } finally {
+        setIsLoadingProject(false);
       }
     };
     void loadProjectGraph();
@@ -331,7 +335,16 @@ export default function App() {
   return (
     <CleanLayout>
       {{
-        explorer: (
+        explorer: isLoadingProject ? (
+          <div style={{ padding: "20px" }}>
+            <h2>Graph Explorer</h2>
+            <div className="loading-skeleton loading-skeleton-tall"></div>
+            <div className="loading-skeleton"></div>
+            <div className="loading-skeleton loading-skeleton-short"></div>
+            <div className="loading-skeleton"></div>
+            <div className="loading-skeleton loading-skeleton-short"></div>
+          </div>
+        ) : (
           <GraphExplorerPanel
             nodes={nodes}
             selectedNodeId={selectedNode?.id ?? null}
