@@ -49,7 +49,7 @@ describe("GraphExplorerPanel", () => {
       />,
     );
 
-    expect(screen.getByText("No graph nodes available.")).toBeInTheDocument();
+    expect(screen.getByText("No Graph Nodes")).toBeInTheDocument();
   });
 
   test("renders flat nodes without hierarchy", () => {
