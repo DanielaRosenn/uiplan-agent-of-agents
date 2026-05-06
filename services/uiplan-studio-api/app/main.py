@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from app.context_sources import get_context_sources, sanitize_diagram_nodes
+from app.context_resolver import resolve_node_context
 from app.copilot_runtime import (
     copilot_generate_response_payload,
     copilot_info_payload,
@@ -114,6 +115,7 @@ def health() -> HealthResponse:
             "/diagram/load",
             "/diagram/save",
             "/graph/index",
+            "/graph/context/resolve",
             "/review/run",
             "/lifecycle/readiness",
             "/generate/section-preview",
@@ -187,6 +189,12 @@ class GenerateDiagramPreviewRequest(BaseModel):
 
 class GenerateApplyRequest(BaseModel):
     preview_id: str
+
+
+class GraphContextResolveRequest(BaseModel):
+    node_id: str
+    query: str
+    sources: list[str] = Field(default_factory=list)
 
 
 class UpdateApprovalStateRequest(BaseModel):
@@ -309,6 +317,15 @@ def graph_index(bundle_root: str) -> GraphIndexResponse:
             for edge in workspace.edges
         ],
         warnings=list(index_result.warnings),
+    )
+
+
+@app.post("/graph/context/resolve")
+def graph_context_resolve(payload: GraphContextResolveRequest) -> dict:
+    return resolve_node_context(
+        node_id=payload.node_id,
+        query=payload.query,
+        sources=payload.sources,
     )
 
 
