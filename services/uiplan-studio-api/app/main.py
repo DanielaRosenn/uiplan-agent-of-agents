@@ -31,7 +31,7 @@ from app.generation_service import (
     build_preview_patch,
     enrich_generated_content,
 )
-from app.graph_indexer import index_workspace_sources
+from app.graph_indexer import index_workspace_sources_with_warnings
 from app.library_service import search_library_context
 from app.project_graph.templates import (
     ProjectGraphTemplateResponse,
@@ -292,7 +292,8 @@ def graph_index(bundle_root: str) -> GraphIndexResponse:
     root = _resolve_bundle_root(bundle_root)
     if not root.exists() or not root.is_dir():
         raise HTTPException(status_code=404, detail=f"Bundle root not found: {root}")
-    workspace = index_workspace_sources(root)
+    index_result = index_workspace_sources_with_warnings(root)
+    workspace = index_result.workspace
     return GraphIndexResponse(
         version=workspace.version,
         nodes=[
@@ -309,6 +310,7 @@ def graph_index(bundle_root: str) -> GraphIndexResponse:
             )
             for edge in workspace.edges
         ],
+        warnings=list(index_result.warnings),
     )
 
 

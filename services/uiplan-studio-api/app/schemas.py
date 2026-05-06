@@ -130,6 +130,7 @@ class GraphIndexResponse(BaseModel):
     version: str
     nodes: list[GraphIndexNode]
     edges: list[GraphIndexEdge]
+    warnings: list[str] = Field(default_factory=list)
 
 
 class GenerateApprovalPackageRequest(BaseModel):

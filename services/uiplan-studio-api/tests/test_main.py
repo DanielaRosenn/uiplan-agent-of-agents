@@ -502,6 +502,8 @@ def test_graph_index_endpoint_returns_workspace_with_core_spec(monkeypatch, tmp_
     payload = response.json()
     assert payload["version"] == "uiplan_graph.v2"
     assert any(node["id"] == "spec" for node in payload["nodes"])
+    assert "warnings" in payload
+    assert payload["warnings"] == []
 
 
 def test_diagram_save_and_load_preserves_typed_project_graph_fields(monkeypatch, tmp_path) -> None:

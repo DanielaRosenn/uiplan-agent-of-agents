@@ -75,5 +75,9 @@ def _index_workspace_sources_with_warnings(root: Path) -> IndexResult:
     )
 
 
+def index_workspace_sources_with_warnings(root: Path) -> IndexResult:
+    return _index_workspace_sources_with_warnings(root)
+
+
 def index_workspace_sources(root: Path) -> GraphWorkspaceV2:
-    return _index_workspace_sources_with_warnings(root).workspace
+    return index_workspace_sources_with_warnings(root).workspace
