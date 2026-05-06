@@ -181,11 +181,9 @@ def test_graph_action_add_node() -> None:
         json={
             "action": "add_node",
             "payload": {
-                "node": {
-                    "id": "node-hitl",
-                    "title": "HITL",
-                    "kind": "workflow",
-                }
+                "id": "node-hitl",
+                "title": "HITL",
+                "kind": "workflow",
             },
             "workspace": {"nodes": [], "edges": []},
         },
@@ -193,7 +191,72 @@ def test_graph_action_add_node() -> None:
 
     assert response.status_code == 200
     payload = response.json()
+    assert payload["workspace"]["version"] == "uiplan_graph.v2"
+    assert isinstance(payload["workspace"]["nodes"], list)
+    assert isinstance(payload["workspace"]["edges"], list)
     assert any(node["id"] == "node-hitl" for node in payload["workspace"]["nodes"])
+
+
+def test_graph_action_add_node_accepts_direct_payload() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/graph/actions/execute",
+        json={
+            "action": "add_node",
+            "payload": {
+                "node": {
+                    "id": "node-legacy",
+                    "title": "Legacy payload style",
+                    "kind": "workflow",
+                }
+            },
+            "workspace": {"version": "uiplan_graph.v2", "nodes": [], "edges": []},
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["workspace"]["version"] == "uiplan_graph.v2"
+    assert any(node["id"] == "node-legacy" for node in payload["workspace"]["nodes"])
+
+
+def test_graph_action_explain_node() -> None:
+    client = TestClient(app)
+    workspace = {"nodes": [{"id": "seed", "title": "Seed"}], "edges": []}
+    response = client.post(
+        "/graph/actions/execute",
+        json={
+            "action": "explain_node",
+            "payload": {"node_id": "node-hitl"},
+            "workspace": workspace,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["message"] == "Node node-hitl is ready for review."
+    assert payload["workspace"] == {
+        "version": "uiplan_graph.v2",
+        "nodes": [{"id": "seed", "title": "Seed"}],
+        "edges": [],
+    }
+
+
+def test_graph_action_unsupported() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/graph/actions/execute",
+        json={
+            "action": "remove_node",
+            "payload": {"node_id": "node-hitl"},
+            "workspace": {},
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["message"] == "Unsupported action: remove_node"
+    assert payload["workspace"] == {"version": "uiplan_graph.v2", "nodes": [], "edges": []}
 
 
 def test_agent_context_sources_returns_builder_categories_and_core_skills() -> None:

@@ -1,13 +1,30 @@
 from copy import deepcopy
 
 
-def execute_graph_action(action: str, payload: dict, workspace: dict) -> dict:
+def _normalize_workspace(workspace: dict) -> dict:
     next_workspace = deepcopy(workspace) if isinstance(workspace, dict) else {}
+    next_workspace["version"] = str(next_workspace.get("version") or "uiplan_graph.v2")
     next_workspace["nodes"] = list(next_workspace.get("nodes") or [])
     next_workspace["edges"] = list(next_workspace.get("edges") or [])
+    return next_workspace
+
+
+def _resolve_add_node_payload(payload: dict) -> dict | None:
+    if not isinstance(payload, dict):
+        return None
+    node = payload.get("node")
+    if isinstance(node, dict):
+        return node
+    if payload.get("id") is not None:
+        return payload
+    return None
+
+
+def execute_graph_action(action: str, payload: dict, workspace: dict) -> dict:
+    next_workspace = _normalize_workspace(workspace)
 
     if action == "add_node":
-        node = payload.get("node") if isinstance(payload, dict) else None
+        node = _resolve_add_node_payload(payload)
         if isinstance(node, dict):
             next_workspace["nodes"].append(deepcopy(node))
             node_id = node.get("id", "unknown")
