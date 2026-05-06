@@ -29,6 +29,14 @@ every in-scope artifact/surface declared in spec/plan, there must be:
 If any artifact cannot be mapped to those four elements, stop and fix `spec.md`
 or `plan.md` before continuing.
 
+## Project Graph handoff
+
+`plan.md` `## Project Graph` is the canonical source for graph-shaped planning
+inputs: Mermaid source blocks, task/todo source lists, context sources,
+generation stages, and graph-to-package mappings. When authoring `tasks.md`, use
+that section to derive task dependencies, package/project ownership, and evidence
+nodes instead of creating a separate graph vocabulary.
+
 ## Capability routing baseline
 
 `tasks.md` should consume routing already captured in `plan.md` and use the

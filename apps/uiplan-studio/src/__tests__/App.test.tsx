@@ -1423,6 +1423,16 @@ test("generates Plan and Scaffold approval packages with stage gating and no dep
     ([input]) => String(input) === "http://localhost:8000/generation/packages",
   );
   const scaffoldRequestBody = JSON.parse(String(packageCalls.at(-1)?.[1]?.body));
+  expect(scaffoldRequestBody).toEqual(
+    expect.objectContaining({
+      write_policy: "approval_package_only",
+      graph_ref: expect.objectContaining({
+        graph_id: expect.any(String),
+        selected_node_id: "plan",
+      }),
+    }),
+  );
+  expect(scaffoldRequestBody.graph_ref.graph_id).toBe(scaffoldRequestBody.graph.graph_id);
   expect(scaffoldRequestBody.graph.nodes[0]).toEqual(
     expect.objectContaining({
       role: expect.any(String),

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://uipath.local/uiplan/approval-package.v1",
+  "title": "UiPlan Approval Package Manifest v1",
+  "type": "object",
+  "x-uiplan-schema-version": "v1",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "package_id",
+    "graph_id",
+    "bundle_root",
+    "generated_stages",
+    "generator_version",
+    "created_at",
+    "graph_snapshot_path",
+    "context_manifest_path",
+    "approval_state_path",
+    "safety_policy"
+  ],
+  "properties": {
+    "schema_id": { "type": "string" },
+    "schema_version": { "const": "v1" },
+    "package_id": { "type": "string" },
+    "graph_id": { "type": "string" },
+    "bundle_root": { "type": "string" },
+    "generated_stages": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["01-plan", "02-scaffold", "03-code", "04-tests", "05-validation"]
+      }
+    },
+    "generator_version": { "type": "string" },
+    "created_at": { "type": "string" },
+    "graph_snapshot_path": { "type": "string" },
+    "context_manifest_path": { "type": "string" },
+    "approval_state_path": { "type": "string" },
+    "safety_policy": {
+      "type": "object",
+      "additionalProperties": {
+        "type": ["string", "boolean"]
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -62,6 +62,9 @@ htmlcov/
 *.swo
 *~
 
+# Node.js dependencies
+node_modules/
+
 # Environment
 .env
 .env.local

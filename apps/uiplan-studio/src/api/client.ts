@@ -204,14 +204,22 @@ export function createApiClient(options: ApiOptions = {}) {
       graph: DiagramData,
       stages: StageId[],
       reviewer: string | null = null,
+      selectedNodeId: string | null = null,
+      writePolicy = "approval_package_only",
     ) {
+      const graphSnapshot = toGenerationGraphPayload(bundleRoot, graph);
       return request<ApprovalPackageManifest>("/generation/packages", {
         method: "POST",
         body: JSON.stringify({
           bundle_root: bundleRoot,
-          graph: toGenerationGraphPayload(bundleRoot, graph),
+          graph: graphSnapshot,
+          graph_ref: {
+            graph_id: graphSnapshot.graph_id,
+            selected_node_id: selectedNodeId,
+          },
           stages,
           reviewer,
+          write_policy: writePolicy,
         }),
       });
     },

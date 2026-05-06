@@ -617,6 +617,17 @@ def review_plan_text(
                 "plan.md",
             )
         )
+    if "## Project Graph" not in plan:
+        findings.append(
+            _finding(
+                "error",
+                "plan",
+                "RULE_PLAN_NO_PROJECT_GRAPH",
+                "plan.md must include `## Project Graph` so visual planning, tasks, context, "
+                "generation stages, and package mapping share one canonical graph handoff.",
+                "plan.md",
+            )
+        )
     if "## LLM execution navigation" not in plan:
         findings.append(
             _finding(

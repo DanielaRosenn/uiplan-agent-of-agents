@@ -23,7 +23,6 @@ import LifecyclePanel from "./components/LifecyclePanel";
 import StageControls from "./components/StageControls";
 import SectionEditor from "./components/SectionEditor";
 import type { ApprovalPackageDetail, ApprovalStatus } from "./generationTypes";
-import { toGenerationGraphPayload } from "./generationGraphAdapter";
 import { projectGraphToDiagramData } from "./projectGraph/diagramAdapter";
 import { createStarterProjectGraphTemplate } from "./projectGraph/templates";
 import type {
@@ -1161,35 +1160,16 @@ export default function App() {
     }
   };
 
-  const generatePackageFromGraphSnapshot = async (
-    stages: Array<"01-plan" | "02-scaffold">,
-  ) => {
-    const graphSnapshot = toGenerationGraphPayload(bundleRoot, { nodes, edges });
-    const response = await fetch(`${API_BASE_URL}/generation/packages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        bundle_root: bundleRoot,
-        graph: graphSnapshot,
-        graph_ref: {
-          graph_id: graphSnapshot.graph_id,
-          selected_node_id: selectedNode?.id ?? null,
-        },
-        stages,
-        reviewer: null,
-        write_policy: "approval_package_only",
-      }),
-    });
-    if (!response.ok) {
-      throw new Error(`Request failed: ${response.status}`);
-    }
-    return (await response.json()) as ApprovalPackageDetail["manifest"];
-  };
-
   const handleGeneratePlanPackage = async () => {
     setGenerationErrorMessage(null);
     try {
-      const manifest = await generatePackageFromGraphSnapshot(["01-plan"]);
+      const manifest = await apiClient.generateApprovalPackage(
+        bundleRoot,
+        { nodes, edges },
+        ["01-plan"],
+        null,
+        selectedNode?.id ?? null,
+      );
       await loadPackageDetail(manifest.package_id);
     } catch (error) {
       const details = error instanceof Error ? error.message : "Unknown error";
@@ -1206,7 +1186,13 @@ export default function App() {
       const hasApprovedPlan = stageStatuses?.["01-plan"] === "approved";
       const stages: Array<"01-plan" | "02-scaffold"> =
         hasApprovedPlan ? ["02-scaffold"] : ["01-plan", "02-scaffold"];
-      const manifest = await generatePackageFromGraphSnapshot(stages);
+      const manifest = await apiClient.generateApprovalPackage(
+        bundleRoot,
+        { nodes, edges },
+        stages,
+        null,
+        selectedNode?.id ?? null,
+      );
       await loadPackageDetail(manifest.package_id);
     } catch (error) {
       const details = error instanceof Error ? error.message : "Unknown error";

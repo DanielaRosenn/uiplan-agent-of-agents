@@ -1,0 +1,69 @@
+{
+  "projectType": "solution",
+  "nodes": [
+    {
+      "id": "intake",
+      "label": "Customer Intake",
+      "kind": "process_step",
+      "layer": "process",
+      "metadata": {
+        "owner": "operations"
+      }
+    },
+    {
+      "id": "agent",
+      "label": "Intake Agent",
+      "kind": "project_component",
+      "metadata": {
+        "projectType": "coded-agent"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "intake-agent",
+      "source": "intake",
+      "target": "agent",
+      "kind": "drives",
+      "label": "drives",
+      "metadata": {}
+    },
+    {
+      "id": "agent-missing",
+      "source": "agent",
+      "target": "missing",
+      "kind": "depends_on",
+      "metadata": {}
+    }
+  ],
+  "clusters": [
+    {
+      "id": "automation",
+      "label": "Automation",
+      "nodeIds": ["intake", "missing-cluster-node"],
+      "metadata": {
+        "projectType": "coded-agent"
+      }
+    }
+  ],
+  "errors": [
+    {
+      "id": "edge:agent-missing:missing-target",
+      "message": "Edge target references missing node 'missing'.",
+      "severity": "warning",
+      "targetId": "agent-missing",
+      "metadata": {
+        "source": "projectGraph.normalize"
+      }
+    },
+    {
+      "id": "cluster:automation:missing-member:missing-cluster-node",
+      "message": "Cluster member references missing node 'missing-cluster-node'.",
+      "severity": "warning",
+      "targetId": "automation",
+      "metadata": {
+        "source": "projectGraph.normalize"
+      }
+    }
+  ]
+}

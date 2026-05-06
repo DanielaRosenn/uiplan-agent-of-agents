@@ -77,6 +77,74 @@ task execution.
 | --- | --- | --- | --- |
 | `<artifact path>` | `## Workflow Catalog` / `## Activity Inventory` | `tasks.md` story + task IDs | `## CLI Command Matrix` |
 
+## Project Graph
+
+The project graph is the machine-readable planning spine for visual generation,
+task authoring, and package mapping. Keep node IDs stable across this section,
+`## Workflow Catalog`, `## Skill and Subagent Routing`, and `tasks.md`.
+
+### Mermaid source blocks
+
+Add one Mermaid block per graph view needed by the bundle. Use these source
+blocks as the canonical visual inputs for Studio planning views, task dependency
+visuals, and package topology.
+
+```mermaid
+flowchart LR
+  Spec[spec.md scope] --> Plan[plan.md Project Graph]
+  Plan --> Tasks[tasks.md task graph]
+  Plan --> Packages[UiPath packages and projects]
+  Tasks --> Evidence[verify evidence]
+
+  classDef doc fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef build fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef proof fill:#ECFDF5,stroke:#10B981,color:#065F46,stroke-width:1.25px
+  class Spec,Plan doc
+  class Tasks,Packages build
+  class Evidence proof
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+### Task/todo source list
+
+List the source tasks that should become graph nodes or edges. Use task IDs from
+`tasks.md` once generated; before task generation, use stable planned IDs or story
+labels that can be replaced during authoring.
+
+```text
+- US1 -> T010 test/evidence node -> T011 implementation node -> T030 verify node
+- US2 -> T020 test/evidence node -> T021 implementation node -> T031 verify node
+```
+
+### Context source table
+
+| Context source | Graph node(s) informed | Evidence / citation |
+| --- | --- | --- |
+| `spec.md` `## 360 Build Visibility Contract` | scope, artifact, evidence nodes | spec row IDs / acceptance criteria |
+| `## Grounding Inputs` | skill, library, activity-doc nodes | `[skill:...]`, library hits, activity docs |
+| `## Project Inventory` / `## Workflow Catalog` | package/project/workflow nodes | artifact paths and entrypoints |
+| `## Bindings and Environment` | queue, asset, connection, binding nodes | provisioning and verification paths |
+
+### Generation stages
+
+| Stage | Inputs | Outputs | Gate before next stage |
+| --- | --- | --- | --- |
+| Scope graph | `spec.md` stories, artifacts, acceptance criteria | story/artifact nodes | every in-scope artifact has an owner |
+| Design graph | project inventory, workflow catalog, bindings | project/workflow/resource nodes and edges | no unresolved grounding for required activities/resources |
+| Task graph | planned story slices, verify gates | task/todo nodes and dependencies | every task maps to artifact + command + evidence |
+| Package graph | project graph, dependency matrix, CLI matrix | graph-to-package rows | restore/analyze/test/pack commands are declared |
+
+### Graph-to-package mapping
+
+Map every graph node that produces code, workflow, config, or deployable output
+to its owning package/project and verification evidence.
+
+| Graph node / edge | Owning package/project | Artifact path | Build task IDs | Verify evidence |
+| --- | --- | --- | --- | --- |
+| `Workflow:<Name>.Main` | `<Package.Name>` | `projects/<Name>/Main.xaml` | `T0xx` | `out/<name>-analyze.json` |
+| `Agent:<Name>.Graph` | `<Agent.Package>` | `projects/<Agent>/langgraph.json`, `projects/<Agent>/main.py` | `T0xx` | `pytest`, `uipath run`, eval output |
+| `Resource:<QueueOrAsset>` | Solution / platform config | `bindings/dev.json` or environment record | `T0xx` | provision + verify JSON |
+
 ## Grounding Inputs
 
 {{GROUNDING_CONTEXT}}

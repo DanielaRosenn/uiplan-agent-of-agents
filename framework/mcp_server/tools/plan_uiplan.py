@@ -935,6 +935,7 @@ def call_uiplan_tasks_new(arguments: dict[str, Any]) -> dict[str, Any]:
         "## Per-project workflow and platform inventory",
         "## Planner Route & Specialist Handoff",
         "## Project Inventory",
+        "## Project Graph",
         "## Workflow Catalog",
         "## Activity Inventory",
         "## Bindings and Environment",

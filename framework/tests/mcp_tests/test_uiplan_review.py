@@ -541,6 +541,24 @@ def test_review_requires_plan_connector_boundary_and_log_contract():
     assert "RULE_PLAN_NO_LOG_CONTRACT" in rules
 
 
+def test_review_requires_project_graph_in_plan():
+    findings = review_plan_text(
+        "connector connection invocation boundary correlation phase log assertion\n"
+        "## Planner Route & Specialist Handoff\n"
+        "[skill:uipath-planner] [skill:uipath-rpa] "
+        "uipath-project-discovery-agent project-context.md "
+        "uipath_library_search uipath_doc_get_activity\n"
+        "## Project Structure\n### Source Code (repository root)\nsolution.uipx\nbindings\n"
+        "### Paradigm build loop\nuipcli solution analyze\n"
+        "## Development execution contract\nrestore -> analyze -> test -> pack\n",
+        [],
+        "solution",
+        None,
+    )
+
+    assert any(f.get("rule") == "RULE_PLAN_NO_PROJECT_GRAPH" for f in findings)
+
+
 def test_review_flags_template_residue_rule():
     out = run_uiplan_review(
         spec="## 360 Build Visibility Contract\n{{TOKEN}}\n",
