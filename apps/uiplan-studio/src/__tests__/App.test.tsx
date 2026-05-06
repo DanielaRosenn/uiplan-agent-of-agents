@@ -156,6 +156,46 @@ test("shows inspector fallback summary for empty node description", async () => 
   expect(await screen.findByText("No summary available.")).toBeInTheDocument();
 });
 
+test("resolves context for selected node from inspector and shows citations", async () => {
+  vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+    const url = String(input);
+    if (url.includes("/bundle/load")) {
+      return mockJsonResponse({
+        slug: "example",
+        status: "draft",
+        root: ".cursor/plans/example",
+        documents: {
+          "spec.md": "# Spec\n",
+          "plan.md": "# Plan\n",
+          "tasks.md": "# Tasks\n",
+        },
+      });
+    }
+    if (url.endsWith("/graph/context/resolve")) {
+      return mockJsonResponse({
+        node_id: "plan",
+        query: "Workflow Plan",
+        citations: [
+          {
+            source_type: "library",
+            source_id: "uipath-cli/03-agent/deploy",
+            snippet: "Use the deploy command with explicit stage checks.",
+            strict: true,
+          },
+        ],
+      });
+    }
+    return mockJsonResponse({ categories: [] });
+  });
+
+  render(<App />);
+  const resolveButton = await screen.findByRole("button", { name: "Resolve context" });
+  fireEvent.click(resolveButton);
+
+  expect(await screen.findByRole("heading", { name: "Resolved citations" })).toBeInTheDocument();
+  expect(await screen.findByText("uipath-cli/03-agent/deploy")).toBeInTheDocument();
+});
+
 test("publishes typed graph context with semantic node kind", async () => {
   vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
     const url = String(input);

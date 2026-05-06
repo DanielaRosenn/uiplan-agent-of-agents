@@ -2,11 +2,26 @@ import React from "react";
 
 import type { DiagramNode } from "../types";
 
-interface GraphBuilderInspectorProps {
-  selectedNode: DiagramNode | null;
+interface ResolvedContextCitation {
+  source_type: string;
+  source_id: string;
+  snippet: string;
+  strict: boolean;
 }
 
-export default function GraphBuilderInspector({ selectedNode }: GraphBuilderInspectorProps) {
+interface GraphBuilderInspectorProps {
+  selectedNode: DiagramNode | null;
+  resolvedCitations: ResolvedContextCitation[];
+  isResolvingContext: boolean;
+  onResolveContext: () => void;
+}
+
+export default function GraphBuilderInspector({
+  selectedNode,
+  resolvedCitations,
+  isResolvingContext,
+  onResolveContext,
+}: GraphBuilderInspectorProps) {
   const summary =
     selectedNode == null || selectedNode.description.trim().length === 0
       ? "No summary available."
@@ -37,6 +52,30 @@ export default function GraphBuilderInspector({ selectedNode }: GraphBuilderInsp
           </div>
         </dl>
       )}
+      <div className="studio-actions">
+        <button
+          type="button"
+          onClick={onResolveContext}
+          disabled={selectedNode == null || isResolvingContext}
+        >
+          {isResolvingContext ? "Resolving context..." : "Resolve context"}
+        </button>
+      </div>
+      <section aria-label="Resolved context citations">
+        <h3>Resolved citations</h3>
+        {resolvedCitations.length === 0 ? (
+          <p className="muted">No citations resolved yet.</p>
+        ) : (
+          <ul>
+            {resolvedCitations.map((citation) => (
+              <li key={`${citation.source_type}:${citation.source_id}:${citation.snippet}`}>
+                <strong>{citation.source_id}</strong>
+                <p>{citation.snippet}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </section>
   );
 }

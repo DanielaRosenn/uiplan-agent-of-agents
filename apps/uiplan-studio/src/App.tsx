@@ -82,6 +82,13 @@ interface GraphVisualState {
   summary: string | null;
 }
 
+interface ResolvedContextCitation {
+  source_type: string;
+  source_id: string;
+  snippet: string;
+  strict: boolean;
+}
+
 const EMPTY_GRAPH_VISUAL_STATE: GraphVisualState = {
   focusedNodeId: null,
   highlightedNodeIds: [],
@@ -667,6 +674,10 @@ export default function App() {
   const [graphVisualState, setGraphVisualState] = useState<GraphVisualState>(
     EMPTY_GRAPH_VISUAL_STATE,
   );
+  const [resolvedContextCitations, setResolvedContextCitations] = useState<ResolvedContextCitation[]>(
+    [],
+  );
+  const [isResolvingContext, setIsResolvingContext] = useState(false);
   const proposalPreviewId =
     selectedProposalId == null ? null : proposalPreviewIds[selectedProposalId] ?? null;
   const proposalPreviewDiff =
@@ -728,6 +739,10 @@ export default function App() {
       setEdgeTargetId(nextTarget);
     }
   }, [edgeTargetId, nodes, selectedNodeId]);
+
+  useEffect(() => {
+    setResolvedContextCitations([]);
+  }, [selectedNodeId]);
 
   const handleFindingSelect = (finding: Finding) => {
     setSelectedFinding(finding);
@@ -800,6 +815,30 @@ export default function App() {
       setSelectedNodeId("library");
     } catch {
       setLibraryContext([]);
+    }
+  };
+
+  const handleResolveContext = async () => {
+    if (!selectedNodeId) {
+      return;
+    }
+    setIsResolvingContext(true);
+    const sourceIds = unique(
+      contextSourceCategories
+        .filter((category) => category.sources.some((source) => source.available !== false))
+        .map((category) => category.id),
+    );
+    try {
+      const response = await apiClient.resolveGraphNodeContext(
+        selectedNodeId,
+        selectedNode?.title ?? "",
+        sourceIds.length > 0 ? sourceIds : ["library", "skills"],
+      );
+      setResolvedContextCitations(response.citations ?? []);
+    } catch {
+      setResolvedContextCitations([]);
+    } finally {
+      setIsResolvingContext(false);
     }
   };
 
@@ -1036,6 +1075,45 @@ export default function App() {
     }
   };
 
+  const handleApplyCopilotSuggestion = async () => {
+    const existingNodeIds = new Set(nodes.map((node) => node.id));
+    const nextNodeId = `copilot-node-${nodes.length + 1}`;
+    const selectedNodePosition = selectedNode
+      ? { x: selectedNode.x + 160, y: selectedNode.y + 48 }
+      : { x: 760, y: 120 };
+    try {
+      const response = await apiClient.executeGraphAction(
+        "add_node",
+        {
+          id: nextNodeId,
+          title: "Copilot Added Node",
+          kind: "workflow",
+          description: "Added via Copilot action.",
+          x: selectedNodePosition.x,
+          y: selectedNodePosition.y,
+          source: "copilot:add_node",
+        },
+        { nodes, edges },
+      );
+      if (Array.isArray(response.workspace?.nodes) && Array.isArray(response.workspace?.edges)) {
+        setNodes(response.workspace.nodes);
+        setEdges(response.workspace.edges);
+        const newNode = response.workspace.nodes.find((node) => !existingNodeIds.has(node.id));
+        if (newNode) {
+          setSelectedNodeId(newNode.id);
+        }
+      }
+    } catch {
+      setMessages((current) => [
+        ...current,
+        {
+          role: "assistant",
+          content: "Copilot action could not be applied. The current graph remains unchanged.",
+        },
+      ]);
+    }
+  };
+
   const appendDraftMessage = (label: "Plan" | "Scaffold", stages: string[]) => {
     const selectedNodeLabel = selectedNode?.id ?? "none";
     setMessages((current) => [
@@ -1252,7 +1330,12 @@ export default function App() {
                 />
               </div>
               <div className="studio-card">
-                <GraphBuilderInspector selectedNode={selectedNode} />
+                <GraphBuilderInspector
+                  selectedNode={selectedNode}
+                  resolvedCitations={resolvedContextCitations}
+                  isResolvingContext={isResolvingContext}
+                  onResolveContext={handleResolveContext}
+                />
               </div>
             </div>
             <div className="studio-card editor-card">
@@ -1330,6 +1413,7 @@ export default function App() {
                 selectedNode={selectedNode}
                 messages={messages}
                 onGenerateSection={handleDiagramPreviewClick}
+                onApplyCopilotSuggestion={handleApplyCopilotSuggestion}
                 onDraftPlanPackageRequest={handleDraftPlanPackageRequest}
                 onDraftScaffoldPackageRequest={handleDraftScaffoldPackageRequest}
                 onFixSelectedFinding={handleFixSelectedFinding}
