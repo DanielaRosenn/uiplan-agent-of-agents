@@ -11,8 +11,8 @@ forking it. Read [`CLAUDE.md`](CLAUDE.md) for AI-assistant rules and
 | `framework/uipath_claude/` | product | Python core (CLI, library/skills registries, planning tooling) |
 | `extensions/skills/` | product | Project-local overrides on top of the `skills/` submodule |
 | `skills/` | upstream submodule (read-only) | Source of truth for UiPath skills - pinned in `.uipath/skills-approved.sha` |
-| `templates/` | product | Project starter templates (RPA, agent, solution, etc.) |
-| `scaffold/` | product | Lower-level scaffolding helpers used by the templates |
+| `templates/` | product | Project starter templates the user copies (e.g. `templates/uiplan/`) |
+| `scaffold/` | product | Generator-side scaffolding (the `uipath-claude` CLI emits from `scaffold/template/`) |
 | `examples/` | docs | Worked examples and sample projects used by the docs |
 | `data/` | product | Documentation library content (read via `uipath_library_*` MCP tools) |
 | `config/` | product | Static configuration shared across apps and services |
@@ -28,7 +28,7 @@ forking it. Read [`CLAUDE.md`](CLAUDE.md) for AI-assistant rules and
 | `.uipath-claude/` | dev | Per-machine state for the `uipath-claude` CLI (gitignored) |
 | `.githooks/` | dev | Git hooks the team checks in (run `git config core.hooksPath .githooks`) |
 | `.github/` | dev | GitHub Actions workflows |
-| `projects/`, `generated/`, `.worktrees/` | scratch | **Gitignored.** Per-developer working areas; never commit |
+| `generated/`, `.worktrees/` | scratch | **Gitignored.** Per-developer working areas; never commit |
 
 ## Top-level files
 
@@ -53,4 +53,4 @@ forking it. Read [`CLAUDE.md`](CLAUDE.md) for AI-assistant rules and
 | Plan a build with UiPlan | [`docs/uiplan/HOW_TO_USE.md`](docs/uiplan/HOW_TO_USE.md) |
 | Pick a UiPath paradigm | [`CLAUDE.md`](CLAUDE.md) §1 (project type detection) |
 | Run a CLI command | [`docs/uipath-cli.md`](docs/uipath-cli.md) |
-| Read the latest review/cleanup notes | [`docs/uiplan/EXPLORER_REVIEW_2026-05-07.md`](docs/uiplan/EXPLORER_REVIEW_2026-05-07.md) |
+| Read internal review/cleanup notes | [`docs/uiplan/_internal/`](docs/uiplan/_internal/) (engineering-only) |

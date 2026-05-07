@@ -53,7 +53,7 @@ Curated entry points for this template. Old material is preserved under
 | [`uiplan/EXPLORER_REVIEW_2026-05-07.md`](uiplan/EXPLORER_REVIEW_2026-05-07.md) | Review + cleanup report |
 | [`uiplan/TASK_AUTHORING.md`](uiplan/TASK_AUTHORING.md) | `tasks.md` execution contract |
 | [`uiplan/SCAFFOLD_CODE.md`](uiplan/SCAFFOLD_CODE.md) | Scaffold conventions |
-| [`uiplan/RUBRIC_POLICY.md`](uiplan/RUBRIC_POLICY.md) | Review rubric policy |
+| [`uiplan/_internal/RUBRIC_POLICY.md`](uiplan/_internal/RUBRIC_POLICY.md) | Review rubric policy (internal) |
 | [`uiplan/CLEANUP_CLASSIFICATION.md`](uiplan/CLEANUP_CLASSIFICATION.md) | Cleanup classifications |
 | [`uiplan/CLONED_PROJECT_SETUP.md`](uiplan/CLONED_PROJECT_SETUP.md) | Cloned-project bootstrap |
 | [`uiplan/MERMAID_VALIDATION.md`](uiplan/MERMAID_VALIDATION.md) | Mermaid validation |

@@ -47,7 +47,7 @@ Skip UiPlan (direct edit + validate) when:
 - Implementer: [TASK_AUTHORING.md](TASK_AUTHORING.md)
 - Template maintainer: [../../templates/uiplan/README.md](../../templates/uiplan/README.md)
 - Repo hygiene / sample folders: [CLEANUP_CLASSIFICATION.md](CLEANUP_CLASSIFICATION.md)
-- Evaluation rubric scope (deterministic vs LLM): [RUBRIC_POLICY.md](RUBRIC_POLICY.md)
+- Evaluation rubric scope (deterministic vs LLM): [_internal/RUBRIC_POLICY.md](_internal/RUBRIC_POLICY.md)
 
 ## 360 visibility standard (2026 update)
 

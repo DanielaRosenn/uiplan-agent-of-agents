@@ -277,7 +277,7 @@ Schemas: `ExplorerGraphResponse`, `ExplorerKnowledgeResponse`,
 - Generation / apply paths from the older "graph workspace v2" iteration
   (`/graph/*` endpoints) still exist in the backend but are not consumed
   by the current UI. Treat them as deprecated; do not build on them.
-  See `docs/uiplan/EXPLORER_REVIEW_2026-05-07.md` for the full cleanup
+  See `docs/uiplan/_internal/EXPLORER_REVIEW_2026-05-07.md` for the full cleanup
   list.
 
 ---
