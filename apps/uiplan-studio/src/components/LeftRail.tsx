@@ -57,6 +57,7 @@ export default function LeftRail({
       display: "flex", flexDirection: "column",
       fontFamily: "'Inter', system-ui, sans-serif",
       color: PALETTE.text, overflow: "auto", flexShrink: 0,
+      position: "relative", zIndex: 10,
     }}>
       {bundles && bundles.length > 0 && (
         <UiplanTasksSection
@@ -411,7 +412,9 @@ function BundleRow({
   return (
     <div style={{
       background: isSelected ? "#ccfbf1" : PALETTE.bg,
-      border: `1px solid ${isSelected ? "#0f766e" : PALETTE.rule}`,
+      borderTop: `1px solid ${isSelected ? "#0f766e" : PALETTE.rule}`,
+      borderRight: `1px solid ${isSelected ? "#0f766e" : PALETTE.rule}`,
+      borderBottom: `1px solid ${isSelected ? "#0f766e" : PALETTE.rule}`,
       borderLeft: `3px solid #0f766e`,
       borderRadius: 4, overflow: "hidden",
     }}>

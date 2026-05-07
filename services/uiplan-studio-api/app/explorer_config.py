@@ -100,9 +100,20 @@ DEFAULT_SCAN_GLOBS: dict[str, dict[str, list[str]]] = {
 }
 
 DEFAULT_EXCLUDES: tuple[str, ...] = (
-    ".venv/**", "venv/**", "node_modules/**", "**/__pycache__/**",
-    "**/dist/**", "**/build/**", ".git/**", ".cursor/plans/**",
-    ".worktrees/**", "**/.uipath/**",
+    # virtual envs / package caches (match anywhere in the tree, not just root)
+    ".venv/**", "**/.venv/**", "venv/**", "**/venv/**",
+    "**/site-packages/**",
+    "node_modules/**", "**/node_modules/**",
+    "**/__pycache__/**",
+    "**/dist/**", "**/build/**",
+    ".git/**", "**/.git/**",
+    ".cursor/plans/**",
+    ".worktrees/**", "**/.worktrees/**",
+    "**/.uipath/**",
+    # additional ecosystem caches
+    "**/.next/**", "**/.turbo/**", "**/.cache/**",
+    "**/coverage/**", "**/.pytest_cache/**", "**/.mypy_cache/**",
+    "**/.tox/**", "**/.eggs/**", "**/*.egg-info/**",
 )
 
 

@@ -59,6 +59,7 @@ export default function UiplanCanvas({ bundle, selectedNodeId, onSelectNode }: U
           UIPLAN&nbsp;·&nbsp;{bundle.label.toUpperCase()}
         </div>
         <div style={{ flex: 1 }} />
+        <div style={{ position: "relative", zIndex: 50 }}>
         <Segmented
           value={view}
           onChange={(v) => { setView(v); if (v !== "task") setSelectedPhaseIdx(null); }}
@@ -68,6 +69,7 @@ export default function UiplanCanvas({ bundle, selectedNodeId, onSelectNode }: U
             { value: "kanban", label: "KANBAN", Icon: LayoutGrid },
           ]}
         />
+        </div>
       </div>
 
       <div style={{ flex: 1, overflow: "auto", padding: 24 }}>
@@ -373,7 +375,9 @@ function TaskFlowCard({ task, selected, onClick }: {
         display: "flex", alignItems: "center", gap: 10,
         padding: "10px 14px", maxWidth: 720, width: "100%",
         background: selected ? "#ccfbf1" : PALETTE.panel,
-        border: `1px solid ${selected ? "#0f766e" : PALETTE.rule}`,
+        borderTop: `1px solid ${selected ? "#0f766e" : PALETTE.rule}`,
+        borderRight: `1px solid ${selected ? "#0f766e" : PALETTE.rule}`,
+        borderBottom: `1px solid ${selected ? "#0f766e" : PALETTE.rule}`,
         borderLeft: `4px solid ${color}`,
         borderRadius: 5, cursor: "pointer", textAlign: "left",
         fontFamily: "'Inter', sans-serif",
@@ -420,29 +424,82 @@ function StatusIcon({ status }: { status: string }) {
 // Kanban
 // ---------------------------------------------------------------------------
 
+interface SectionBucket {
+  /** Section heading text from `tasks.md` (e.g. "Phase 1 — Setup"). Empty
+   * string means tasks that aren't under any heading; rendered as "(no section)". */
+  section: string;
+  /** Sequential index in declaration order — used to keep stable section ordering. */
+  order: number;
+  tasks: ProjectNode[];
+  counts: { pending: number; in_progress: number; done: number; cancelled: number; total: number };
+  /** Where the section card lands. Rule:
+   *   - all tasks done (or done+cancelled) → "done"
+   *   - any in_progress, OR a mix of done + pending → "in_progress"
+   *   - otherwise → "pending"
+   *   - 100% cancelled → "cancelled"
+   */
+  bucket: "pending" | "in_progress" | "done" | "cancelled";
+}
+
+function bucketSectionsByStatus(tasks: ProjectNode[]): SectionBucket[] {
+  const map = new Map<string, SectionBucket>();
+  let order = 0;
+  for (const t of tasks) {
+    const section = String(t.meta?.task_section ?? "").trim();
+    let entry = map.get(section);
+    if (!entry) {
+      entry = {
+        section,
+        order: order++,
+        tasks: [],
+        counts: { pending: 0, in_progress: 0, done: 0, cancelled: 0, total: 0 },
+        bucket: "pending",
+      };
+      map.set(section, entry);
+    }
+    entry.tasks.push(t);
+    const s = taskStatus(t) as keyof SectionBucket["counts"];
+    entry.counts[s] = (entry.counts[s] ?? 0) + 1;
+    entry.counts.total += 1;
+  }
+  for (const entry of map.values()) {
+    const c = entry.counts;
+    const active = c.total - c.cancelled;
+    if (active === 0) {
+      entry.bucket = "cancelled";
+    } else if (c.in_progress > 0 || (c.done > 0 && c.done < active)) {
+      entry.bucket = "in_progress";
+    } else if (c.done >= active) {
+      entry.bucket = "done";
+    } else {
+      entry.bucket = "pending";
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => a.order - b.order);
+}
+
 function Kanban({ tasks, selectedNodeId, onSelectNode }: {
   tasks: ProjectNode[]; selectedNodeId: string | null; onSelectNode: (id: string) => void;
 }) {
-  const groups: Record<string, ProjectNode[]> = {
+  const sections = useMemo(() => bucketSectionsByStatus(tasks), [tasks]);
+  const groups: Record<SectionBucket["bucket"], SectionBucket[]> = {
     pending: [], in_progress: [], done: [], cancelled: [],
   };
-  for (const t of tasks) {
-    const s = taskStatus(t);
-    (groups[s] ?? groups.pending).push(t);
-  }
+  for (const s of sections) groups[s.bucket].push(s);
+
   const [showCancelled, setShowCancelled] = useState(false);
   return (
     <div>
       <div style={{
         display: "grid",
-        gridTemplateColumns: "repeat(3, minmax(220px, 1fr))",
+        gridTemplateColumns: "repeat(3, minmax(240px, 1fr))",
         gap: 16,
       }}>
-        <KanbanColumn title="PENDING" status="pending" tasks={groups.pending}
+        <SectionKanbanColumn title="PENDING" status="pending" sections={groups.pending}
           selectedNodeId={selectedNodeId} onSelectNode={onSelectNode} />
-        <KanbanColumn title="IN PROGRESS" status="in_progress" tasks={groups.in_progress}
+        <SectionKanbanColumn title="IN PROGRESS" status="in_progress" sections={groups.in_progress}
           selectedNodeId={selectedNodeId} onSelectNode={onSelectNode} />
-        <KanbanColumn title="DONE" status="done" tasks={groups.done}
+        <SectionKanbanColumn title="DONE" status="done" sections={groups.done}
           selectedNodeId={selectedNodeId} onSelectNode={onSelectNode} />
       </div>
       {groups.cancelled.length > 0 && (
@@ -461,7 +518,7 @@ function Kanban({ tasks, selectedNodeId, onSelectNode }: {
           </button>
           {showCancelled && (
             <div style={{ marginTop: 12, maxWidth: 360 }}>
-              <KanbanColumn title="CANCELLED" status="cancelled" tasks={groups.cancelled}
+              <SectionKanbanColumn title="CANCELLED" status="cancelled" sections={groups.cancelled}
                 selectedNodeId={selectedNodeId} onSelectNode={onSelectNode} />
             </div>
           )}
@@ -471,18 +528,21 @@ function Kanban({ tasks, selectedNodeId, onSelectNode }: {
   );
 }
 
-function KanbanColumn({ title, status, tasks, selectedNodeId, onSelectNode }: {
-  title: string; status: string; tasks: ProjectNode[];
+function SectionKanbanColumn({ title, status, sections, selectedNodeId, onSelectNode }: {
+  title: string; status: string; sections: SectionBucket[];
   selectedNodeId: string | null; onSelectNode: (id: string) => void;
 }) {
   const color = TASK_STATUS_COLOR[status] ?? PALETTE.textDim;
+  const totalTasks = sections.reduce((acc, s) => acc + s.counts.total, 0);
   return (
     <div style={{
       background: PALETTE.panel,
-      border: `1px solid ${PALETTE.rule}`,
       borderTop: `3px solid ${color}`,
+      borderRight: `1px solid ${PALETTE.rule}`,
+      borderBottom: `1px solid ${PALETTE.rule}`,
+      borderLeft: `1px solid ${PALETTE.rule}`,
       borderRadius: 6, padding: 12,
-      display: "flex", flexDirection: "column", gap: 8,
+      display: "flex", flexDirection: "column", gap: 10,
       minHeight: 120,
     }}>
       <div style={{
@@ -495,65 +555,114 @@ function KanbanColumn({ title, status, tasks, selectedNodeId, onSelectNode }: {
           padding: "1px 7px", borderRadius: 10,
           background: `${color}22`, color, fontSize: 10,
         }}>
-          {tasks.length}
+          {sections.length}{totalTasks > 0 ? `·${totalTasks}t` : ""}
         </span>
       </div>
-      {tasks.length === 0 ? (
+      {sections.length === 0 ? (
         <div style={{ fontSize: 11, color: PALETTE.textMute, fontFamily: "'JetBrains Mono', monospace" }}>
           ∅ empty
         </div>
       ) : (
-        tasks.map((t) => (
-          <KanbanCard key={t.id} task={t}
-            selected={t.id === selectedNodeId}
-            onClick={() => onSelectNode(t.id)} />
+        sections.map((s) => (
+          <SectionKanbanCard
+            key={`${s.section || "unsectioned"}-${s.order}`}
+            section={s}
+            selectedNodeId={selectedNodeId}
+            onSelectNode={onSelectNode}
+          />
         ))
       )}
     </div>
   );
 }
 
-function KanbanCard({ task, selected, onClick }: {
-  task: ProjectNode; selected: boolean; onClick: () => void;
+function SectionKanbanCard({ section, selectedNodeId, onSelectNode }: {
+  section: SectionBucket; selectedNodeId: string | null; onSelectNode: (id: string) => void;
 }) {
-  const status = taskStatus(task);
-  const color = TASK_STATUS_COLOR[status] ?? PALETTE.textDim;
-  const struck = status === "done" || status === "cancelled";
-  const path = String(task.meta?.full_path ?? "");
-  const line = String(task.meta?.task_line ?? "");
+  const [expanded, setExpanded] = useState(false);
+  const c = section.counts;
+  const color = TASK_STATUS_COLOR[section.bucket] ?? PALETTE.textDim;
+  const donePct = c.total === 0 ? 0 : Math.round((c.done / c.total) * 100);
+  const title = section.section || "(no section)";
+  const hasSelection = section.tasks.some((t) => t.id === selectedNodeId);
   return (
-    <button
-      onClick={onClick}
-      style={{
-        display: "flex", flexDirection: "column", gap: 6,
-        padding: "10px 12px", textAlign: "left",
-        background: selected ? "#ccfbf1" : PALETTE.bg,
-        border: `1px solid ${selected ? "#0f766e" : PALETTE.rule}`,
-        borderLeft: `3px solid ${color}`,
-        borderRadius: 4, cursor: "pointer",
-        fontFamily: "'Inter', sans-serif",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <StatusIcon status={status} />
-        <span style={{
-          fontSize: 12.5, color: PALETTE.text, lineHeight: 1.35,
-          textDecoration: struck ? "line-through" : "none",
-          opacity: struck ? 0.65 : 1,
-          flex: 1,
-        }}>
-          {task.label}
-        </span>
-      </div>
-      {(path || line) && (
+    <div style={{
+      background: hasSelection ? "#ccfbf1" : PALETTE.bg,
+      borderTop: `1px solid ${hasSelection ? "#0f766e" : PALETTE.rule}`,
+      borderRight: `1px solid ${hasSelection ? "#0f766e" : PALETTE.rule}`,
+      borderBottom: `1px solid ${hasSelection ? "#0f766e" : PALETTE.rule}`,
+      borderLeft: `3px solid ${color}`,
+      borderRadius: 4,
+      fontFamily: "'Inter', sans-serif",
+      overflow: "hidden",
+    }}>
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        style={{
+          width: "100%", textAlign: "left",
+          background: "transparent", border: "none",
+          padding: "10px 12px", cursor: "pointer",
+          display: "flex", flexDirection: "column", gap: 6,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+          <span style={{
+            fontSize: 9, fontFamily: "'JetBrains Mono', monospace",
+            color: PALETTE.textMute,
+          }}>
+            {expanded ? "▾" : "▸"}
+          </span>
+          <span style={{ flex: 1, fontSize: 12.5, fontWeight: 600, color: PALETTE.text, lineHeight: 1.3 }}>
+            {title}
+          </span>
+        </div>
         <div style={{
-          fontSize: 9, fontFamily: "'JetBrains Mono', monospace",
-          color: PALETTE.textMute, letterSpacing: "0.08em",
-          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          fontSize: 10, fontFamily: "'JetBrains Mono', monospace",
+          color: PALETTE.textDim, letterSpacing: "0.06em",
+          display: "flex", gap: 10, flexWrap: "wrap",
         }}>
-          {path}{line ? `:${line}` : ""}
+          <span><span style={{ color: TASK_STATUS_COLOR.done, fontWeight: 700 }}>{c.done}</span>/{c.total} · {donePct}%</span>
+          {c.in_progress > 0 && <span style={{ color: TASK_STATUS_COLOR.in_progress }}>{c.in_progress} wip</span>}
+          {c.pending > 0 && <span>{c.pending} pending</span>}
+          {c.cancelled > 0 && <span style={{ color: TASK_STATUS_COLOR.cancelled }}>{c.cancelled} cancelled</span>}
+        </div>
+      </button>
+      {expanded && (
+        <div style={{
+          borderTop: `1px solid ${PALETTE.rule}`,
+          padding: 8,
+          display: "flex", flexDirection: "column", gap: 6,
+          maxHeight: 240, overflowY: "auto",
+          background: PALETTE.panel,
+        }}>
+          {section.tasks.map((t) => (
+            <button
+              key={t.id}
+              onClick={(e) => { e.stopPropagation(); onSelectNode(t.id); }}
+              title={t.label}
+              style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "5px 8px", textAlign: "left",
+                background: t.id === selectedNodeId ? "#ccfbf1" : "transparent",
+                border: "none", borderRadius: 3,
+                cursor: "pointer",
+                fontFamily: "'Inter', sans-serif",
+              }}
+            >
+              <StatusIcon status={taskStatus(t)} />
+              <span style={{
+                fontSize: 11.5, color: PALETTE.text, lineHeight: 1.3,
+                textDecoration: (taskStatus(t) === "done" || taskStatus(t) === "cancelled") ? "line-through" : "none",
+                opacity: (taskStatus(t) === "done" || taskStatus(t) === "cancelled") ? 0.65 : 1,
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}>
+                {t.label}
+              </span>
+            </button>
+          ))}
         </div>
       )}
-    </button>
+    </div>
   );
 }
+

@@ -32,11 +32,12 @@ from typing import Any, Iterable
 
 UIPLAN_LAYER = "uiplan"
 BUNDLE_FILES = ("spec.md", "plan.md", "tasks.md")
-PLAN_GLOBS = (
-    ".cursor/plans/*.md",
-    "docs/superpowers/plans/*.md",
-    "docs/plans/*.md",
-)
+# A UiPlan bundle is a *directory* containing one of the canonical bundle
+# files. We deliberately do NOT treat arbitrary `.md` files in plan
+# directories as bundles — those are documentation pages and pollute the
+# rail. If a project ships a single-file plan, the convention is to drop
+# it in a directory (e.g. `docs/plans/foo/plan.md`), not loose at the root.
+PLAN_GLOBS: tuple[str, ...] = ()
 # Directories which, if they contain any of the bundle files, are treated as
 # nested UiPlan bundles. The presence of `.meta.yaml` is preferred (provides a
 # slug) but not required.

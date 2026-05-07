@@ -221,7 +221,8 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas({
   useEffect(() => {
     if (!containerRef.current) return;
     const ro = new ResizeObserver(() => {
-      const r = containerRef.current!.getBoundingClientRect();
+      if (!containerRef.current) return;
+      const r = containerRef.current.getBoundingClientRect();
       setSize({ w: r.width, h: r.height });
     });
     ro.observe(containerRef.current);
@@ -263,7 +264,8 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas({
 
   const onWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
-    const rect = containerRef.current!.getBoundingClientRect();
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
     const factor = e.deltaY < 0 ? 1.12 : 0.89;
@@ -365,11 +367,13 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas({
          onClick={(e) => { e.stopPropagation(); onSelectEdge(edge.id); }}
          onMouseEnter={(e) => {
            onHoverEdge(edge.id);
-           const rect = containerRef.current!.getBoundingClientRect();
+           if (!containerRef.current) return;
+           const rect = containerRef.current.getBoundingClientRect();
            setEdgeTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, edge });
          }}
          onMouseMove={(e) => {
-           const rect = containerRef.current!.getBoundingClientRect();
+           if (!containerRef.current) return;
+           const rect = containerRef.current.getBoundingClientRect();
            setEdgeTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, edge });
          }}
          onMouseLeave={() => { onHoverEdge(null); setEdgeTooltip(null); }}>
