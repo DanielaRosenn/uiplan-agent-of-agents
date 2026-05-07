@@ -8,7 +8,17 @@ export type LayerKey =
   | "orchestrator"
   | "test"
   | "external"
-  | "skills";
+  | "skills"
+  | "uiplan";
+
+/** Aggregate progress for a UiPlan tasks.md file or bundle. */
+export interface TaskSummary {
+  total: number;
+  done: number;
+  pending: number;
+  in_progress: number;
+  cancelled: number;
+}
 
 export type EdgeKind =
   | "import"
@@ -127,6 +137,8 @@ export interface ProjectNodeBase {
   pdd_anchor?: PddAnchor;
   /** Business numbers. */
   business_meta?: BusinessMeta;
+  /** Aggregate task progress (only on UiPlan tasks.md / bundle nodes). */
+  task_summary?: TaskSummary;
 }
 
 export interface ProjectChildNode extends ProjectNodeBase {

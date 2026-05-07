@@ -35,6 +35,7 @@ import {
 } from "../projectGraph/api";
 import { Section, SyntaxHighlight } from "./primitives";
 import ProjectOverview from "./ProjectOverview";
+import { MarkdownView, UiplanProgressPanel } from "./UiplanInspector";
 
 type InspectorTab = "overview" | "code" | "knowledge" | "links";
 
@@ -741,7 +742,11 @@ export default function Inspector({
   onSelectNode, onSelectEdge, onDrillDown,
 }: InspectorProps) {
   const [tab, setTab] = useState<InspectorTab>("overview");
-  useEffect(() => { setTab("overview"); }, [selectedNodeId]);
+  useEffect(() => {
+    const sel = selectedNodeId ? graph.nodes.find((n) => n.id === selectedNodeId) : null;
+    if (sel?.kind === "uiplan_doc") setTab("code");
+    else setTab("overview");
+  }, [selectedNodeId, graph.nodes]);
 
   const node = selectedNodeId ? graph.nodes.find((n) => n.id === selectedNodeId) ?? null : null;
   const edge = selectedEdgeId ? graph.edges.find((e) => e.id === selectedEdgeId) ?? null : null;
@@ -884,6 +889,9 @@ export default function Inspector({
   const statusColor = STATUS_COLOR[status];
   const isSkill = node.kind === "skill";
   const skillId = isSkill ? skillIdFromNode(node) : "";
+  const isUiplanFile = node.kind === "uiplan_doc" || node.kind === "uiplan_tasks";
+  const isUiplanBundle = node.kind === "uiplan_bundle";
+  const uiplanBody = isUiplanFile ? String(node.meta?.body ?? "") : "";
 
   return (
     <div style={{
@@ -960,8 +968,24 @@ export default function Inspector({
       </div>
 
       <div style={{ flex: 1, overflowY: "auto" }}>
-        {tab === "overview" && (isSkill ? <SkillOverviewTab node={node} detail={null} /> : <OverviewTab node={node} graph={graph} />)}
-        {tab === "code" && (isSkill ? <SkillBodyTab skillId={skillId} /> : <CodeTab node={node} />)}
+        {tab === "overview" && (
+          isUiplanBundle || node.kind === "uiplan_tasks"
+            ? <UiplanProgressPanel node={node} />
+            : isUiplanFile
+              ? <OverviewTab node={node} graph={graph} />
+              : isSkill
+                ? <SkillOverviewTab node={node} detail={null} />
+                : <OverviewTab node={node} graph={graph} />
+        )}
+        {tab === "code" && (
+          isUiplanFile
+            ? <div style={{ padding: 18 }}>{uiplanBody
+                ? <MarkdownView source={uiplanBody} />
+                : <CodeTab node={node} />}</div>
+            : isSkill
+              ? <SkillBodyTab skillId={skillId} />
+              : <CodeTab node={node} />
+        )}
         {tab === "knowledge" && (isSkill
           ? <SkillCoverageTab node={node} graph={graph} onSelectNode={onSelectNode as (id: string) => void} />
           : <KnowledgeTab node={node} worktreeId={worktreeId} />)}

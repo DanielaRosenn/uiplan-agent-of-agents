@@ -40,6 +40,7 @@ from app.explorer_skills import (
 )
 from app.library_service import search_library_context
 from app.schemas import LibraryContextItem
+from app.uiplan_bundles import collect_uiplan_nodes
 
 
 # Optional yaml — already a dependency, but importing here keeps the read of
@@ -380,8 +381,11 @@ def get_project_graph(worktree: str = Query("repo-root")) -> ExplorerGraphRespon
 
     nodes = _apply_annotations(index.nodes, annotations.get("nodes") or {})
     skill_nodes, skill_edges = aggregate_skill_graph_context(_repo_root(), nodes)
-    nodes = [*nodes, *skill_nodes]
-    edges = [*index.edges, *skill_edges]
+
+    uiplan = collect_uiplan_nodes(project_path)
+
+    nodes = [*nodes, *skill_nodes, *uiplan.nodes]
+    edges = [*index.edges, *skill_edges, *uiplan.edges]
     errors = [{"nodeId": w.split(":", 1)[0] if ":" in w else "indexer", "severity": "warn", "message": w}
               for w in index.warnings[:10]]
 
@@ -400,6 +404,7 @@ def get_project_graph(worktree: str = Query("repo-root")) -> ExplorerGraphRespon
             "config_source": config.source_path,
             "files_scanned": index.files_scanned,
             "skills_indexed": len(skill_nodes),
+            "uiplan_bundles": sum(1 for n in uiplan.nodes if n.get("kind") == "uiplan_bundle"),
         },
     )
 

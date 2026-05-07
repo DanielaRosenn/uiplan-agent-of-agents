@@ -1,6 +1,7 @@
 import {
   Bot,
   Box,
+  CheckSquare,
   Cloud,
   Code2,
   Cog,
@@ -11,7 +12,9 @@ import {
   GitBranch,
   Layers,
   LayoutGrid,
+  ListChecks,
   ListTree,
+  Notebook,
   Server,
   ShieldCheck,
   Sparkles,
@@ -61,6 +64,7 @@ export const LAYERS: Record<LayerKey, LayerInfo> = {
   test:         { name: "test",         color: "#65a30d", soft: "#ecfccb", short: "TST", Icon: TestTube },
   external:     { name: "external",     color: "#dc2626", soft: "#fee2e2", short: "EXT", Icon: Cloud },
   skills:       { name: "skills",       color: "#8b5cf6", soft: "#f3e8ff", short: "SKL", Icon: Sparkles },
+  uiplan:       { name: "uiplan",       color: "#0f766e", soft: "#ccfbf1", short: "PLN", Icon: Notebook },
 };
 
 export function getLayer(layer: string | undefined): LayerInfo {
@@ -90,6 +94,10 @@ export const KIND_ICONS: Record<string, IconCmp> = {
   test_set: TestTube,
   doc: FileText,
   skill: Sparkles,
+  uiplan_bundle: Notebook,
+  uiplan_doc: FileText,
+  uiplan_tasks: ListChecks,
+  uiplan_task: CheckSquare,
 };
 
 export interface EdgeStyle {
