@@ -401,6 +401,20 @@ function countPhases(bundle: ProjectNode): number {
   return 0;
 }
 
+const BUNDLE_DOC_NAMES = new Set(["spec.md", "plan.md", "tasks.md"]);
+
+function isImplementationFile(path: string): boolean {
+  const norm = path.replace(/\\/g, "/");
+  if (/\/skills\//i.test(norm)) return false;
+  if (/SKILL\.md$/i.test(norm)) return false;
+  if (/\.meta\.ya?ml$/i.test(norm)) return false;
+  if (/\.md$/i.test(norm)) {
+    const base = norm.split("/").pop()?.toLowerCase() ?? "";
+    if (!BUNDLE_DOC_NAMES.has(base)) return false;
+  }
+  return true;
+}
+
 function collectFilesTouched(bundle: ProjectNode, tasks: ProjectNode[]): string[] {
   const set = new Set<string>();
   for (const t of tasks) {
@@ -422,7 +436,7 @@ function collectFilesTouched(bundle: ProjectNode, tasks: ProjectNode[]): string[
     let m: RegExpExecArray | null;
     while ((m = FILE_REF_RE.exec(body)) !== null) set.add(m[1]);
   }
-  return Array.from(set).sort();
+  return Array.from(set).filter(isImplementationFile).sort();
 }
 
 /** Return the id of a graph node whose code.path or id ends with `path`. */

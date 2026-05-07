@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, Loader2, RefreshCw } from "lucide-react";
+import { ChevronDown, Loader2, RefreshCw, Sparkles } from "lucide-react";
 
 import Canvas, { type CanvasHandle } from "./components/Canvas";
 import UiplanCanvas from "./components/UiplanCanvas";
+import SkillsCanvas from "./components/SkillsCanvas";
 import LeftRail from "./components/LeftRail";
 import Inspector from "./components/Inspector";
 import Breadcrumb from "./components/Breadcrumb";
@@ -51,6 +52,8 @@ export default function App() {
   const [showSkillCoverage, setShowSkillCoverage] = useState(false);
   const [query, setQuery] = useState("");
   const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
+  const [skillsView, setSkillsView] = useState(false);
+  const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
 
   const canvasRef = useRef<CanvasHandle | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -99,6 +102,8 @@ export default function App() {
     setSelectedEdgeId(null);
     setHovered(null);
     setHoveredEdgeId(null);
+    setSelectedSkillId(null);
+    setSkillsView(false);
   }, []);
 
   useEffect(() => {
@@ -250,7 +255,10 @@ export default function App() {
   // Selecting a node clears edge selection and vice-versa
   const handleSelectNode = (id: string | null) => {
     setSelectedNodeId(id);
-    if (id) setSelectedEdgeId(null);
+    if (id) {
+      setSelectedEdgeId(null);
+      setSelectedSkillId(null);
+    }
   };
   const selectNodeAndCenter = (id: string) => {
     handleSelectNode(id);
@@ -303,6 +311,25 @@ export default function App() {
       return next;
     });
   };
+
+  const skillCount = useMemo(
+    () => rootGraph.nodes.filter((n) => n.kind === "skill").length,
+    [rootGraph.nodes],
+  );
+
+  const onJumpToSkillNode = useCallback((nodeId: string) => {
+    setSelectedSkillId(null);
+    setSkillsView(false);
+    setTrail([]);
+    setSelectedNodeId(nodeId);
+    setSelectedEdgeId(null);
+    setTimeout(() => canvasRef.current?.centerOn(nodeId), 0);
+  }, []);
+
+  const handleSelectSkill = useCallback((id: string | null) => {
+    setSelectedSkillId(id);
+    if (id) setSelectedNodeId(null);
+  }, []);
 
   const activeWorktree = worktrees.find((w) => w.id === worktreeId);
   const meta = rootGraph.meta;
@@ -388,6 +415,38 @@ export default function App() {
           REFRESH
         </button>
 
+        <button
+          onClick={() => {
+            setSkillsView((v) => {
+              const next = !v;
+              if (next) setSelectedSkillId(null);
+              return next;
+            });
+          }}
+          title={skillsView ? "Back to graph" : "Open skills view"}
+          style={{
+            background: skillsView ? "#ccfbf1" : PALETTE.bg,
+            border: `1px solid ${skillsView ? "#0f766e" : PALETTE.rule}`,
+            borderRadius: 4, padding: "6px 10px",
+            cursor: "pointer",
+            color: skillsView ? "#0f766e" : PALETTE.text,
+            display: "flex", alignItems: "center", gap: 6,
+            fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 10, letterSpacing: "0.15em", fontWeight: 700,
+          }}
+        >
+          <Sparkles size={11} />
+          SKILLS
+          <span style={{
+            background: skillsView ? "#0f766e22" : PALETTE.panel,
+            color: skillsView ? "#0f766e" : PALETTE.textDim,
+            padding: "1px 6px", borderRadius: 3,
+            fontSize: 9.5, letterSpacing: "0.05em",
+          }}>
+            {String(skillCount).padStart(2, "0")}
+          </span>
+        </button>
+
         <div style={{ flex: 1 }} />
 
         {/* Real metadata strip */}
@@ -441,10 +500,17 @@ export default function App() {
           {graphSource === "loading" && (
             <LoadingOverlay />
           )}
-          {graphSource !== "loading" && !activeBundle && layeredGraph.nodes.length === 0 && (
+          {graphSource !== "loading" && !skillsView && !activeBundle && layeredGraph.nodes.length === 0 && (
             <EmptyState worktreeId={worktreeId} onRefresh={() => loadGraph(worktreeId)} />
           )}
-          {activeBundle && (
+          {skillsView && (
+            <SkillsCanvas
+              graph={rootGraph}
+              selectedSkillId={selectedSkillId}
+              onSelectSkill={handleSelectSkill}
+            />
+          )}
+          {!skillsView && activeBundle && (
             <UiplanCanvas
               key={activeBundle.id}
               bundle={activeBundle}
@@ -452,7 +518,7 @@ export default function App() {
               onSelectNode={(id) => setSelectedNodeId(id)}
             />
           )}
-          {!activeBundle && layeredGraph.nodes.length > 0 && (
+          {!skillsView && !activeBundle && layeredGraph.nodes.length > 0 && (
             <Canvas
               ref={canvasRef}
               key={trail.map((t) => t.id).join("/") || worktreeId}
@@ -495,11 +561,14 @@ export default function App() {
           rootGraph={rootGraph}
           selectedNodeId={selectedNodeId}
           selectedEdgeId={selectedEdgeId}
+          selectedSkillId={selectedSkillId}
           worktreeId={worktreeId}
           collapsed={inspectorCollapsed}
           onToggleCollapsed={() => setInspectorCollapsed((c) => !c)}
           onSelectNode={handleSelectNode}
           onSelectEdge={handleSelectEdge}
+          onSelectSkill={handleSelectSkill}
+          onJumpToSkillNode={onJumpToSkillNode}
           onDrillDown={drillInto}
           onJumpToFile={onJumpToFile}
         />

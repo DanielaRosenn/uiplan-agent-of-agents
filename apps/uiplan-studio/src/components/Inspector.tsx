@@ -36,6 +36,7 @@ import {
 import { Section, SyntaxHighlight } from "./primitives";
 import ProjectOverview from "./ProjectOverview";
 import { MarkdownView, UiplanProgressPanel, UiplanTaskPanel } from "./UiplanInspector";
+import SkillStoryPanel from "./SkillStoryPanel";
 
 type InspectorTab = "overview" | "code" | "knowledge" | "links";
 
@@ -154,7 +155,7 @@ function CitationItem({ c }: { c: DocCitation }) {
   );
 }
 
-function SkillItem({ s }: { s: SkillRef }) {
+function SkillItem({ s, onOpenStory }: { s: SkillRef; onOpenStory?: (skillNodeId: string) => void }) {
   return (
     <div style={{
       padding: "10px 12px",
@@ -170,6 +171,19 @@ function SkillItem({ s }: { s: SkillRef }) {
       }}>
         <Sparkles size={11} color="#7c3aed" />
         <span style={{ color: "#7c3aed", fontWeight: 700 }}>{s.id}</span>
+        {onOpenStory && (
+          <button
+            onClick={() => onOpenStory(`skill:${s.id}`)}
+            style={{
+              marginLeft: "auto", background: "transparent", border: "none",
+              color: "#0f766e", cursor: "pointer", padding: 0,
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 9.5, fontWeight: 700, letterSpacing: "0.12em",
+            }}
+          >
+            OPEN STORY →
+          </button>
+        )}
       </div>
       <div style={{ fontSize: 11, color: PALETTE.textDim, marginBottom: 4, fontFamily: "'JetBrains Mono', monospace" }}>
         {s.path}
@@ -568,7 +582,11 @@ function CodeTab({ node }: { node: ProjectNode }) {
   );
 }
 
-function KnowledgeTab({ node, worktreeId }: { node: ProjectNode; worktreeId: string }) {
+function KnowledgeTab({ node, worktreeId, onOpenStory }: {
+  node: ProjectNode;
+  worktreeId: string;
+  onOpenStory?: (skillNodeId: string) => void;
+}) {
   const inlineCitations = node.citations ?? [];
   const inlineSkills = node.skills ?? [];
 
@@ -630,7 +648,7 @@ function KnowledgeTab({ node, worktreeId }: { node: ProjectNode; worktreeId: str
               ∅ no skills referenced for this node
             </div>
           ) : (
-            allSkills.map((s, i) => <SkillItem key={`${s.id}-${i}`} s={s} />)
+            allSkills.map((s, i) => <SkillItem key={`${s.id}-${i}`} s={s} onOpenStory={onOpenStory} />)
           )}
         </div>
       </div>
@@ -729,19 +747,23 @@ interface InspectorProps {
   rootGraph?: ProjectGraph;
   selectedNodeId: string | null;
   selectedEdgeId: string | null;
+  selectedSkillId?: string | null;
   worktreeId: string;
   collapsed: boolean;
   onToggleCollapsed: () => void;
   onSelectNode: (id: string | null) => void;
   onSelectEdge: (id: string | null) => void;
+  onSelectSkill?: (id: string | null) => void;
+  onJumpToSkillNode?: (nodeId: string) => void;
   onDrillDown: (node: ProjectNode) => void;
   onJumpToFile?: (path: string) => void;
 }
 
 export default function Inspector({
-  graph, rootGraph, selectedNodeId, selectedEdgeId, worktreeId,
+  graph, rootGraph, selectedNodeId, selectedEdgeId, selectedSkillId, worktreeId,
   collapsed, onToggleCollapsed,
-  onSelectNode, onSelectEdge, onDrillDown, onJumpToFile,
+  onSelectNode, onSelectEdge, onSelectSkill, onJumpToSkillNode,
+  onDrillDown, onJumpToFile,
 }: InspectorProps) {
   const [tab, setTab] = useState<InspectorTab>("overview");
   useEffect(() => {
@@ -776,6 +798,23 @@ export default function Inspector({
         </button>
       </div>
     );
+  }
+
+  // Skill story panel — independent selection mode
+  if (selectedSkillId && rootGraph) {
+    const skillNode = findNodeRecursive(rootGraph.nodes, selectedSkillId);
+    if (skillNode && skillNode.kind === "skill") {
+      return (
+        <SkillStoryPanel
+          skillNode={skillNode}
+          rootGraph={rootGraph}
+          onClose={() => onSelectSkill?.(null)}
+          onJumpToNode={(id) => {
+            onJumpToSkillNode?.(id);
+          }}
+        />
+      );
+    }
   }
 
   // Edge inspector (no node selected, but an edge is)
@@ -1000,7 +1039,7 @@ export default function Inspector({
         )}
         {tab === "knowledge" && (isSkill
           ? <SkillCoverageTab node={node} graph={graph} onSelectNode={onSelectNode as (id: string) => void} />
-          : <KnowledgeTab node={node} worktreeId={worktreeId} />)}
+          : <KnowledgeTab node={node} worktreeId={worktreeId} onOpenStory={onSelectSkill ? (id) => onSelectSkill(id) : undefined} />)}
         {tab === "links" && (
           <ConnectionsTab node={node} graph={graph} onSelectNode={onSelectNode} onSelectEdge={onSelectEdge} />
         )}
