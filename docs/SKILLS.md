@@ -1,12 +1,151 @@
-# Skill visual guide
+# Skills: layout and visual guide
+
+Single home for how the skill catalog is laid out on disk and how
+skills, MCP tools, Cursor, Claude/CLI, UiPlan, and the library work
+together at runtime.
+
+---
+
+## Part 1 - Skill folder layout
+
+This repository exposes the same skill catalog to **Cursor** and to the
+**Python CLI / MCP server** using different mechanisms. Only one
+directory holds the official catalog; the rest are overlays or runtime
+code.
+
+### Official catalog (git submodule)
+
+- **`skills/`** - Root of the [UiPath/skills](https://github.com/UiPath/skills)
+  submodule. Do not treat it as "our" Python package; it ships plugin
+  metadata (`.claude-plugin/`), hooks, agents, and the nested catalog.
+- **`skills/skills/<name>/`** - Actual `SKILL.md` trees for each UiPath
+  skill. This is the **single copy** of upstream skills in the repo.
+
+### Cursor discovery (generated view, not source of truth)
+
+- **`.cursor/skills`** - Cursor indexes skills here. It should be
+  treated as a generated Cursor view of `skills/skills/` plus approved
+  Cursor-only overlays, not as the authoritative catalog.
+- In this repo `ops/scripts/setup-cursor.*` builds a physical view from
+  `skills/skills/` plus `extensions/skills/`. That keeps Cursor and the
+  Python loader aligned while preserving approved overlays such as
+  `uiplan`, `writing-uipath-plans`, `mermaid-diagram-builder`, and the
+  legacy `uipath-servo` redirect.
+- After every `git pull` or submodule advance, run
+  **`uipath-claude doctor`**. It warns when `.cursor/skills` is missing
+  upstream skills or contains unmanaged extras.
+
+### Monitoring upstream (already wired)
+
+- **Canonical content** lives only in the **`skills/` git submodule**
+  (`skills/skills/<name>/`). Commit hash is pinned for reproducibility;
+  see `.uipath/skills-approved.sha` and
+  `python -m uipath_claude.skills.submodule_guard`.
+- **SessionStart hook** (repo root `.cursor/hooks.json`) runs
+  **`.cursor/hooks/check-skills-update.ps1`**: at most every few days it
+  checks whether the submodule is behind `origin/main` and prints a
+  **banner** suggesting `/update-skills` or
+  `ops/scripts/update-skills.ps1`. It does not auto-pull.
+- **`uipath-claude doctor`** checks Cursor skill alignment against
+  `skills/skills/` and the approved overlay list in
+  `uipath_claude.capabilities`.
+- **Claude Code / `uip` session** uses the submodule's
+  **`skills/hooks/hooks.json`** (e.g. `ensure-uip.sh`) for npm-based
+  tooling, not for copying skill markdown into `.cursor/`.
+
+### Knowledge library (not under `.cursor/`)
+
+- **`data/library/`** - Curated **content**: `catalog.yaml`,
+  `books/<id>/...` markdown. MCP tools `uipath_library_*` read from
+  here by default (`UIPATH_CLAUDE_LIBRARY` overrides the root). This is
+  **not** the Cursor config folder; it is normal repo data.
+- **`framework/uipath_claude/library/`** - **Python code** for that
+  feature (`catalog.py`, `harvest.py`, `reader.py`, ...). It lives
+  under `framework/` with the rest of `uipath_claude` because the MCP
+  server and CLI import it as `uipath_claude.library`. Same pattern as
+  `framework/uipath_claude/skills/` (code) vs `skills/` (markdown
+  submodule).
+
+### Python skill engine (not skill content)
+
+- **`framework/uipath_claude/skills/`** - Code: `registry.py`,
+  `loader.py`, `sources.py`, `insights.py`, etc. This loads and merges
+  skill roots; it is **not** a folder of `SKILL.md` files.
+
+### `extensions/` at repo root (purpose and structure)
+
+The **`extensions/`** directory groups **git-tracked, team-owned
+material** that is not the UiPath submodule and not Cursor-only config:
+
+| Path | Role |
+| --- | --- |
+| **`extensions/skills/`** | Team skill overlays. Loaded by `build_skill_sources` **after** user/project paths and **before** `skills/skills/`, so same skill name can override upstream. See `extensions/skills/README.md`. |
+| **`extensions/skill-insights/`** | Curated PR-reviewed insight JSON (vs raw captures under `.uipath-claude/skill-insights/`). See `extensions/skill-insights/README.md` and `framework/uipath_claude/skills/insights.py`. |
+| **`extensions/uipath-rule-bundle/`** | A **portable drop-in kit** (CLAUDE.md, `.cursor/rules`, docs, hooks, optional zip) for other UiPath repos - not consumed as Python imports by this builder. Duplicate of patterns at repo root by design. |
+
+**Should it merge into another folder?** Generally **no**. Moving
+overlays under `.cursor/` would mix **editor config** with **versioned
+team extensions**; moving them into `skills/` would violate the
+submodule boundary. The layout matches `sources.py`
+(`project_root / "extensions" / "skills"`). See also
+[`extensions/README.md`](../extensions/README.md) for a one-page index
+of the three subfolders.
+
+### Team and local overlays
+
+- **`extensions/skills/`** - Optional team-authored skills (may be
+  empty; see `extensions/skills/README.md`).
+- **`.uipath-claude/skills/`** - Optional per-checkout overrides
+  (often gitignored; see `uipath_claude/skills/sources.py`).
+- **`~/.cursor/skills/`** - User-wide overrides on the machine running
+  the agent.
+
+### Merge order (first wins on name collision)
+
+Implemented in `uipath_claude.skills.sources.build_skill_sources`:
+
+1. Paths from `.uipath-claude/config.yaml` `skills.sources` (if
+   present), each as `project` origin
+2. `~/.cursor/skills` (`user`)
+3. `.uipath-claude/skills` (`project`)
+4. `extensions/skills` (`extensions`)
+5. `skills/skills` (`uipath-submodule`)
+6. Optional template paths when `UIPATH_INCLUDE_TEMPLATE_SKILLS=1`
+
+### Skill insights (separate from skill markdown)
+
+- **`.uipath-claude/skill-insights/`** - Auto-captured or
+  machine-local insight JSON.
+- **`extensions/skill-insights/`** - Curated team insights promoted
+  via PR (see `extensions/skill-insights/README.md`).
+
+### MCP vs LangGraph "tools"
+
+- **`mcp_server/tools/`** - MCP tool handlers wired to `SkillRegistry`
+  and related classes.
+- **`uipath_claude/tools/`** - LangChain/LangGraph tool wrappers for
+  the same product features.
+
+Naming overlap (`skill_tools`, `doc_tools`) reflects two transport
+surfaces, not two copies of the skill files on disk.
+
+---
+
+## Part 2 - Skill visual guide
 
 ![UiPath Builder Agent logo](assets/builder-agent-logo.svg)
 
-This guide is the visual map for how skills, MCP tools, Cursor, Claude/CLI, UiPlan, and the library work together. Use it when you want to understand which skill should wake up, what it is allowed to do, and how the result gets verified.
+This part is the visual map for how skills, MCP tools, Cursor,
+Claude/CLI, UiPlan, and the library work together. Use it when you want
+to understand which skill should wake up, what it is allowed to do, and
+how the result gets verified.
 
-## The Skill Runtime Loop
+### The skill runtime loop
 
-Every skill follows the same operating rhythm: route the request, load the smallest useful skill context, ground facts in project/library/docs, act through tools, verify, then preserve durable lessons.
+Every skill follows the same operating rhythm: route the request, load
+the smallest useful skill context, ground facts in
+project/library/docs, act through tools, verify, then preserve durable
+lessons.
 
 ```mermaid
 flowchart LR
@@ -24,7 +163,7 @@ flowchart LR
     Proposal --> Handoff
 ```
 
-## Skill Families
+### Skill families
 
 ```mermaid
 flowchart TB
@@ -61,9 +200,9 @@ flowchart TB
     Quality --> Feedback[uipath-feedback]
 ```
 
-## What Each Skill Does
+### What each skill does
 
-| Skill | When It Should Trigger | First Move | Output |
+| Skill | When it should trigger | First move | Output |
 | --- | --- | --- | --- |
 | `uipath-rpa` | Build, edit, validate, or explain modern UiPath workflow projects. | Read `project.json` / XAML, identify packages and target runtime. | XAML/coded workflow edits plus validation guidance. |
 | `uipath-rpa-legacy` | Maintain older .NET Framework / classic workflow projects. | Check framework/runtime assumptions before changing activities. | Legacy-safe XAML edits and migration notes. |
@@ -83,20 +222,22 @@ flowchart TB
 | `uipath-diagnostics` | Broken jobs, selectors, auth, runtime failures. | Preserve exact error and reproduction context. | Root-cause path and fix plan. |
 | `uipath-feedback` | Product or skill feedback to UiPath. | Collect product area, reproduction, expected/actual, impact. | Structured feedback payload. |
 
-## Cursor Helper Skills
+### Cursor helper skills
 
-Some Cursor-visible skills are local helper or compatibility skills rather than UiPath product-domain skills.
+Some Cursor-visible skills are local helper or compatibility skills
+rather than UiPath product-domain skills.
 
-| Skill | Role | How It Should Behave |
+| Skill | Role | How it should behave |
 | --- | --- | --- |
 | `uiplan` | Canonical planning helper. | Creates and reviews `spec.md`, `plan.md`, and `tasks.md` bundles before implementation (slash: `/uiplan-*`, dispatcher `/uiplan`). |
 | `writing-uipath-plans` | Plan-writing helper. | Helps structure implementation plans and review criteria. |
 | `mermaid-diagram-builder` | Diagram helper. | Produces Mermaid diagrams that are readable in GitHub and strict renderers. |
 | `uipath-servo` | Legacy redirect only. | Points users to `uipath-interact`; do not use it as a canonical skill in new docs/prompts. |
 
-## Cursor Flow
+### Cursor flow
 
-Cursor is strongest when skills provide judgment and MCP tools verify facts.
+Cursor is strongest when skills provide judgment and MCP tools verify
+facts.
 
 ```mermaid
 flowchart LR
@@ -116,16 +257,17 @@ flowchart LR
 
 Cursor best practice:
 
-| Prompt Needs | Add This |
+| Prompt needs | Add this |
 | --- | --- |
 | Build/edit workflow | Project path, target file, runtime, packages, validation expectation. |
 | Live UI inspection | Say `uipath-interact`, name the running app/browser, and forbid file edits if observation only. |
 | Platform/deploy | Tenant/folder/environment, whether publish/deploy is allowed, and approval boundary. |
 | Q&A | Ask to search the library/docs and cite the result. |
 
-## Claude / CLI Flow
+### Claude / CLI flow
 
-Claude/terminal is strongest for bounded agent sessions, slash commands, and repeatable verification.
+Claude/terminal is strongest for bounded agent sessions, slash commands,
+and repeatable verification.
 
 ```mermaid
 flowchart LR
@@ -145,7 +287,7 @@ flowchart LR
 
 Claude best practice:
 
-| Session Moment | Best Move |
+| Session moment | Best move |
 | --- | --- |
 | Before work | `uv run uipath-claude doctor`. |
 | Before risky edits | Cursor `/uiplan-full "<title>"` or `/pdd`; accepted UiPlans build with `/uiplan-implement <slug>`. |
@@ -153,7 +295,7 @@ Claude best practice:
 | Before handoff | Ask which command/tool proved validation. |
 | After a durable fix | Stage a library proposal. |
 
-## MCP Tool Families
+### MCP tool families
 
 ```mermaid
 flowchart TB
@@ -186,7 +328,7 @@ flowchart TB
     MemoryTools --> M1[load / save / append]
 ```
 
-## End-To-End Example
+### End-to-end example
 
 ```mermaid
 sequenceDiagram
@@ -209,7 +351,7 @@ sequenceDiagram
     C-->>U: handoff and next steps
 ```
 
-## Visual Legend
+### Visual legend
 
 | Shape | Meaning |
 | --- | --- |

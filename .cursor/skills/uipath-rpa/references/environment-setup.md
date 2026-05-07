@@ -56,7 +56,7 @@ uip rpa close-project --project-dir "{projectRoot}" --output json
 ```
 
 - Run **after** the last `get-errors` / `run-file` / manual check for that session, and **before** switching to another project, running pack/analyze that needs an exclusive lock, or ending the turn if no further edits are planned.
-- Keeps the project database unlocked (avoids “already opened in another Studio instance”) and reduces leftover Studio instances. For full-process cleanup after heavy tests, still follow `docs/Testing_Guide.md`.
+- Keeps the project database unlocked (avoids “already opened in another Studio instance”) and reduces leftover Studio instances. For full-process cleanup after heavy tests, still follow `docs/TESTING.md`.
 
 If `uip rpa build` reports that the project is already open in another Studio
 instance, close the project with the command above and rerun the build. Do not

@@ -941,7 +941,7 @@ exercised.
 
 This scenario assumes the overlay at
 `extensions/skills/uipath-planner/SKILL.md` is active (it wins over the
-submodule per [docs/SKILL_LAYOUT.md](SKILL_LAYOUT.md) merge order) and the
+submodule per [docs/SKILLS.md](SKILLS.md) merge order) and the
 updated `BA_SYSTEM_PROMPT` in
 [uipath_claude/query/ba_agent.py](../uipath_claude/query/ba_agent.py) is in
 use.

@@ -58,7 +58,6 @@ export default function App() {
     let cancelled = false;
     loadWorktrees().then((res) => {
       if (cancelled) return;
-      // Deduplicate by id and inject the URL-supplied worktree if it's not in the list.
       const seen = new Set<string>();
       const items: Worktree[] = [];
       for (const w of res.items) {
@@ -71,6 +70,16 @@ export default function App() {
       }
       setWorktrees(items);
       setWorktreesLoading(false);
+
+      // If we're sitting on a sample fixture and the API returned real
+      // worktrees, auto-switch to the first real one so we show live data.
+      const SAMPLE_IDS = new Set(["demo", "solution", "empty"]);
+      if (res.source === "api" && SAMPLE_IDS.has(worktreeId)) {
+        const firstReal = items.find((w) => !SAMPLE_IDS.has(w.id));
+        if (firstReal) {
+          setWorktreeId(firstReal.id);
+        }
+      }
     });
     return () => { cancelled = true; };
   }, [worktreeId]);

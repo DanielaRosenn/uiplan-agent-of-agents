@@ -99,7 +99,7 @@ If an assistant or script **opens** a project in Studio Desktop (`uip rpa open-p
 uip rpa close-project --project-dir "<projectRoot>" --output json
 ```
 
-This releases project locks (avoids “already opened in another Studio instance”) and pairs with broader cleanup when needed (`docs/Testing_Guide.md`). See `.cursor/skills/uipath-rpa/references/environment-setup.md` Step 0.3.
+This releases project locks (avoids “already opened in another Studio instance”) and pairs with broader cleanup when needed (`docs/TESTING.md`). See `.cursor/skills/uipath-rpa/references/environment-setup.md` Step 0.3.
 
 ### AI-assistant boundaries for XAML {#xaml-ai-edits}
 

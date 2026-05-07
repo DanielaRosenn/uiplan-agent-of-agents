@@ -24,10 +24,8 @@ Curated entry points for this template. Old material is preserved under
 | Slash commands | [`SLASH_COMMANDS.md`](SLASH_COMMANDS.md) |
 | MCP tool catalog (generated) | [`MCP_TOOLS.md`](MCP_TOOLS.md) |
 | Tools the agent can call | [`TOOLS.md`](TOOLS.md) |
-| Skill layout | [`SKILL_LAYOUT.md`](SKILL_LAYOUT.md) |
-| Skill visual guide | [`SKILL_VISUAL_GUIDE.md`](SKILL_VISUAL_GUIDE.md) |
-| Library authoring | [`LIBRARY_AUTHORING.md`](LIBRARY_AUTHORING.md) |
-| Library learning loop | [`LIBRARY_LEARNING.md`](LIBRARY_LEARNING.md) |
+| Skills (layout + visual guide) | [`SKILLS.md`](SKILLS.md) |
+| Library (authoring + learning loop) | [`LIBRARY.md`](LIBRARY.md) |
 | PDD/SDD/ADD lifecycle | [`PDD_LIFECYCLE.md`](PDD_LIFECYCLE.md) |
 | Planning framework | [`PLANNING_FRAMEWORK.md`](PLANNING_FRAMEWORK.md) |
 | Install reference | [`INSTALL.md`](INSTALL.md) |
@@ -38,9 +36,8 @@ Curated entry points for this template. Old material is preserved under
 
 | Topic | File |
 |---|---|
-| Testing how-to | [`Testing_Guide.md`](Testing_Guide.md) |
+| Testing (layout + commands + Studio cleanup) | [`TESTING.md`](TESTING.md) |
 | Smoke tests | [`SMOKE_TESTS.md`](SMOKE_TESTS.md) |
-| Test layout | [`TESTING.md`](TESTING.md) |
 | Manual eval (legacy) | [`legacy/MANUAL_EVAL_AND_QA.md`](legacy/MANUAL_EVAL_AND_QA.md) |
 | Evaluation harness | [`evaluations/README.md`](evaluations/README.md) |
 

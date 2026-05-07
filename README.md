@@ -17,8 +17,8 @@ It works three ways:
 | **Cursor + MCP** | Best IDE experience: skills, validation, library lookup, UiPlan, tool calls | [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md) |
 | **CLI / Claude Code-style terminal** | Headless or terminal-first `uipath-claude` with slash commands | [docs/legacy/CLAUDE_USER_GUIDE.md](docs/legacy/CLAUDE_USER_GUIDE.md) |
 | **Pure Anthropic Claude Code** | Official `claude` CLI in the repo, skills as files, optional MCP; no `uipath-claude chat` | [docs/legacy/PURE_CLAUDE_CODE.md](docs/legacy/PURE_CLAUDE_CODE.md) |
-| **Visual skill map** | See how every skill family, MCP family, Cursor flow, and Claude flow fits together | [docs/SKILL_VISUAL_GUIDE.md](docs/SKILL_VISUAL_GUIDE.md) |
-| **Library + planning stack** | Grounded answers, reusable lessons, spec/plan/tasks before execution | [docs/LIBRARY_LEARNING.md](docs/LIBRARY_LEARNING.md), [docs/uiplan/README.md](docs/uiplan/README.md) |
+| **Visual skill map** | See how every skill family, MCP family, Cursor flow, and Claude flow fits together | [docs/SKILLS.md](docs/SKILLS.md) |
+| **Library + planning stack** | Grounded answers, reusable lessons, spec/plan/tasks before execution | [docs/LIBRARY.md](docs/LIBRARY.md), [docs/uiplan/README.md](docs/uiplan/README.md) |
 
 Hero terminal cast: source is [docs/assets/demo.tape](docs/assets/demo.tape); render `docs/assets/demo.gif` with [ops/scripts/record-demo.ps1](ops/scripts/record-demo.ps1) (see [docs/assets/README.md](docs/assets/README.md)).
 
@@ -328,7 +328,7 @@ bundle.
 | **Cursor MCP server** | UiPath workflow, plan, library, skill, answer, doc, and memory tools | [framework/mcp_server/](framework/mcp_server/), [docs/MCP_TOOLS.md](docs/MCP_TOOLS.md) |
 | **Cursor skills** | IDE-native playbooks and routing hints generated from upstream plus overlays | [.cursor/skills/](.cursor/skills/), [skills/skills/](skills/skills/), [extensions/skills/](extensions/skills/) |
 | **UiPlan** | `spec.md` + `plan.md` + `tasks.md` planning contract | [docs/uiplan/](docs/uiplan/), [templates/uiplan/](templates/uiplan/) |
-| **Library learning** | Reviewed lessons, citations, proposals, audit trail | [docs/LIBRARY_LEARNING.md](docs/LIBRARY_LEARNING.md), [data/library/](data/library/) |
+| **Library learning** | Reviewed lessons, citations, proposals, audit trail | [docs/LIBRARY.md](docs/LIBRARY.md), [data/library/](data/library/) |
 | **Operations scripts** | Cursor setup, Claude setup, MCP docs generation, skill updates | [ops/scripts/](ops/scripts/) |
 | **Capability contract** | Canonical CLI/Cursor/MCP surface and explicit Claude Code non-goals | [docs/CAPABILITY_CONTRACT.md](docs/CAPABILITY_CONTRACT.md) |
 
@@ -496,11 +496,11 @@ Full setup (UiPath CLI, Studio 26.2+, Orchestrator auth, AWS region overrides) l
 | Run full SDLC lifecycle | `/pdd` + [docs/PDD_LIFECYCLE.md](docs/PDD_LIFECYCLE.md) | BA -> SA -> ADD -> TDD -> Dev -> QA flow |
 | Work primarily in Cursor | [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md) | Skills + MCP tooling + quickstart path |
 | Work primarily in CLI (terminal / Claude Code) | [docs/legacy/CLAUDE_USER_GUIDE.md](docs/legacy/CLAUDE_USER_GUIDE.md) | Setup, hooks, slash-first workflow |
-| Understand how every skill works visually | [docs/SKILL_VISUAL_GUIDE.md](docs/SKILL_VISUAL_GUIDE.md) | Skill families, routing, Cursor flow, Claude flow, MCP families |
+| Understand how every skill works visually | [docs/SKILLS.md](docs/SKILLS.md) | Skill families, routing, Cursor flow, Claude flow, MCP families |
 | Learn the recommended day-to-day usage patterns | [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md#mcp-tools-advanced) + [docs/legacy/CLAUDE_USER_GUIDE.md](docs/legacy/CLAUDE_USER_GUIDE.md#best-practices-for-claude--terminal-work) | Cursor MCP playbooks, prompt shape, safety rules, CLI preflight, plans, validation |
 | CLI reference (commands, env, cookbook) | [docs/USER_GUIDE.md](docs/USER_GUIDE.md) | Deeper command and env documentation |
 | Understand supported Claude-Code-style parity | [docs/CAPABILITY_CONTRACT.md](docs/CAPABILITY_CONTRACT.md) | Canonical CLI/Cursor/MCP contract and non-goals |
-| Learn from accepted fixes and proposals | [docs/LIBRARY_LEARNING.md](docs/LIBRARY_LEARNING.md) | Operator workflow for proposal review and audit logs |
+| Learn from accepted fixes and proposals | [docs/LIBRARY.md](docs/LIBRARY.md) | Operator workflow for proposal review and audit logs |
 | Inspect available MCP tools | [docs/MCP_TOOLS.md](docs/MCP_TOOLS.md) | Generated catalog of Cursor-callable tools |
 | Validate functionality | [docs/TESTING.md](docs/TESTING.md) + [docs/SMOKE_TESTS.md](docs/SMOKE_TESTS.md) | Automated gates plus scenario smoke tests |
 
@@ -685,13 +685,13 @@ Deeper technical detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — runtime, executor, validator gate, pipeline
 - [docs/legacy/CLAUDE_USER_GUIDE.md](docs/legacy/CLAUDE_USER_GUIDE.md) — Claude / terminal setup and workflow
 - [docs/USER_GUIDE.md](docs/USER_GUIDE.md) — day-to-day CLI usage (commands, env vars)
-- [docs/SKILL_VISUAL_GUIDE.md](docs/SKILL_VISUAL_GUIDE.md) — visual guide to skill families, routing, Cursor, Claude, and MCP tools
+- [docs/SKILLS.md](docs/SKILLS.md) — visual guide to skill families, routing, Cursor, Claude, and MCP tools
 - [docs/PDD_LIFECYCLE.md](docs/PDD_LIFECYCLE.md) — full `/pdd` lifecycle: BA → SA → ADD → TDD → Dev → QA → publish → deploy
 - [docs/PLANNING_FRAMEWORK.md](docs/PLANNING_FRAMEWORK.md) — brainstorm-to-plan loop (`uipath_plan_*`, `UIPATH_PLAN_GATE`, draft vs published)
 - [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md) — using the skills inside Cursor
 - [docs/TOOLS.md](docs/TOOLS.md) — tool registry reference
-- [docs/SKILL_LAYOUT.md](docs/SKILL_LAYOUT.md) — skill layering and provenance
-- [docs/LIBRARY_LEARNING.md](docs/LIBRARY_LEARNING.md) — library learning loop
+- [docs/SKILLS.md](docs/SKILLS.md) — skill layering and provenance
+- [docs/LIBRARY.md](docs/LIBRARY.md) — library learning loop
 - [docs/SMOKE_TESTS.md](docs/SMOKE_TESTS.md) — end-to-end smoke scenarios
 - [CONTRIBUTING.md](CONTRIBUTING.md) — how to add skills, tools, and slash commands
 - [CHANGELOG.md](CHANGELOG.md) — release history

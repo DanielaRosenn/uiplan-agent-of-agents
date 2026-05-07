@@ -2,7 +2,7 @@
 
 This guide covers using the UiPath Builder Agent skills in Cursor IDE for building UiPath automations.
 
-For the visual map of every skill family and how Cursor routes them through MCP tools, see [SKILL_VISUAL_GUIDE.md](SKILL_VISUAL_GUIDE.md).
+For the visual map of every skill family and how Cursor routes them through MCP tools, see [SKILLS.md](SKILLS.md).
 
 ## Quick Setup (5 minutes)
 
@@ -399,7 +399,7 @@ and report the selector candidates. Do not edit workflow files yet.
 ### Best Practice: Keep Cursor Context Small
 
 - Attach the specific workflow, `project.json`, error output, or plan file instead of the whole repository.
-- Prefer links to docs sections such as [MCP_TOOLS.md](MCP_TOOLS.md), [LIBRARY_LEARNING.md](LIBRARY_LEARNING.md), and [uiplan/README.md](uiplan/README.md) when asking for process help.
+- Prefer links to docs sections such as [MCP_TOOLS.md](MCP_TOOLS.md), [LIBRARY.md](LIBRARY.md), and [uiplan/README.md](uiplan/README.md) when asking for process help.
 - Start a new chat for a new feature or investigation so old routing assumptions do not leak.
 - If Cursor seems confused after a large branch switch, run `uipath-claude doctor`, reload the window, and confirm Settings > MCP is green.
 
@@ -481,7 +481,7 @@ Project doc authoring (used by `/pdd` agents):
 
 ### Library tools (`uipath_library_*`)
 
-The library is the curated UiPath knowledge base under `data/library/`. Always prefer these tools over raw `Read`/`Grep` — they apply ranking, citation lines, and overlay precedence. See [LIBRARY_LEARNING.md](LIBRARY_LEARNING.md) and [LIBRARY_AUTHORING.md](LIBRARY_AUTHORING.md).
+The library is the curated UiPath knowledge base under `data/library/`. Always prefer these tools over raw `Read`/`Grep` — they apply ranking, citation lines, and overlay precedence. See [LIBRARY.md](LIBRARY.md) and [LIBRARY.md](LIBRARY.md).
 
 | Tool | Description |
 |------|-------------|

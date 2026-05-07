@@ -1,6 +1,6 @@
-﻿# Contributing
+# Contributing
 
-This project is extensible along three axes: **skills**, **tools**, and **slash commands**. The official UiPath skills live in a git submodule (`skills/skills/`) and should not be edited in-place - always override from a higher-priority layer. See [docs/SKILL_LAYOUT.md](docs/SKILL_LAYOUT.md) for the full layering model.
+This project is extensible along three axes: **skills**, **tools**, and **slash commands**. The official UiPath skills live in a git submodule (`skills/skills/`) and should not be edited in-place - always override from a higher-priority layer. See [docs/SKILLS.md](docs/SKILLS.md) for the full layering model.
 
 **Submodule vs `.cursor/skills`:** The submodule tree is the **source of truth** for full skill content (`SKILL.md`, references, assets). Files under `.cursor/skills/<name>/` are **gap-fill only** - add missing snippets that are not upstream yet; **do not** duplicate upstream filenames (e.g. a second `SKILL.md`) or you silently override the submodule and break Task Navigation. See template policy in companion repos: `docs/ops/skills-submodule-compliance.md` (UiPath Spec Project Template).
 

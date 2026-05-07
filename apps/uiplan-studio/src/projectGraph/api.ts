@@ -5,7 +5,7 @@ import { sampleEmptyGraph, sampleSolutionGraph } from "../__fixtures__/sampleSol
 const API_BASE = (import.meta.env?.VITE_UIPLAN_API_URL as string | undefined)?.replace(/\/$/, "")
   ?? "http://localhost:8000";
 
-const FETCH_TIMEOUT_MS = 4000;
+const FETCH_TIMEOUT_MS = 60000;
 
 const SAMPLE_FIXTURES: Record<string, ProjectGraph> = {
   demo: sampleGraph,

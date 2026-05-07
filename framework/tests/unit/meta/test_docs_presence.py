@@ -4,8 +4,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
 
-def test_library_learning_doc_exists_and_covers_cli():
-    doc = REPO_ROOT / "docs" / "LIBRARY_LEARNING.md"
+def test_library_doc_exists_and_covers_cli():
+    doc = REPO_ROOT / "docs" / "LIBRARY.md"
     assert doc.exists()
     text = doc.read_text(encoding="utf-8")
     for token in [
@@ -16,12 +16,12 @@ def test_library_learning_doc_exists_and_covers_cli():
         "propose_library_update",
         "UIPATH_CLAUDE_LIBRARY_PROPOSALS",
     ]:
-        assert token in text, f"missing from LIBRARY_LEARNING.md: {token}"
+        assert token in text, f"missing from LIBRARY.md: {token}"
 
 
-def test_readme_links_to_learning_doc():
+def test_readme_links_to_library_doc():
     text = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-    assert "docs/LIBRARY_LEARNING.md" in text
+    assert "docs/LIBRARY.md" in text
 
 
 def test_capability_contract_is_canonical():

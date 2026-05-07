@@ -141,7 +141,7 @@ ADD and TDD are only invoked by `/pdd` (`run_pdd_lifecycle`); `/bootstrap` skips
 
 ## Skill Loading
 
-Skills are loaded from multiple roots; **first source wins** on duplicate skill names. Resolution is implemented in `uipath_claude.skills.sources.build_skill_sources` (see [SKILL_LAYOUT.md](SKILL_LAYOUT.md) for how folders relate on disk).
+Skills are loaded from multiple roots; **first source wins** on duplicate skill names. Resolution is implemented in `uipath_claude.skills.sources.build_skill_sources` (see [SKILLS.md](SKILLS.md) for how folders relate on disk).
 
 1. Optional paths from `.uipath-claude/config.yaml` (`skills.sources`)
 2. User (`~/.cursor/skills/`)

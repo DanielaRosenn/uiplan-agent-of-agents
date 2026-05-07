@@ -21,7 +21,7 @@ Skills in this folder are **team/project extensions** (not from UiPath/skills su
 
 ## Priority Order
 
-When skill names collide, first source wins (see `uipath_claude.skills.sources` and [docs/SKILL_LAYOUT.md](../../docs/SKILL_LAYOUT.md)):
+When skill names collide, first source wins (see `uipath_claude.skills.sources` and [docs/SKILLS.md](../../docs/SKILLS.md)):
 
 1. Paths listed in `.uipath-claude/config.yaml` under `skills.sources` (if present)
 2. User (`~/.cursor/skills`) - personal overrides

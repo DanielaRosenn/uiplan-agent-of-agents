@@ -169,7 +169,7 @@ Whenever you're about to publish, deploy, or hand off code, run this loop. **Do 
 | Local agent dev loop | `uipath run` with hot-reload |
 | End-to-end Solution deploy | `uipcli solution` commands |
 | Live UI verification | `uip rpa uia` via the `uipath-interact` skill |
-| Studio Desktop held a project open for validation or debug | Close it in-flow: `uip rpa close-project --project-dir "<projectRoot>"` (then process cleanup if needed — `docs/Testing_Guide.md`) |
+| Studio Desktop held a project open for validation or debug | Close it in-flow: `uip rpa close-project --project-dir "<projectRoot>"` (then process cleanup if needed — `docs/TESTING.md`) |
 
 **The AI assistant's role:** own the CLI-driven paths end-to-end. For Studio/Studio Web visual design, produce the design artifacts (BPMN diagrams as documentation, XAML scaffolds, workflow specs) and let the human drive the UI.
 
