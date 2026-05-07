@@ -1,8 +1,8 @@
 import React from "react";
-import { CheckSquare, Circle, MinusSquare, Square } from "lucide-react";
+import { CheckSquare, Circle, FileCode, MinusSquare, Square } from "lucide-react";
 
 import { PALETTE } from "../theme";
-import type { ProjectNode, TaskSummary } from "../projectGraph/types";
+import type { ProjectGraph, ProjectNode, TaskSummary } from "../projectGraph/types";
 import { Section } from "./primitives";
 
 const TASK_STATUS_COLOR: Record<string, string> = {
@@ -117,10 +117,24 @@ function TaskRow({ node }: { node: ProjectNode }) {
   );
 }
 
-export function UiplanProgressPanel({ node }: { node: ProjectNode }) {
+export function UiplanProgressPanel({
+  node, rootGraph, onJumpToFile,
+}: {
+  node: ProjectNode;
+  rootGraph?: ProjectGraph;
+  onJumpToFile?: (path: string) => void;
+}) {
   const summary = node.task_summary;
-  const tasks = node.children?.nodes ?? [];
-  const taskNodes = tasks.filter((c) => c.kind === "uiplan_task");
+  const children = node.children?.nodes ?? [];
+  // Bundle nodes have file children; tasks-file nodes have task children.
+  const taskNodes = children.filter((c) => c.kind === "uiplan_task");
+  const isBundle = node.kind === "uiplan_bundle";
+
+  // Bundle aggregate: phase count + files-touched count.
+  const allTasks = isBundle ? collectBundleTasks(node) : [];
+  const phaseCount = isBundle ? countPhases(node) : 0;
+  const filesTouched = isBundle ? collectFilesTouched(node, allTasks) : [];
+
   return (
     <div style={{ padding: 18, fontFamily: "'Inter', sans-serif" }}>
       {summary && (
@@ -130,6 +144,19 @@ export function UiplanProgressPanel({ node }: { node: ProjectNode }) {
             <ProgressBar summary={summary} />
           </div>
         </>
+      )}
+      {isBundle && (
+        <div style={{ marginTop: 18 }}>
+          <Section label="BUNDLE" />
+          <div style={{
+            marginTop: 10, fontSize: 11.5, lineHeight: 1.85,
+            fontFamily: "'JetBrains Mono', monospace",
+          }}>
+            <KvRow k="phases" v={String(phaseCount).padStart(2, "0")} />
+            <KvRow k="files touched" v={String(filesTouched.length).padStart(2, "0")} />
+            <KvRow k="tasks" v={String(allTasks.length).padStart(2, "0")} />
+          </div>
+        </div>
       )}
       {node.desc && (
         <div style={{ marginTop: 22 }}>
@@ -147,8 +174,279 @@ export function UiplanProgressPanel({ node }: { node: ProjectNode }) {
           </div>
         </div>
       )}
+      {isBundle && filesTouched.length > 0 && (
+        <div style={{ marginTop: 22 }}>
+          <Section label="FILES TOUCHED" count={filesTouched.length} />
+          <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 4 }}>
+            {filesTouched.map((p) => (
+              <FileJumpRow key={p} path={p} rootGraph={rootGraph} onJumpToFile={onJumpToFile} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+function KvRow({ k, v }: { k: string; v: string }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between" }}>
+      <span style={{ color: PALETTE.textDim }}>{k}</span>
+      <span style={{ color: PALETTE.text, fontWeight: 600 }}>{v}</span>
+    </div>
+  );
+}
+
+/** Per-task drill-down panel: status + body + Implements (file jumps). */
+export function UiplanTaskPanel({
+  node, rootGraph, onJumpToFile,
+}: {
+  node: ProjectNode;
+  rootGraph?: ProjectGraph;
+  onJumpToFile?: (path: string) => void;
+}) {
+  const status = String(node.meta?.task_status ?? "pending");
+  const color = TASK_STATUS_COLOR[status] ?? PALETTE.textDim;
+  const path = String(node.meta?.full_path ?? node.meta?.parent_bundle ?? "");
+  const line = String(node.meta?.task_line ?? "");
+  const section = String(node.meta?.task_section ?? "");
+  const body = String(node.meta?.body ?? "");
+  const refs = extractImplements(node, body);
+
+  return (
+    <div style={{ padding: 18, fontFamily: "'Inter', sans-serif" }}>
+      <Section label="TASK" />
+      <div style={{
+        marginTop: 10, padding: "10px 12px",
+        background: PALETTE.bg, border: `1px solid ${PALETTE.rule}`,
+        borderLeft: `3px solid ${color}`, borderRadius: 4,
+      }}>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8,
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 9.5, letterSpacing: "0.14em", fontWeight: 700, color,
+        }}>
+          {status.replace("_", " ").toUpperCase()}
+          {section && (
+            <span style={{ color: PALETTE.textDim, fontWeight: 500 }}>
+              · {section.toUpperCase()}
+            </span>
+          )}
+        </div>
+        <div style={{
+          marginTop: 8, fontSize: 13.5, lineHeight: 1.45,
+          color: PALETTE.text,
+          textDecoration: status === "done" || status === "cancelled" ? "line-through" : "none",
+          opacity: status === "done" || status === "cancelled" ? 0.7 : 1,
+        }}>
+          {node.label}
+        </div>
+        {(path || line) && (
+          <div style={{
+            marginTop: 6, fontSize: 10,
+            fontFamily: "'JetBrains Mono', monospace",
+            color: PALETTE.textMute, letterSpacing: "0.08em",
+          }}>
+            {path}{line ? `:${line}` : ""}
+          </div>
+        )}
+      </div>
+
+      {body && (
+        <div style={{ marginTop: 22 }}>
+          <Section label="DETAILS" />
+          <div style={{ marginTop: 10 }}>
+            <MarkdownView source={body} />
+          </div>
+        </div>
+      )}
+
+      {refs.files.length > 0 && (
+        <div style={{ marginTop: 22 }}>
+          <Section label="IMPLEMENTS" count={refs.files.length} />
+          <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 4 }}>
+            {refs.files.map((p) => (
+              <FileJumpRow key={p} path={p} rootGraph={rootGraph} onJumpToFile={onJumpToFile} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {refs.symbols.length > 0 && (
+        <div style={{ marginTop: 22 }}>
+          <Section label="SYMBOLS" count={refs.symbols.length} />
+          <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {refs.symbols.map((s) => (
+              <span key={s} style={{
+                fontSize: 10.5, fontFamily: "'JetBrains Mono', monospace",
+                color: PALETTE.text, background: PALETTE.bg,
+                border: `1px solid ${PALETTE.rule}`,
+                padding: "3px 8px", borderRadius: 3,
+              }}>
+                {s}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FileJumpRow({ path, rootGraph, onJumpToFile }: {
+  path: string;
+  rootGraph?: ProjectGraph;
+  onJumpToFile?: (path: string) => void;
+}) {
+  const exists = !!findFileNodeId(rootGraph, path);
+  return (
+    <button
+      onClick={() => onJumpToFile?.(path)}
+      disabled={!onJumpToFile}
+      title={exists ? "Jump to file node" : "No matching node in graph"}
+      style={{
+        display: "flex", alignItems: "center", gap: 8,
+        padding: "8px 10px", textAlign: "left",
+        background: PALETTE.bg, border: `1px solid ${PALETTE.rule}`,
+        borderLeft: `3px solid ${exists ? "#2563eb" : PALETTE.rule}`,
+        borderRadius: 4,
+        cursor: onJumpToFile ? "pointer" : "default",
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: 11, color: exists ? PALETTE.text : PALETTE.textDim,
+        opacity: exists ? 1 : 0.7,
+      }}
+    >
+      <FileCode size={12} color={exists ? "#2563eb" : PALETTE.textMute} strokeWidth={2} />
+      <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {path}
+      </span>
+      {exists && (
+        <span style={{
+          fontSize: 9, color: "#2563eb", fontWeight: 700, letterSpacing: "0.14em",
+        }}>JUMP →</span>
+      )}
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+const FILE_REF_RE = /`([^`\n]+?\.(?:tsx?|jsx?|py|cs|xaml|md|yaml|yml|json|css|html|svg|sh|ps1|go|rs|java|rb))(?::\d+(?:-\d+)?)?`/g;
+const SYMBOL_RE = /`([A-Za-z_][\w$]*(?:\.[A-Za-z_][\w$]*)*\(\)|[A-Z][\w$]+|[a-z_][\w$]+_[\w$]+)`/g;
+
+interface Refs {
+  files: string[];
+  symbols: string[];
+}
+
+function extractImplements(_node: ProjectNode, body: string): Refs {
+  const files = new Set<string>();
+  const symbols = new Set<string>();
+  if (!body) return { files: [], symbols: [] };
+
+  let m: RegExpExecArray | null;
+  FILE_REF_RE.lastIndex = 0;
+  while ((m = FILE_REF_RE.exec(body)) !== null) {
+    files.add(m[1]);
+  }
+
+  // Strip file refs from the body so we don't double-count them as symbols.
+  const withoutFiles = body.replace(FILE_REF_RE, "");
+  SYMBOL_RE.lastIndex = 0;
+  while ((m = SYMBOL_RE.exec(withoutFiles)) !== null) {
+    const sym = m[1];
+    // Skip very short tokens or pure markdown noise.
+    if (sym.length < 3) continue;
+    symbols.add(sym);
+  }
+
+  return {
+    files: Array.from(files),
+    symbols: Array.from(symbols).slice(0, 20),
+  };
+}
+
+function collectBundleTasks(bundle: ProjectNode): ProjectNode[] {
+  const out: ProjectNode[] = [];
+  for (const child of bundle.children?.nodes ?? []) {
+    if (child.kind === "uiplan_tasks") {
+      for (const t of child.children?.nodes ?? []) {
+        if (t.kind === "uiplan_task") out.push(t);
+      }
+    } else if (child.kind === "uiplan_task") {
+      out.push(child);
+    }
+  }
+  return out;
+}
+
+function countPhases(bundle: ProjectNode): number {
+  for (const child of bundle.children?.nodes ?? []) {
+    if (child.kind === "uiplan_doc" && /plan\.md$/i.test(child.label)) {
+      const body = String(child.meta?.body ?? "");
+      const lines = body.split(/\r?\n/);
+      let phaseHeads = 0;
+      let h2Heads = 0;
+      for (const raw of lines) {
+        const m = /^##\s+(.+?)\s*$/.exec(raw);
+        if (!m) continue;
+        h2Heads++;
+        if (/^(?:phase|step|stage)\s+(\d+|[A-Z])\b/i.test(m[1].trim())) phaseHeads++;
+      }
+      return phaseHeads > 0 ? phaseHeads : h2Heads;
+    }
+  }
+  return 0;
+}
+
+function collectFilesTouched(bundle: ProjectNode, tasks: ProjectNode[]): string[] {
+  const set = new Set<string>();
+  for (const t of tasks) {
+    const body = String(t.meta?.body ?? "");
+    const refs = extractImplements(t, body);
+    refs.files.forEach((f) => set.add(f));
+  }
+  // Also scan task labels (some checklists embed paths inline).
+  for (const t of tasks) {
+    FILE_REF_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = FILE_REF_RE.exec(t.label)) !== null) set.add(m[1]);
+  }
+  // Scan plan.md / spec.md doc bodies as a fallback.
+  for (const child of bundle.children?.nodes ?? []) {
+    if (child.kind !== "uiplan_doc") continue;
+    const body = String(child.meta?.body ?? "");
+    FILE_REF_RE.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = FILE_REF_RE.exec(body)) !== null) set.add(m[1]);
+  }
+  return Array.from(set).sort();
+}
+
+/** Return the id of a graph node whose code.path or id ends with `path`. */
+export function findFileNodeId(graph: ProjectGraph | undefined, path: string): string | null {
+  if (!graph) return null;
+  const norm = path.replace(/^\.?\/+/, "");
+  // Walk top-level + recurse children.
+  const stack: ProjectNode[] = [...graph.nodes];
+  while (stack.length) {
+    const n = stack.shift()!;
+    if (n.kind && n.kind.startsWith("uiplan_")) {
+      // skip — we don't want to land on uiplan synthetic nodes.
+    } else {
+      const codePath = n.code?.path;
+      if (codePath && (codePath === norm || codePath.endsWith("/" + norm) || norm.endsWith("/" + codePath))) {
+        return n.id;
+      }
+      if (n.id === `file:${norm}` || n.id.endsWith(`:${norm}`)) {
+        return n.id;
+      }
+    }
+    if (n.children?.nodes) stack.push(...n.children.nodes);
+  }
+  return null;
 }
 
 /** Lightweight, safe markdown renderer for UiPlan docs.

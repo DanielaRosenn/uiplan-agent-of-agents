@@ -1,12 +1,17 @@
-import React from "react";
-import { AlertTriangle, Search, Sparkles, X } from "lucide-react";
+import React, { useState } from "react";
+import {
+  AlertTriangle, ChevronDown, ChevronRight,
+  CheckSquare, Circle, MinusSquare, Notebook, Search, Sparkles, Square, X,
+} from "lucide-react";
 
 import { EDGE_STYLE, LAYERS, PALETTE, PATH_CLASS_COLOR, STATUS_COLOR } from "../theme";
-import type { EdgeKind, LayerKey, PathClass, ProjectGraph } from "../projectGraph/types";
+import type { EdgeKind, LayerKey, PathClass, ProjectGraph, ProjectNode } from "../projectGraph/types";
 import { Section } from "./primitives";
 
 interface LeftRailProps {
   graph: ProjectGraph;
+  bundles?: ProjectNode[];
+  selectedNodeId?: string | null;
   query: string;
   setQuery: (q: string) => void;
   layerFilter: Set<string>;
@@ -18,6 +23,8 @@ interface LeftRailProps {
   showSkillCoverage: boolean;
   setShowSkillCoverage: (v: boolean) => void;
   onSelectNode?: (id: string) => void;
+  onSelectBundle?: (id: string) => void;
+  onSelectTask?: (taskId: string, bundleId: string) => void;
   searchInputRef?: React.RefObject<HTMLInputElement>;
   onSubmitSearch?: () => void;
 }
@@ -25,11 +32,13 @@ interface LeftRailProps {
 const PATH_CLASSES: PathClass[] = ["happy", "alt", "loopback", "exception"];
 
 export default function LeftRail({
-  graph, query, setQuery,
+  graph, bundles, selectedNodeId,
+  query, setQuery,
   layerFilter, toggleLayer,
   pathFilter, togglePath,
   issuesOnly, setIssuesOnly,
   showSkillCoverage, setShowSkillCoverage, onSelectNode,
+  onSelectBundle, onSelectTask,
   searchInputRef, onSubmitSearch,
 }: LeftRailProps) {
   const layersWithCount = (Object.keys(LAYERS) as LayerKey[]).map((key) => ({
@@ -49,6 +58,14 @@ export default function LeftRail({
       fontFamily: "'Inter', system-ui, sans-serif",
       color: PALETTE.text, overflow: "auto", flexShrink: 0,
     }}>
+      {bundles && bundles.length > 0 && (
+        <UiplanTasksSection
+          bundles={bundles}
+          selectedNodeId={selectedNodeId ?? null}
+          onSelectBundle={onSelectBundle}
+          onSelectTask={onSelectTask}
+        />
+      )}
       <div style={{ padding: 16, borderBottom: `1px solid ${PALETTE.rule}` }}>
         <Section label="QUERY" />
         <div style={{ position: "relative", marginTop: 10 }}>
@@ -293,5 +310,233 @@ export default function LeftRail({
         </div>
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// UiPlan Tasks pinned section
+// ---------------------------------------------------------------------------
+
+const TASK_STATUS_COLOR: Record<string, string> = {
+  done: "#059669",
+  in_progress: "#d97706",
+  pending: "#6b7280",
+  cancelled: "#9ca3af",
+};
+
+function UiplanTasksSection({
+  bundles, selectedNodeId, onSelectBundle, onSelectTask,
+}: {
+  bundles: ProjectNode[];
+  selectedNodeId: string | null;
+  onSelectBundle?: (id: string) => void;
+  onSelectTask?: (taskId: string, bundleId: string) => void;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  return (
+    <div style={{
+      position: "sticky", top: 0, zIndex: 2,
+      background: PALETTE.panel,
+      borderBottom: `1px solid ${PALETTE.rule}`,
+      flexShrink: 0,
+    }}>
+      <button
+        onClick={() => setCollapsed((c) => !c)}
+        style={{
+          width: "100%", display: "flex", alignItems: "center", gap: 8,
+          padding: "12px 16px",
+          background: "transparent", border: "none", cursor: "pointer",
+          textAlign: "left",
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 9.5, letterSpacing: "0.22em", fontWeight: 700,
+          color: PALETTE.text,
+        }}
+      >
+        {collapsed ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
+        <Notebook size={12} color="#0f766e" />
+        <span style={{ flex: 1 }}>UIPLAN TASKS</span>
+        <span style={{ color: PALETTE.textDim, fontWeight: 600 }}>
+          {String(bundles.length).padStart(2, "0")}
+        </span>
+      </button>
+      {!collapsed && (
+        <div style={{
+          padding: "0 12px 12px",
+          maxHeight: 360, overflowY: "auto",
+          display: "flex", flexDirection: "column", gap: 6,
+        }}>
+          {bundles.map((b) => (
+            <BundleRow
+              key={b.id}
+              bundle={b}
+              isSelected={b.id === selectedNodeId}
+              selectedNodeId={selectedNodeId}
+              onSelectBundle={onSelectBundle}
+              onSelectTask={onSelectTask}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BundleRow({
+  bundle, isSelected, selectedNodeId, onSelectBundle, onSelectTask,
+}: {
+  bundle: ProjectNode;
+  isSelected: boolean;
+  selectedNodeId: string | null;
+  onSelectBundle?: (id: string) => void;
+  onSelectTask?: (taskId: string, bundleId: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const summary = bundle.task_summary;
+  const total = summary?.total ?? 0;
+  const done = summary?.done ?? 0;
+  const donePct = total > 0 ? (done / total) * 100 : 0;
+
+  // Squash all uiplan_task children across all uiplan_tasks files in the bundle.
+  const tasks: ProjectNode[] = [];
+  for (const child of bundle.children?.nodes ?? []) {
+    if (child.kind === "uiplan_tasks") {
+      for (const t of child.children?.nodes ?? []) {
+        if (t.kind === "uiplan_task") tasks.push(t);
+      }
+    } else if (child.kind === "uiplan_task") {
+      tasks.push(child);
+    }
+  }
+
+  return (
+    <div style={{
+      background: isSelected ? "#ccfbf1" : PALETTE.bg,
+      border: `1px solid ${isSelected ? "#0f766e" : PALETTE.rule}`,
+      borderLeft: `3px solid #0f766e`,
+      borderRadius: 4, overflow: "hidden",
+    }}>
+      <div style={{ display: "flex", alignItems: "stretch" }}>
+        <button
+          onClick={() => onSelectBundle?.(bundle.id)}
+          style={{
+            flex: 1, padding: "8px 10px",
+            background: "transparent", border: "none", cursor: "pointer",
+            textAlign: "left", display: "flex", flexDirection: "column", gap: 4,
+            fontFamily: "'Inter', sans-serif",
+          }}
+        >
+          <div style={{
+            fontSize: 11.5, fontWeight: 600, color: PALETTE.text,
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>
+            {bundle.label}
+          </div>
+          {total > 0 && (
+            <>
+              <div style={{
+                height: 4, borderRadius: 2,
+                background: PALETTE.rule, overflow: "hidden",
+              }}>
+                <div style={{
+                  width: `${donePct}%`, height: "100%",
+                  background: done === total ? "#059669" : "#0f766e",
+                }} />
+              </div>
+              <div style={{
+                fontSize: 9, color: PALETTE.textDim,
+                fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.1em",
+              }}>
+                {done}/{total} · {Math.round(donePct)}%
+              </div>
+            </>
+          )}
+          {total === 0 && (
+            <div style={{
+              fontSize: 9, color: PALETTE.textMute,
+              fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.1em",
+            }}>
+              no tasks
+            </div>
+          )}
+        </button>
+        {tasks.length > 0 && (
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            title={expanded ? "Collapse" : "Expand"}
+            style={{
+              padding: "0 10px",
+              background: "transparent",
+              border: "none",
+              borderLeft: `1px solid ${PALETTE.rule}`,
+              cursor: "pointer", color: PALETTE.textDim,
+            }}
+          >
+            {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          </button>
+        )}
+      </div>
+      {expanded && tasks.length > 0 && (
+        <div style={{
+          borderTop: `1px solid ${PALETTE.rule}`,
+          background: PALETTE.panel,
+          display: "flex", flexDirection: "column",
+        }}>
+          {tasks.map((t) => (
+            <TaskRow
+              key={t.id}
+              task={t}
+              isSelected={t.id === selectedNodeId}
+              onClick={() => onSelectTask?.(t.id, bundle.id)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TaskRow({ task, isSelected, onClick }: {
+  task: ProjectNode; isSelected: boolean; onClick: () => void;
+}) {
+  const status = String(task.meta?.task_status ?? "pending");
+  const color = TASK_STATUS_COLOR[status] ?? PALETTE.textDim;
+  const Icon = status === "done" ? CheckSquare
+    : status === "cancelled" ? MinusSquare
+    : status === "in_progress" ? Circle
+    : Square;
+  const struck = status === "done" || status === "cancelled";
+  const line = String(task.meta?.task_line ?? "");
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: "flex", alignItems: "center", gap: 7,
+        padding: "6px 9px",
+        background: isSelected ? "#ccfbf1" : "transparent",
+        border: "none",
+        borderTop: `1px dashed ${PALETTE.ruleSoft}`,
+        cursor: "pointer", textAlign: "left",
+        fontFamily: "'Inter', sans-serif",
+      }}
+    >
+      <Icon size={11} color={color} strokeWidth={2} style={{ flexShrink: 0 }} />
+      <span style={{
+        flex: 1, fontSize: 11, color: PALETTE.text,
+        textDecoration: struck ? "line-through" : "none",
+        opacity: struck ? 0.6 : 1,
+        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+      }}>
+        {task.label}
+      </span>
+      {line && (
+        <span style={{
+          fontSize: 8.5, fontFamily: "'JetBrains Mono', monospace",
+          color: PALETTE.textMute, letterSpacing: "0.05em",
+          flexShrink: 0,
+        }}>
+          L{line}
+        </span>
+      )}
+    </button>
   );
 }

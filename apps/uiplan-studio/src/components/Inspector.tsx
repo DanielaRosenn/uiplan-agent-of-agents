@@ -35,7 +35,7 @@ import {
 } from "../projectGraph/api";
 import { Section, SyntaxHighlight } from "./primitives";
 import ProjectOverview from "./ProjectOverview";
-import { MarkdownView, UiplanProgressPanel } from "./UiplanInspector";
+import { MarkdownView, UiplanProgressPanel, UiplanTaskPanel } from "./UiplanInspector";
 
 type InspectorTab = "overview" | "code" | "knowledge" | "links";
 
@@ -726,6 +726,7 @@ function ConnectionsTab({ node, graph, onSelectNode, onSelectEdge }: {
 
 interface InspectorProps {
   graph: ProjectGraph;
+  rootGraph?: ProjectGraph;
   selectedNodeId: string | null;
   selectedEdgeId: string | null;
   worktreeId: string;
@@ -734,21 +735,29 @@ interface InspectorProps {
   onSelectNode: (id: string | null) => void;
   onSelectEdge: (id: string | null) => void;
   onDrillDown: (node: ProjectNode) => void;
+  onJumpToFile?: (path: string) => void;
 }
 
 export default function Inspector({
-  graph, selectedNodeId, selectedEdgeId, worktreeId,
+  graph, rootGraph, selectedNodeId, selectedEdgeId, worktreeId,
   collapsed, onToggleCollapsed,
-  onSelectNode, onSelectEdge, onDrillDown,
+  onSelectNode, onSelectEdge, onDrillDown, onJumpToFile,
 }: InspectorProps) {
   const [tab, setTab] = useState<InspectorTab>("overview");
   useEffect(() => {
-    const sel = selectedNodeId ? graph.nodes.find((n) => n.id === selectedNodeId) : null;
+    const sel = selectedNodeId
+      ? (graph.nodes.find((n) => n.id === selectedNodeId)
+          ?? findNodeRecursive(rootGraph?.nodes ?? [], selectedNodeId))
+      : null;
     if (sel?.kind === "uiplan_doc") setTab("code");
     else setTab("overview");
-  }, [selectedNodeId, graph.nodes]);
+  }, [selectedNodeId, graph.nodes, rootGraph]);
 
-  const node = selectedNodeId ? graph.nodes.find((n) => n.id === selectedNodeId) ?? null : null;
+  const node = selectedNodeId
+    ? (graph.nodes.find((n) => n.id === selectedNodeId)
+        ?? findNodeRecursive(rootGraph?.nodes ?? [], selectedNodeId)
+        ?? null)
+    : null;
   const edge = selectedEdgeId ? graph.edges.find((e) => e.id === selectedEdgeId) ?? null : null;
 
   if (collapsed) {
@@ -891,6 +900,7 @@ export default function Inspector({
   const skillId = isSkill ? skillIdFromNode(node) : "";
   const isUiplanFile = node.kind === "uiplan_doc" || node.kind === "uiplan_tasks";
   const isUiplanBundle = node.kind === "uiplan_bundle";
+  const isUiplanTask = node.kind === "uiplan_task";
   const uiplanBody = isUiplanFile ? String(node.meta?.body ?? "") : "";
 
   return (
@@ -969,13 +979,15 @@ export default function Inspector({
 
       <div style={{ flex: 1, overflowY: "auto" }}>
         {tab === "overview" && (
-          isUiplanBundle || node.kind === "uiplan_tasks"
-            ? <UiplanProgressPanel node={node} />
-            : isUiplanFile
-              ? <OverviewTab node={node} graph={graph} />
-              : isSkill
-                ? <SkillOverviewTab node={node} detail={null} />
-                : <OverviewTab node={node} graph={graph} />
+          isUiplanTask
+            ? <UiplanTaskPanel node={node} rootGraph={rootGraph ?? graph} onJumpToFile={onJumpToFile} />
+            : isUiplanBundle || node.kind === "uiplan_tasks"
+              ? <UiplanProgressPanel node={node} rootGraph={rootGraph ?? graph} onJumpToFile={onJumpToFile} />
+              : isUiplanFile
+                ? <OverviewTab node={node} graph={graph} />
+                : isSkill
+                  ? <SkillOverviewTab node={node} detail={null} />
+                  : <OverviewTab node={node} graph={graph} />
         )}
         {tab === "code" && (
           isUiplanFile
@@ -995,6 +1007,17 @@ export default function Inspector({
       </div>
     </div>
   );
+}
+
+function findNodeRecursive(nodes: ProjectNode[], id: string): ProjectNode | null {
+  for (const n of nodes) {
+    if (n.id === id) return n;
+    if (n.children?.nodes) {
+      const sub = findNodeRecursive(n.children.nodes, id);
+      if (sub) return sub;
+    }
+  }
+  return null;
 }
 
 function endpointBtn(borderColor: string): React.CSSProperties {

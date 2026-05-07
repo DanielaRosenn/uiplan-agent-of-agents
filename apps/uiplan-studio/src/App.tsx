@@ -2,9 +2,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ChevronDown, Loader2, RefreshCw } from "lucide-react";
 
 import Canvas, { type CanvasHandle } from "./components/Canvas";
+import UiplanCanvas from "./components/UiplanCanvas";
 import LeftRail from "./components/LeftRail";
 import Inspector from "./components/Inspector";
 import Breadcrumb from "./components/Breadcrumb";
+import { findFileNodeId } from "./components/UiplanInspector";
 import { LAYERS, PALETTE } from "./theme";
 import { computeLayout } from "./layout";
 import {
@@ -115,7 +117,36 @@ export default function App() {
     };
   }, [trail, rootGraph]);
 
-  const layout = useMemo(() => computeLayout(currentGraph), [currentGraph]);
+  // Active drill-in bundle, if any. When set, the canvas shows the UiPlan
+  // task experience instead of the layered graph.
+  const activeBundle: ProjectNode | null = useMemo(() => {
+    const head = trail[trail.length - 1];
+    return head && head.kind === "uiplan_bundle" ? head : null;
+  }, [trail]);
+
+  // Layered-canvas view: filter uiplan_* nodes out so they don't pollute the
+  // technical graph. The new UiplanCanvas owns the uiplan view entirely.
+  const layeredGraph: ProjectGraph = useMemo(() => {
+    const nodes = currentGraph.nodes.filter((n) => !String(n.kind).startsWith("uiplan_"));
+    const ids = new Set(nodes.map((n) => n.id));
+    const edges = currentGraph.edges.filter((e) => ids.has(e.source) && ids.has(e.target));
+    return { ...currentGraph, nodes, edges };
+  }, [currentGraph]);
+
+  const layout = useMemo(() => computeLayout(layeredGraph), [layeredGraph]);
+
+  // Bundles for the pinned left-rail section: top-level uiplan_bundle nodes
+  // (and any nested bundles inside the active drill-in).
+  const bundles: ProjectNode[] = useMemo(() => {
+    const seen = new Map<string, ProjectNode>();
+    for (const n of rootGraph.nodes) {
+      if (n.kind === "uiplan_bundle") seen.set(n.id, n);
+    }
+    if (activeBundle && !seen.has(activeBundle.id)) {
+      seen.set(activeBundle.id, activeBundle);
+    }
+    return Array.from(seen.values());
+  }, [rootGraph, activeBundle]);
 
   // ---- Drill-down helpers ----
   const drillInto = useCallback((node: ProjectNode) => {
@@ -229,6 +260,32 @@ export default function App() {
     setSelectedEdgeId(id);
     if (id) setSelectedNodeId(null);
   };
+
+  // ---- UiPlan-specific navigation ----
+  const onSelectBundle = useCallback((bundleId: string) => {
+    const bundle = rootGraph.nodes.find((n) => n.id === bundleId);
+    if (!bundle) return;
+    setTrail([bundle]);
+    setSelectedNodeId(bundleId);
+    setSelectedEdgeId(null);
+  }, [rootGraph]);
+
+  const onSelectTask = useCallback((taskId: string, bundleId: string) => {
+    const bundle = rootGraph.nodes.find((n) => n.id === bundleId);
+    if (bundle) setTrail([bundle]);
+    setSelectedNodeId(taskId);
+    setSelectedEdgeId(null);
+  }, [rootGraph]);
+
+  const onJumpToFile = useCallback((path: string) => {
+    const id = findFileNodeId(rootGraph, path);
+    if (!id) return;
+    setTrail([]);
+    setSelectedNodeId(id);
+    setSelectedEdgeId(null);
+    // Defer until the layered canvas mounts.
+    setTimeout(() => canvasRef.current?.centerOn(id), 0);
+  }, [rootGraph]);
 
   const toggleLayer = (layer: string) => {
     setLayerFilter((f) => {
@@ -364,7 +421,9 @@ export default function App() {
       {/* MAIN */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>
         <LeftRail
-          graph={currentGraph}
+          graph={layeredGraph}
+          bundles={bundles}
+          selectedNodeId={selectedNodeId}
           query={query} setQuery={setQuery}
           layerFilter={layerFilter} toggleLayer={toggleLayer}
           pathFilter={pathFilter} togglePath={togglePath}
@@ -372,6 +431,8 @@ export default function App() {
           showSkillCoverage={showSkillCoverage}
           setShowSkillCoverage={setShowSkillCoverage}
           onSelectNode={selectNodeAndCenter}
+          onSelectBundle={onSelectBundle}
+          onSelectTask={onSelectTask}
           searchInputRef={searchInputRef}
           onSubmitSearch={submitSearch}
         />
@@ -380,14 +441,22 @@ export default function App() {
           {graphSource === "loading" && (
             <LoadingOverlay />
           )}
-          {graphSource !== "loading" && currentGraph.nodes.length === 0 && (
+          {graphSource !== "loading" && !activeBundle && layeredGraph.nodes.length === 0 && (
             <EmptyState worktreeId={worktreeId} onRefresh={() => loadGraph(worktreeId)} />
           )}
-          {currentGraph.nodes.length > 0 && (
+          {activeBundle && (
+            <UiplanCanvas
+              key={activeBundle.id}
+              bundle={activeBundle}
+              selectedNodeId={selectedNodeId}
+              onSelectNode={(id) => setSelectedNodeId(id)}
+            />
+          )}
+          {!activeBundle && layeredGraph.nodes.length > 0 && (
             <Canvas
               ref={canvasRef}
               key={trail.map((t) => t.id).join("/") || worktreeId}
-              graph={currentGraph}
+              graph={layeredGraph}
               layout={layout}
               selectedNodeId={selectedNodeId}
               selectedEdgeId={selectedEdgeId}
@@ -423,6 +492,7 @@ export default function App() {
 
         <Inspector
           graph={currentGraph}
+          rootGraph={rootGraph}
           selectedNodeId={selectedNodeId}
           selectedEdgeId={selectedEdgeId}
           worktreeId={worktreeId}
@@ -431,6 +501,7 @@ export default function App() {
           onSelectNode={handleSelectNode}
           onSelectEdge={handleSelectEdge}
           onDrillDown={drillInto}
+          onJumpToFile={onJumpToFile}
         />
       </div>
 
