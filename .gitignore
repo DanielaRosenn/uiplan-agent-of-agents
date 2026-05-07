@@ -182,3 +182,7 @@ examples/InvoiceQueueProcessor/
 /ITSupportFlowDemo.uis
 /ITSupportFlowDemoBuilt/
 /OutlookSubjectLogger/
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
