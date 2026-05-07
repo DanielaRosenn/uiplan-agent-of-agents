@@ -1,4 +1,4 @@
-import json
+﻿import json
 
 from fastapi.testclient import TestClient
 import pytest
@@ -11,6 +11,7 @@ from app.copilot_runtime import (
     summarize_diagram_state,
 )
 from app import main
+from app import state
 from app import context_sources
 from app.schemas import ContextSource, ContextSourceCategory, ContextSourcesResponse
 from app.main import app
@@ -42,7 +43,7 @@ def test_bundle_load_accepts_relative_repo_path_when_cwd_differs(monkeypatch, tm
         (bundle_root / document_name).write_text(f"# {document_name}\n", encoding="utf-8")
     other_cwd = tmp_path / "service-cwd"
     other_cwd.mkdir()
-    monkeypatch.setattr(main, "PLANS_ROOT", plans_root.resolve())
+    monkeypatch.setattr(state, "PLANS_ROOT", plans_root.resolve())
     monkeypatch.chdir(other_cwd)
 
     client = TestClient(app)
@@ -60,7 +61,7 @@ def test_bundle_save_is_legacy_internal_and_guarded(monkeypatch, tmp_path) -> No
     bundle_root.mkdir(parents=True)
     target = bundle_root / "spec.md"
     target.write_text("# Spec\n", encoding="utf-8")
-    monkeypatch.setattr(main, "PLANS_ROOT", plans_root.resolve())
+    monkeypatch.setattr(state, "PLANS_ROOT", plans_root.resolve())
 
     client = TestClient(app)
     direct_response = client.post(
@@ -105,8 +106,9 @@ def test_cors_allows_localhost_origin_preflight() -> None:
 
 
 def test_agent_library_context_returns_ranked_items(monkeypatch) -> None:
+    from app import library_service
     monkeypatch.setattr(
-        main,
+        library_service,
         "search_library_context",
         lambda _query, _top_n: [
             {
@@ -425,7 +427,7 @@ def test_diagram_load_returns_default_when_missing(monkeypatch, tmp_path) -> Non
     plans_root = tmp_path / "plans"
     bundle_root = plans_root / "example"
     bundle_root.mkdir(parents=True)
-    monkeypatch.setattr(main, "PLANS_ROOT", plans_root.resolve())
+    monkeypatch.setattr(state, "PLANS_ROOT", plans_root.resolve())
 
     client = TestClient(app)
     response = client.get("/diagram/load", params={"bundle_root": str(bundle_root)})
@@ -448,7 +450,7 @@ def test_diagram_save_and_load_round_trip(monkeypatch, tmp_path) -> None:
     plans_root = tmp_path / "plans"
     bundle_root = plans_root / "example"
     bundle_root.mkdir(parents=True)
-    monkeypatch.setattr(main, "PLANS_ROOT", plans_root.resolve())
+    monkeypatch.setattr(state, "PLANS_ROOT", plans_root.resolve())
 
     diagram = {
         "nodes": [
@@ -489,7 +491,7 @@ def test_diagram_save_and_load_preserves_typed_project_graph_fields(monkeypatch,
     plans_root = tmp_path / "plans"
     bundle_root = plans_root / "example"
     bundle_root.mkdir(parents=True)
-    monkeypatch.setattr(main, "PLANS_ROOT", plans_root.resolve())
+    monkeypatch.setattr(state, "PLANS_ROOT", plans_root.resolve())
 
     diagram = {
         "nodes": [
@@ -562,7 +564,7 @@ def test_diagram_save_sanitizes_unavailable_curated_sources(monkeypatch, tmp_pat
     plans_root = tmp_path / "plans"
     bundle_root = plans_root / "example"
     bundle_root.mkdir(parents=True)
-    monkeypatch.setattr(main, "PLANS_ROOT", plans_root.resolve())
+    monkeypatch.setattr(state, "PLANS_ROOT", plans_root.resolve())
     monkeypatch.setattr(
         context_sources,
         "get_context_sources",
@@ -641,7 +643,7 @@ def test_diagram_preview_generates_supported_documents_without_writing(
     plans_root = tmp_path / "plans"
     bundle_root = plans_root / "example"
     bundle_root.mkdir(parents=True)
-    monkeypatch.setattr(main, "PLANS_ROOT", plans_root.resolve())
+    monkeypatch.setattr(state, "PLANS_ROOT", plans_root.resolve())
     main._PENDING_GENERATION_PREVIEWS.clear()
 
     target = bundle_root / document_name
@@ -722,7 +724,7 @@ def test_diagram_preview_omits_unavailable_curated_sources(monkeypatch, tmp_path
     plans_root = tmp_path / "plans"
     bundle_root = plans_root / "example"
     bundle_root.mkdir(parents=True)
-    monkeypatch.setattr(main, "PLANS_ROOT", plans_root.resolve())
+    monkeypatch.setattr(state, "PLANS_ROOT", plans_root.resolve())
     monkeypatch.setattr(
         context_sources,
         "get_context_sources",
@@ -782,7 +784,7 @@ def test_diagram_preview_apply_uses_existing_pending_store(monkeypatch, tmp_path
     plans_root = tmp_path / "plans"
     bundle_root = plans_root / "example"
     bundle_root.mkdir(parents=True)
-    monkeypatch.setattr(main, "PLANS_ROOT", plans_root.resolve())
+    monkeypatch.setattr(state, "PLANS_ROOT", plans_root.resolve())
     main._PENDING_GENERATION_PREVIEWS.clear()
 
     target = bundle_root / "plan.md"
@@ -825,7 +827,7 @@ def test_generation_package_endpoint_creates_plan_package_without_target_write(
     plans_root = tmp_path / "plans"
     bundle_root = plans_root / "example"
     bundle_root.mkdir(parents=True)
-    monkeypatch.setattr(main, "PLANS_ROOT", plans_root.resolve())
+    monkeypatch.setattr(state, "PLANS_ROOT", plans_root.resolve())
     target_doc = bundle_root / "docs" / "uiplan-generation-plan.md"
 
     client = TestClient(app)
@@ -867,7 +869,7 @@ def test_generation_package_endpoint_uses_graph_ref_snapshot_metadata(monkeypatc
     plans_root = tmp_path / "plans"
     bundle_root = plans_root / "example"
     bundle_root.mkdir(parents=True)
-    monkeypatch.setattr(main, "PLANS_ROOT", plans_root.resolve())
+    monkeypatch.setattr(state, "PLANS_ROOT", plans_root.resolve())
 
     client = TestClient(app)
     response = client.post(
@@ -917,7 +919,7 @@ def test_generation_package_endpoint_rejects_non_preview_first_write_policy(
     plans_root = tmp_path / "plans"
     bundle_root = plans_root / "example"
     bundle_root.mkdir(parents=True)
-    monkeypatch.setattr(main, "PLANS_ROOT", plans_root.resolve())
+    monkeypatch.setattr(state, "PLANS_ROOT", plans_root.resolve())
 
     client = TestClient(app)
     response = client.post(
@@ -949,7 +951,7 @@ def test_generation_package_endpoint_rejects_scaffold_without_plan_or_approved_p
     plans_root = tmp_path / "plans"
     bundle_root = plans_root / "example"
     bundle_root.mkdir(parents=True)
-    monkeypatch.setattr(main, "PLANS_ROOT", plans_root.resolve())
+    monkeypatch.setattr(state, "PLANS_ROOT", plans_root.resolve())
     client = TestClient(app)
 
     response = client.post(
@@ -992,7 +994,7 @@ def test_generation_package_endpoint_scaffold_uses_approved_prior_plan_and_never
     plans_root = tmp_path / "plans"
     bundle_root = plans_root / "example"
     bundle_root.mkdir(parents=True)
-    monkeypatch.setattr(main, "PLANS_ROOT", plans_root.resolve())
+    monkeypatch.setattr(state, "PLANS_ROOT", plans_root.resolve())
     client = TestClient(app)
 
     graph_payload = {
@@ -1079,7 +1081,7 @@ def test_generation_package_endpoint_rejects_scaffold_with_unrelated_approved_pr
     plans_root = tmp_path / "plans"
     bundle_root = plans_root / "example"
     bundle_root.mkdir(parents=True)
-    monkeypatch.setattr(main, "PLANS_ROOT", plans_root.resolve())
+    monkeypatch.setattr(state, "PLANS_ROOT", plans_root.resolve())
     client = TestClient(app)
 
     prior_graph_payload = {
@@ -1146,7 +1148,7 @@ def test_generation_packages_list_and_detail_contract(monkeypatch, tmp_path) -> 
     plans_root = tmp_path / "plans"
     bundle_root = plans_root / "example"
     bundle_root.mkdir(parents=True)
-    monkeypatch.setattr(main, "PLANS_ROOT", plans_root.resolve())
+    monkeypatch.setattr(state, "PLANS_ROOT", plans_root.resolve())
     client = TestClient(app)
 
     create_response = client.post(
@@ -1211,7 +1213,7 @@ def test_generation_package_approval_preview_and_apply_routes(monkeypatch, tmp_p
     plans_root = tmp_path / "plans"
     bundle_root = plans_root / "example"
     bundle_root.mkdir(parents=True)
-    monkeypatch.setattr(main, "PLANS_ROOT", plans_root.resolve())
+    monkeypatch.setattr(state, "PLANS_ROOT", plans_root.resolve())
     main._PENDING_GENERATION_PREVIEWS.clear()
     client = TestClient(app)
 
@@ -1304,7 +1306,7 @@ def test_generation_package_endpoint_rejects_deferred_stages(monkeypatch, tmp_pa
     plans_root = tmp_path / "plans"
     bundle_root = plans_root / "example"
     bundle_root.mkdir(parents=True)
-    monkeypatch.setattr(main, "PLANS_ROOT", plans_root.resolve())
+    monkeypatch.setattr(state, "PLANS_ROOT", plans_root.resolve())
     client = TestClient(app)
 
     response = client.post(
@@ -1336,7 +1338,7 @@ def test_generation_package_endpoint_rejects_deferred_stage(monkeypatch, tmp_pat
     plans_root = tmp_path / "plans"
     bundle_root = plans_root / "example"
     bundle_root.mkdir(parents=True)
-    monkeypatch.setattr(main, "PLANS_ROOT", plans_root.resolve())
+    monkeypatch.setattr(state, "PLANS_ROOT", plans_root.resolve())
 
     client = TestClient(app)
     response = client.post(
