@@ -30,12 +30,9 @@ Curated entry points for this template. Old material is preserved under
 | Library learning loop | [`LIBRARY_LEARNING.md`](LIBRARY_LEARNING.md) |
 | PDD/SDD/ADD lifecycle | [`PDD_LIFECYCLE.md`](PDD_LIFECYCLE.md) |
 | Planning framework | [`PLANNING_FRAMEWORK.md`](PLANNING_FRAMEWORK.md) |
-| How it works (deep dive) | [`HOW_IT_WORKS.md`](HOW_IT_WORKS.md) |
 | Install reference | [`INSTALL.md`](INSTALL.md) |
 | Orchestrator deployment | [`ORCHESTRATOR_DEPLOYMENT.md`](ORCHESTRATOR_DEPLOYMENT.md) |
-| Deployment integration | [`DEPLOYMENT_INTEGRATION.md`](DEPLOYMENT_INTEGRATION.md) |
 | `uip` (rpa) CLI | [`uip-rpa-cli.md`](uip-rpa-cli.md) |
-| Workflow benchmarks | [`workflow-benchmarks.md`](workflow-benchmarks.md) |
 
 ## Testing and QA
 

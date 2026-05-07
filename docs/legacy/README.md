@@ -14,6 +14,9 @@ guide under `docs/`.
 | `PRODUCTIZATION_STATUS.md` | Point-in-time productization snapshot (now stale) | replace with a `../PRODUCT_STATUS.md` if still needed |
 | `LEARNING_LOOP.md` | Earlier framing of the learning loop | merge into `../LIBRARY_AUTHORING.md` |
 | `DEMO_RUNBOOK.md` | Manual demo script (large, mostly stale) | trim to a short demo card or delete |
+| `HOW_IT_WORKS.md` | Deep-dive overview, overlaps with `../ARCHITECTURE.md` | merge salvageable parts into `../ARCHITECTURE.md` |
+| `DEPLOYMENT_INTEGRATION.md` | Short deployment integration redirect | merge into `../ORCHESTRATOR_DEPLOYMENT.md` |
+| `workflow-benchmarks.md` | Benchmark notes for workflow runs | merge into `../TESTING.md` or delete |
 
 When consolidating, copy salvageable content into the target file under
 clearly-named sections, then `git rm` the file from this folder.

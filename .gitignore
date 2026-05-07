@@ -93,6 +93,13 @@ node_modules/
 # Internal documentation (not for public)
 docs/internal/
 
+# Superpowers plugin (local cache; never commit)
+# Deprecated docs/superpowers/ tree was retired 2026-05; keep ignored so
+# the plugin installer can't reintroduce it under tracking.
+superpowers/
+docs/superpowers/
+.superpowers/
+
 # OS
 .DS_Store
 Thumbs.db

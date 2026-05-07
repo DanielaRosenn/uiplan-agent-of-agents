@@ -23,7 +23,7 @@ def test_orchestrator_runbook_contains_safety_and_preflight_policy():
 
 
 def test_deployment_integration_redirects_without_stale_trigger_examples():
-    text = _read("docs/DEPLOYMENT_INTEGRATION.md")
+    text = _read("docs/legacy/DEPLOYMENT_INTEGRATION.md")
 
     assert "ORCHESTRATOR_DEPLOYMENT.md" in text
     assert "deploy_to_orchestrator" not in text
