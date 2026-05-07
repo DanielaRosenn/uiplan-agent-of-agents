@@ -4,9 +4,9 @@ These commands are typed at the **`uipath chat`** (or equivalent) prompt when
 the input starts with `/`. They **bypass** the LLM orchestration router in
 `uipath-claude chat` (same behavior as explicit commands should stay direct).
 Plain-language input may be routed by the orchestration step first; see
-[CAPABILITY_CONTRACT.md](CAPABILITY_CONTRACT.md) and [CLAUDE_USER_GUIDE.md](CLAUDE_USER_GUIDE.md).
+[CAPABILITY_CONTRACT.md](CAPABILITY_CONTRACT.md) and [legacy/CLAUDE_USER_GUIDE.md](legacy/CLAUDE_USER_GUIDE.md).
 
-**Pure Anthropic Claude Code** (`claude` in a terminal) does not register this slash surface in the UI. Use the same flow by: opening the named `.cursor/skills/.../SKILL.md` files, using MCP tool names (see [MCP_TOOLS.md](MCP_TOOLS.md)) if the server is added to Claude Code, and/or `uv run uipath-claude <subcommand>` for deterministic CLI. See [PURE_CLAUDE_CODE.md](PURE_CLAUDE_CODE.md).
+**Pure Anthropic Claude Code** (`claude` in a terminal) does not register this slash surface in the UI. Use the same flow by: opening the named `.cursor/skills/.../SKILL.md` files, using MCP tool names (see [MCP_TOOLS.md](MCP_TOOLS.md)) if the server is added to Claude Code, and/or `uv run uipath-claude <subcommand>` for deterministic CLI. See [legacy/PURE_CLAUDE_CODE.md](legacy/PURE_CLAUDE_CODE.md).
 
 Cursor exposes UiPlan through separate skill-backed
 slash commands, each wrapping the same MCP-backed workflow for Cursor chat. MCP

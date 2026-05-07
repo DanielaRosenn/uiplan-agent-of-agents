@@ -2,11 +2,11 @@
 
 This guide walks you through setting up and using UiPath Claude Code for UiPath automation development.
 
-For a **terminal / Claude Code**-oriented walkthrough (hooks vs Actions, how CLI differs from Cursor + MCP), see [CLAUDE_USER_GUIDE.md](CLAUDE_USER_GUIDE.md).
+For a **terminal / Claude Code**-oriented walkthrough (hooks vs Actions, how CLI differs from Cursor + MCP), see [legacy/CLAUDE_USER_GUIDE.md](legacy/CLAUDE_USER_GUIDE.md).
 
 ## Operating and restarting `uipath-claude`
 
-The CLI is **not a background service**: each run is a new process. Full **step-by-step usage**, every subcommand, **`chat` flags**, session ids, and **restart / debugging** (Studio, streams, `PYTHONPATH`, doctor) live in [CLAUDE_USER_GUIDE.md](CLAUDE_USER_GUIDE.md).
+The CLI is **not a background service**: each run is a new process. Full **step-by-step usage**, every subcommand, **`chat` flags**, session ids, and **restart / debugging** (Studio, streams, `PYTHONPATH`, doctor) live in [legacy/CLAUDE_USER_GUIDE.md](legacy/CLAUDE_USER_GUIDE.md).
 
 Quick reminders:
 

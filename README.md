@@ -15,8 +15,8 @@ It works three ways:
 | Path | Best For | Start Here |
 | --- | --- | --- |
 | **Cursor + MCP** | Best IDE experience: skills, validation, library lookup, UiPlan, tool calls | [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md) |
-| **CLI / Claude Code-style terminal** | Headless or terminal-first `uipath-claude` with slash commands | [docs/CLAUDE_USER_GUIDE.md](docs/CLAUDE_USER_GUIDE.md) |
-| **Pure Anthropic Claude Code** | Official `claude` CLI in the repo, skills as files, optional MCP; no `uipath-claude chat` | [docs/PURE_CLAUDE_CODE.md](docs/PURE_CLAUDE_CODE.md) |
+| **CLI / Claude Code-style terminal** | Headless or terminal-first `uipath-claude` with slash commands | [docs/legacy/CLAUDE_USER_GUIDE.md](docs/legacy/CLAUDE_USER_GUIDE.md) |
+| **Pure Anthropic Claude Code** | Official `claude` CLI in the repo, skills as files, optional MCP; no `uipath-claude chat` | [docs/legacy/PURE_CLAUDE_CODE.md](docs/legacy/PURE_CLAUDE_CODE.md) |
 | **Visual skill map** | See how every skill family, MCP family, Cursor flow, and Claude flow fits together | [docs/SKILL_VISUAL_GUIDE.md](docs/SKILL_VISUAL_GUIDE.md) |
 | **Library + planning stack** | Grounded answers, reusable lessons, spec/plan/tasks before execution | [docs/LIBRARY_LEARNING.md](docs/LIBRARY_LEARNING.md), [docs/uiplan/README.md](docs/uiplan/README.md) |
 
@@ -495,9 +495,9 @@ Full setup (UiPath CLI, Studio 26.2+, Orchestrator auth, AWS region overrides) l
 | Plan a meaningful change before code | [docs/uiplan/README.md](docs/uiplan/README.md) + `/uiplan-*` (or `/uiplan` dispatcher) | Structured spec/plan/tasks with review gates |
 | Run full SDLC lifecycle | `/pdd` + [docs/PDD_LIFECYCLE.md](docs/PDD_LIFECYCLE.md) | BA -> SA -> ADD -> TDD -> Dev -> QA flow |
 | Work primarily in Cursor | [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md) | Skills + MCP tooling + quickstart path |
-| Work primarily in CLI (terminal / Claude Code) | [docs/CLAUDE_USER_GUIDE.md](docs/CLAUDE_USER_GUIDE.md) | Setup, hooks, slash-first workflow |
+| Work primarily in CLI (terminal / Claude Code) | [docs/legacy/CLAUDE_USER_GUIDE.md](docs/legacy/CLAUDE_USER_GUIDE.md) | Setup, hooks, slash-first workflow |
 | Understand how every skill works visually | [docs/SKILL_VISUAL_GUIDE.md](docs/SKILL_VISUAL_GUIDE.md) | Skill families, routing, Cursor flow, Claude flow, MCP families |
-| Learn the recommended day-to-day usage patterns | [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md#mcp-tools-advanced) + [docs/CLAUDE_USER_GUIDE.md](docs/CLAUDE_USER_GUIDE.md#best-practices-for-claude--terminal-work) | Cursor MCP playbooks, prompt shape, safety rules, CLI preflight, plans, validation |
+| Learn the recommended day-to-day usage patterns | [docs/CURSOR_USER_GUIDE.md](docs/CURSOR_USER_GUIDE.md#mcp-tools-advanced) + [docs/legacy/CLAUDE_USER_GUIDE.md](docs/legacy/CLAUDE_USER_GUIDE.md#best-practices-for-claude--terminal-work) | Cursor MCP playbooks, prompt shape, safety rules, CLI preflight, plans, validation |
 | CLI reference (commands, env, cookbook) | [docs/USER_GUIDE.md](docs/USER_GUIDE.md) | Deeper command and env documentation |
 | Understand supported Claude-Code-style parity | [docs/CAPABILITY_CONTRACT.md](docs/CAPABILITY_CONTRACT.md) | Canonical CLI/Cursor/MCP contract and non-goals |
 | Learn from accepted fixes and proposals | [docs/LIBRARY_LEARNING.md](docs/LIBRARY_LEARNING.md) | Operator workflow for proposal review and audit logs |
@@ -523,7 +523,7 @@ The full agentic CLI with auto-fix loop, planner, and BA -> SA -> ADD -> TDD -> 
 - Requires `pip install -e ".[dev]"` and AWS Bedrock access.
 - Fast path: `ops/scripts/claude-quickstart.ps1` (Windows) or `bash ops/scripts/claude-quickstart.sh`.
 - Run: `uipath-claude chat`
-- Terminal guide: [docs/CLAUDE_USER_GUIDE.md](docs/CLAUDE_USER_GUIDE.md); command reference: [docs/USER_GUIDE.md](docs/USER_GUIDE.md)
+- Terminal guide: [docs/legacy/CLAUDE_USER_GUIDE.md](docs/legacy/CLAUDE_USER_GUIDE.md); command reference: [docs/USER_GUIDE.md](docs/USER_GUIDE.md)
 
 ### B. Pure Claude Code (`claude`) — no custom chat runtime
 
@@ -541,7 +541,7 @@ claude
 Inside Claude Code, ask it to read the relevant contract explicitly, for example:
 `Read CLAUDE.md, then use .cursor/skills/uiplan/SKILL.md for UiPlan work.`
 
-Guide: [docs/PURE_CLAUDE_CODE.md](docs/PURE_CLAUDE_CODE.md).
+Guide: [docs/legacy/PURE_CLAUDE_CODE.md](docs/legacy/PURE_CLAUDE_CODE.md).
 
 ### C. Cursor (skills-only)
 
@@ -683,7 +683,7 @@ Deeper technical detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - [docs/README.md](docs/README.md) — index of every document in this repo
 - [docs/INSTALL.md](docs/INSTALL.md) — full installation (UiPath CLI, Studio, submodules, AWS)
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — runtime, executor, validator gate, pipeline
-- [docs/CLAUDE_USER_GUIDE.md](docs/CLAUDE_USER_GUIDE.md) — Claude / terminal setup and workflow
+- [docs/legacy/CLAUDE_USER_GUIDE.md](docs/legacy/CLAUDE_USER_GUIDE.md) — Claude / terminal setup and workflow
 - [docs/USER_GUIDE.md](docs/USER_GUIDE.md) — day-to-day CLI usage (commands, env vars)
 - [docs/SKILL_VISUAL_GUIDE.md](docs/SKILL_VISUAL_GUIDE.md) — visual guide to skill families, routing, Cursor, Claude, and MCP tools
 - [docs/PDD_LIFECYCLE.md](docs/PDD_LIFECYCLE.md) — full `/pdd` lifecycle: BA → SA → ADD → TDD → Dev → QA → publish → deploy

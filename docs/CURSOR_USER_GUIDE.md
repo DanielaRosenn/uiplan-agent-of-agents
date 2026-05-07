@@ -729,14 +729,14 @@ If superpowers skills don't appear:
 - Use **Cursor (no MCP)** for quick design and generation
 - Use **CLI** for batch operations and CI/CD integration
 
-For **step-by-step `uipath-claude` usage, all Typer commands, chat flags, session resume, and restart/debug** from a terminal, use [CLAUDE_USER_GUIDE.md](CLAUDE_USER_GUIDE.md).
+For **step-by-step `uipath-claude` usage, all Typer commands, chat flags, session resume, and restart/debug** from a terminal, use [legacy/CLAUDE_USER_GUIDE.md](legacy/CLAUDE_USER_GUIDE.md).
 
 ---
 
 ## Further Reading
 
 - [README.md](../README.md) - Project overview
-- [CLAUDE_USER_GUIDE.md](CLAUDE_USER_GUIDE.md) - Terminal / Claude Code setup (hooks, no IDE MCP)
+- [legacy/CLAUDE_USER_GUIDE.md](legacy/CLAUDE_USER_GUIDE.md) - Terminal / Claude Code setup (hooks, no IDE MCP)
 - [USER_GUIDE.md](USER_GUIDE.md) - CLI usage guide
 - [skills/skills/](../skills/skills/) - Browse skill source files
 - [framework/mcp_server/](../framework/mcp_server/) - MCP server source

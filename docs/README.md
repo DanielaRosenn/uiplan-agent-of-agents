@@ -1,69 +1,79 @@
-# Docs index
+# Docs
 
-Landing page for everything under `docs/`. Start with [ARCHITECTURE.md](ARCHITECTURE.md) if you want to understand the system; start with [USER_GUIDE.md](USER_GUIDE.md) if you want to use it.
+Curated entry points for this template. Old material is preserved under
+[`legacy/`](legacy/) (overlapping or pending consolidation) and
+[`archive/`](archive/) (one-off historical artifacts).
 
-## Core
+## Start here
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) — runtime, agentic executor, validator gate, `/pdd` and `/bootstrap` pipelines.
-- [CAPABILITY_CONTRACT.md](CAPABILITY_CONTRACT.md) — canonical CLI/Cursor/MCP capability contract and explicit Claude Code non-goals.
-- [USER_GUIDE.md](USER_GUIDE.md) — day-to-day CLI usage, slash commands, env vars, and Claude quickstart.
-- [CLAUDE_USER_GUIDE.md](CLAUDE_USER_GUIDE.md) — terminal / Claude Code: full **`uipath-claude`** step-by-step, flags, sessions, restart/debug, hooks-first policy, and how CLI differs from Cursor + MCP.
-- [PURE_CLAUDE_CODE.md](PURE_CLAUDE_CODE.md) — using Anthropic's normal `claude` CLI directly in this repo, without Cursor or `uipath-claude chat`.
-- [SKILL_VISUAL_GUIDE.md](SKILL_VISUAL_GUIDE.md) — visual guide to skill families, routing, Cursor flow, Claude flow, and MCP tool families.
-- [SLASH_COMMANDS.md](SLASH_COMMANDS.md) — slash command reference, SDLC mapping, `UIPATH_CLAUDE_TOOL_PROFILE`.
-- [PDD_LIFECYCLE.md](PDD_LIFECYCLE.md) — the full BA -> SA -> ADD -> TDD -> Dev -> QA -> publish -> deploy flow driven by `/pdd` (includes **Naming: SDD vs lifecycle TDD**).
-- [CURSOR_USER_GUIDE.md](CURSOR_USER_GUIDE.md) — using the UiPath skills + MCP tools from inside Cursor (clone + `uv sync --extra mcp` + `mcp.json`).
-- Local setup policy: one assistant per clone via `ops/scripts/cursor-quickstart.*` or `ops/scripts/claude-quickstart.*` (`.assistant-choice`, switch with force).
-- [uiplan/README.md](uiplan/README.md) — canonical UiPlan onboarding: what to use where, quickstart, and role-based read order.
-- [INSTALL.md](INSTALL.md) — full installation: UiPath CLI, Studio 26.2+, submodules, AWS Bedrock.
-- [TOOLS.md](TOOLS.md) — reference for every tool the agent can call.
-- [MCP_TOOLS.md](MCP_TOOLS.md) — generated catalog of MCP-exposed tools (run `python ops/scripts/generate_mcp_tools_doc.py` after changes).
-- [MCP_TOOLS_FINDINGS.md](MCP_TOOLS_FINDINGS.md) — known gaps and recommended fixes for MCP tools.
+| Goal | Read |
+|---|---|
+| Set up the repo and run a session | [`USER_GUIDE.md`](USER_GUIDE.md) |
+| Use this template from inside Cursor | [`CURSOR_USER_GUIDE.md`](CURSOR_USER_GUIDE.md) |
+| Understand the system architecture | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| Pick a UiPath paradigm and CLI | [`uipath-cli.md`](uipath-cli.md) and [`uipath-workflows.md`](uipath-workflows.md) |
+| Plan a build with UiPlan | [`uiplan/README.md`](uiplan/README.md) -> [`uiplan/HOW_TO_USE.md`](uiplan/HOW_TO_USE.md) |
+| Use the Studio Explorer in a new project | [`uiplan/EXPLORER_NEW_PROJECT.md`](uiplan/EXPLORER_NEW_PROJECT.md) |
+| Read the latest cleanup review | [`uiplan/EXPLORER_REVIEW_2026-05-07.md`](uiplan/EXPLORER_REVIEW_2026-05-07.md) |
 
-## Planning (Cursor + agent)
+## Reference
 
-- [uiplan/README.md](uiplan/README.md) — start here for UiPlan usage and default command flow.
-- [uiplan/HOW_TO_USE.md](uiplan/HOW_TO_USE.md) — operational runbook, acceptance gates, and review-failure fixes.
-- [uiplan/TASK_AUTHORING.md](uiplan/TASK_AUTHORING.md) — advanced `tasks.md` execution contract.
-- [PLANNING_FRAMEWORK.md](PLANNING_FRAMEWORK.md) — full planning framework and legacy planning paths.
-- [plans/README.md](plans/README.md) — index of git-tracked implementation plans under `docs/plans/`.
-- [plans/_TEMPLATE.md](plans/_TEMPLATE.md) — required front matter, Mermaid, tasks, verification.
-- Cursor skills: `.cursor/skills/uiplan/SKILL.md` (canonical planning + discovery), `.cursor/skills/uiplan-*` (visible UiPlan slash wrappers), `.cursor/skills/writing-uipath-plans/SKILL.md`, `.cursor/skills/mermaid-diagram-builder/SKILL.md`.
-- MCP (UiPlan default): `uipath_plan_ground`, `uipath_plan_spec_new`, `uipath_plan_plan_new`, `uipath_plan_tasks_new`, `uipath_plan_review`, `uipath_plan_accept`, `uipath_plan_publish`.
-- MCP (legacy single-file): `uipath_plan_new`, `uipath_plan_refine`, `uipath_plan_diff`, etc. Use only when intentionally choosing legacy format.
-- CLI: `uipath-claude plan uiplan ...` for default UiPlan flow.
-- Regenerate the plans table: `python ops/scripts/generate_plan_index.py`.
-- Formal lifecycle: [PDD_LIFECYCLE.md](PDD_LIFECYCLE.md).
+| Topic | File |
+|---|---|
+| Capability contract | [`CAPABILITY_CONTRACT.md`](CAPABILITY_CONTRACT.md) |
+| Slash commands | [`SLASH_COMMANDS.md`](SLASH_COMMANDS.md) |
+| MCP tool catalog (generated) | [`MCP_TOOLS.md`](MCP_TOOLS.md) |
+| Tools the agent can call | [`TOOLS.md`](TOOLS.md) |
+| Skill layout | [`SKILL_LAYOUT.md`](SKILL_LAYOUT.md) |
+| Skill visual guide | [`SKILL_VISUAL_GUIDE.md`](SKILL_VISUAL_GUIDE.md) |
+| Library authoring | [`LIBRARY_AUTHORING.md`](LIBRARY_AUTHORING.md) |
+| Library learning loop | [`LIBRARY_LEARNING.md`](LIBRARY_LEARNING.md) |
+| PDD/SDD/ADD lifecycle | [`PDD_LIFECYCLE.md`](PDD_LIFECYCLE.md) |
+| Planning framework | [`PLANNING_FRAMEWORK.md`](PLANNING_FRAMEWORK.md) |
+| How it works (deep dive) | [`HOW_IT_WORKS.md`](HOW_IT_WORKS.md) |
+| Install reference | [`INSTALL.md`](INSTALL.md) |
+| Orchestrator deployment | [`ORCHESTRATOR_DEPLOYMENT.md`](ORCHESTRATOR_DEPLOYMENT.md) |
+| Deployment integration | [`DEPLOYMENT_INTEGRATION.md`](DEPLOYMENT_INTEGRATION.md) |
+| `uip` (rpa) CLI | [`uip-rpa-cli.md`](uip-rpa-cli.md) |
+| Workflow benchmarks | [`workflow-benchmarks.md`](workflow-benchmarks.md) |
 
-## Skills and library
+## Testing and QA
 
-- [SKILL_LAYOUT.md](SKILL_LAYOUT.md) — how skills are layered (user, project, extensions, submodule, template), and how to keep Cursor in sync with the submodule.
-- [SKILL_VISUAL_GUIDE.md](SKILL_VISUAL_GUIDE.md) — how every skill family works, with Mermaid diagrams and routing tables.
-- [LIBRARY_AUTHORING.md](LIBRARY_AUTHORING.md) — authoring content for the knowledge library.
-- [LIBRARY_LEARNING.md](LIBRARY_LEARNING.md) — the harvest -> propose -> apply learning loop.
-- [CAPABILITY_CONTRACT.md](CAPABILITY_CONTRACT.md) — supported pragmatic Claude-Code-style UiPath capabilities and explicit non-goals.
+| Topic | File |
+|---|---|
+| Testing how-to | [`Testing_Guide.md`](Testing_Guide.md) |
+| Smoke tests | [`SMOKE_TESTS.md`](SMOKE_TESTS.md) |
+| Test layout | [`TESTING.md`](TESTING.md) |
+| Manual eval (legacy) | [`legacy/MANUAL_EVAL_AND_QA.md`](legacy/MANUAL_EVAL_AND_QA.md) |
+| Evaluation harness | [`evaluations/README.md`](evaluations/README.md) |
 
-## Evaluation and QA
+## UiPlan (planning + Studio)
 
-- [Testing_Guide.md](Testing_Guide.md) — how to run tests.
-- [SMOKE_TESTS.md](SMOKE_TESTS.md) — end-to-end smoke scenarios.
-- [MANUAL_EVAL_AND_QA.md](MANUAL_EVAL_AND_QA.md) — manual evaluation checklist.
-- [workflow-benchmarks.md](workflow-benchmarks.md) — benchmark workflows.
+| File | What |
+|---|---|
+| [`uiplan/README.md`](uiplan/README.md) | Onboarding, command matrix, role-based read order |
+| [`uiplan/HOW_TO_USE.md`](uiplan/HOW_TO_USE.md) | Operational runbook |
+| [`uiplan/STUDIO.md`](uiplan/STUDIO.md) | Studio (planning surface) reference |
+| [`uiplan/EXPLORER.md`](uiplan/EXPLORER.md) | Explorer concepts + endpoints |
+| [`uiplan/EXPLORER_NEW_PROJECT.md`](uiplan/EXPLORER_NEW_PROJECT.md) | Adopt the Explorer in a new project |
+| [`uiplan/EXPLORER_REVIEW_2026-05-07.md`](uiplan/EXPLORER_REVIEW_2026-05-07.md) | Review + cleanup report |
+| [`uiplan/TASK_AUTHORING.md`](uiplan/TASK_AUTHORING.md) | `tasks.md` execution contract |
+| [`uiplan/SCAFFOLD_CODE.md`](uiplan/SCAFFOLD_CODE.md) | Scaffold conventions |
+| [`uiplan/RUBRIC_POLICY.md`](uiplan/RUBRIC_POLICY.md) | Review rubric policy |
+| [`uiplan/CLEANUP_CLASSIFICATION.md`](uiplan/CLEANUP_CLASSIFICATION.md) | Cleanup classifications |
+| [`uiplan/CLONED_PROJECT_SETUP.md`](uiplan/CLONED_PROJECT_SETUP.md) | Cloned-project bootstrap |
+| [`uiplan/MERMAID_VALIDATION.md`](uiplan/MERMAID_VALIDATION.md) | Mermaid validation |
+| [`uiplan/ACTIVITY_AND_RUNTIME_EVIDENCE.md`](uiplan/ACTIVITY_AND_RUNTIME_EVIDENCE.md) | Activity/runtime evidence |
 
-Historical broad manual-review matrices remain in the repo for audit context, but the canonical day-to-day QA path is `uipath-claude doctor`, generated [MCP_TOOLS.md](MCP_TOOLS.md), [TESTING.md](TESTING.md), and [SMOKE_TESTS.md](SMOKE_TESTS.md).
+## Plans (worked examples)
 
-## Deployment
+[`plans/README.md`](plans/README.md) - index of git-tracked implementation plans.
 
-- [DEPLOYMENT_INTEGRATION.md](DEPLOYMENT_INTEGRATION.md) — deployment integration notes.
+## Folders
 
-## Cato discoverability (wiki drafts)
-
-- [wiki/confluence-overview.md](wiki/confluence-overview.md) — Confluence "Overview" page (non-dev audience).
-- [wiki/confluence-quickstart.md](wiki/confluence-quickstart.md) — Confluence "Quickstart for developers" page.
-
-## Assets
-
-- [assets/demo.tape](assets/demo.tape) — VHS script for the hero terminal cast.
-- [assets/builder-agent-logo.svg](assets/builder-agent-logo.svg) — reusable UiPath Builder Agent logo used by the README and skill visual guide.
-- [assets/builder-agent-icon.svg](assets/builder-agent-icon.svg) — compact icon variant for smaller visual surfaces.
-- `assets/demo.gif` — rendered terminal cast (generated from `demo.tape`).
+- [`uiplan/`](uiplan/) - UiPlan + Studio docs
+- [`plans/`](plans/) - worked planning examples
+- [`evaluations/`](evaluations/) - eval harness + reports
+- [`assets/`](assets/) - logos, demo tape
+- [`legacy/`](legacy/) - older overlapping guides; consolidation pending
+- [`archive/`](archive/) - one-off historical artifacts (kept for audit)

@@ -376,7 +376,7 @@ Use .cursor/skills/uiplan-implement/SKILL.md for <slug>. Run review first, ask
 before source edits, then implement from tasks.md with tests and build gates.
 ```
 
-Full guide: [PURE_CLAUDE_CODE.md](PURE_CLAUDE_CODE.md).
+Full guide: [legacy/PURE_CLAUDE_CODE.md](legacy/PURE_CLAUDE_CODE.md).
 
 ### D. Via the Python CLI / MCP directly
 
