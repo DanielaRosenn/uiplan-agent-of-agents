@@ -134,6 +134,9 @@ already drop a `.uiplan/explorer.yaml` with paradigm-appropriate defaults
 into each new project. For an existing project that doesn't have one yet,
 run `uipath-claude explore --init` from the project root.
 
+For a step-by-step adoption guide (config, annotations, CI hooks,
+troubleshooting) see [EXPLORER_NEW_PROJECT.md](EXPLORER_NEW_PROJECT.md).
+
 ## Endpoints (for tooling)
 
 | Method | Path                              | Purpose |

@@ -564,7 +564,7 @@ def copilot_generate_response_payload() -> dict[str, Any]:
             "reason": "LOCAL_BUILDER_RUNTIME",
             "message": (
                 "Builder actions are available through /copilotkit/info and "
-                "/copilotkit/runtime/action/{name}. Use /agent/chat for deterministic local chat."
+                "/copilotkit/runtime/action/{name}."
             ),
         },
     }

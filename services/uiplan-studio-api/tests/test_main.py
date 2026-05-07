@@ -28,10 +28,8 @@ def test_health_routes_match_exposed_endpoints() -> None:
     assert "/lifecycle/readiness" in payload["routes"]
     assert "/diagram/load" in payload["routes"]
     assert "/diagram/save" in payload["routes"]
-    assert "/graph/index" in payload["routes"]
     assert "/bundle/save" not in payload["routes"]
     assert "/agent/context-sources" in payload["routes"]
-    assert "/agent/chat" in payload["routes"]
 
 
 def test_bundle_load_accepts_relative_repo_path_when_cwd_differs(monkeypatch, tmp_path) -> None:
@@ -128,135 +126,6 @@ def test_agent_library_context_returns_ranked_items(monkeypatch) -> None:
     assert payload["query"] == "deploy"
     assert len(payload["items"]) == 1
     assert payload["items"][0]["book_id"] == "uipath-cli"
-
-
-def test_graph_context_resolve_returns_node_and_citations(monkeypatch) -> None:
-    monkeypatch.setattr(
-        main,
-        "resolve_node_context",
-        lambda node_id, query, sources: {
-            "node_id": node_id,
-            "query": query,
-            "citations": [],
-        },
-    )
-
-    client = TestClient(app)
-    response = client.post(
-        "/graph/context/resolve",
-        json={"node_id": "plan", "query": "retry scope", "sources": ["library", "skills"]},
-    )
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["node_id"] == "plan"
-    assert "citations" in payload
-
-
-def test_graph_context_resolve_defaults_sources_to_library(monkeypatch) -> None:
-    calls: list[list[str]] = []
-
-    def fake_resolve(node_id: str, query: str, sources: list[str]):
-        calls.append(sources)
-        return {"node_id": node_id, "query": query, "citations": []}
-
-    monkeypatch.setattr(main, "resolve_node_context", fake_resolve)
-
-    client = TestClient(app)
-    response = client.post(
-        "/graph/context/resolve",
-        json={"node_id": "plan", "query": "retry scope"},
-    )
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert "citations" in payload
-    assert calls == [["library"]]
-
-
-def test_graph_action_add_node() -> None:
-    client = TestClient(app)
-    response = client.post(
-        "/graph/actions/execute",
-        json={
-            "action": "add_node",
-            "payload": {
-                "id": "node-hitl",
-                "title": "HITL",
-                "kind": "workflow",
-            },
-            "workspace": {"nodes": [], "edges": []},
-        },
-    )
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["workspace"]["version"] == "uiplan_graph.v2"
-    assert isinstance(payload["workspace"]["nodes"], list)
-    assert isinstance(payload["workspace"]["edges"], list)
-    assert any(node["id"] == "node-hitl" for node in payload["workspace"]["nodes"])
-
-
-def test_graph_action_add_node_accepts_direct_payload() -> None:
-    client = TestClient(app)
-    response = client.post(
-        "/graph/actions/execute",
-        json={
-            "action": "add_node",
-            "payload": {
-                "node": {
-                    "id": "node-legacy",
-                    "title": "Legacy payload style",
-                    "kind": "workflow",
-                }
-            },
-            "workspace": {"version": "uiplan_graph.v2", "nodes": [], "edges": []},
-        },
-    )
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["workspace"]["version"] == "uiplan_graph.v2"
-    assert any(node["id"] == "node-legacy" for node in payload["workspace"]["nodes"])
-
-
-def test_graph_action_explain_node() -> None:
-    client = TestClient(app)
-    workspace = {"nodes": [{"id": "seed", "title": "Seed"}], "edges": []}
-    response = client.post(
-        "/graph/actions/execute",
-        json={
-            "action": "explain_node",
-            "payload": {"node_id": "node-hitl"},
-            "workspace": workspace,
-        },
-    )
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["message"] == "Node node-hitl is ready for review."
-    assert payload["workspace"] == {
-        "version": "uiplan_graph.v2",
-        "nodes": [{"id": "seed", "title": "Seed"}],
-        "edges": [],
-    }
-
-
-def test_graph_action_unsupported() -> None:
-    client = TestClient(app)
-    response = client.post(
-        "/graph/actions/execute",
-        json={
-            "action": "remove_node",
-            "payload": {"node_id": "node-hitl"},
-            "workspace": {},
-        },
-    )
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["message"] == "Unsupported action: remove_node"
-    assert payload["workspace"] == {"version": "uiplan_graph.v2", "nodes": [], "edges": []}
 
 
 def test_agent_context_sources_returns_builder_categories_and_core_skills() -> None:
@@ -451,7 +320,6 @@ def test_copilotkit_generate_response_is_configured() -> None:
     assert payload["status"]["code"] == "SUCCESS"
     assert payload["status"]["reason"] != "RUNTIME_NOT_CONFIGURED"
     assert payload["messages"] == []
-    assert "Use /agent/chat for deterministic local chat" in payload["status"]["message"]
     action_names = {action["name"] for action in payload["actions"]}
     assert "suggest_diagram_node" in action_names
 
@@ -615,41 +483,6 @@ def test_diagram_save_and_load_round_trip(monkeypatch, tmp_path) -> None:
     assert load_payload["defaulted"] is False
     assert load_payload["nodes"] == diagram["nodes"]
     assert load_payload["edges"] == diagram["edges"]
-
-
-def test_graph_index_endpoint_returns_workspace_with_core_spec(monkeypatch, tmp_path) -> None:
-    plans_root = tmp_path / "plans"
-    bundle_root = plans_root / "example"
-    bundle_root.mkdir(parents=True)
-    (bundle_root / "spec.md").write_text("# Spec\n", encoding="utf-8")
-    monkeypatch.setattr(main, "PLANS_ROOT", plans_root.resolve())
-
-    client = TestClient(app)
-    response = client.get("/graph/index", params={"bundle_root": str(bundle_root)})
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["version"] == "uiplan_graph.v2"
-    assert any(node["id"] == "spec" for node in payload["nodes"])
-    assert "warnings" in payload
-    assert payload["warnings"] == []
-
-
-def test_graph_index_endpoint_returns_warnings_for_missing_allowed_bundle(
-    monkeypatch, tmp_path
-) -> None:
-    plans_root = tmp_path / "plans"
-    missing_bundle_root = plans_root / "missing-bundle"
-    monkeypatch.setattr(main, "PLANS_ROOT", plans_root.resolve())
-
-    client = TestClient(app)
-    response = client.get("/graph/index", params={"bundle_root": str(missing_bundle_root)})
-
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["version"] == "uiplan_graph.v2"
-    assert isinstance(payload["warnings"], list)
-    assert payload["warnings"]
 
 
 def test_diagram_save_and_load_preserves_typed_project_graph_fields(monkeypatch, tmp_path) -> None:
@@ -984,32 +817,6 @@ def test_diagram_preview_apply_uses_existing_pending_store(monkeypatch, tmp_path
 
     assert apply_response.status_code == 200
     assert "Generated From Visual Builder" in target.read_text(encoding="utf-8")
-
-
-def test_agent_chat_suggests_skill_and_library_nodes() -> None:
-    client = TestClient(app)
-    response = client.post(
-        "/agent/chat",
-        json={
-            "message": "Show the relevant skill and library book context",
-            "nodes": [
-                {
-                    "id": "plan",
-                    "title": "Implementation Plan",
-                    "kind": "workflow",
-                    "description": "Build steps",
-                    "x": 10,
-                    "y": 20,
-                    "source": "plan.md",
-                }
-            ],
-            "selected_node_id": "plan",
-        },
-    )
-    assert response.status_code == 200
-    payload = response.json()
-    assert "Implementation Plan" in payload["message"]
-    assert {node["kind"] for node in payload["suggested_nodes"]} == {"skill", "library"}
 
 
 def test_generation_package_endpoint_creates_plan_package_without_target_write(

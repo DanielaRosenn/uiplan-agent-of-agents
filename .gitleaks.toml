@@ -1,0 +1,27 @@
+# gitleaks config for the uipath-builder-agent template.
+# Extends the default ruleset and adds UiPath-specific patterns.
+
+title = "uipath-builder-agent gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "uipath-access-token"
+description = "UiPath OAuth access token in .env or source"
+regex = '''(?i)UIPATH_ACCESS_TOKEN\s*=\s*['"]?eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+'''
+tags = ["uipath", "jwt"]
+
+[[rules]]
+id = "atlassian-api-token"
+description = "Atlassian API token"
+regex = '''(?i)ATLASSIAN_API_TOKEN\s*=\s*['"]?[A-Za-z0-9_\-]{20,}'''
+tags = ["atlassian"]
+
+[allowlist]
+description = "Allow examples and the explorer review report (which discusses the leak)"
+paths = [
+  '''(?i).*\.example$''',
+  '''(?i)docs/uiplan/EXPLORER_REVIEW_.*\.md''',
+  '''(?i).*\.lock$''',
+]

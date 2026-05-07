@@ -65,13 +65,9 @@ def _print_indexer_summary(project: Path) -> None:
     repo = _repo_root()
     backend_dir = repo / "services" / "uiplan-studio-api"
     sys.path.insert(0, str(backend_dir))
-    try:
-        from app.explorer_config import load_config  # type: ignore
-        from app.explorer_indexer import index_project  # type: ignore
-        from app.explorer_skills import aggregate_skill_graph_context  # type: ignore
-    finally:
-        # leave it for subsequent calls but only if the import succeeded
-        pass
+    from app.explorer_config import load_config  # type: ignore
+    from app.explorer_indexer import index_project  # type: ignore
+    from app.explorer_skills import aggregate_skill_graph_context  # type: ignore
     config = load_config(project)
     result = index_project(project, config)
     skill_nodes, skill_edges = aggregate_skill_graph_context(repo, result.nodes)
@@ -172,11 +168,19 @@ def _do_explore(project: Path, *, port: int, open_browser: bool) -> int:
     typer.echo("")
     typer.echo("  starting backend …")
 
+    # On Windows, start each subprocess in its own process group so that
+    # `signal.CTRL_BREAK_EVENT` reaches only the child and not the parent
+    # shell. On POSIX this flag does not exist; `creationflags=0` is a no-op.
+    popen_creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0  # type: ignore[attr-defined]
+
     backend_cmd = [
         sys.executable, "-m", "uvicorn", "app.main:app",
         "--host", "127.0.0.1", "--port", str(api_port), "--log-level", "warning",
     ]
-    backend = subprocess.Popen(backend_cmd, cwd=str(backend_dir), env=env)
+    backend = subprocess.Popen(
+        backend_cmd, cwd=str(backend_dir), env=env,
+        creationflags=popen_creationflags,
+    )
 
     if not _wait_for_port(api_port, timeout=20):
         typer.echo("  backend did not become ready within 20s — aborting.", err=True)
@@ -184,10 +188,13 @@ def _do_explore(project: Path, *, port: int, open_browser: bool) -> int:
         return 3
 
     typer.echo("  backend ready. starting Vite dev server …")
-    frontend_cmd = ["npm", "run", "dev", "--", "--port", str(web_port), "--strictPort"]
+    # Use `npm.cmd` explicitly on Windows so we don't have to go through the
+    # shell. shell=True with quoted arg lists is fragile under cmd.exe.
+    npm_exe = "npm.cmd" if os.name == "nt" else "npm"
+    frontend_cmd = [npm_exe, "run", "dev", "--", "--port", str(web_port), "--strictPort"]
     frontend = subprocess.Popen(
         frontend_cmd, cwd=str(frontend_dir), env=env,
-        shell=os.name == "nt",  # `npm` resolves through the shell on Windows
+        creationflags=popen_creationflags,
     )
 
     studio_url = f"http://127.0.0.1:{web_port}/?worktree={project}"

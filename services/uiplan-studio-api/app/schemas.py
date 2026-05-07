@@ -1,5 +1,4 @@
 from pydantic import BaseModel, ConfigDict, Field
-from typing import Any
 
 from app.generation_contracts.models import (
     ApprovalPackageManifest,
@@ -99,41 +98,6 @@ class SaveDiagramRequest(DiagramData):
 class SaveDiagramResponse(DiagramData):
     path: str
     bytes_written: int
-
-
-class AssistantChatRequest(BaseModel):
-    message: str
-    nodes: list[DiagramNode] = Field(default_factory=list)
-    selected_node_id: str | None = None
-
-
-class AssistantChatResponse(BaseModel):
-    message: str
-    suggested_nodes: list[DiagramNode] = Field(default_factory=list)
-
-
-class GraphIndexNode(BaseModel):
-    id: str
-    type: str
-    title: str
-    summary: str = ""
-    code: dict[str, Any] | None = None  # {"path": str, "lines": str, "snippet": str, "language": str}
-    concept: str | None = None  # plain-language explanation
-
-
-class GraphIndexEdge(BaseModel):
-    id: str
-    type: str
-    source: str
-    target: str
-    label: str = ""
-
-
-class GraphIndexResponse(BaseModel):
-    version: str
-    nodes: list[GraphIndexNode]
-    edges: list[GraphIndexEdge]
-    warnings: list[str] = Field(default_factory=list)
 
 
 class GenerateApprovalPackageRequest(BaseModel):

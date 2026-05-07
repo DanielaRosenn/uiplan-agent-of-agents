@@ -36,14 +36,25 @@ def test_explorer_graph_known_worktree_returns_indexed_payload() -> None:
 
 
 def test_explorer_graph_relative_path_is_indexed(tmp_path, monkeypatch) -> None:
-    """A path that isn't a registered worktree but is a valid directory works."""
+    """An allow-listed path that isn't a registered worktree but is a valid directory works."""
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "App.tsx").write_text("export const App = () => null;\n", encoding="utf-8")
+    monkeypatch.setenv("UIPATH_EXPLORER_ROOTS", str(tmp_path))
     client = TestClient(app)
     response = client.get("/explorer/graph", params={"worktree": str(tmp_path)})
     assert response.status_code == 200
     payload = response.json()
     assert payload["meta"]["worktree_id"] == tmp_path.name
+
+
+def test_explorer_graph_path_outside_allowlist_is_403(tmp_path, monkeypatch) -> None:
+    """A path that exists but is not under any allow-listed root is rejected."""
+    monkeypatch.delenv("UIPATH_EXPLORER_ROOTS", raising=False)
+    (tmp_path / "src").mkdir()
+    client = TestClient(app)
+    response = client.get("/explorer/graph", params={"worktree": str(tmp_path)})
+    assert response.status_code == 403
+    assert "allow-list" in response.json()["detail"]
 
 
 def test_explorer_graph_unknown_worktree_404() -> None:

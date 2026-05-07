@@ -19,7 +19,7 @@ Use one primary path per session; all paths converge on the same bundle and gate
 | Cursor chat | Interactive planning in IDE | `/uiplan-full` or staged `/uiplan-ground` -> `/uiplan-spec` -> `/uiplan-plan` -> `/uiplan-tasks` -> `/uiplan-review` -> `/uiplan-implement` |
 | Terminal CLI | Scriptable/headless flow | `uipath-claude plan uiplan full` or staged `ground/spec/plan/tasks/review` |
 | MCP tools | Agent/tool-driven orchestration | `uipath_plan_ground`, `uipath_plan_spec_new`, `uipath_plan_plan_new`, `uipath_plan_tasks_new`, `uipath_plan_review`, `uipath_plan_accept` |
-| **UiPlan Studio Explorer** | Visual project map (UI/API/Agent/RPA/Maestro/App/Orchestrator/Test) with BA overview, drill-down, knowledge tab | `uipath-claude explore` — see [EXPLORER.md](EXPLORER.md) |
+| **UiPlan Studio Explorer** | Visual project map (UI/API/Agent/RPA/Maestro/App/Orchestrator/Test) with BA overview, drill-down, knowledge tab | `uipath-claude explore` — see [EXPLORER.md](EXPLORER.md). To adopt in a new project: [EXPLORER_NEW_PROJECT.md](EXPLORER_NEW_PROJECT.md) |
 
 ## Quickstart (5 steps)
 

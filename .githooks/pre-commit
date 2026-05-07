@@ -29,3 +29,26 @@ elif [ -x ".venv/bin/python" ]; then
 fi
 
 "$PY" -m uipath_claude.skills.submodule_guard
+
+# Secret-scan guard: refuse to commit a real .env file or any blob that
+# carries a UiPath/Atlassian access token shape (`UIPATH_ACCESS_TOKEN=eyJ`,
+# `ATLASSIAN_API_TOKEN=...`, generic JWT). .env.example is allowed.
+STAGED_ENV=$(git diff --cached --name-only --diff-filter=AM | grep -E '(^|/)\.env$' || true)
+if [ -n "$STAGED_ENV" ]; then
+  echo "secret-scan: refusing to commit .env file(s):" >&2
+  echo "$STAGED_ENV" >&2
+  echo "secret-scan: use .env.example instead." >&2
+  exit 1
+fi
+
+LEAK=$(git diff --cached -U0 -- ':!*.example' ':!*.lock' ':!docs/uiplan/EXPLORER_REVIEW_*.md' \
+  | grep -E '^\+' \
+  | grep -E '(UIPATH_ACCESS_TOKEN|ATLASSIAN_API_TOKEN)\s*=\s*[^[:space:]]|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+' \
+  || true)
+if [ -n "$LEAK" ]; then
+  echo "secret-scan: candidate secret detected in staged changes:" >&2
+  echo "$LEAK" | head -5 >&2
+  echo "secret-scan: rotate and remove before committing. Override with --no-verify only if you are sure." >&2
+  exit 1
+fi
+

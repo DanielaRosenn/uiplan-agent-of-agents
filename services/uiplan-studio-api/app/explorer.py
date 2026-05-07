@@ -7,9 +7,8 @@ Exposes endpoints consumed by `apps/uiplan-studio` (the project explorer):
   GET /explorer/knowledge?node=&q=&worktree= -> ranked library citations + skills
   GET /explorer/library/section?book=&...    -> full body of a single library section
 
-These are intentionally separate from the existing /graph/index endpoint —
-that route serves the bundle-rooted document indexer; this surface serves the
-project-wide explorer view and follows a different schema (status, BA fields,
+These routes serve the project-wide explorer view used by
+`apps/uiplan-studio` and follow a permissive schema (status, BA fields,
 recursive children, edge metadata, etc.).
 
 Skills + library are read through the official internal modules so this stays
@@ -198,20 +197,83 @@ def _safe_git_branch(path: Path) -> str | None:
 
 
 def _detect_project_type(path: Path) -> str:
-    """Best-effort project-type detection per CLAUDE.md §1."""
+    """Best-effort project-type detection per CLAUDE.md §1.
+
+    Order matters: more specific markers (Solution, Maestro Case, Coded App)
+    are checked before generic ones (RPA `project.json`).
+    """
     if not path.is_dir():
         return "unknown"
+    # Multi-project containers first.
+    if (path / "solution.uipx").exists():
+        return "solution"
+    # Coded paradigms (Python).
     if (path / "langgraph.json").exists():
         return "langgraph"
     if (path / "agent_framework.json").exists():
         return "coded-agent"
     if (path / "llama_index.json").exists():
         return "llama-index"
-    if (path / "solution.uipx").exists():
-        return "solution"
+    # Low-code / Studio Web paradigms.
+    if (path / "agent.json").exists():
+        return "low-code-agent"
+    if (path / "caseplan.json").exists():
+        return "case"
+    if (path / "api-workflow.json").exists():
+        return "api-workflow"
+    if (path / "app.config.json").exists() or (path / "action-schema.json").exists():
+        return "coded-app"
+    # Maestro: BPMN under a Studio Web project.
+    if any(path.glob("*.bpmn")) or any(path.glob("**/*.bpmn")):
+        return "maestro"
+    # RPA: classic / coded automation projects.
     if any(path.glob("*.uiproj")) or (path / "project.json").exists():
         return "rpa"
     return "unknown"
+
+
+def _allowed_worktree_roots() -> list[Path]:
+    """Return the union of paths the `/explorer/graph` endpoint may index.
+
+    By default this is the repo root plus any registered git worktrees.
+    Operators can extend with `UIPATH_EXPLORER_ROOTS` (`os.pathsep`-separated
+    absolute paths) to allow indexing projects outside this checkout.
+    """
+    import os
+
+    roots: list[Path] = [_repo_root().resolve()]
+    for wt in _list_worktrees():
+        try:
+            roots.append(Path(wt.path).resolve())
+        except (OSError, ValueError):
+            continue
+    extra = os.environ.get("UIPATH_EXPLORER_ROOTS", "")
+    for raw in extra.split(os.pathsep):
+        raw = raw.strip()
+        if not raw:
+            continue
+        try:
+            roots.append(Path(raw).resolve())
+        except (OSError, ValueError):
+            continue
+    # Deduplicate while preserving order.
+    seen: set[str] = set()
+    deduped: list[Path] = []
+    for root in roots:
+        key = str(root)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(root)
+    return deduped
+
+
+def _is_within(child: Path, parent: Path) -> bool:
+    try:
+        child.resolve().relative_to(parent.resolve())
+        return True
+    except ValueError:
+        return False
 
 
 def _to_citation(item: LibraryContextItem) -> ExplorerCitation:
@@ -284,15 +346,26 @@ def get_project_graph(worktree: str = Query("repo-root")) -> ExplorerGraphRespon
     items = {wt.id: wt for wt in _list_worktrees()}
     if worktree in items:
         wt = items[worktree]
-        project_path = Path(wt.path)
+        project_path = Path(wt.path).resolve()
         wt_id = wt.id
         wt_branch = wt.branch
     else:
         candidate = Path(worktree)
         if not candidate.is_absolute():
             candidate = (_repo_root() / candidate).resolve()
+        else:
+            candidate = candidate.resolve()
         if not candidate.is_dir():
             raise HTTPException(status_code=404, detail=f"unknown worktree: {worktree}")
+        allowed = _allowed_worktree_roots()
+        if not any(_is_within(candidate, root) for root in allowed):
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "worktree path is not in the allow-list. Set UIPATH_EXPLORER_ROOTS "
+                    "(os.pathsep-separated absolute paths) to opt in."
+                ),
+            )
         project_path = candidate
         wt_id = candidate.name or worktree
         wt_branch = _safe_git_branch(candidate)

@@ -1,6 +1,6 @@
 export * from "./types";
-export { sampleGraph } from "./sample";
-export { sampleSolutionGraph, sampleEmptyGraph } from "./sampleSolution";
+export { sampleGraph } from "../__fixtures__/sample";
+export { sampleSolutionGraph, sampleEmptyGraph } from "../__fixtures__/sampleSolution";
 export {
   loadProjectGraph,
   loadNodeKnowledge,

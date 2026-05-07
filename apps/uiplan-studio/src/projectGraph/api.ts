@@ -1,6 +1,6 @@
 import type { DocCitation, ProjectGraph, SkillRef, Worktree } from "./types";
-import { sampleGraph } from "./sample";
-import { sampleEmptyGraph, sampleSolutionGraph } from "./sampleSolution";
+import { sampleGraph } from "../__fixtures__/sample";
+import { sampleEmptyGraph, sampleSolutionGraph } from "../__fixtures__/sampleSolution";
 
 const API_BASE = (import.meta.env?.VITE_UIPLAN_API_URL as string | undefined)?.replace(/\/$/, "")
   ?? "http://localhost:8000";

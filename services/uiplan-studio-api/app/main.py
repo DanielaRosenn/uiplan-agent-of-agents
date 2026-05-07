@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 from pathlib import Path
 from uuid import uuid4
 
@@ -8,9 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from app.context_sources import get_context_sources, sanitize_diagram_nodes
-from app.context_resolver import resolve_node_context
 from app.explorer import router as explorer_router
-from app.copilot_graph_actions import execute_graph_action
 from app.copilot_runtime import (
     copilot_generate_response_payload,
     copilot_info_payload,
@@ -36,21 +35,15 @@ from app.generation_service import (
     build_preview_patch,
     enrich_generated_content,
 )
-from app.graph_indexer import index_workspace_sources_with_warnings
 from app.library_service import search_library_context
 from app.project_graph.templates import (
     ProjectGraphTemplateResponse,
     create_starter_project_graph_template_response,
 )
 from app.schemas import (
-    AssistantChatRequest,
-    AssistantChatResponse,
     DiagramEdge,
     DiagramNode,
     DiagramData,
-    GraphIndexEdge,
-    GraphIndexNode,
-    GraphIndexResponse,
     LoadDiagramResponse,
     ContextSourcesResponse,
     HealthResponse,
@@ -76,7 +69,17 @@ app.add_middleware(
 register_copilot_runtime(app)
 app.include_router(explorer_router)
 
-PLANS_ROOT = (Path(__file__).resolve().parents[3] / ".cursor" / "plans").resolve()
+# PLANS_ROOT can be overridden via the UIPLAN_PLANS_ROOT env var so that
+# downstream forks of this template (where the studio may be nested
+# differently) can keep `services/uiplan-studio-api/app/main.py` at a path
+# other than `<repo>/services/.../app/main.py` without breaking bundle
+# resolution.
+_PLANS_ROOT_ENV = os.environ.get("UIPLAN_PLANS_ROOT")
+PLANS_ROOT = (
+    Path(_PLANS_ROOT_ENV).resolve()
+    if _PLANS_ROOT_ENV
+    else (Path(__file__).resolve().parents[3] / ".cursor" / "plans").resolve()
+)
 # Preview payloads are intentionally process-local for Task 2; they are not shared across
 # workers or persisted across restarts.
 _PENDING_GENERATION_PREVIEWS: dict[str, dict[str, str]] = {}
@@ -119,9 +122,6 @@ def health() -> HealthResponse:
             "/bundle/load",
             "/diagram/load",
             "/diagram/save",
-            "/graph/index",
-            "/graph/context/resolve",
-            "/graph/actions/execute",
             "/review/run",
             "/lifecycle/readiness",
             "/generate/section-preview",
@@ -136,7 +136,6 @@ def health() -> HealthResponse:
             "/context/sources",
             "/agent/context-sources",
             "/agent/library-context",
-            "/agent/chat",
             "/project-graph/templates/starter",
             "/copilotkit",
             "/copilotkit/info",
@@ -195,18 +194,6 @@ class GenerateDiagramPreviewRequest(BaseModel):
 
 class GenerateApplyRequest(BaseModel):
     preview_id: str
-
-
-class GraphContextResolveRequest(BaseModel):
-    node_id: str
-    query: str
-    sources: list[str] = Field(default_factory=lambda: ["library"])
-
-
-class GraphActionExecuteRequest(BaseModel):
-    action: str
-    payload: dict[str, object] = Field(default_factory=dict)
-    workspace: dict[str, object] = Field(default_factory=dict)
 
 
 class UpdateApprovalStateRequest(BaseModel):
@@ -319,56 +306,6 @@ def diagram_save(payload: SaveDiagramRequest) -> SaveDiagramResponse:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except (IsADirectoryError, PermissionError, UnicodeDecodeError, ValueError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-
-
-@app.get("/graph/index", response_model=GraphIndexResponse)
-def graph_index(bundle_root: str) -> GraphIndexResponse:
-    root = _resolve_bundle_root(bundle_root)
-    index_result = index_workspace_sources_with_warnings(root)
-    workspace = index_result.workspace
-    return GraphIndexResponse(
-        version=workspace.version,
-        nodes=[
-            GraphIndexNode(
-                id=node.id,
-                type=node.type,
-                title=node.title,
-                summary=node.summary,
-                code=node.code,
-                concept=node.concept,
-            )
-            for node in workspace.nodes
-        ],
-        edges=[
-            GraphIndexEdge(
-                id=edge.id,
-                type=edge.type,
-                source=edge.source,
-                target=edge.target,
-                label=edge.label,
-            )
-            for edge in workspace.edges
-        ],
-        warnings=list(index_result.warnings),
-    )
-
-
-@app.post("/graph/context/resolve")
-def graph_context_resolve(payload: GraphContextResolveRequest) -> dict:
-    return resolve_node_context(
-        node_id=payload.node_id,
-        query=payload.query,
-        sources=payload.sources,
-    )
-
-
-@app.post("/graph/actions/execute")
-def graph_actions_execute(payload: GraphActionExecuteRequest) -> dict:
-    return execute_graph_action(
-        action=payload.action,
-        payload=payload.payload,
-        workspace=payload.workspace,
-    )
 
 
 @app.post("/review/run")
@@ -754,69 +691,6 @@ def agent_context_sources() -> ContextSourcesResponse:
 @app.get("/context/sources", response_model=ContextSourcesResponse)
 def context_sources() -> ContextSourcesResponse:
     return get_context_sources()
-
-
-@app.post("/agent/chat", response_model=AssistantChatResponse)
-def agent_chat(payload: AssistantChatRequest) -> AssistantChatResponse:
-    normalized = payload.message.lower()
-    selected = next(
-        (node for node in payload.nodes if node.id == payload.selected_node_id),
-        None,
-    )
-    focus = f" focused on {selected.title}" if selected else ""
-    suggested_nodes: list[DiagramNode] = []
-
-    if "skill" in normalized:
-        suggested_nodes.append(
-            DiagramNode(
-                id="skill-uipath-platform",
-                title="uipath-platform",
-                kind="skill",
-                description="Use for Orchestrator, packages, assets, queues, and solution lifecycle.",
-                x=760,
-                y=92,
-                source=".cursor/skills/uipath-platform",
-            )
-        )
-
-    if "library" in normalized or "book" in normalized:
-        suggested_nodes.append(
-            DiagramNode(
-                id="library-uipath-cli-agent-deploy",
-                title="Agent deploy docs",
-                kind="library",
-                description="Book context for packaging, publishing, and deploying coded agents.",
-                x=760,
-                y=308,
-                source="uipath-cli/03-agent/deploy",
-            )
-        )
-
-    if "hitl" in normalized or "human" in normalized or "approval" in normalized:
-        suggested_nodes.append(
-            DiagramNode(
-                id="workflow-hitl-approval",
-                title="HITL approval",
-                kind="workflow",
-                description="Human review gate before writes, publish, deploy, or escalation.",
-                x=76,
-                y=396,
-                source="uipath-human-in-the-loop",
-            )
-        )
-
-    if suggested_nodes:
-        message = (
-            f"I added suggested diagram context{focus}. Review the new nodes, then generate "
-            "a preview when you want those ideas reflected in the plan documents."
-        )
-    else:
-        message = (
-            f"I can help shape the UiPath diagram{focus}. Ask for skills, library books, "
-            "HITL gates, deployment flow, review gates, or plan updates."
-        )
-
-    return AssistantChatResponse(message=message, suggested_nodes=suggested_nodes)
 
 
 @app.get("/copilotkit/info")
