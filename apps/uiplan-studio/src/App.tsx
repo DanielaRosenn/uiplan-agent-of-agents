@@ -57,6 +57,12 @@ export default function App() {
 
   const canvasRef = useRef<CanvasHandle | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  // Tracks whether the boot-time "auto-switch off the default sample fixture
+  // when the API has real worktrees" has already fired. Without this guard,
+  // the worktrees-load effect would re-bounce the user every time they
+  // manually picked "Solution · order-to-cash" or any sample fixture from
+  // the dropdown.
+  const autoSwitchedRef = useRef(false);
 
   // ---- Load worktrees once ----
   useEffect(() => {
@@ -70,24 +76,32 @@ export default function App() {
         seen.add(w.id);
         items.push(w);
       }
-      if (worktreeId && !seen.has(worktreeId)) {
-        items.push({ id: worktreeId, label: worktreeId, path: worktreeId });
-      }
+      // Preserve a worktree the URL pointed at even if the API didn't list it.
+      setWorktreeId((current) => {
+        if (current && !seen.has(current)) {
+          items.push({ id: current, label: current, path: current });
+        }
+        return current;
+      });
       setWorktrees(items);
       setWorktreesLoading(false);
 
-      // If we're sitting on a sample fixture and the API returned real
-      // worktrees, auto-switch to the first real one so we show live data.
+      // First-mount only: if we booted on the default "demo" fixture and the
+      // API returned real worktrees, jump to the first real one so the user
+      // sees live data without a manual click. After this fires once, never
+      // again - so picking any fixture from the dropdown stays sticky.
+      if (autoSwitchedRef.current) return;
+      autoSwitchedRef.current = true;
       const SAMPLE_IDS = new Set(["demo", "solution", "empty"]);
-      if (res.source === "api" && SAMPLE_IDS.has(worktreeId)) {
+      setWorktreeId((current) => {
+        if (res.source !== "api") return current;
+        if (!SAMPLE_IDS.has(current)) return current;
         const firstReal = items.find((w) => !SAMPLE_IDS.has(w.id));
-        if (firstReal) {
-          setWorktreeId(firstReal.id);
-        }
-      }
+        return firstReal ? firstReal.id : current;
+      });
     });
     return () => { cancelled = true; };
-  }, [worktreeId]);
+  }, []);
 
   // ---- Load graph when worktreeId changes ----
   const loadGraph = useCallback(async (id: string) => {
