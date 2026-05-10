@@ -1,6 +1,7 @@
 ---
 name: uiplan
 description: UiPath planning — three-file UiPlan bundle (spec + plan + tasks) under .cursor/plans/, with discovery and grounding before build. Use for multi-step or ambiguous work before implementation.
+disable-model-invocation: true
 ---
 
 # UiPlan (spec + plan + tasks)
@@ -43,6 +44,29 @@ Load this skill when any of these apply:
 
 - **Drafts only** under `.cursor/plans/` (per-user, git-ignored) until publish.
 - **Never** write to `docs/plans/` directly — use `uipath_plan_publish` after accept.
+
+## Slash Surface (canonical contract)
+
+This skill is the canonical contract for Cursor slash wrappers:
+`full`, `ground`, `spec`, `plan`, `tasks`, `review`.
+
+Tool mapping:
+- `uipath_plan_uiplan_new` (full)
+- `uipath_plan_ground`
+- `uipath_plan_spec_new`
+- `uipath_plan_plan_new`
+- `uipath_plan_tasks_new`
+- `uipath_plan_review`
+
+Execution rule:
+- Do **not** start implementation until human accepts via `uipath_plan_accept`.
+- Build bundle under `.cursor/plans/<YYYY-MM-DD-slug>/`.
+
+## Evidence ledger requirements
+
+Evidence ledger is mandatory before implementation handoff:
+- No static-only completion.
+- Require human validation and runtime evidence.
 - **Never** execute destructive workflow tools from inside this skill; hand off after acceptance.
 - **UiPlan folders** (`spec.md`, `plan.md`, `tasks.md`, `.meta.yaml`): do not use `uipath_plan_refine` / `uipath_plan_diff` — edit markdown in the bundle or re-run stages (`uipath_plan_spec_new` / `plan_new` / `tasks_new` as appropriate).
 - **Mermaid:** include at least one Pro Standard diagram in the bundle for non-trivial work (see [`mermaid-diagram-builder`](../mermaid-diagram-builder/SKILL.md)).
