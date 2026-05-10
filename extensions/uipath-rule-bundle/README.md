@@ -18,6 +18,16 @@ This folder contains a portable, submodule-backed rule set for UiPath projects. 
 └── .githooks/                     <- pre-commit / pre-push hooks enforcing the guard
 ```
 
+## Tracked archive
+
+`uipath-rule.zip` is intentionally tracked because it is the canonical distributable
+for the portable UiPath rule bundle in this folder. The archive is shipped to
+new repositories that need the rule set without cloning this full builder-agent
+repository.
+
+Do not replace this file with a locally generated archive unless the generated
+contents have been reviewed and the package version is updated in the same change.
+
 ## Why this layout
 
 **Layer 1 - `CLAUDE.md` (the rule):** short, stable, opinionated. Loaded into every AI assistant context. Contains decision logic and hard gates.

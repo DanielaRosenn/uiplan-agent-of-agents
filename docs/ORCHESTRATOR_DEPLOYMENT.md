@@ -18,6 +18,26 @@ instructions.
 - Do not run deploy, publish, invoke, or Orchestrator job commands while editing
   docs or tests for this repo.
 
+## Production Handoff Evidence
+
+Before any production push or deployment request, capture this evidence in the
+handoff:
+
+- Current branch and commit SHA.
+- `git status --short` output showing a clean working tree.
+- `python tools/check-versions.py` result.
+- `python -m uipath_claude.skills.submodule_guard --strict` result.
+- `python -m pytest -q` result for the root test suite.
+- Studio API test result from `services/uiplan-studio-api`: `uv run pytest tests -q`.
+- Frontend gate result from `apps/uiplan-studio`: `npm run lint`, `npm test`, and
+  `npm run build`.
+- `gitleaks detect --config .gitleaks.toml` result.
+- CLI versions: `uipcli --version`, `uip --version`, and `uipath --version`.
+- Artifact-specific restore, analyze, test, and pack output for the production target.
+- Human confirmation of the target tenant, folder, feed, and package version.
+
+If any item is missing, the release is not ready for production promotion.
+
 ## Compatibility Preflight
 
 Run this before creating a project, choosing packages, validating, packing, or

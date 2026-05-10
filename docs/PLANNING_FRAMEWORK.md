@@ -9,6 +9,20 @@ published to `docs/plans/` for shared review or optional destructive-tool gates.
 The canonical Cursor skill is **`uiplan`** (`.cursor/skills/uiplan/SKILL.md`).
 There is no separate brainstorming skill; discovery is part of UiPlan.
 
+## PDD and SDD template precedence
+
+For formal lifecycle artifacts, treat this repo's template set as primary:
+
+- PDD/SDD/ADD/TDD generation and updates should anchor to repo templates under
+  `templates/uiplan/` and lifecycle contracts under `docs/PDD_LIFECYCLE.md`.
+- Upstream `skills/` templates (for example `skills/skills/uipath-solution-design`)
+  are reference inputs for capability updates, not a silent replacement for
+  local structure or naming conventions.
+- When upstream adds new SDD/PDD patterns, adopt them explicitly by mapping the
+  delta into local templates and documenting the rationale in the plan or PR.
+- If local and upstream guidance conflict, keep local templates authoritative
+  and cite upstream as supplemental implementation guidance.
+
 ## When to use it
 
 Load **`uiplan`** and follow the UiPlan loop when:

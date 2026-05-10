@@ -4,6 +4,24 @@ description: "UiPath task planner — elicits preferences, plans multi-skill exe
 allowed-tools: Bash, Read, Glob, Grep, AskUserQuestion, EnterPlanMode, ExitPlanMode
 ---
 
+<!--
+Overlay fork of skills/skills/uipath-planner/SKILL.md.
+Upstream commit at fork time: 0c126220a754da81b9b84e56036182c37f67eeb4
+  ("Improve testng step in planner (#279)")
+Submodule HEAD at fork time:  c9458040aca239f145ed238f2d72b33aa82d8ccd
+
+Local changes vs upstream:
+  - Step 1: batched AskUserQuestion (Q1-Q4 in one card) instead of one-at-a-time.
+  - Step 1.5 (new): consolidated residue card for project-shape decisions the
+    planner cannot default or resolve via library/filesystem.
+  - Anti-pattern 18 (new): do not ask a question the planner/library/filesystem
+    can answer.
+
+Reconcile on upstream bumps: diff this file against
+skills/skills/uipath-planner/SKILL.md and merge upstream changes while
+preserving the three patches above.
+-->
+
 # UiPath Task Planner
 
 Your job is to **elicit preferences, plan, and route** — never execute.
@@ -51,9 +69,20 @@ Two RPA skills exist. Pick the right one:
 2. New authoring is C# only, Modern experience, Windows target.
 3. Do not offer VB.NET, Classic, or cross-platform targets for new automations.
 
-## Step 1 — Upfront elicitation
+## Step 1 — Upfront elicitation (batched)
 
-Ask the user key questions using AskUserQuestion. Only ask questions the request does not already answer. Ask **one at a time** — wait for each response before asking the next.
+Ask the user key questions using **one** `AskUserQuestion` call that bundles every unresolved question from the set below. Do **not** ask one at a time; do **not** ask across multiple turns. If a question is already resolved from the user's request (see per-question skip rules), omit it from the batch.
+
+### Skip-rules table (apply before building the batch)
+
+| Question | Skip when |
+|---|---|
+| Q1 Generation approach | Request is simple and well-defined, the user is modifying an existing automation, or the task is single-skill single-step. Default: `simultaneous`. |
+| Q2 Execution autonomy | Explore-first mode (approval gate already scopes autonomy). Default: `autonomous` for simultaneous mode. |
+| Q3 PDD/SDD path | User is modifying an existing automation, or already referenced a document. |
+| Q4 Test coverage | User stated coverage depth ("full tests", "happy path only", "smoke test", "include edge cases"); plan has no generation skill; small modification to existing automation (default `standard` for touched paths). |
+
+If **all four** are resolved from context, do not call `AskUserQuestion` at all and record the inferred values in the plan header with a one-line note in Decisions & Trade-offs.
 
 ### Question 1: Generation approach (non-trivial automations only)
 
@@ -62,10 +91,8 @@ Ask the user key questions using AskUserQuestion. Only ask questions the request
 > 1. **Explore first, then plan** — analyze the project and requirements, run non-mutating discovery, then present a plan for approval before any project changes *(recommended)*
 > 2. **Explore, plan, and execute simultaneously** — emit the plan as text and the main agent starts executing right away
 
-**Skip this question** and default to simultaneous when the request is simple and well-defined, the user is modifying an existing automation, or the task is single-skill single-step.
-
 **If "explore first, then plan":**
-- You may run non-mutating discovery: `uip rpa analyze`, `uip rpa get-errors`, reading `project.json`. You may walk the live app with `uipath-interact` for context.
+- You may run non-mutating discovery: `uip rpa analyze`, `uip rpa get-errors`, reading `project.json`. You may walk the live app with `servo snapshot/click/type` for context.
 - Do NOT run commands that mutate the project (create files, register targets, install packages) — those belong to execution.
 - After Steps 2–4, call EnterPlanMode with the plan. User approves, then ExitPlanMode.
 
@@ -82,7 +109,20 @@ Ask the user key questions using AskUserQuestion. Only ask questions the request
 
 Record the answer in the plan header as `Execution autonomy`. Specialist skills read this field at runtime — in autonomous mode they do NOT re-ask decisions the plan already makes.
 
-**Skip this question** only in explore-first mode — the approval gate at plan time already scopes autonomy. Default to `autonomous` for simultaneous mode when the user does not specify.
+### Question 3: PDD/SDD document (new automations)
+
+> Do you have a Process Definition Document (PDD) or Solution Design Document (SDD)? If so, provide the file path and I'll use it to guide the plan.
+
+If the user provides a path, read the document and use it to inform the plan.
+
+### Question 4: Test coverage depth
+
+> How thorough should automated testing be? (Testing is mandatory — this sets the depth only.)
+>
+> 1. **Standard coverage** *(recommended)* — automated tests for the primary flow plus the main edge cases and error paths I can infer from the request or PDD.
+> 2. **Happy path only** — automated tests for the primary success flow; edge-case coverage is deferred.
+
+Record the answer in the plan header as `Test coverage: standard | happy-path`. The `Testing (MANDATORY)` task in the plan body references this field so the specialist knows the scope. If the plan contains **no generation skill** (pure `uipath-interact` interaction, pure `uipath-platform` ops, pure read-only diagnostics) record `Test coverage: N/A`.
 
 ### Project type: infer first, ask only if vague
 
@@ -96,7 +136,7 @@ Resolve project type on your own. Stop at the first match:
 3. **Filesystem signals** (Step 3) → route per the Step 3 table.
 4. **Default** → **RPA workflow (XAML)**. Covers ~95% of UiPath work — UI automation, form-fill, Excel / email / file ops.
 
-Only ask if the request is genuinely vague ("I want to build something with UiPath") AND no keyword or filesystem signals apply. Ask exactly this:
+Only ask if the request is genuinely vague ("I want to build something with UiPath") AND no keyword or filesystem signals apply. When needed, add this as the first option block in the Step 1 batch:
 
 > What kind of project should I scaffold?
 >
@@ -107,34 +147,27 @@ Only ask if the request is genuinely vague ("I want to build something with UiPa
 
 If the user picks **RPA workflow**, record `Project type: XAML` and move on. **Never follow up with "XAML or C#?"** — that authoring-mode decision belongs to `uipath-rpa`, not the planner. Coded mode is set only when the user independently says "coded workflow" or ".cs file" (which rule 1 above already honors); never as a follow-up.
 
-### Question 3: PDD/SDD document (new automations)
+### Default: Expression language
 
-> Do you have a Process Definition Document (PDD) or Solution Design Document (SDD)? If so, provide the file path and I'll use it to guide the plan.
+Always use **C#** for new workflows. Note this in the plan. Do not ask.
 
-If the user provides a path, read the document and use it to inform the plan. Skip if the user is modifying an existing automation or already referenced a document.
+## Step 1.5 — Residue question (project shape)
 
-### Question 4: Test coverage depth
+After Step 1 is resolved, check whether the **project shape** still has residue the planner cannot default. These are decisions that change the generated project materially and have no safe default. Ask them in **one** batched `AskUserQuestion` call. Skip any item already answered by the brief or Step 1.
 
-> How thorough should automated testing be? (Testing is mandatory — this sets the depth only.)
->
-> 1. **Standard coverage** *(recommended)* — automated tests for the primary flow plus the main edge cases and error paths I can infer from the request or PDD.
-> 2. **Happy path only** — automated tests for the primary success flow; edge-case coverage is deferred.
+| Residue item | Ask when | Skip when |
+|---|---|---|
+| Attended vs unattended | RPA project, not implied by brief | Brief says "attended", "unattended", "robot", "trigger from my machine", names an Orchestrator queue/process, or implies scheduled/background |
+| Source system | Brief says "read from X" abstractly (e.g. "inputs", "a folder") and the concrete system matters for activity-package choice | Brief names a concrete system (SharePoint, S3, SQL, local path, etc.) |
+| Destination system | Brief says "write to X" / "send to X" abstractly | Brief names a concrete destination |
+| Orchestrator folder | `deploy = true` AND folder not in `.env` / not stated | `.env` sets `UIPATH_FOLDER_PATH`, brief names the folder, or `deploy = false` |
+| Deploy or local-only | Multi-system or unattended brief with no deploy statement | Brief says "deploy", "publish to Orchestrator", "just run locally", "smoke test only" |
 
-Record the answer in the plan header as `Test coverage: standard | happy-path`. The `Testing (MANDATORY)` task in the plan body references this field so the specialist knows the scope.
+**Budget.** Steps 1 + 1.5 together must stay under 5 questions total (anti-pattern 3). If you would exceed 5, drop the lowest-impact residue item and record the defaulted choice in Decisions & Trade-offs as an **open question residue** the user can override at design-approval time.
 
-**Skip this question** when:
-- The user already stated coverage depth in the request (e.g., "full tests", "happy path only", "smoke test", "include edge cases") — record directly.
-- The plan contains **no generation skill** (pure `uipath-interact` interaction, pure `uipath-platform` ops, pure read-only diagnostics) → record `Test coverage: N/A`.
-- The request is a small modification to an existing automation and the user has not asked for new tests — default to `standard` for touched paths and note the assumption in Decisions & Trade-offs.
+**Question text — keep generic.** Same rule as Step 4: do not inject the user's domain or app name into the question text. "Where should this write to?" not "Where should the invoice bot write the invoices to?".
 
-### Default: Expression language (modern XAML)
-
-For **new** modern RPA / XAML work in this repo, default to **C# expressions** in `project.json`
-(`expressionLanguage: CSharp`) and Windows / .NET 8 targets. Note this in the plan header. Do not ask.
-
-**Legacy-only exception:** If the plan routes to `uipath-rpa-legacy` or the user explicitly owns a
-VisualBasic legacy project, record **VB.NET** in the plan header instead and never mix expression
-styles inside one project.
+**Handoff.** Record every answer (and every defaulted residue item) in the plan header under `## Resolutions` so the BA persona and the design-approval gate do not re-ask.
 
 ## Step 2 — Detect multi-skill tasks
 
@@ -189,7 +222,7 @@ User wants to build a UI automation AND observe it running on the live app.
 
 ```
 1. uipath-interact → interact with the live app, identify the UI issue
-2. uipath-rpa      → fix the automation based on live UI findings
+2. uipath-rpa   → fix the automation based on servo findings
 ```
 
 ### Agent that uses RPA processes as tools
@@ -200,7 +233,7 @@ User wants to build a UI automation AND observe it running on the live app.
 3. uipath-agents   → create the agent, bind the published processes as tools, deploy
 ```
 
-> **Important:** Single-app UI automation (one project, one live app, one workflow) is **not** a multi-skill pattern — it's a single-skill `uipath-rpa` task. `uipath-rpa` owns UI automation authoring end-to-end. Do not plan a separate `uipath-interact` discovery step.
+> **Important:** Single-app UI automation (one project, one live app, one workflow) is **not** a multi-skill pattern — it's a single-skill `uipath-rpa` task. `uipath-rpa` owns UI automation authoring end-to-end. Do not plan a separate "servo discovery" step.
 
 ## Step 3 — Filesystem detection (single-skill requests)
 
@@ -274,13 +307,29 @@ Record the answers in the plan header. **The handoff is informational** — `uip
 **Goal:** <one sentence summarizing what the automation does>
 **Source document:** <path to PDD/SDD, or "None — planned from user request">
 **Project type:** <XAML (default for RPA workflows) / C# coded (only if user explicitly asked) / AI Agent / Flow / Application>
-**Expression language:** CSharp for modern XAML (default); VisualBasic only for explicit legacy; N/A for coded / AI Agent / Flow / Application
+**Expression language:** VB.NET (XAML only; N/A for coded / AI Agent / Flow / Application)
 **Approach:** <explore first / simultaneous>
 **Execution autonomy:** <autonomous / interactive>
 **App type:** <web / desktop / citrix / N/A>
 **App state:** <open-and-ready / user-will-open / skip-discovery / N/A>
 **UI targeting:** <agent-builds-you-review / user-indicates / N/A>
 **Test coverage:** <standard / happy-path / N/A>
+
+## Resolutions
+
+<Every decision resolved during Step 1, 1.5, and 4. Downstream personas
+(BA / SA / Developer / QA) and the design-approval gate read this section
+and MUST NOT re-ask a resolved item. Format:
+
+- `attended_unattended`: unattended
+- `source_system`: SharePoint folder "Invoices/Inbox"
+- `destination_system`: SQL Server `dbo.Invoices`
+- `orchestrator_folder`: Shared (from .env `UIPATH_FOLDER_PATH`)
+- `deploy`: true
+- `open_questions_residue`: []  # items the planner defaulted; user can override at design approval
+
+For defaulted residue items, record the default value AND add a one-line
+note in Decisions & Trade-offs explaining the default.>
 
 ## Understanding
 
@@ -334,7 +383,7 @@ In `interactive` mode this section is optional — the user is available to reso
 3. **Checkbox syntax.** `- [ ]` on every sub-step.
 4. **End every generation task with a `Validate:` sub-step** — a compile/build/lint check.
 4a. **Every plan MUST include a dedicated Testing task per generation skill** (see the `Task N: <generation-skill> — Testing (MANDATORY)` block in Step 5a). The Testing task is **mandatory** — never a `Validate:` sub-step, never optional, never skipped. It routes to the specialist's testing references and does NOT describe the testing procedure.
-5. **Capture all Step 1 preferences in the plan header.**
+5. **Capture all Step 1 and Step 1.5 preferences in the plan header and Resolutions section.**
 5a. **Autonomous plans MUST include a populated Stop conditions section.** Without concrete stop items, downstream specialists have no way to distinguish "keep going" from "ask the user" and will default to asking — defeating autonomous mode.
 6. **Route — do not redescribe.** The plan says WHICH skill to load and IN WHAT ORDER. It does NOT describe the skill's internal flow (target-configuration, OR registration, XAML authoring pipelines, auth flows, **testing procedures / best practices**). Each specialist's own docs own those details.
 
@@ -346,6 +395,7 @@ In `interactive` mode this section is optional — the user is available to reso
 4. **Validation gaps** — Every generation task ends with a `Validate:` compile/build/lint check.
 5. **Testing task present** — A dedicated `Testing (MANDATORY)` task exists for **every** generation skill in the plan (`uipath-rpa`, `uipath-maestro-flow`, `uipath-agents`, `uipath-coded-apps`). The task routes to the specialist's testing references — it does not describe the procedure.
 6. **No internal-flow leakage** — The plan does not duplicate steps from any specialist's own references (including testing procedures).
+7. **Resolutions complete** — Every item in Step 1.5's residue table has an entry in the plan's `## Resolutions` section (answered, defaulted, or explicitly N/A).
 
 Fix issues before saving.
 
@@ -356,6 +406,14 @@ Save as `YYYY-MM-DD-<feature-name>.md`:
 - **Project directory exists** (`project.json`, `flow_files/`, `.uipath/`, or `pyproject.toml`) → save to `docs/plans/` within the project. Create the directory if needed.
 - **No project directory** → save to `~/Documents/UiPath/Plans/`. Create the directory if needed.
 
+### 5d1. uipath-builder-agent repo (this fork)
+
+When the workspace is this **uipath-builder-agent** git checkout, persist plans as first-class repo artifacts:
+
+1. Load `.cursor/skills/writing-uipath-plans` and follow `docs/plans/_TEMPLATE.md` (YAML front matter + **at least one** Mermaid fenced code block using Pro Standard from `.cursor/skills/mermaid-diagram-builder`).
+2. Prefer MCP **`uipath_plan_save`** with full markdown `content` (or write the file under `docs/plans/` by hand to the same shape). That refreshes `docs/plans/README.md` via `ops/scripts/generate_plan_index.py`.
+3. Link formal PDD/SDD/ADD paths in front matter `linked_pdd` when they exist (`docs/PDD_LIFECYCLE.md`).
+
 ### 5e. Present the plan
 
 - **Explore first, then plan:** call EnterPlanMode. User approves → ExitPlanMode.
@@ -364,8 +422,8 @@ Save as `YYYY-MM-DD-<feature-name>.md`:
 ## Anti-patterns
 
 1. **Do not skip Step 1** for non-trivial automations.
-2. **Do not write automation code or modify the project.** Plans only. In explore-first mode, non-mutating `uip` and `uipath-interact` discovery is allowed.
-3. **Do not ask more than 5 questions total.** If still undetermined, plan with best available info.
+2. **Do not write automation code or modify the project.** Plans only. In explore-first mode, non-mutating `uip`/`uipath-interact` discovery is allowed.
+3. **Do not ask more than 5 questions total** across Steps 1, 1.5, and 4. If still undetermined, plan with best available info and record defaulted items in `## Resolutions`.
 4. **Do not recommend a skill that contradicts the filesystem signals.** `.flow` files → `uipath-maestro-flow`, not `uipath-rpa`.
 5. **Do not skip Step 2.** Check multi-skill patterns before filesystem detection.
 6. **Do not ask the UI-targeting question (Step 4) unless the plan includes a UI automation workflow.** Gate on the presence of UI element targeting, NOT on whether `uipath-interact` is loaded — most UI plans are single-skill `uipath-rpa`.
@@ -375,8 +433,10 @@ Save as `YYYY-MM-DD-<feature-name>.md`:
 10. **Do not ask the user to choose between XAML and C#.** Project type is inferred from the request (see "Project type: infer first, ask only if vague" in Step 1). RPA workflows are XAML by default. Coded mode is only set when the user explicitly says "coded workflow", "C# workflow", or "create a .cs file" — record the choice directly, no question needed.
 11. **Do not surface C# as recommended for routine UI automation.** Form-fill, Type Into, Click, dropdown selection, Excel / email / file work — all bread-and-butter XAML. The default project type for RPA workflows is XAML, full stop. C# coded fallback is an internal `uipath-rpa` decision for individual subtasks, never a top-level recommendation from the planner.
 12. **Do not add a third option to the UI-targeting question.** Only two options exist: "I build it, you review it" (default) and "You indicate each element". Never invent a third "build it manually", "I'll do it in Studio", or "skip targeting" option — a developer choosing manual authoring wouldn't be using a coding agent, and adding it creates analysis paralysis for no gain.
-13. **Do not leak internal jargon or implementation details into user-facing questions.** Never mention "snapshot", "hand-wire", "AutomationId", "selector candidate", "autonomous capture", "target configuration", "wire up later", or other internal terms. Never expose the runtime / framework / language stack in option labels or descriptions: no "Python agent", "Coded web app", "React / Angular / Vue", "LangGraph / LlamaIndex". Use the product category instead — "AI Agent", "Application", "RPA workflow". Speak in plain developer language: "the live app", "Studio", "elements", "selectors", "inspect", "discover". Implementation details are the specialist skill's concern, not the user's.
-14. **Do not inject the user's domain or app name into the question text.** Ask "What kind of application are we automating?" — not "What kind of HR application…". "Is the app open on your machine?" — not "Is the HR app open…". The domain is captured in the plan header; keeping questions generic makes them reusable and prevents the agent from sounding like it's reading back a template.
+13. **Do not leak internal jargon or implementation details into user-facing questions.** Never mention "Servo", "snapshot", "hand-wire", "AutomationId", "selector candidate", "autonomous capture", "target configuration", "wire up later", or other internal terms. Never expose the runtime / framework / language stack in option labels or descriptions: no "Python agent", "Coded web app", "React / Angular / Vue", "LangGraph / LlamaIndex". Use the product category instead — "AI Agent", "Application", "RPA workflow". Speak in plain developer language: "the live app", "Studio", "elements", "selectors", "inspect", "discover". Implementation details are the specialist skill's concern, not the user's.
+14. **Do not inject the user's domain or app name into the question text.** Ask "What kind of application are we automating?" — not "What kind of HR application…". "Is the app open on your machine?" — not "Is the HR app open…". The domain is captured in the plan header, not the questions.
 15. **Do not omit `Execution autonomy` from the plan header, and do not leave `Stop conditions` empty when autonomy is `autonomous`.** Downstream specialists rely on both to decide whether to interrupt. If the user did not answer the autonomy question, default to `autonomous` for simultaneous mode and note that choice in Decisions & Trade-offs. Populate Stop conditions with the hard blockers realistic for this specific plan (auth, app state, element-capture limits, missing resources) — do not leave a generic placeholder.
 16. **Do not route new projects to `uipath-rpa-legacy`.** Legacy is for existing .NET Framework 4.6.1 projects only. New projects always go to `uipath-rpa` unless the user explicitly asks for legacy.
 17. **Do not omit the mandatory Testing task, and do not inline testing procedures.** Every generation skill in the plan gets its own `Testing (MANDATORY)` task that routes to that skill's testing references. Never replace it with a `Validate:` sub-step, never describe test-case authoring / data-driven testing / mock testing / assertion patterns in the plan — those live in each specialist's own testing guide and will drift if duplicated here.
+18. **Do not ask a question the planner, library, or filesystem can answer.** Before any `AskUserQuestion` call, check: (a) is there a safe default (expression language is C#, target is Windows, project-name casing)? (b) can `uipath_library_search` / `lookup_uipath_knowledge` answer it (e.g., "is REFramework right for a queue processor?")? (c) does the filesystem probe (Step 3) already tell me? Only the residue that survives all three gates goes in the batched card. Asking about defaulted or library-answerable decisions is noise and burns the 5-question budget.
+19. **Do not ask questions one-at-a-time.** Step 1, Step 1.5, and Step 4 each batch their questions into a single `AskUserQuestion` call. Never ask one question, wait for the answer, then ask the next. If two steps each have residue, they still fire in one turn each — two batched cards total, not five sequential questions.

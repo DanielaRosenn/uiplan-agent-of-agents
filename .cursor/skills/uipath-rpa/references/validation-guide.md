@@ -2,6 +2,26 @@
 
 Fix-one-thing discipline, the validation iteration loop, smoke test procedure, and RPA-specific fix procedures.
 
+## Pre-generation: List Analyzer Rules
+
+Before creating or editing any workflow file (`.cs` with `[Workflow]`/`[TestCase]`, or `.xaml`), list the enabled Workflow Analyzer rules so generated code satisfies them on the first attempt instead of round-tripping through `get-errors` fixes:
+
+```bash
+uip rpa get-analyzer-rules --project-dir "<PROJECT_DIR>" --output json
+```
+
+Apply every rule whose `severity` is `error` or `warning` during authoring. `info` rules are advisory.
+
+**When to run:**
+1. Once at the start of every task that will generate or edit a workflow file.
+2. Re-run after adding or updating a NuGet package — package-shipped rules (`MA-*`) change with the dependency set.
+
+**When NOT to run:**
+1. Pure read-only / Q&A tasks that do not produce or modify workflow files.
+2. Edits that only touch non-workflow files (`project.json`, docs, plain `.cs` source files without workflow attributes).
+
+Rule prefixes and full schema: [cli-reference.md § get-analyzer-rules](cli-reference.md).
+
 ## Fix One Thing at a Time
 
 When an error occurs, identify the root cause, fix **only** that one thing, and re-run.
@@ -12,19 +32,22 @@ When an error occurs, identify the root cause, fix **only** that one thing, and 
 
 ## Validation Iteration Loop
 
-After every file create or edit, validate the specific file until clean.
+After every file create or edit, validate with **both** `get-errors` and `build`. They catch disjoint error classes — neither alone is sufficient. Run them in sequence on every iteration; do not stop at "`get-errors` is clean".
 
 ```
 REPEAT:
-  1. uip rpa get-errors --file-path "<FILE>" --project-dir "<PROJECT_DIR>" --output json  2. IF 0 errors -> EXIT to Smoke Test
-  3. Identify the highest-priority error
-  4. Fix one thing (see rule above)
-  5. GOTO 1
+  1. uip rpa get-errors --file-path "<FILE>" --project-dir "<PROJECT_DIR>" --output json
+  2. IF get-errors has errors -> fix one thing, GOTO 1
+  3. uip rpa build "<PROJECT_DIR>" --log-level Warn --output json
+  4. IF build has errors -> fix one thing, GOTO 1
+  5. EXIT to Smoke Test
 ```
 
-**Target the specific file:** Use `--file-path` to validate only the file you changed -- faster than validating the whole project.
+**Why both.** `get-errors` is static analysis: it catches structural XAML, missing references, analyzer rules, and schema violations. `build` is the compiler: it catches **unknown member names** (e.g. `NGetText.Value` when the property is `Text`), **invalid enum values** (e.g. `Operator="StartsWith"` when the enum has no such member), **member resolution / CacheMetadata failures**, and attribute-form C# expression JIT failures. `get-errors` returns "no diagnostics found" for these classes; `build` flags them at compile time. Trusting only `get-errors` ships broken workflows.
 
-**Cap at 5 fix attempts.** After 5 failed validation fix attempts, present the remaining errors to the user. They may require domain knowledge or environment-specific fixes.
+**Target the specific file:** Use `--file-path` on `get-errors` to validate only the file you changed -- faster than validating the whole project. `build` is project-scoped (no `--file-path`); when it errors, identify the offending file from the build output and re-run `get-errors --file-path` on that file as part of the fix loop.
+
+**Cap at 5 fix attempts** across the combined `get-errors` + `build` loop. After 5 failed iterations, present the remaining errors to the user. They may require domain knowledge or environment-specific fixes.
 
 ### Rules
 
@@ -38,13 +61,24 @@ See [cli-reference.md](cli-reference.md) for full `get-errors` and `run-file` co
 
 ## Project Build Verification (Required Before Returning a Project)
 
-Every project returned to the user must compile. After all files pass `get-errors`, run:
+Every project returned to the user must compile. The per-file iteration loop above already includes `build` after `get-errors` is clean — if that loop completed cleanly on the project's current state, this gate is already satisfied. Otherwise, run:
 
 ```bash
 uip rpa build "<PROJECT_DIR>" --log-level Warn --output json
 ```
 
-`get-errors` is static analysis and misses compile-time failures like `JIT compilation is disabled for non-Legacy projects` — see [xaml/csharp-expression-pitfalls.md](xaml/csharp-expression-pitfalls.md). If `build` fails, apply the same fix loop as above (fix one thing, re-run, cap at 5). Skip `build` only if a `run-file` smoke test already succeeded — `run-file` compiles internally.
+`get-errors` is static analysis and misses compile-time failures: unknown member names, invalid enum values, member resolution / CacheMetadata failures, and JIT failures like `JIT compilation is disabled for non-Legacy projects` — see [xaml/csharp-expression-pitfalls.md](xaml/csharp-expression-pitfalls.md). If `build` fails, apply the same fix loop as above (fix one thing, re-run, cap at 5). A successful `run-file` smoke test substitutes for `build` — `run-file` compiles internally.
+
+### Errors `build` catches that `get-errors` misses
+
+| Error class | Example | Why `get-errors` misses it |
+|-------------|---------|----------------------------|
+| Unknown member name | `<uix:NGetText Value="[x]" />` (correct: `Text`) | `get-errors` does not resolve property names against activity assemblies |
+| Invalid enum value | `Operator="StartsWith"` on `VerifyExpressionWithOperator` (enum has no such member) | Enum membership is checked at CacheMetadata / compile time, not static parse |
+| CacheMetadata / member resolution | Required-extension misses, type-mismatch on `InArgument<T>` | Surfaces only when the runtime instantiates the activity |
+| Attribute-form C# expressions | `Value="x + y"` in `expressionLanguage: CSharp` projects | JIT compiler needs the expression in element form — see [xaml/csharp-expression-pitfalls.md](xaml/csharp-expression-pitfalls.md) |
+
+When you see "no diagnostics found" from `get-errors`, you have not validated the file. Run `build` next.
 
 ## Smoke Test
 
@@ -110,7 +144,9 @@ Read: file_path="{projectRoot}/.project/JitCustomTypesSchema.json"
 
 ### Focus Activity for Debugging
 
-When `get-errors` returns an error referencing a specific activity (by IdRef or DisplayName), use `focus-activity` to highlight it in the Studio designer. This helps the user see the problematic activity in context and verify fixes visually:
+When `get-errors` returns an error referencing a specific activity (by IdRef or DisplayName), use `focus-activity` to highlight it in the Studio Desktop designer. This helps the user see the problematic activity in context and verify fixes visually.
+
+> **Studio Desktop required.** `focus-activity` does not run against headless Studio — it manipulates the Studio Desktop designer UI. Before invoking it, ensure Studio Desktop is up via `uip rpa start-studio --project-dir "<PROJECT_DIR>"` (see [environment-setup.md § Edge case: requiring Studio Desktop](environment-setup.md#edge-case-requiring-studio-desktop)). Skip this step entirely on headless-only setups — `get-errors` already includes the IdRef and file:line in its output, which is enough to locate the activity.
 
 ```bash
 # Focus a specific activity by its IdRef (from the error output):

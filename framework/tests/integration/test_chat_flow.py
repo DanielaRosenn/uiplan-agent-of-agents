@@ -175,4 +175,4 @@ def test_chat_confirm_build_prompt_cancel(tmp_path, monkeypatch):
     output = result.stdout.lower()
     assert "you:" in output
     assert "goodbye" in output or "what would you like to do next" in output
-    mock_graph.ainvoke.assert_called()
+    mock_graph.ainvoke.assert_not_called()

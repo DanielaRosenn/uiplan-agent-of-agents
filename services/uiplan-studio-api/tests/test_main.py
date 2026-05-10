@@ -14,7 +14,45 @@ from app import main
 from app import state
 from app import context_sources
 from app.schemas import ContextSource, ContextSourceCategory, ContextSourcesResponse
+from app.security import _host_without_port, is_loopback_client, is_loopback_host
 from app.main import app
+
+
+def test_preview_store_expires_stale_preview(monkeypatch) -> None:
+    now = 1_000.0
+
+    def fake_time() -> float:
+        return now
+
+    monkeypatch.setattr(state.time, "time", fake_time)
+    store = state.PreviewStore(ttl_seconds=5, max_entries=10)
+    store.set("preview-1", {"path": "plan.md", "content": "draft", "base_hash": "abc"})
+
+    assert store.get("preview-1") is not None
+
+    now = 1_006.0
+    assert store.get("preview-1") is None
+    assert "preview-1" not in store
+
+
+def test_preview_store_prunes_oldest_entry_when_full(monkeypatch) -> None:
+    now = 2_000.0
+
+    def fake_time() -> float:
+        return now
+
+    monkeypatch.setattr(state.time, "time", fake_time)
+    store = state.PreviewStore(ttl_seconds=60, max_entries=2)
+
+    store.set("oldest", {"path": "spec.md", "content": "v1", "base_hash": "h1"})
+    now = 2_001.0
+    store.set("newer", {"path": "plan.md", "content": "v2", "base_hash": "h2"})
+    now = 2_002.0
+    store.set("newest", {"path": "tasks.md", "content": "v3", "base_hash": "h3"})
+
+    assert store.get("oldest") is None
+    assert store.get("newer") is not None
+    assert store.get("newest") is not None
 
 
 def test_health_routes_match_exposed_endpoints() -> None:
@@ -31,6 +69,69 @@ def test_health_routes_match_exposed_endpoints() -> None:
     assert "/diagram/save" in payload["routes"]
     assert "/bundle/save" not in payload["routes"]
     assert "/agent/context-sources" in payload["routes"]
+
+
+def test_studio_api_rejects_non_loopback_host() -> None:
+    client = TestClient(app)
+
+    response = client.get("/health", headers={"host": "studio.example.com"})
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "UiPlan Studio API is local-only."
+
+
+def test_studio_api_allows_loopback_host() -> None:
+    client = TestClient(app)
+
+    response = client.get("/health", headers={"host": "127.0.0.1:8000"})
+
+    assert response.status_code == 200
+    assert response.json()["metadata"]["network_policy"] == "local-only"
+
+
+def test_studio_api_rejects_remote_client_even_with_loopback_host() -> None:
+    client = TestClient(app, client=("203.0.113.42", 50000))
+
+    response = client.get("/health", headers={"host": "127.0.0.1:8000"})
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "UiPlan Studio API is local-only."
+
+
+def test_studio_api_allows_unbracketed_ipv6_loopback_host() -> None:
+    assert is_loopback_host("::1") is True
+
+
+@pytest.mark.parametrize(
+    ("host_header", "expected"),
+    [
+        ("", ""),
+        ("LOCALHOST", "localhost"),
+        ("[::1]:8000", "::1"),
+        ("127.0.0.1:8000", "127.0.0.1"),
+        ("::1", "::1"),
+    ],
+)
+def test_host_without_port_handles_loopback_host_forms(
+    host_header: str,
+    expected: str,
+) -> None:
+    assert _host_without_port(host_header) == expected
+
+
+@pytest.mark.parametrize(
+    ("client_host", "expected"),
+    [
+        ("127.0.0.1", True),
+        ("::1", True),
+        ("testclient", True),
+        ("localhost", True),
+        ("203.0.113.42", False),
+        ("remote-host", False),
+    ],
+)
+def test_is_loopback_client_filters_remote_clients(client_host: str, expected: bool) -> None:
+    assert is_loopback_client(client_host) is expected
 
 
 def test_bundle_load_accepts_relative_repo_path_when_cwd_differs(monkeypatch, tmp_path) -> None:

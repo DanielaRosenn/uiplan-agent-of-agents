@@ -239,24 +239,24 @@ flowchart TD
         Start([🚀 Start]) --> Step1[Step 1]
         Step1 --> Step2[Step 2]
     end
-    
+
     subgraph Process["⚙️ PROCESSING"]
         direction TB
         Step2 --> Decision{Decision?}
         Decision -->|Yes| PathA[Path A]
         Decision -->|No| PathB[Path B]
     end
-    
+
     subgraph Complete["✅ COMPLETION"]
         PathA --> End([🏁 End])
         PathB --> End
     end
-    
+
     classDef startNode fill:#10B981,stroke:#059669,color:#fff,stroke-width:2px
     classDef endNode fill:#3B82F6,stroke:#2563EB,color:#fff,stroke-width:2px
     classDef processNode fill:#6366F1,stroke:#4F46E5,color:#fff,stroke-width:1px
     classDef decisionNode fill:#F59E0B,stroke:#D97706,color:#fff,stroke-width:2px
-    
+
     class Start startNode
     class End endNode
     class Step1,Step2,PathA,PathB processNode
@@ -271,7 +271,7 @@ sequenceDiagram
     participant U as 👤 User
     participant S as 🖥️ System
     participant D as 🗄️ Database
-    
+
     U->>S: Request
     activate S
     S->>D: Query
@@ -292,19 +292,19 @@ flowchart TB
         API[External API]
         DB[(Database)]
     end
-    
+
     subgraph Core["🏢 Core Platform"]
         style Core fill:#DBEAFE,stroke:#3B82F6
         Service1[Service A]
         Service2[Service B]
     end
-    
+
     subgraph UI["📱 User Interface"]
         style UI fill:#D1FAE5,stroke:#10B981
         Web[Web App]
         Mobile[Mobile App]
     end
-    
+
     UI --> Core
     Core --> External
 ```
@@ -321,7 +321,7 @@ stateDiagram-v2
     InReview --> Rejected: Reject
     Approved --> [*]
     Rejected --> Draft: Revise
-    
+
     state InReview {
         [*] --> Reviewing
         Reviewing --> NeedsInfo: Request Info
@@ -418,14 +418,14 @@ flowchart TD
         Start([🚀 Trigger]) --> LoadConfig[📋 Load Config]
         LoadConfig --> ExtractData[📥 Extract SF Data]
     end
-    
+
     subgraph Validation["✅ VALIDATION"]
         direction TB
         ExtractData --> PolicyCheck{📊 Within<br/>Policy?}
         PolicyCheck -->|Yes| StandardFlow[Standard Approval]
         PolicyCheck -->|No| EscalatedFlow[Finance Required]
     end
-    
+
     subgraph Approval["👥 APPROVAL CHAIN"]
         direction TB
         StandardFlow --> ManagerLoop[🔄 Manager Loop]
@@ -436,7 +436,7 @@ flowchart TD
         NextMgr -->|Yes| ManagerLoop
         NextMgr -->|No| FinanceGate{💰 Finance<br/>Required?}
     end
-    
+
     subgraph Finance["💰 FINANCE"]
         direction TB
         FinanceGate -->|Yes| FinApproval[👤 Finance Review]
@@ -444,7 +444,7 @@ flowchart TD
         FinDecision -->|No| Reject
         FinDecision -->|Yes| Finalize
     end
-    
+
     subgraph Complete["🏁 COMPLETION"]
         direction TB
         FinanceGate -->|No| Finalize[📝 Update SF]
@@ -453,7 +453,7 @@ flowchart TD
         Reject --> Cleanup[🗑️ Delete Transaction]
         Cleanup --> EndReject([❌ Rejected])
     end
-    
+
     classDef startNode fill:#10B981,stroke:#059669,color:#fff,stroke-width:2px
     classDef endNode fill:#3B82F6,stroke:#2563EB,color:#fff,stroke-width:2px
     classDef endRejectNode fill:#EF4444,stroke:#DC2626,color:#fff,stroke-width:2px
@@ -462,7 +462,7 @@ flowchart TD
     classDef userNode fill:#8B5CF6,stroke:#7C3AED,color:#fff,stroke-width:1px
     classDef errorNode fill:#EF4444,stroke:#DC2626,color:#fff,stroke-width:1px
     classDef financeNode fill:#06B6D4,stroke:#0891B2,color:#fff,stroke-width:1px
-    
+
     class Start startNode
     class End endNode
     class EndReject endRejectNode

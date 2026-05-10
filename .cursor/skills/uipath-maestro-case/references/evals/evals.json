@@ -1,0 +1,91 @@
+{
+    "skill_name": "case-management",
+    "evals": [
+        {
+            "id": 1,
+            "prompt": "I have an sdd.md and spec.json for a loan approval case. Generate the implementation tasks from these spec files so I can build it.",
+            "expected_output": "Skill triggers, produces a tasks.md with ordered task entries covering case creation, stages, edges, tasks, and conditions, then writes caseplan.json directly after user approval",
+            "expectations": [
+                "The case-management skill was triggered",
+                "References uip maestro case registry pull for upfront caching",
+                "Produces a tasks.md file with numbered task sections (T01, T02, etc.)",
+                "Includes registry lookups to resolve taskTypeIds",
+                "Generates a registry-resolved.json for audit",
+                "Asks user for approval before executing the build"
+            ]
+        },
+        {
+            "id": 2,
+            "prompt": "Break down my case spec into implementation tasks. The spec files are at ./specs/sdd.md and ./specs/spec.json",
+            "expected_output": "Skill triggers, reads both spec files, resolves registry lookups, generates tasks.md, and executes after approval",
+            "expectations": [
+                "The case-management skill was triggered",
+                "Reads both sdd.md and spec.json from the provided paths",
+                "Uses the component_type mapping to determine registry search types",
+                "Produces a tasks/ folder with tasks.md",
+                "Waits for user approval before proceeding to execution"
+            ]
+        },
+        {
+            "id": 3,
+            "prompt": "Convert this case specification into a step-by-step plan and build the case",
+            "expected_output": "Skill triggers, produces an actionable tasks.md, then writes caseplan.json directly via the matching plugins after user approval",
+            "expectations": [
+                "The case-management skill was triggered",
+                "Produces tasks.md with declarative task entries (no shell commands in tasks.md)",
+                "Cross-references use human-readable format like Stage.Task.field",
+                "Writes caseplan.json directly via plugin impl-json.md recipes after user approves tasks.md"
+            ]
+        },
+        {
+            "id": 4,
+            "prompt": "I want to create a case management project",
+            "expected_output": "Skill triggers and asks the user for the sdd.md design document to proceed",
+            "expectations": [
+                "The case-management skill was triggered",
+                "Asks user for the sdd.md file path"
+            ]
+        },
+        {
+            "id": 5,
+            "prompt": "Add a stage called 'Document Review' to my case.stage.json file",
+            "expected_output": "Should NOT trigger case-management planning workflow -- this is a direct stage edit on an existing case file",
+            "expectations": [
+                "The case-management skill may be triggered for direct editing",
+                "Does NOT go through the sdd.md planning workflow"
+            ]
+        },
+        {
+            "id": 6,
+            "prompt": "Generate the case from ./sdd.md using v20 schema",
+            "expected_output": "Skill triggers, detects v20 trigger phrase in activating message per Rule 18, writes Schema: v20 header into tasks.md, emits caseplan.json with v20 top-level shape (id: case-<10>, version: 20.0.0, metadata, top-level bindings/variables, layout: {}), softens Phase 4 validate to informational",
+            "expectations": [
+                "The case-management skill was triggered",
+                "Schema header in tasks.md reads exactly 'Schema: v20'",
+                "caseplan.json top-level keys are: id, version, name, metadata, bindings, variables, nodes, edges, layout",
+                "caseplan.json.version === '20.0.0'",
+                "caseplan.json.id matches /^case-[A-Za-z0-9]{10}$/",
+                "No 'root' wrapper key in caseplan.json",
+                "metadata.caseExitRules is used (NOT root.caseExitConditions) once case-exit conditions are written",
+                "metadata.slaRules is used for root-target SLA (NOT root.data.slaRules)",
+                "Top-level bindings and variables (NOT root.data.uipath.bindings or root.data.uipath.variables)",
+                "Stage and Trigger nodes have NO position, style, measured, width, height, zIndex (Rule 19)",
+                "Top-level layout: {} present and empty",
+                "Phase 4 validate runs informational only — no 3-retry hard stop on CLI rejection",
+                "Phase 5/6 prompts include the v20 downstream-may-reject warning lines"
+            ]
+        },
+        {
+            "id": 7,
+            "prompt": "Build my case from ./sdd.md",
+            "expected_output": "Skill triggers, no v20 phrase in activating message, defaults to v19 emit per Rule 18",
+            "expectations": [
+                "The case-management skill was triggered",
+                "Schema header in tasks.md reads exactly 'Schema: v19'",
+                "caseplan.json has root wrapper with root.version === 'v19'",
+                "Phase 4 retry-cap hard stop active (full v19 behavior)",
+                "No v20 warning lines printed at Phase 5/6"
+            ]
+        }
+    ]
+}

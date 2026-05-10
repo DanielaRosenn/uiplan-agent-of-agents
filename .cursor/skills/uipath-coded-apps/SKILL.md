@@ -1,10 +1,12 @@
 ---
 name: uipath-coded-apps
-description: "[PREVIEW] UiPath Coded Web Apps & Coded Action Apps (uip codedapp, app.config.json, action-schema.json, @uipath/uipath-typescript SDK). Scaffold, build, debug, deploy. For .cs/XAML→uipath-rpa, Python→uipath-agents."
+description: "UiPath Coded Web Apps & Coded Action Apps (`uip codedapp`, app.config.json, action-schema.json, @uipath/uipath-typescript SDK). Scaffold, build, debug, deploy. For .cs/XAML→uipath-rpa, Python→uipath-agents."
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion
 ---
 
 # UiPath Coded Apps
+
+> **Preview** — skill is under active development; surface and behavior may change.
 
 Build, debug, and deploy UiPath Coded Web Applications and Coded Action Apps using the `uip codedapp` CLI and `@uipath/uipath-typescript` SDK.
 
@@ -23,6 +25,8 @@ Build, debug, and deploy UiPath Coded Web Applications and Coded Action Apps usi
 |------|-------------|----------------|
 | **Coded Web App** | React/Vue/other frontend hosted on UiPath CDN | User-facing app accessed via a URL |
 | **Coded Action App** | React form wired to UiPath Action Center | Rendered inside human task reviews in Maestro/Agent workflows |
+
+> **Coded apps are not registered in `.uipx` solutions.** They have no `project.uiproj` / `project.json`, so `uip solution project add` does not apply. A coded app can live alongside a solution directory but deploys independently via `uip codedapp publish` (and `uip codedapp deploy`), not via `uip solution pack` / `publish` / `deploy`.
 
 ## Critical Rules
 

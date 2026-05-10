@@ -165,6 +165,7 @@ tests/fixtures/sample_project/*
 **/.entities/
 **/.objects/
 *.nupkg
+**/_packages/
 
 # Locally scaffolded example projects (build artifacts, not source)
 examples/InvoiceQueueProcessor/

@@ -1,9 +1,11 @@
 ---
 name: uipath-data-fabric
-description: "[PREVIEW] Data Fabric entity/record CRUD via uip df. Create entities, insert/query/update/delete records, CSV import, file attachments. For Orchestrator→uipath-platform. For Integration Service→uipath-platform."
+description: "UiPath Data Fabric entity/record CRUD via `uip df`. Create entities, insert/query/update/delete records, CSV import, file attachments. For Flow connector nodes (query/create/update/delete/get-by-id inside a `.flow`)→uipath-maestro-flow. For Orchestrator→uipath-platform. For Integration Service→uipath-platform."
 ---
 
 # UiPath Data Fabric — Agent Skill
+
+> **Preview** — skill is under active development; surface and behavior may change.
 
 Data Fabric is UiPath's structured data store. Entities are typed schemas;
 records are rows; file fields store binary attachments.
@@ -19,6 +21,19 @@ All operations go through `uip df <subject> <verb> --output json`.
 - Filtering records with complex predicates
 - Importing bulk data from CSV files
 - Uploading or downloading file attachments on records
+
+## When NOT to Use — Hand Off to Another Skill
+
+Embedding Data Fabric reads/writes **inside a `.flow` file** as connector activity nodes (Query / Create / Update / Delete / Get Entity Record by ID) is owned by `uipath-maestro-flow`. That skill knows the node JSON, `bindings_v2.json`, connection-resource layout, and `node configure` mechanics.
+
+Use this skill (`uipath-data-fabric`) for entity discovery and record seeding from the CLI; hand off to `uipath-maestro-flow` for in-flow node authoring.
+
+| Task | Skill |
+|------|-------|
+| Discover entities, list/describe fields before authoring a flow node | `uipath-data-fabric` (`uip df entities list`/`get`) |
+| Seed test records the flow will read | `uipath-data-fabric` (`uip df records insert` / `import`) |
+| Add a Query/Create/Update/Delete/GetById node to a `.flow` | `uipath-maestro-flow` |
+| Resolve the IS `uipath-uipath-dataservice` connection for binding | `uipath-maestro-flow` (in-flow binding) or `uipath-platform` (general IS connection management) |
 
 ---
 
@@ -93,6 +108,7 @@ uip df records query <entity-id> \
 | Explore only native entities | `entities list --native-only` |
 | Create a new entity | `entities create <name> --body '{"fields":[{"fieldName":"Title","type":"STRING"}]}'` |
 | Update entity / add fields | `entities update <id> --body '{"addFields":[{"fieldName":"NewField","type":"STRING"}]}'` |
+| Update existing field metadata | `entities update <id> --body '{"updateFields":[{"id":"<field-uuid>","displayName":"New Label","isRequired":true}]}'` — `id` is the field UUID from `entities get Fields[].ID` |
 | Update entity metadata | `entities update <id> --body '{"displayName":"New Name","description":"desc"}'` |
 | Read records (first page) | `records list <entity-id> --limit 50` |
 | Read records (next page) | `records list <entity-id> --cursor <NextCursor>` |

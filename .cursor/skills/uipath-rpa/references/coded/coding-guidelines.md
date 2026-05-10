@@ -84,7 +84,7 @@ using System.Text.RegularExpressions;  // regex
 - **When writing UI automation code** — follow the **Finding Descriptors** hierarchy (see [ui-automation-guide.md](../ui-automation-guide.md)) in strict order. Do NOT write any UI code until descriptors are resolved:
   1. Read `ObjectRepository.cs` — use existing descriptors if present
   2. Inspect UILibrary/descriptor NuGet packages in `project.json` (e.g. `*.Descriptors`, `*.UILibrary`) using `uip rpa inspect-package`. The tool checks the local NuGet cache automatically. If the package is still not found, read `.metadata` files manually at `~/.nuget/packages/<package-name>/<version>/contentFiles/any/any/.objects/` to discover App/Screen/Element hierarchy
-  3. If descriptors are still missing — use the `uia-configure-target` skill flow (found in the UIA activity-docs) to create targets. This handles snapshot capture, element discovery, selector generation, selector improvement, and OR registration. Do NOT manually call low-level `uip rpa uia` CLI commands outside of the skill flow. Fallback: `indicate-application` / `indicate-element` if the skill docs are unavailable
+  3. If descriptors are still missing — use the `uia-configure-target` skill flow (found in the UIA activity-docs) to create targets. This handles capturing the application, discovering elements, generating selectors, improving them, and registering them in the OR. Do NOT manually call the internal `uip rpa uia` CLIs outside of the skill flow. Fallback: the indication commands (see UIA docs) when elements appear only after user interaction (e.g., a compose form that opens after clicking a button)
   4. UITask (ScreenPlay) is ONLY for when selectors are genuinely brittle/unreliable — NEVER as a first approach
   5. NEVER bypass Object Repository by constructing `TargetAppModel` with raw URL/BrowserType
 - Use `uip rpa inspect-package` for API discovery when documentation is unclear
@@ -114,13 +114,13 @@ if (system.PathExists(@"C:\Reports\report.pdf", PathType.File, out ILocalResourc
 
 ### Code Quality
 - **Start simple, iterate** — Create minimal working version first, then refine
-- **NEVER use C# `out` or `ref` keywords in `[Workflow]` methods** — The auto-generated `*+Activity.cs` wrapper does not handle them correctly, causing compile error CS1620. Studio regenerates the wrapper on every save, so manual fixes are reverted. Use return values or tuples for outputs instead
+- **NEVER use C# `out` or `ref` keywords in `[Workflow]` methods** — The auto-generated `*+Activity.cs` wrapper does not handle them correctly. Symptoms: compile error `CS1620`, or runtime `Using 'out' and 'ref' modifiers is not allowed for Coded Workflows executions.` Studio regenerates the wrapper on every save, so manual fixes are reverted. Use return values or tuples for outputs instead
 - **Only include using statements for packages in project.json** — Adding unused usings causes compile errors
 - **Match input parameter names exactly** — Execute method signature must match `--input` arguments (case-sensitive)
 - **Escape backslashes in paths** — Use `C:\\path\\file.txt` not `C:\path\file.txt` in input arguments
 
 ### Validation Loop (Critical Rule #14)
-uip rpa get-errors --file-path "<FILE>" --project-dir "<PROJECT_DIR>" --studio-dir "<STUDIO_DIR>" --output json
+uip rpa get-errors --file-path "<FILE>" --project-dir "<PROJECT_DIR>" --output json
 @../validation-guide.md
 
 ### Error Handling
@@ -163,11 +163,10 @@ C) <user-driven approach>
 
 - Never hardcode UI selectors — use Object Repository descriptors
 - Never write UI code referencing descriptors without first reading `ObjectRepository.cs`
-- Never manually craft UI selectors by calling low-level `uip rpa uia` CLI commands (`snapshot capture`, `snapshot filter`, `selector-intelligence get-default-selector`) outside of the `uia-configure-target` skill flow — this skips selector improvement and OR registration
-- Never skip the target configuration step when a descriptor is missing — use the `uia-configure-target` skill flow (fallback: `indicate-application` / `indicate-element`)
+- Never manually craft UI selectors by calling the internal `uip rpa uia` CLIs outside of the `uia-configure-target` skill flow — this skips selector improvement and OR registration
+- Never skip the target configuration step when a descriptor is missing — use the `uia-configure-target` skill flow (fallback: indication commands per the UIA docs)
 - Never use UITask (ScreenPlay) as the primary approach — resolve descriptors via Finding Descriptors hierarchy first (Critical Rule #15)
 - Never skip configuring targets because it "seems tedious" — configure ALL missing elements
-- Never launch the target application before running `uia-configure-target` — the skill captures the window tree first; only launch if the app is not found
 - Never construct `TargetAppModel` with raw URL/BrowserType to bypass Object Repository
 - Never skip checking UILibrary/descriptor NuGet packages in `project.json`
 - Never use an element descriptor on the wrong screen handle — each `UiTargetApp` is bound to its screen. Wrong handle gives `"Target name 'X' is not part of the current screen."`
@@ -179,9 +178,7 @@ C) <user-driven approach>
 - Never assume `.objects/` subdirectories mean a valid App exists — verify `.metadata` files are present
 - Never cache or reuse AppVersion references across OR resets — always re-read `.objects/` metadata
 - Never run indicate commands from outside the project directory — cwd must contain `project.json`
-- Never use camelCase flags (`--parentId`) — use kebab-case: `--parent-id`, `--parent-name`
-- Never use `--parent-name` with the App display name (e.g. `"Acme"`) — it matches AppVersion names (e.g. `"1.0.0"`). Use `--parent-id` instead
-- Never use the App `_reference` from `ObjectRepository.cs` as `--parent-id` — read `.objects/` metadata for the AppVersion reference
+- Never use camelCase flags — all `uip rpa` CLI flags use kebab-case (e.g., `--foo-bar`, not `--fooBar`)
 
 ### Validation & Execution
 
@@ -200,12 +197,12 @@ C) <user-driven approach>
 
 | Issue | Cause | Fix |
 |-------|-------|-----|
-| **"Studio X.X.X does not have interop support"** | Auto-detected Studio is too old (< 26.2) | Always pass `--studio-dir "<STUDIO_DIR>"` pointing to the dev build |
-| **No Studio instances found** | Studio is not running | Run `uip rpa start-studio --project-dir "<PROJECT_DIR>" --studio-dir "<STUDIO_DIR>"` |
-| **Stale pipe / ENOENT** | Studio instance crashed or was closed | The tool retries automatically; if persistent, restart Studio |
+| **"Studio X.X.X does not have interop support"** | Surfaces only when running against Studio Desktop and the auto-detected install is too old (< 26.2). Headless Studio is unaffected. | Pass `--studio-dir "<STUDIO_DIR>"` pointing to a 26.2+ build, or drop the Studio Desktop override and let the command run headless |
+| **No Studio instances found** | Only relevant for `diff` / `focus-activity` — they need Studio Desktop. Every other command runs headless and doesn't need a Desktop instance. | Run `uip rpa start-studio --project-dir "<PROJECT_DIR>"` if you actually need Studio Desktop; otherwise re-run the command — headless Studio relaunches automatically |
+| **Stale pipe / ENOENT** | Studio instance crashed or was closed | The tool retries automatically; if persistent, re-run the command (headless) or restart Studio Desktop |
 | **Workflow cannot be found** | Entrypoint not in project.json | Verify project.json entrypoint has the file listed (Process projects only — Tests and Library projects do not use `entryPoints`) |
-| **Service property not available** | Missing package dependency | Add required package to project.json dependencies |
-| **Timeout** | Studio took too long to start | Increase timeout: `--timeout 600` |
+| **Service property not available** | Missing package dependency | Install the required package via `uip rpa install-or-update-packages --project-dir "<PROJECT_DIR>" --packages '[{"id":"<PACKAGE_ID>"}]' --output json` (no `add-dependency` command exists; do not hand-edit `project.json`) |
+| **Timeout** | Studio took too long to start. First headless call on a cold NuGet cache can take 30–90 s. | Increase timeout: `--timeout 600` |
 | **"Target name 'X' is not part of the current screen"** | Element descriptor used on wrong screen handle | Use the `UiTargetApp` handle from `Open`/`Attach` for the screen that owns the element |
 | **"Cannot select item. It was not found among existing items"** | `SelectItem` fails on web dropdowns | Use `TypeInto` instead of `SelectItem` for web `<select>` elements |
 | **inspect-package cannot find UILibrary package** | Package is on a private/local NuGet feed | Use `--nupkg-path` to inspect the local `.nupkg` directly, or read `.metadata` files manually from `~/.nuget/packages/<name>/<version>/contentFiles/any/any/.objects/` |

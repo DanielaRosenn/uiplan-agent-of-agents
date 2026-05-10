@@ -302,10 +302,8 @@ Merge rules:
       "appVersionRef": { "key": "<APP_VERSION_REF.key>", "name": "Invoice Approval" }
     },
     "schema": {
-      "inputs": [],
-      "outputs": [],
-      "inOuts": [],
-      "outcomes": [{ "name": "Submit", "type": "string" }]
+      "fields": [],
+      "outcomes": [{ "id": "submit", "name": "Submit", "type": "string", "isPrimary": true, "action": "Continue" }]
     }
   },
   "model": { "type": "bpmn:UserTask", "serviceType": "Actions.HITL" }
@@ -347,19 +345,17 @@ Same definition as QuickForm — see [hitl-node-quickform.md](hitl-node-quickfor
 
 ## Edge Wiring
 
-Identical to QuickForm. Wire `completed`, `cancelled`, `timeout`:
+Identical to QuickForm. Only the `completed` handle is available — there are no `cancelled` or `timeout` handles in v1.0:
 
 ```json
-{ "id": "invoiceReview1-completed-nextNode1-input", "sourceNodeId": "invoiceReview1", "sourcePort": "completed", "targetNodeId": "nextNode1", "targetPort": "input" },
-{ "id": "invoiceReview1-cancelled-end1-input",      "sourceNodeId": "invoiceReview1", "sourcePort": "cancelled", "targetNodeId": "end1",      "targetPort": "input" },
-{ "id": "invoiceReview1-timeout-end2-input",        "sourceNodeId": "invoiceReview1", "sourcePort": "timeout",   "targetNodeId": "end2",      "targetPort": "input" }
+{ "id": "invoiceReview1-completed-nextNode1-input", "sourceNodeId": "invoiceReview1", "sourcePort": "completed", "targetNodeId": "nextNode1", "targetPort": "input" }
 ```
 
 ---
 
 ## `variables.nodes` — Regenerate After Adding
 
-Same rule as QuickForm — add `result` and `status` entries for the new node, then replace the entire `variables.nodes` array. See [hitl-node-quickform.md](hitl-node-quickform.md) for the regeneration algorithm.
+Same rule as QuickForm — add `output` and `status` entries for the new node, then replace the entire `variables.nodes` array. See [hitl-node-quickform.md](hitl-node-quickform.md) for the regeneration algorithm.
 
 ---
 
@@ -369,5 +365,5 @@ Same as QuickForm:
 
 | Variable | What it contains |
 |---|---|
-| `$vars.<nodeId>.result` | Outputs the human filled in via the app |
-| `$vars.<nodeId>.status` | `"completed"`, `"cancelled"`, or `"timeout"` |
+| `$vars.<nodeId>.output` | Outputs the human filled in via the app |
+| `$vars.<nodeId>.status` | Selected outcome's action value (`"Continue"` or `"End"`) |

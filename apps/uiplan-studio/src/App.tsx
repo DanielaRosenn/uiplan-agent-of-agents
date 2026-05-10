@@ -57,12 +57,6 @@ export default function App() {
 
   const canvasRef = useRef<CanvasHandle | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
-  // Tracks whether the boot-time "auto-switch off the default sample fixture
-  // when the API has real worktrees" has already fired. Without this guard,
-  // the worktrees-load effect would re-bounce the user every time they
-  // manually picked "Solution · order-to-cash" or any sample fixture from
-  // the dropdown.
-  const autoSwitchedRef = useRef(false);
 
   // ---- Load worktrees once ----
   useEffect(() => {
@@ -85,20 +79,6 @@ export default function App() {
       });
       setWorktrees(items);
       setWorktreesLoading(false);
-
-      // First-mount only: if we booted on the default "demo" fixture and the
-      // API returned real worktrees, jump to the first real one so the user
-      // sees live data without a manual click. After this fires once, never
-      // again - so picking any fixture from the dropdown stays sticky.
-      if (autoSwitchedRef.current) return;
-      autoSwitchedRef.current = true;
-      const SAMPLE_IDS = new Set(["demo", "solution", "empty"]);
-      setWorktreeId((current) => {
-        if (res.source !== "api") return current;
-        if (!SAMPLE_IDS.has(current)) return current;
-        const firstReal = items.find((w) => !SAMPLE_IDS.has(w.id));
-        return firstReal ? firstReal.id : current;
-      });
     });
     return () => { cancelled = true; };
   }, []);

@@ -23,6 +23,7 @@ from app.routers.diagram import router as diagram_router
 from app.routers.generation import router as generation_router
 from app.routers.review import router as review_router
 from app.schemas import HealthResponse
+from app.security import LocalOnlyMiddleware
 from app.state import (
     APPROVAL_PACKAGE_ONLY_POLICY,
     DOCUMENT_TARGETS,
@@ -49,6 +50,7 @@ __all__ = [
 
 
 app = FastAPI(title="UiPlan Studio API")
+app.add_middleware(LocalOnlyMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
@@ -95,9 +97,10 @@ def health() -> HealthResponse:
             "/copilotkit/runtime",
         ],
         metadata={
+            "network_policy": "local-only",
             "preview_store": (
-                "single-process in-memory store; preview ids are not durable across restarts "
-                "or multi-worker deployments"
-            )
+                "single-process bounded in-memory store; preview ids are not durable across "
+                "restarts or multi-worker deployments"
+            ),
         },
     )

@@ -124,11 +124,11 @@ def generate_section_preview(payload: GenerateSectionPreviewRequest) -> dict:
         payload.library_context,
     )
     preview_id = uuid4().hex
-    PENDING_GENERATION_PREVIEWS[preview_id] = {
+    PENDING_GENERATION_PREVIEWS.set(preview_id, {
         "path": str(target),
         "content": proposed_content,
         "base_hash": content_hash(before),
-    }
+    })
     return {
         "preview_id": preview_id,
         "proposed_content": proposed_content,
@@ -162,11 +162,11 @@ def generate_diagram_preview(payload: GenerateDiagramPreviewRequest) -> dict:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     preview_id = uuid4().hex
-    PENDING_GENERATION_PREVIEWS[preview_id] = {
+    PENDING_GENERATION_PREVIEWS.set(preview_id, {
         "path": str(target),
         "content": proposed_content,
         "base_hash": content_hash(before),
-    }
+    })
     return {
         "preview_id": preview_id,
         "proposed_content": proposed_content,
@@ -314,11 +314,11 @@ def generation_packages_preview_proposal(
     proposed_content = proposal_path.read_text(encoding="utf-8")
     before, base_hash = read_target_for_proposal_preview(root, proposal.target_path)
     preview_id = uuid4().hex
-    PENDING_GENERATION_PREVIEWS[preview_id] = {
+    PENDING_GENERATION_PREVIEWS.set(preview_id, {
         "path": str((root / proposal.target_path).resolve()),
         "content": proposed_content,
         "base_hash": base_hash,
-    }
+    })
     return {
         "preview_id": preview_id,
         "proposal_id": proposal.proposal_id,

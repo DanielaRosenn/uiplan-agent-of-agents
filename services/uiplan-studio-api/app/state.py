@@ -14,6 +14,9 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import time
+from collections import OrderedDict
+from collections.abc import Iterator, MutableMapping
 from pathlib import Path
 
 from fastapi import HTTPException
@@ -36,11 +39,84 @@ PLANS_ROOT: Path = (
     else (Path(__file__).resolve().parents[3] / ".cursor" / "plans").resolve()
 )
 
-# Preview payloads are intentionally process-local for Task 2; they are not
-# shared across workers or persisted across restarts. The shape is kept loose
-# (``dict[str, str]``) because both section-preview and proposal-preview
-# write into it with slightly different keys but the same lookup.
-PENDING_GENERATION_PREVIEWS: dict[str, dict[str, str]] = {}
+class PreviewStore(MutableMapping[str, dict[str, str]]):
+    """TTL-aware in-memory preview storage with bounded size."""
+
+    def __init__(self, ttl_seconds: int = 900, max_entries: int = 200) -> None:
+        self.ttl_seconds = ttl_seconds
+        self.max_entries = max_entries
+        self._entries: OrderedDict[str, tuple[float, dict[str, str]]] = OrderedDict()
+
+    def _purge_expired(self, now: float | None = None) -> None:
+        if self.ttl_seconds <= 0:
+            self._entries.clear()
+            return
+        current_time = time.time() if now is None else now
+        expired_keys = [
+            key
+            for key, (created_at, _) in self._entries.items()
+            if current_time - created_at > self.ttl_seconds
+        ]
+        for key in expired_keys:
+            self._entries.pop(key, None)
+
+    def _enforce_capacity(self) -> None:
+        while len(self._entries) > self.max_entries:
+            self._entries.popitem(last=False)
+
+    def set(self, key: str, value: dict[str, str]) -> None:
+        self._purge_expired()
+        now = time.time()
+        if key in self._entries:
+            self._entries.pop(key, None)
+        self._entries[key] = (now, value)
+        self._enforce_capacity()
+
+    def get(self, key: str, default: dict[str, str] | None = None) -> dict[str, str] | None:
+        self._purge_expired()
+        entry = self._entries.get(key)
+        if entry is None:
+            return default
+        return entry[1]
+
+    def pop(self, key: str, default: dict[str, str] | None = None) -> dict[str, str] | None:
+        self._purge_expired()
+        entry = self._entries.pop(key, None)
+        if entry is None:
+            return default
+        return entry[1]
+
+    def clear(self) -> None:
+        self._entries.clear()
+
+    def __getitem__(self, key: str) -> dict[str, str]:
+        value = self.get(key)
+        if value is None:
+            raise KeyError(key)
+        return value
+
+    def __setitem__(self, key: str, value: dict[str, str]) -> None:
+        self.set(key, value)
+
+    def __delitem__(self, key: str) -> None:
+        removed = self.pop(key)
+        if removed is None:
+            raise KeyError(key)
+
+    def __iter__(self) -> Iterator[str]:
+        self._purge_expired()
+        return iter(self._entries.keys())
+
+    def __len__(self) -> int:
+        self._purge_expired()
+        return len(self._entries)
+
+    def __contains__(self, key: object) -> bool:
+        self._purge_expired()
+        return key in self._entries
+
+
+PENDING_GENERATION_PREVIEWS = PreviewStore()
 
 
 def content_hash(content: str) -> str:

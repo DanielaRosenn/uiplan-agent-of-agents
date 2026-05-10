@@ -26,6 +26,32 @@ describe("project explorer chrome", () => {
       expect(screen.getByRole("option", { name: /Empty worktree/i })).toBeInTheDocument();
     });
   });
+
+  test("api worktrees do not replace the default demo view", async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        items: [
+          {
+            id: "pricing-bot",
+            label: "Pricing Bot",
+            path: "C:/other/pricing-bot",
+            branch: "main",
+            project_type: "flow",
+          },
+        ],
+      }),
+    } as Response);
+
+    render(<App />);
+
+    const select = await screen.findByRole("combobox") as HTMLSelectElement;
+    await waitFor(() => {
+      expect(screen.getByRole("option", { name: /Pricing Bot/i })).toBeInTheDocument();
+    });
+    expect(select.value).toBe("demo");
+    expect(screen.getAllByText(/Renewal Commitment/i).length).toBeGreaterThan(0);
+  });
 });
 
 describe("BA representation", () => {

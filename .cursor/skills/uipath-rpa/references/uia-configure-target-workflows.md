@@ -1,118 +1,167 @@
 # Configure Target Workflows
 
-**Always use the `uia-configure-target` skill** to create or find targets in the Object Repository. This skill handles the full flow: snapshot capture, element discovery, selector generation, selector improvement, and OR registration.
+**Always use the `uia-configure-target` skill** to create or find targets in the Object Repository. This skill handles the full flow: capturing the application, discovering elements, generating selectors, improving them, and registering them in the OR.
+
+> **Working directory:** run every `uip rpa uia` CLI call from the project directory — the folder containing `project.json`.
 
 ## Execution Model
 
 **Execute `uia-configure-target` steps inline in the main conversation.** Do NOT delegate the entire skill to a subagent. The skill's internal steps already spawn their own subagents.
 
 Why this matters:
-- **OR references** must be visible in the main conversation so they can be attached to workflow activities as the workflow is created — either inline (for single-file workflows) or handed off to write agents (for multi-screen pipelines). See [uia-target-attachment-guide.md](uia-target-attachment-guide.md).
-- **Context continuity** — as the main conversation proceeds, it already knows which screens and elements are registered: the references were returned in earlier turns, and the OR itself is queryable via `object-repository get-screens` / `get-elements`. This is what "knowing what's registered" means here — the in-conversation state plus live OR queries — so duplicate captures are avoided and the workflow build stays coherent.
+- **OR references** must be visible in the main conversation so they can be attached to workflow activities as the workflow is created. See `{PROJECT_DIR}/.local/docs/packages/UiPath.UIAutomation.Activities/references/uia-target-attachment-guide.md`.
+- **Context continuity** — as the main conversation proceeds, it already knows which screens and elements are registered: the references were returned in earlier turns, and the OR itself is queryable via the OR CLI. This is what "knowing what's registered" means here — the in-conversation state plus live OR queries — so duplicate captures are avoided and the workflow build stays coherent.
 
-Read the SKILL.md, then execute each TARGET step yourself. Only spawn `Agent` where the skill explicitly says to (create-selector, improve-selector).
-
-## Skill Location
-
-The UIA skills and activity docs live in the project's local docs folder. Discover them by globbing:
-```
-Glob: pattern="**/*.md" path="{PROJECT_DIR}/.local/docs/packages/UiPath.UIAutomation.Activities/"
-```
-These are **reference docs to read and follow** — they are NOT invocable as slash commands via the Skill tool. Read the relevant `.md` file and follow its steps using the `uip rpa` CLI commands directly.
+Read the SKILL.md, then execute each step of the internal procedure yourself. Only spawn `Agent` where the skill explicitly says to.
 
 ## Invocation
 
-To configure a target, read and follow the `uia-configure-target` skill:
+The `uia-configure-target` skill lives at `{PROJECT_DIR}/.local/docs/packages/UiPath.UIAutomation.Activities/skills/uia-configure-target/` — read `SKILL.md` for the internal procedure and `USAGE.md` for invocation modes (TargetAnchorable, TargetApp, and the batch `|` pattern for multiple elements on the same screen). These are **reference docs to read and follow** — they are NOT invocable as slash commands via the Skill tool.
 
-- **TargetAnchorable** (element within a window — Click, TypeInto, GetText, etc.):
-  `--window <description> --elements <description>`
-- **TargetApp** (window only — Use Application/Browser):
-  `--window <description>`
-
-To configure multiple elements on the same screen in a single invocation, separate them with `|`. This captures the window once and reuses it for all elements:
-`--window <description> --elements "element one | element two | element three"`
-
-The skill will search the Object Repository for existing matches before creating new entries, generate selectors from the live application tree, and register everything in the OR. After completion, retrieve the target references for your workflow.
+Before invoking, check the unsupported-activities list in `USAGE.md`. If the activity you need to target is on that list, skip `uia-configure-target` for it and use the [Indication Fallback](#indication-fallback) instead.
 
 ## Rules
 
-**Do NOT manually call low-level `uip rpa uia` CLI commands** (`snapshot capture`, `snapshot filter`, `selector-intelligence get-default-selector`) to build selectors outside of the skill flow. These are internal tools used *by* the skill — calling them directly skips selector improvement and OR registration, producing fragile selectors that aren't registered in the Object Repository.
+**Do NOT manually call the internal `uip rpa uia` CLIs** that `uia-configure-target` uses to build selectors. These are internal tools used *by* the skill — calling them directly skips selector improvement and OR registration, producing fragile selectors that aren't registered in the Object Repository. The skill's SKILL.md defines the proper flow; anything outside that flow is out of bounds.
 
-**Do NOT launch the target application before running `uia-configure-target`.** The skill's first steps capture the top-level window tree and search for the app. Only if the app is not found in the window list should you launch it — and then re-run the capture. Launching preemptively creates duplicate instances and risks targeting the wrong window.
+## Multi-Step UI Flows
 
-## Indication Fallback Commands
+Some UI elements only become visible after interacting with earlier elements (e.g., a compose form appears after clicking "New mail", a confirmation dialog appears after submitting). Since `uia-configure-target` works from the current screen state, you need to **advance the application to each state** before capturing its elements.
 
-> **Use these only when `uia-configure-target` is unavailable** (e.g., skill docs missing) **or when elements appear only after user interaction** (e.g., a compose form that opens after clicking a button). These require the user to physically click on the target.
+> **CRITICAL: Complete-then-advance.** Finish ALL `uia-configure-target` calls for elements visible in the current screen state — including OR registration (the full skill flow) — before advancing to the next state. Interactions change the app state irreversibly. If you advance before registering, elements from the previous state may no longer be visible, causing OR registration to fail.
+>
+> **Do NOT use the `uip rpa uia interact` CLI to "test" element interactions** (e.g., verifying autocomplete behavior, checking what happens when you click a button) during the capture phase. Testing happens later, when running the completed workflow. During capture, these commands are ONLY for advancing the app to the next screen so you can capture the newly revealed elements.
 
-**Workflow:** indicate the screen first, then indicate elements within it.
+### Advancing UI State
 
-```bash
-# 1. Indicate a screen (creates App automatically if none exists)
-uip rpa indicate-application --name "<ScreenName>" --description "<ScreenDescription>" --project-dir "<PROJECT_DIR>" --output json
-# 2. Indicate elements on that screen (use --parent-id from step 1 result's Data.reference)
-uip rpa indicate-element --name "<ElementName>" --activity-class-name "<TypeInto|Click|GetText|...>" --parent-id "<screen-reference>" --project-dir "<PROJECT_DIR>" --output json
+After registering an element in the Object Repository, interact with it (or a sibling element) to reveal the next screen via the `uip rpa uia interact` CLI. See the skill at `{PROJECT_DIR}/.local/docs/packages/UiPath.UIAutomation.Activities/skills/uia-interact/SKILL.md`.
+
+**Reuse refs from the current `uia-configure-target` capture — do not re-inspect.** The `uip rpa uia interact` CLI resolves element refs against the most recent snapshot in memory regardless of which CLI wrote it (the two write to different folders, but the snapshot is shared). Pass the same e-refs (`e28`, `e35`, etc.) directly to `uip rpa uia interact click`/`type`/`select`. Running `uip rpa uia snapshot inspect` just to re-mint refs for an unchanged UI is wasted work — the refs you have are still live.
+
+Re-inspect (or re-run `uip rpa uia snapshot capture`) only when the UI has actually advanced since the last capture; refs from a pre-advance snapshot will not resolve against the new state. Full flag reference: `{PROJECT_DIR}/.local/docs/packages/UiPath.UIAutomation.Activities/references/cli-reference.md`.
+
+### Capture Loop
+
+1. **Capture current state completely:** Run `uia-configure-target` for ALL elements visible on the current screen. Let the skill run through to OR registration for each element. Do not stop after getting a raw selector.
+2. **Advance the UI** to the next state via the `uip rpa uia interact` CLI.
+3. **Capture the new state:** Run `uia-configure-target` again for elements now visible on the new screen (full skill flow).
+4. **Repeat** until all workflow targets are registered in the OR.
+
+**Do NOT use `uip rpa run-file` with partial workflows to advance UI state** — the workflow lifecycle may close the target application when execution ends. The `uip rpa uia interact` CLI is stateless: it performs one action and leaves the app in the resulting state.
+
+### Per-Screen Batching (call-count discipline)
+
+Per screen, use the batched entry points the OR CLI already exposes — one round-trip that handles all elements at once, not N round-trips. This is the largest single source of wasted calls in capture sessions.
+
+- **One snapshot per screen, shared by every consumer.** Capture the screen's DOM snapshot once and pass that same snapshot folder to both the screen-registration call and the element-registration call. Re-capturing per element is wasted work and may pull a stale or shifted DOM if the app moved between captures.
+- **One element-registration call per screen.** The OR CLI's element-registration entry point accepts a list of element-definition file paths in a single invocation; pass every element of the current screen at once. Do not loop one-element-per-call.
+- **One element-XAML retrieval per screen.** When fetching the embedding XAML for elements you just registered, the OR CLI's element-XAML retrieval entry point accepts a list of reference IDs; pass them all at once. Do not loop one-id-per-call.
+- **Screen-XAML retrieval is per-screen.** That entry point is single-target by design — one extra call per screen, not per element.
+- **Cross-screen batching is not currently exposed.** N screens = N rounds of the steps above, gated by `interact`-driven state advances.
+
+Concrete subcommands, flag names, and accepted argument shapes for each batched entry point: `{PROJECT_DIR}/.local/docs/packages/UiPath.UIAutomation.Activities/references/cli-reference.md`. The package owns the syntax; this skill owns only the per-screen call-count shape above.
+
+## Cross-Process Helper Dialogs (Sign-in, OAuth, System Pop-ups)
+
+Some apps spawn a **separate process** for sign-in, consent, or system dialogs — not just a new window in the same app. Examples:
+
+- Microsoft Store sign-in opens in `WWAHost.exe` (not `WinStore.App.exe`)
+- Office desktop sign-in / Microsoft Account flows hosted in `WWAHost.exe` or `Microsoft.AAD.BrokerPlugin`
+- OAuth pop-ups launched by an enterprise app into the system browser
+- Save / Open / Print / UAC dialogs hosted by `consent.exe`, `dllhost.exe`, etc.
+
+When inner UIA activities target one of these helper processes while the outer `NApplicationCard` scopes the original app, validation fails with:
+
+```
+The indicated element does not belong to the target application/browser.
 ```
 
-Both commands return `{ "Data": { "reference": "..." } }` — use that reference ID for OR lookups and target attachment. After indication, Studio regenerates Object Repository files. For coded workflows, re-read `ObjectRepository.cs` to get descriptor paths. For XAML workflows, attach each reference to its activity per [uia-target-attachment-guide.md](uia-target-attachment-guide.md).
+The validator compares each child target's `ScopeSelectorArgument` against the parent card's `TargetApp` selector — different `app=` values trigger this error every time, even when the runtime selectors are correct.
 
-<details>
-<summary>Full parameter reference</summary>
+### Pattern: Nest a Second `NApplicationCard` for the Helper Process
 
-**indicate-application** — creates a Screen entry in the Object Repository.
+Wrap the activities that target the helper process in their own `NApplicationCard` scoped to that process. Use a wildcard title (`title='*'`) when the helper presents multiple sub-dialogs (e.g., "Sign in" → "Enter password" → "Stay signed in?") so a single nested card covers them all.
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `--name` | No (recommended) | Screen name (e.g. `"LoginScreen"`) |
-| `--parent-id` | No | AppVersion reference ID. Prefer over `--parent-name`. |
-| `--parent-name` | No | AppVersion name. Unreliable if names are non-unique. |
-| `--activity-class-name` | No | Activity class (e.g. `"UiPath.UIAutomationNext.UI.App"`) |
-| `--description` | No | Description for the screen |
+```xml
+<!-- Outer: original app -->
+<uix:NApplicationCard ScopeGuid="<outer-guid>" Version="V2" HealingAgentBehavior="Job" ...>
+  <uix:NApplicationCard.TargetApp>
+    <uix:TargetApp Selector="&lt;wnd app='WinStore.App.exe' title='Microsoft Store' /&gt;" Version="V2" />
+  </uix:NApplicationCard.TargetApp>
+  <uix:NApplicationCard.Body>
+    <ActivityAction x:TypeArguments="x:Object">
+      <ActivityAction.Argument>
+        <DelegateInArgument x:TypeArguments="x:Object" Name="WSSessionData" />
+      </ActivityAction.Argument>
+      <Sequence>
+        <!-- Activity that triggers the helper-process launch (still in outer scope) -->
+        <uix:NClick ScopeIdentifier="<outer-guid>" ... DisplayName="Click Sign In" ... />
 
-When no App exists in `.objects/`, omit `--parent-id` and `--parent-name` — the command creates App + AppVersion automatically. When adding to an existing App, provide `--parent-id` with the **AppVersion** reference.
+        <!-- Inner: helper process (nested card) -->
+        <uix:NApplicationCard ScopeGuid="<inner-guid>" Version="V2" HealingAgentBehavior="Job" ...>
+          <uix:NApplicationCard.TargetApp>
+            <uix:TargetApp Selector="&lt;wnd app='WWAHost.exe' title='*' /&gt;" Version="V2" />
+          </uix:NApplicationCard.TargetApp>
+          <uix:NApplicationCard.Body>
+            <ActivityAction x:TypeArguments="x:Object">
+              <ActivityAction.Argument>
+                <DelegateInArgument x:TypeArguments="x:Object" Name="WSSessionDataInner" />
+              </ActivityAction.Argument>
+              <Sequence>
+                <!-- Activities here use ScopeIdentifier="<inner-guid>" -->
+                <uix:NTypeInto ScopeIdentifier="<inner-guid>" ... />
+                <uix:NClick   ScopeIdentifier="<inner-guid>" ... />
+              </Sequence>
+            </ActivityAction>
+          </uix:NApplicationCard.Body>
+        </uix:NApplicationCard>
 
-**indicate-element** — creates an Element entry under an existing Screen.
-
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `--name` | Yes | Element name (e.g. `"UsernameField"`) |
-| `--parent-id` | One required | Screen reference ID (from `indicate-application` result or OR) |
-| `--parent-name` | One required | Alternative — matches by screen name |
-| `--activity-class-name` | Yes | Interaction type: `"TypeInto"`, `"Click"`, `"GetText"`, etc. |
-| `--description` | No | Description for the element |
-
-**`indicate-application` troubleshooting:**
-
-| Error | Cause | Recovery |
-|-------|-------|----------|
-| `"No application version found matching parentId=..."` | AppVersion reference is stale or App was never created | Re-read `.objects/` metadata for fresh reference. If no App exists, call `indicate-application` without `--parent-id` — it creates the App automatically |
-| `.objects/` has subdirectories but no `.metadata` files | Corrupted/incomplete App from a failed creation | Clear orphan directories and run `indicate-application` without `--parent-id` |
-
-</details>
-
-## Interacting with a Registered Target
-
-After TARGET-8 returns an OR reference ID, you can drive that target directly from the main conversation using `uia interact` — no servo snapshot, no second ref system. This is the preferred way to advance the application state to the next screen when building multi-step flows.
-
-```bash
-# Click using the OR reference ID returned by create-screen / create-elements
-uip rpa uia interact click --reference-id "<OR_REFERENCE_ID>"
-
-# Type into a target using the OR reference ID
-uip rpa uia interact type --reference-id "<OR_REFERENCE_ID>" --text "hello"
+        <!-- Back in outer scope after the helper closes -->
+        <uix:NCheckState ScopeIdentifier="<outer-guid>" ... DisplayName="Verify Signed In" ... />
+      </Sequence>
+    </ActivityAction>
+  </uix:NApplicationCard.Body>
+</uix:NApplicationCard>
 ```
 
-Alternate input forms:
-- `--definition-file-path "<WORK_FOLDER>/Target_N_Definition.json"` — use the definition file (useful before OR registration)
-- `--window-selector "<html ... />" --partial-selector "<webctrl ... />"` — raw selectors (ad-hoc, no OR entry)
+**Rules:**
 
-See [uia-multi-step-flows.md](uia-multi-step-flows.md) for when to use `uia interact` vs servo and the full capture loop.
+1. **One `NApplicationCard` per process** — every direct or transitive child activity must target the same `app=` as its enclosing card's `TargetApp`. If activities target two processes, you need two cards.
+2. **Each card has its own `ScopeGuid`.** Child activities reference their card via `ScopeIdentifier="<that-card's-ScopeGuid>"`. When moving an activity from one card to another, update `ScopeIdentifier` — `get-errors` will not catch a mismatched value, but the activity will run against the wrong scope at runtime.
+3. **Card-level `HealingAgentBehavior`** uses `NHealingAgentBehavior` (`Job`/`Disabled`/`RecommendationOnly`) — not `SameAsCard`. See [ui-automation-guide.md § Common UIA Pitfalls](ui-automation-guide.md#common-uia-pitfalls).
+4. **Use `title='*'`** on the helper-process card only when multiple sub-dialogs share the same `app=` and you want a single scope to span them. If sub-dialogs have stable, distinct titles AND only the outer `app=` is shared with the host app (rare), prefer a separate card per dialog so failures localize cleanly.
+
+### Capturing Targets for Helper Processes
+
+The helper process is a separate UIA-visible window once it appears, so the standard capture loop applies — pre-flight Window Baseline → trigger the launch (e.g., click "Sign In") via `uip rpa uia interact` → run `uia-configure-target` against the helper window → register elements → continue. Treat the helper process as its own capture screen under the Complete-then-advance rule above; do not try to capture helper-process elements through the host app's window selector.
+
+## Indication Fallback
+
+> **Use indication when elements appear only after user interaction** (e.g., a compose form that opens after clicking a button), so `uia-configure-target`'s automated capture cannot see them. Indication requires the user to physically click on the target.
+
+Workflow steps, response shape, downstream OR regeneration for coded vs XAML, and pointers to the full CLI flag reference: `{PROJECT_DIR}/.local/docs/packages/UiPath.UIAutomation.Activities/references/indication-fallback-workflow.md`.
 
 ## Attaching Targets to Workflow Activities
 
-Once targets are registered in the OR (via `uia-configure-target` or indication fallback), attach them to XAML activities per [uia-target-attachment-guide.md](uia-target-attachment-guide.md).
+Once targets are registered in the OR (via `uia-configure-target` or indication fallback), attach them to XAML activities per `{PROJECT_DIR}/.local/docs/packages/UiPath.UIAutomation.Activities/references/uia-target-attachment-guide.md`. That doc owns the concrete subcommands, flags, and response shapes for both attachment paths.
+
+**Path-choice policy (this skill's scope — which path to take, not how to invoke it).** The attachment guide describes two paths; they are not interchangeable for agent-authored XAML:
+
+- **Embed path — DEFAULT for agent-authored XAML.** Inline the OR-resolved target XAML as a child of the consuming activity element directly in the file you just wrote. Works on cold files — the project does not need to be loaded in Studio's in-memory designer. This is the only path that reliably works for XAML the agent has just generated or just edited from disk.
+- **Link path — only for files already loaded in Studio Desktop's designer.** Resolves an OR entry against an activity reference inside Studio's loaded workflow model. Requires the workflow to be open and parsed by Studio Desktop (not Studio Helm / headless). Use this only when the user has the file open in the designer or an existing Studio session already loaded the project.
+
+When generating a new XAML file or editing one that has not been opened in Studio Desktop in this session, take the embed path. Do not attempt the link path on cold XAML — it produces resolution failures that look like activity-id / display-name mismatches but are actually "the file isn't in Studio's model yet" (see § CLI Pitfalls).
 
 ### Multi-Screen Workflows
 
-For XAML workflows spanning multiple screens, use the parallel authoring pipeline. The main conversation passes only OR reference IDs to each write agent — no XAML snippets. The agent handles attachment itself per the shared guide.
+For XAML workflows spanning multiple capture screens, add each screen's activities to the workflow as its OR references become available. Each batch aligns with the Complete-then-advance rule in § Multi-Step UI Flows — everything configured before the next `uip rpa uia interact` advance belongs to one batch. Validate with `get-errors` after each batch. Attach each target per `{PROJECT_DIR}/.local/docs/packages/UiPath.UIAutomation.Activities/references/uia-target-attachment-guide.md`.
 
-See [uia-parallel-xaml-authoring-guide.md](uia-parallel-xaml-authoring-guide.md) for prompt templates and the chained dependency model.
+## CLI Pitfalls
+
+Runtime symptoms that have wasted entire capture sessions. Canonical flag list, accepted values, and artifact filenames for every UIA subcommand: `{PROJECT_DIR}/.local/docs/packages/UiPath.UIAutomation.Activities/references/cli-reference.md`.
+
+- **Filter mode of the UIA snapshot CLI fails with a missing-argument error.** It requires a target definition file argument in addition to the folder argument.
+- **Selector resolution rejects bare element refs (`Invalid --refs entry`).** Each ref must be paired with the definition file that owns it.
+- **OR element-creation rejects inline JSON.** The OR CLI consumes pre-written per-element definition files only. Generate the definition files first, then invoke create-elements with their paths.
+- **UIA interact actions reject discovery and global flags (`unknown option`).** Interact subcommands accept only interaction-shape flags. Folder, ref, and project-dir style flags belong to other UIA subcommand families.
+- **Link path against a cold XAML file fails with `Could not retrieve the activity from the workflow`.** This means the target file is not loaded in Studio Desktop's in-memory designer model — not that the activity-id, display name, or reference ID are wrong. Stop after the **first** failure; do not iterate through activity-id / display-name / property-name variations. Switch to the embed path (see § Attaching Targets to Workflow Activities). The link path is reserved for files that an active Studio Desktop session has already opened and parsed; XAML the agent has just written from disk does not qualify.

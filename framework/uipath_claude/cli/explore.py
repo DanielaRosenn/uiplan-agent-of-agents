@@ -258,6 +258,10 @@ def register_explore_command(app: typer.Typer) -> None:
             False, "--check",
             help="Run the indexer once and print a summary, no UI.",
         ),
+        no_auto_init: bool = typer.Option(
+            False, "--no-auto-init",
+            help="Skip auto-creating `.uiplan/explorer.yaml` when missing.",
+        ),
     ) -> None:
         """Open the UiPlan Studio Explorer for a UiPath project.
 
@@ -272,5 +276,7 @@ def register_explore_command(app: typer.Typer) -> None:
         if check:
             _print_indexer_summary(project)
             return
+        if not no_auto_init:
+            _do_init(project)
         rc = _do_explore(project, port=port, open_browser=not no_browser)
         raise typer.Exit(rc)

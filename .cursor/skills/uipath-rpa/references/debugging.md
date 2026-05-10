@@ -4,6 +4,20 @@ The `uip rpa run-file` command provides full interactive debugging capabilities 
 
 This is a powerful complement to `get-errors` (static validation). While `get-errors` catches structural and type issues at design time, the debugger catches runtime problems: wrong API responses, null references, logic errors, failed deserialization, and more. Use both together for comprehensive workflow validation.
 
+## Studio Desktop vs headless
+
+Most debugging works on **headless Studio** with no Studio Desktop install: `StartExecution`, `StartDebugging` (with workflow-level breakpoint), all stepping commands (`StepOver`, `StepInto`, `StepOut`), `Continue`, `Break`, `Resume`, `ContinueRetry`, `ContinueIgnore`, `Stop`, `RestartFromTop`, `ForceSessionEnded`.
+
+**Studio Desktop is required** for any flow that targets a specific activity, because activity targeting goes through `uip rpa focus-activity` and that tool only runs against Studio Desktop:
+
+| Command | Why it needs Studio Desktop |
+|---------|------------------------------|
+| `TestActivity` | Operates on the focused activity — requires `focus-activity` first |
+| `StartDebuggingFromHere` | Operates on the focused activity — requires `focus-activity` first |
+| `ToggleBreakpoint` *targeted to a specific activity* | Targeting requires `focus-activity` first. Without focusing, the breakpoint toggles on the whole workflow (still works headless) |
+
+Before invoking any of the above, run `uip rpa start-studio --project-dir "<PROJECT_DIR>" --output json` and ensure the project is open in Studio Desktop. See [environment-setup.md § Edge case: requiring Studio Desktop](environment-setup.md#edge-case-requiring-studio-desktop).
+
 ---
 
 ## Command Reference
@@ -29,9 +43,9 @@ uip rpa run-file --file-path <relative-path> --command <Command> [--input-argume
 |---------|-------------|--------------|
 | `StartExecution` | Run without debugging | Executes the workflow to completion. Default if `--command` is omitted |
 | `StartDebugging` | Begin a debug session | Starts execution in debug mode. Pauses at the first breakpoint (or at the first activity if a breakpoint is set on the workflow itself). Returns current execution state |
-| `TestActivity` | Test one activity in isolation | Isolates the currently focused activity and executes it in a temporary test workflow. **Requires `focus-activity` first.** Use `--input-variables` to set variable values and `--input-arguments` to set argument values |
-| `StartDebuggingFromHere` | Debug from a specific activity | Starts a debugging session from the currently focused activity, skipping all preceding activities. **Requires `focus-activity` first.** Use `--input-variables` to set variable values and `--input-arguments` to set argument values |
-| `ToggleBreakpoint` | Set/remove breakpoints | Toggles a breakpoint on the currently focused activity (XAML) or line (.cs). Use `uip rpa focus-activity` to focus beforehand. For XAML, cycles through 3 states: **enabled → disabled → no breakpoint**. For .cs, cycles through 2 states: **breakpoint → no breakpoint**. If no activity/line is focused, toggles on the entire workflow |
+| `TestActivity` | Test one activity in isolation | Isolates the currently focused activity and executes it in a temporary test workflow. **Requires `focus-activity` first → Studio Desktop required** (see [Studio Desktop vs headless](#studio-desktop-vs-headless)). Use `--input-variables` to set variable values and `--input-arguments` to set argument values |
+| `StartDebuggingFromHere` | Debug from a specific activity | Starts a debugging session from the currently focused activity, skipping all preceding activities. **Requires `focus-activity` first → Studio Desktop required** (see [Studio Desktop vs headless](#studio-desktop-vs-headless)). Use `--input-variables` to set variable values and `--input-arguments` to set argument values |
+| `ToggleBreakpoint` | Set/remove breakpoints | Toggles a breakpoint on the currently focused activity (XAML) or line (.cs). Use `uip rpa focus-activity` to focus beforehand — **activity-targeted toggling requires Studio Desktop**. For XAML, cycles through 3 states: **enabled → disabled → no breakpoint**. For .cs, cycles through 2 states: **breakpoint → no breakpoint**. If no activity/line is focused, toggles on the entire workflow (works on Helm) |
 | `StepOver` | Execute one activity and pause | Executes the current activity, then pauses at the next sibling activity. Does not enter child scopes (e.g., stays at the For Each level, doesn't step into its body) |
 | `StepInto` | Drill into child activities | Executes and pauses at the first child activity inside the current scope. Use to enter loops, sequences, Try-Catch blocks, etc. |
 | `StepOut` | Exit the current scope | Continues execution until the current scope completes, then pauses at the parent level. Use to leave a loop body or nested sequence |
@@ -108,82 +122,41 @@ For `TestActivity` and `StartDebuggingFromHere`, both `--input-arguments` and `-
 
 ## Output Format
 
-Debug commands return a JSON response with this structure:
+`run-file` returns a JSON envelope with `Data.runResult` as a JSON-encoded string. Parse `runResult` separately. It has exactly three fields:
 
 ```json
 {
   "Result": "Success",
   "Code": "ToolResult",
   "Data": {
-    "Output": [ ... ],
-    "Errors": [ ... ],
-    "LogEntries": [ ... ]
+    "runResult": "{\"Output\":\"...\",\"HasErrors\":false,\"ErrorMessage\":null}"
   }
 }
 ```
 
-### Output Array
+Inside `runResult`:
 
-When the debugger pauses (at a breakpoint, after a step, or on an exception), `Output` contains an array of state inspection objects. Each object has:
+| Field | Type | Meaning |
+|-------|------|---------|
+| `Output` | `string` | Workflow's serialized output arguments JSON. `""` for non-`Start*` commands and on debug-command responses (`StepOver`, `Continue`, etc.). **Carries the workflow's data, not a verdict.** |
+| `HasErrors` | `bool` | `true` iff execution did not complete with `Succeeded` (compile failure, validation failure, unhandled exception, cancellation, timeout). `false` otherwise. |
+| `ErrorMessage` | `string?` | Formatted error chain when `HasErrors: true`; `null` otherwise. |
 
-| Field | Description |
-|-------|-------------|
-| `Category` | The source process that emitted this entry (see categories below) |
-| `Type` | The .NET type (e.g., `String`, `DataTable`, `String[]`, `HttpResponseSummary`) |
-| `Name` | Property or variable name |
-| `Value` | Current value — can be a simple string, null, or complex JSON |
+Workflow log output (`Log Message` activity, system traces) is **streamed in real time** during execution on a separate channel. It is NOT embedded in `runResult`.
 
-#### Categories
+> **`Result` (outer) — equivalently `HasErrors` (inner) — is the only success/failure signal.** `Result: "Success"` already accounts for compile failures, validation failures, and unhandled runtime exceptions. **Do NOT use streamed log entries' `Level` as a failure signal** — workflow `Log Message` activities emit at any level, and successful runs commonly include `Error` / `Warning` entries from the workflow's own logging. Treating log levels as a verdict flips green runs to "failed".
 
-The `Category` field indicates which process produced the output entry:
+Examples:
 
-| Category | Meaning |
-|----------|---------|
-| `General` | General-purpose output from the workflow runtime |
-| `Debug` | Output from the debug engine (step events, breakpoint hits, exception notifications) |
-| `Compile` | Output from the compilation/build process |
-| `Tests` | Output from test execution |
+```jsonc
+// Successful run — workflow logged a warning, but HasErrors is false
+{ "Output": "{\"resultCode\":\"OK\"}", "HasErrors": false, "ErrorMessage": null }
 
-### Errors Array
+// Failed run — compile or runtime failure
+{ "Output": "", "HasErrors": true, "ErrorMessage": "Source: HttpRequest_1\nMessage: ..." }
 
-Validation warnings or errors encountered during execution:
-
-```json
-{
-  "ErrorCode": "WARNING",
-  "ErrorMessage": "UiPath recommends using \"Use Excel File\" inside an \"Excel Process Scope\"",
-  "LineNumber": ""
-}
-```
-
-### LogEntries Array
-
-Log messages emitted during execution:
-
-```json
-{
-  "Source": "Debug",
-  "Level": "Information",
-  "Message": "Fetching price for: AAPL"
-}
-```
-
-Log entries accumulate between debug steps — each step returns only the new log entries since the last command. Use `--log-level` to control verbosity.
-
-### Non-Debug Commands
-
-For `StartExecution` (non-debug run), `TestActivity` (when no breakpoints are hit), `Stop`, and `ForceSessionEnded`, `Output` is a simple string indicating the session state. LogEntries still contain any log messages produced during execution:
-
-```json
-{
-  "Output": "Session ended",
-  "Errors": [],
-  "LogEntries": [
-    { "Source": "Debug", "Level": "Information", "Message": "Workflow execution started" },
-    { "Source": "Debug", "Level": "Information", "Message": "Current temperature: 9.6°C" },
-    { "Source": "Debug", "Level": "Information", "Message": "Workflow execution ended in: 00:00:01" }
-  ]
-}
+// Debug-command response (StepOver / Continue / etc.) — empty success
+{ "Output": "", "HasErrors": false, "ErrorMessage": null }
 ```
 
 ---
@@ -206,8 +179,10 @@ For `StartExecution` (non-debug run), `TestActivity` (when no breakpoints are hi
 
 The most common pattern: set a breakpoint on the focused activity, start debugging, inspect state, then continue or step through.
 
+> **Studio Desktop required** for activity-targeted breakpoints (the `focus-activity` step). Skip step 1 to set a workflow-level breakpoint instead — that path runs headless.
+
 ```bash
-# 1. Focus the activity you want to break at (optional — skip if you want to break at the workflow level)
+# 1. Focus the activity you want to break at (Studio Desktop only — skip to break at the workflow level)
 uip rpa focus-activity --activity-id "Assign_1"
 
 # 2. Toggle a breakpoint on the focused activity
@@ -216,7 +191,8 @@ uip rpa run-file --file-path "GetStockPrices.xaml" --command ToggleBreakpoint --
 # 3. Start debugging — execution pauses at the breakpoint
 uip rpa run-file --file-path "GetStockPrices.xaml" --command StartDebugging --output json
 
-# 4. Inspect the Output entries (variable values, activity properties, execution state)
+# 4. Inspect the response: HasErrors / ErrorMessage / Output (workflow output args).
+#    Variable values seen during the run are observed via streamed log entries.
 # Then step through or continue:
 uip rpa run-file --file-path "GetStockPrices.xaml" --command StepOver --output json
 
@@ -228,8 +204,10 @@ uip rpa run-file --file-path "GetStockPrices.xaml" --command Stop --output json
 
 Use `TestActivity` to run just the currently focused activity without executing the entire workflow. Useful for verifying an activity works with specific inputs.
 
+> **Studio Desktop required** — `focus-activity` and `TestActivity` both rely on it. On a headless-only setup, fall back to a workflow-level `StartDebugging` with a breakpoint placed earlier in the file.
+
 ```bash
-# 1. Focus the activity to test
+# 1. Focus the activity to test (Studio Desktop required)
 uip rpa focus-activity --activity-id "DeserializeJson_1"
 
 # 2. Run it in isolation, pre-setting any variables it reads from
@@ -239,17 +217,19 @@ uip rpa run-file --file-path "GetBucharestTemperature.xaml" \
   --output json
 
 # 3. Check the output:
-#    - errors array → validation/compilation issues (e.g., wrong expression syntax)
-#    - logEntries → runtime log messages from the activity
-#    - Output → "Session ended" on success, or local variables if paused
+#    - HasErrors / ErrorMessage → compile/validation issues, unhandled exceptions
+#    - Streamed log entries → runtime messages from the activity (observability, not a verdict)
+#    - Output → workflow's serialized output args on success
 ```
 
 ### 3. Debug From a Specific Activity
 
 Use `StartDebuggingFromHere` to skip straight to the activity you care about, avoiding stepping through earlier activities.
 
+> **Studio Desktop required** — `focus-activity` and `StartDebuggingFromHere` both rely on it. On a headless-only setup, use plain `StartDebugging` with a workflow-level breakpoint near the activity instead.
+
 ```bash
-# 1. Focus the activity to start from
+# 1. Focus the activity to start from (Studio Desktop required)
 uip rpa focus-activity --activity-id "HttpRequest_1"
 
 # 2. Start debugging from that point, pre-setting variables
@@ -274,10 +254,11 @@ When `Continue` or a step command hits an exception, the debugger pauses and ret
 uip rpa run-file --file-path "MyWorkflow.xaml" --command StartDebugging --output json
 uip rpa run-file --file-path "MyWorkflow.xaml" --command Continue --output json
 
-# If an exception occurs, the debugger pauses. Inspect the Output entries:
-# - Look for entries with error/exception details in the Name and Value fields
-# - Check LogEntries for error-level messages with stack traces
-# - Examine variable values at the point of failure
+# If an unhandled exception occurs, HasErrors flips to true and ErrorMessage carries
+# the formatted exception chain (source activity, type, message, stack trace).
+# - Read ErrorMessage for the canonical failure diagnostic
+# - Cross-reference streamed log entries for variable state and trace context
+#   leading up to the failure
 
 # Then choose how to proceed:
 # Option A: Retry the failed activity (e.g., transient network error)
@@ -305,9 +286,10 @@ uip rpa run-file --file-path "MyWorkflow.xaml" --command StartDebugging --output
 uip rpa run-file --file-path "MyWorkflow.xaml" --command Continue --output json
 
 # 4. Check the response for:
-#    - Output entries show expected variable values
-#    - No error-level LogEntries
-#    - Errors array is empty or contains only warnings
+#    - Outer Result is "Success" (HasErrors: false) — the canonical pass/fail signal
+#    - Output (workflow's serialized output args) carries the expected values
+#    - Streamed log entries during the run are diagnostic context, NOT a failure signal —
+#      Error/Warning levels there are workflow-emitted observability, not CLI failures
 
 # 5. Stop
 uip rpa run-file --file-path "MyWorkflow.xaml" --command Stop --output json
@@ -331,18 +313,21 @@ uip rpa run-file --file-path "ProcessOrder.xaml" \
 
 ## Reading Debug Output Effectively
 
-When a debug step returns, focus on these elements in order:
+Read `runResult` fields in this order. **Verdict comes from the outer `Result` envelope (equivalently inner `HasErrors`) — never from log-entry levels.**
 
-1. **Errors array** — Check for any `ERROR`-level entries that indicate compilation or validation failures
-2. **LogEntries array** — Look for error-level log messages that reveal runtime failures, exception messages, and stack traces. The `Source` field tells you the origin (`Debug`, `General`, etc.) and `Level` indicates severity
-3. **Output array** — Inspect the `Name` and `Value` fields of each entry to understand the current state: variable values, activity properties, and execution context. The `Category` field (`General`, `Debug`, `Compile`, `Tests`) tells you which process emitted the entry
+1. **Outer `Result` / inner `HasErrors`** — the only success/failure signal. Compile failures, validation failures, and unhandled runtime exceptions all flip these. If `Result: "Success"` (`HasErrors: false`), the run succeeded — even if log entries streamed during the run contain `Error` / `Warning` levels.
+2. **`ErrorMessage` (when `HasErrors: true`)** — formatted chain with the source activity, exception type, message, and stack trace. This is the canonical failure diagnostic.
+3. **`Output` (when `HasErrors: false`)** — workflow's serialized output arguments JSON for `StartExecution` / `StartDebugging` completions. Empty string `""` for debug-command responses (step / continue / stop) and on failure.
+4. **Streamed log entries** — diagnostic context emitted live during execution on a separate channel. Use them to read variable values logged by the workflow, trace ordering, or correlate context with an `ErrorMessage` that already failed the run. **Do NOT use log-entry `Level` as a failure signal.**
+
+> **Anti-pattern: treating a streamed log entry's `Level == "Error"` or `"Warning"` as a run-file failure.** Workflows routinely emit `Log Message` at `Error` / `Warning` to record handled exceptions, validation results, or business outcomes. The run completes successfully and `HasErrors` stays `false`. Reading log levels as a failure signal flips successful runs to "failed" and burns retries on a green workflow.
 
 ### Identifying the Root Cause from Debug Output
 
 A practical example — a workflow makes an HTTP request and tries to deserialize the response as JSON, but fails:
 
-- **LogEntries** contain an error-level message with `JsonReaderException: Unexpected character encountered while parsing value: T` — the deserializer tried to parse a non-JSON response
-- **Output entries** show the HTTP response variable has `StatusCode: "TooManyRequests"` and `TextContent: "Too Many Requests\r\n"` — the API returned a 429, not JSON
+- **`HasErrors: true`** with `ErrorMessage` carrying `JsonReaderException: Unexpected character encountered while parsing value: T` — the deserializer tried to parse a non-JSON response
+- **Streamed log entries** (or workflow `Log Message` activities) reveal the HTTP response variable had `StatusCode: "TooManyRequests"` and `TextContent: "Too Many Requests\r\n"` — the API returned a 429, not JSON
 - **Fix**: Add status code checking before deserialization, or add retry logic with backoff to the HTTP request
 
 ---
@@ -351,11 +336,11 @@ A practical example — a workflow makes an HTTP request and tries to deserializ
 
 - **Always use `--output json`** for debug commands when you need to parse the output programmatically. The structured output makes it easy to inspect variables and identify exceptions.
 - **Set breakpoints strategically** — place them just before the activity you suspect is failing, not at the very start. This avoids stepping through dozens of unrelated activities.
-- **Use `focus-activity` before `ToggleBreakpoint`** to target a specific activity by its IdRef. Without focusing first, the breakpoint is set on whatever activity or workflow is currently focused in Studio.
-- **Use `TestActivity` for quick feedback** — it runs a single activity in isolation, which is faster than debugging the entire workflow. Pre-set variables with `--input-variables` so the activity has the data it needs.
-- **Use `StartDebuggingFromHere` to skip setup** — when the bug is deep in the workflow, skip straight to the relevant activity instead of stepping through the entire flow. Pre-set variables with `--input-variables` to simulate the state the activity would have received from preceding activities.
+- **Use `focus-activity` before `ToggleBreakpoint`** to target a specific activity by its IdRef — Studio Desktop required. Without focusing first, the breakpoint is set on whatever activity or workflow is currently focused, which on a headless-only run means the entire workflow.
+- **Use `TestActivity` for quick feedback** — it runs a single activity in isolation, which is faster than debugging the entire workflow. Studio Desktop required (depends on `focus-activity`). Pre-set variables with `--input-variables` so the activity has the data it needs.
+- **Use `StartDebuggingFromHere` to skip setup** — when the bug is deep in the workflow, skip straight to the relevant activity instead of stepping through the entire flow. Studio Desktop required (depends on `focus-activity`). Pre-set variables with `--input-variables` to simulate the state the activity would have received from preceding activities.
 - **Prefer `StepOver` for quick inspection** — it moves one activity at a time without descending into scopes. Use `StepInto` only when you need to examine what happens inside a loop iteration or nested sequence.
-- **Check variables after each step** — inspect the Output entries after each step to see the current state of in-scope variables. This is the most direct way to verify that each activity produced the expected result.
+- **Check variables after each step** — read the streamed log entries (and workflow `Log Message` output) to see the current state of in-scope variables. The runResult itself only carries `Output` (workflow output args), `HasErrors`, and `ErrorMessage`.
 - **Use `ContinueRetry` for transient errors** — if the exception is a network timeout or rate limit, retrying may succeed without any code changes.
 - **Use `ContinueIgnore` cautiously** — it skips the exception, which may leave variables in an unexpected state for downstream activities.
 - **Stop the session when done** — always issue a `Stop` command to cleanly end the debug session. If `Stop` doesn't respond, use `ForceSessionEnded` as a fallback.

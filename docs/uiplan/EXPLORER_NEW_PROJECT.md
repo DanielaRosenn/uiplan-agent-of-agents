@@ -154,6 +154,7 @@ uipath-claude explore                # opens browser at http://127.0.0.1:5173/?w
 uipath-claude explore --no-browser   # boot without opening a browser
 uipath-claude explore --port 5180    # custom Vite port
 uipath-claude explore --project-dir /abs/path/to/other/project
+uipath-claude explore --no-auto-init # skip auto-creating .uiplan/explorer.yaml
 ```
 
 Under the hood the CLI:
@@ -203,8 +204,10 @@ is non-destructive - delete it and the graph still renders.
 
 ## Step 5 - Wire it into your project's onboarding
 
-For a new project you maintain, add three lines to its top-level
-`README.md` so the next person uses the Explorer instead of guessing:
+For a new project you maintain, wire onboarding so the next person gets the
+Explorer flow/code view on day one:
+
+1. Add this block to the project's top-level `README.md`:
 
 ````markdown
 ## Visual project map
@@ -221,6 +224,15 @@ overlays live in `.uiplan/annotations.yaml`. See
 [docs/uiplan/EXPLORER_NEW_PROJECT.md](https://github.com/<org>/uipath-builder-agent/blob/main/docs/uiplan/EXPLORER_NEW_PROJECT.md)
 for details.
 ````
+
+2. Add an optional setup hook/script in project bootstrap docs that runs
+`uipath-claude explore` at least once. This ensures `.uiplan/explorer.yaml`
+exists and the visual map is immediately available.
+
+3. Keep planning artifacts in explorer-indexed locations:
+   - `.cursor/plans/<slug>/spec.md`, `plan.md`, `tasks.md` for active bundles,
+   - `docs/plans/` for published planning artifacts,
+   - `docs/superpowers/plans/` for implementation-plan overlays when used.
 
 If your project uses one of this repo's scaffolds (`dispatcher`,
 `performer`, `long-running`), the `.uiplan/explorer.yaml` file is already

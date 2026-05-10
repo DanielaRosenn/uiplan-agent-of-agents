@@ -89,6 +89,6 @@ def test_chat_blocks_project_json_unless_explicit(tmp_path, monkeypatch):
             )
     assert result.exit_code == 0
     root = tmp_path / "generated" / "chat" / "chat-no-project"
-    assert (root / "Main.xaml").is_file()
+    assert not (root / "Main.xaml").exists()
     assert not (root / "project.json").exists()
-    assert "generated files are artifacts" in result.stdout.lower()
+    assert "/uiplan-spec" in result.stdout.lower()
