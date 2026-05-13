@@ -1,0 +1,48 @@
+project:
+  name: "Sales Approval Process"
+  type: rpa
+  owner: "Sales Operations"
+
+overview:
+  summary: |
+    Automated approval workflow for sales quotes requiring manager review.
+  stakeholders: ["Sales Operations", "Finance"]
+  triggers:
+    - { kind: http, description: "POST /quotes from the Sales UI" }
+  actors:
+    - { name: "Sales Rep", role: "submitter" }
+    - { name: "Approval Manager", role: "human-in-the-loop" }
+    - { name: "Finance", role: "reviewer" }
+  kpis:
+    - { label: volume, value: "50 / day" }
+    - { label: p95 SLA, value: "4 hours" }
+
+views:
+  docs_root: docs/
+
+  as_is:
+    diagram_from: spec.md#business-process-flow
+    actors_from: explorer.actors
+    swimlanes:
+      - "Sales Rep"
+      - "Approval Manager"
+      - "Finance"
+    pain_points: docs/pain-points.md
+
+  to_be:
+    architecture_from:
+      - spec.md#solution-architecture
+      - plan.md#solution-architecture
+    runtime_sequence_from: plan.md#runtime-sequence
+    workflow_catalog_from: plan.md#workflow-catalog
+    integrations_from: indexed
+    drill_docs:
+      "Main-Dispatcher.xaml": docs/workflows/dispatcher.md
+      "Performer-Worker.xaml": docs/workflows/performer.md
+      Salesforce: docs/integrations/salesforce.md
+      Queue: docs/orchestrator/queue.md
+
+indexing:
+  scan:
+    rpa: ["*.xaml"]
+  exclude: [".venv/**", "node_modules/**"]

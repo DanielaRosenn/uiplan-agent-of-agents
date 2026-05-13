@@ -1,0 +1,17 @@
+{
+  "scope_version": "v1.2",
+  "validation": {
+    "stories_without_tasks": 0,
+    "done_or_ready_tasks_without_evidence": 0,
+    "invalid_relation_types": 0,
+    "missing_required_entity_ids": 0
+  },
+  "relation_types_checked": [
+    "implements",
+    "derived_from",
+    "depends_on",
+    "blocks",
+    "verifies"
+  ],
+  "result": "pass"
+}

@@ -2,6 +2,14 @@
 
 Copy one of the blocks below into `spec.md`, `plan.md`, or `tasks.md`, then **replace labels only**. Full rules: [`.cursor/skills/mermaid-diagram-builder/SKILL.md`](../../.cursor/skills/mermaid-diagram-builder/SKILL.md).
 
+## Diagram accessibility checklist
+
+- Use descriptive node labels; do not rely on color to encode meaning.
+- Keep left-to-right or top-to-bottom direction consistent within a diagram.
+- Keep edge labels concise and explicit for branch meaning.
+- Prefer fewer nodes with clearer names over dense micro-steps.
+- Ensure every diagram has a clear start and end state.
+
 ## When to use which
 
 | Pattern | Use for |

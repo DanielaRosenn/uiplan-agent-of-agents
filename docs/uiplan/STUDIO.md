@@ -1,83 +1,55 @@
 # UiPlan Studio
 
-UiPlan Studio is a local-first visual builder for UiPlan bundles (`spec.md`, `plan.md`,
-`tasks.md`). It combines document editing, persisted diagram state, grounded context sources,
-review findings, Copilot-compatible builder actions, and preview-first generation package
-workflows.
+UiPlan Studio is a local-first visual builder for exploring and planning UiPath automation projects. It provides:
 
-The UI loads bundle content from `/bundle/load`, loads and saves the bundle diagram through
-`/diagram/load` and `/diagram/save`, generates Plan and Scaffold approval packages through
-`/generation/packages`, and reads package details through
-`/generation/packages/{package_id}?bundle_root=...`. Proposal previews and applies are isolated
-to package APIs under `/generation/packages/{package_id}/proposals/...`.
+- **Source folder mapping**: Point to any folder and let Copilot infer the project structure
+- **Project graph visualization**: Browse skills, UiPlan bundles, and project files in an interactive canvas
+- **UiPlan planning docs**: View and track planning documents (spec.md, plan.md, tasks.md) with phase-based task flow
 
-The document endpoints (`/generate/section-preview`, `/generate/diagram-preview`, and
-`/generate/apply`) remain available for legacy section preview flows, but Phase 0 package
-generation does not write target project files directly. `/bundle/save` is retained only as a
-guarded legacy/internal endpoint and is not exposed by the Studio UI.
+## Current Product Surface
 
-## Builder Workflow
+The productized Studio focuses on:
 
-1. Open a draft bundle under `.cursor/plans/<slug>/`.
-2. Edit `spec.md`, `plan.md`, and `tasks.md` in the document pane.
-3. Shape the canvas by selecting, dragging, adding, editing, connecting, or deleting non-core
-   nodes.
-4. Add context from skills, library books, bundle documents, and review gates.
-5. Use the agent panel or context panels to suggest diagram nodes and search library snippets.
-6. Preview document edits or generated document changes from the current diagram and selected
-   context.
-7. Review the diff, then apply the preview explicitly.
-8. Run review/readiness again before accepting or implementing the bundle.
+1. **Source Folder Mapping**: Add a folder path → map it with Copilot → explore the generated project graph
+2. **UiPlan Bundles**: Discover planning documents from `examples/uiplan-demo/`, `.cursor/plans/`, or project roots
+3. **Skill Discovery**: Browse skills from the catalog, see metadata-rich visualizations, and jump to matched project nodes
 
-For generation packages, the stage-first workflow is:
+The backend API provides:
 
-1. Generate a Plan package (`01-plan`) from the typed graph.
-2. Review package proposal metadata, citations, findings, and stage status.
-3. Approve and preview specific proposals before apply.
-4. Generate Scaffold (`02-scaffold`) only after Plan readiness constraints are met.
-5. Keep Code/Tests/Validation stage actions disabled (deferred by contract).
+- `POST /mapping/map-folder`: Copilot-first project mapping with folder validation
+- `GET /explorer/graph?worktree=<path>`: Legacy deterministic indexing (retained for direct URL support)
+- `GET /explorer/skills/<id>`: Skill detail with enhanced metadata for visualization
 
-## Phase 0 Contract Scope
+## User Workflow
 
-Phase 0 standardizes a contract-first package system under `.uiplan/generation/` with:
+1. **Map a source folder**: Enter a folder path in the source control, click MAP
+2. **Choose view mode**: Toggle between **FOCUS** (entry points + children) and **FULL** (all nodes)
+3. **Explore the graph**: Browse the project map view to see files, skills, and UiPlan bundles
+4. **Expand nodes** (Focus mode): Double-click any node to see its immediate children
+5. **Select a UiPlan bundle**: Click a bundle in the left rail to see its phase flow and task progress
+6. **Select a skill**: Click a skill node to see triggers, capabilities, outputs, and matched project nodes
+7. **Refresh**: Click REFRESH to re-map the current folder if files changed
 
-- Typed graph and package schema ids/versioned payloads.
-- Durable `approval-state.json` with per-stage and per-proposal status.
-- Path allowlist checks for proposal target safety.
-- Preview/apply hash-guarded transitions for proposal application.
-- Command registry records for readiness checks only.
+### View Modes
 
-Package generation scope is intentionally limited to:
+- **FOCUS Mode** (default): Hierarchical view starting from entry points (Main.xaml, main.py, etc.). Perfect for large projects (50+ nodes). Double-click to expand node children dynamically.
+- **FULL Mode**: Shows all indexed nodes. Best for small projects (< 30 nodes) or comprehensive audits.
 
-- `01-plan` (Plan package)
-- `02-scaffold` (Scaffold package)
+See `docs/uiplan/VIEW_MODES.md` for details on entry point detection, expansion, and performance tips.
 
-Deferred stages:
+See `docs/uiplan/INTEGRATIONS.md` for how external integrations and Orchestrator resources are automatically detected and visualized.
 
-- `03-code` (disabled)
-- `04-tests` (disabled)
-- `05-validation` (disabled)
+The UiPlan Studio is a read-only explorer for this productized version. Generation, editing, and deployment features are deferred.
 
-## Package Storage And Safety
+## Example Bundle
 
-Generation artifacts are stored at:
+The repository includes a reference UiPlan bundle at `examples/uiplan-demo/` demonstrating the three-file structure:
 
-`<bundle-root>/.uiplan/generation/packages/<package-id>/`
+- **spec.md**: Requirements, context, constraints, success criteria
+- **plan.md**: Decisions, architecture diagrams, component descriptions
+- **tasks.md**: Actionable work items organized by phase with checkboxes
 
-Phase 0 safety policy:
-
-- `direct_writes: false`
-- `external_mutation: false`
-
-This means generation only creates approval package artifacts and proposal previews. Deploy,
-publish, invoke, package upload, and other runtime mutation operations are out of scope.
-
-## Diagram Persistence
-
-The default canvas contains the core document, workflow, skill, library, and review nodes.
-User changes are saved as bundle-local diagram JSON through `POST /diagram/save`, then loaded
-with the bundle through `GET /diagram/load`. If no saved diagram exists, Studio falls back to
-the default diagram and keeps the editor usable.
+See `examples/uiplan-demo/` for the canonical template.
 
 Core nodes (`spec`, `plan`, `tasks`, `skills`, `library`, and `review`) are protected from
 deletion. Non-core nodes can be added from context sources, Copilot suggestions, or manual
@@ -173,7 +145,7 @@ Run backend Phase 0 verification from the service directory so `uv` uses the Stu
 environment:
 
 ```bash
-cd services/uiplan-studio-api
+cd studio/api
 uv sync
 uv run pytest tests/test_generation_contract_schemas.py tests/test_approval_state.py tests/test_path_allowlist_command_registry.py tests/test_approval_package_storage.py tests/test_stage_package_generation.py tests/test_main.py -q
 ```
@@ -181,19 +153,19 @@ uv run pytest tests/test_generation_contract_schemas.py tests/test_approval_stat
 Run frontend Phase 0 verification from repo root:
 
 ```bash
-npm --prefix apps/uiplan-studio test -- src/__tests__/generationTypes.test.ts src/__tests__/ApprovalPackagePanel.test.tsx src/__tests__/App.test.tsx
-npm --prefix apps/uiplan-studio run build
-npx --prefix apps/uiplan-studio playwright test e2e/library-context.spec.ts
+npm --prefix studio/web test -- src/__tests__/generationTypes.test.ts src/__tests__/ApprovalPackagePanel.test.tsx src/__tests__/App.test.tsx
+npm --prefix studio/web run build
+npx --prefix studio/web playwright test e2e/library-context.spec.ts
 ```
 
 To run interactively during development:
 
 ```bash
-cd services/uiplan-studio-api
+cd studio/api
 uv run uvicorn app.main:app --reload --port 8000
 
 # In another terminal, from repo root:
-npm --prefix apps/uiplan-studio run dev
+npm --prefix studio/web run dev
 ```
 
 The UI expects the API on `http://localhost:8000` by default. Override it with

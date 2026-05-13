@@ -6,6 +6,22 @@
 **Status**: Draft
 **Input**: User description: "{{INTENT}}"
 
+## Quick start (first draft in 15-30 minutes)
+
+1. Fill `## User Scenarios & Testing` with real user stories and independent tests.
+2. Fill `## Requirements` with concrete FRs and entities.
+3. Fill `## LLM / Executor Readiness Contract` with in-scope surfaces and guardrails.
+4. Fill `## 360 Build Visibility Contract` with artifact/resource/evidence rows.
+5. Keep unknowns explicit as `[NEEDS CLARIFICATION: ...]` and continue.
+
+## Accessibility and readability checklist
+
+- Use short, direct sentences and avoid jargon where possible.
+- Keep lists as single-purpose bullets (one idea per bullet).
+- Keep headings in order and avoid skipping levels.
+- Keep table labels explicit so rows are understandable out of context.
+- Prefer concrete examples over abstract instructions.
+
 ## Audience and Scope
 
 This document is the **BA <-> Developer** bridge and the mandatory scope
@@ -43,6 +59,8 @@ never invent tenant mailboxes, credentials, Zip handling mode, or other
 tenant-specific values.
 
 ## User Scenarios & Testing
+
+Write stories so a new project team can execute them without hidden context.
 
 ### User Story 1 - {{US1_TITLE}} (Priority: P1)
 
@@ -283,7 +301,30 @@ Required visual set:
 | Workflow internals | `plan.md` and `tasks.md` | executor build guidance | one internal-step diagram per executable workflow | no workflow is a black box |
 | Evidence map | `tasks.md` | verification completeness | command, output path, pass/fail gate, rerun loop | each task has evidence output |
 
-### Solution architecture diagram (required)
+### Business process flow (required)
+
+This diagram shows how work happens today, manually — the AS-IS process before automation. It shows actors, handoffs, channels, and pain points.
+
+```mermaid
+flowchart LR
+  Start[/Trigger/]:::external --> Actor1[Actor: Sales Rep]:::human
+  Actor1 -->|Email PDF| Actor2[Actor: Approval Manager]:::human
+  Actor2 -->|Meeting| Actor3[Actor: Finance]:::human
+  Actor3 -->|Manual entry| End[/Decision recorded/]:::external
+
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.5px
+  classDef external fill:#FAFAFA,stroke:#94A3B8,color:#334155,stroke-width:1.25px
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+**Pain points**:
+- Manual handoffs cause delays
+- No audit trail
+- High error rate in manual data entry
+
+### Solution architecture (required)
+
+This is the TO-BE automated solution architecture.
 
 ```mermaid
 flowchart TB

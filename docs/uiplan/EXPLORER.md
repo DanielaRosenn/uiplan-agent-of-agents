@@ -35,8 +35,8 @@ indexes the project, and renders:
 
 ## How it works
 
-1. The CLI starts the FastAPI backend (`services/uiplan-studio-api`) and the
-   Vite dev server (`apps/uiplan-studio`).
+1. The CLI starts the FastAPI backend (`studio/api`) and the Vite dev server
+   (`studio/web`).
 2. The frontend asks the backend for `/explorer/graph?worktree=<path>`.
 3. The backend reads `.uiplan/explorer.yaml` (project overview + indexer
    hints), runs the cross-layer indexer, merges per-node overrides from
@@ -107,6 +107,104 @@ indexing:
 If `indexing.scan` is omitted, the indexer applies sensible defaults based
 on `project.type`. See `app/explorer_config.py::DEFAULT_SCAN_GLOBS` for the
 full table.
+
+## `views` — AS-IS / TO-BE canvases
+
+The `views` block defines two stakeholder-facing process visualizations that complement the technical project graph:
+
+- **AS-IS**: How work happens today, manually — swim-lanes showing actors, handoffs, channels, SLA, and pain points.
+- **TO-BE**: The automated solution architecture — triggers, workflows, integrations, Orchestrator resources, HITL surfaces, runtimes, and evidence sinks.
+
+Both views are optional and driven by declarative configuration. When absent, the canvas shows an empty state with authoring hints.
+
+```yaml
+views:
+  docs_root: docs/                      # base folder for relative drill-down links
+
+  as_is:
+    summary_from: docs/process/as-is.md            # markdown narrative (optional)
+    diagram_from: spec.md#business-process-flow    # mermaid block anchor
+    actors_from: explorer.actors                   # reuse overview.actors
+    swimlanes:                                     # explicit actor ordering
+      - "Sales Rep"
+      - "Approval Manager"
+      - "Finance"
+    handoffs:                                      # explicit fallback (no mermaid)
+      - { from: "Sales Rep", to: "Approval Manager", channel: email, artifact: "PDF quote", sla: "2d", pain: "manual chase" }
+      - { from: "Approval Manager", to: "Finance", channel: meeting, artifact: "decision", sla: "1d", pain: "rework loop" }
+    pain_points: docs/process/pain-points.md       # optional callouts file
+
+  to_be:
+    architecture_from:                             # mermaid anchors, priority order
+      - spec.md#solution-architecture
+      - plan.md#solution-architecture
+    runtime_sequence_from: plan.md#runtime-sequence
+    workflow_catalog_from: plan.md#workflow-catalog
+    integrations_from: indexed                     # use live XAML/.flow scan
+    drill_docs:                                    # per-node markdown deep-dives
+      "Main-Queue.xaml": docs/workflows/main-queue.md
+      "ApprovalFlow_SalesRep.xaml": docs/workflows/approval-sales-rep.md
+      Salesforce: docs/integrations/salesforce.md
+      Queue: docs/orchestrator/queue.md
+```
+
+### Resolution rules
+
+1. If `diagram_from` or `architecture_from` points at a real Mermaid block (`file.md#anchor`), parse it.
+2. Else fall back to structured YAML (`handoffs`, `swimlanes`, `drill_docs`).
+3. Else (TO-BE only) fall back to inferred defaults from the indexed graph — integrations from live XAML scan, workflows from the technical canvas.
+4. AS-IS without authoring shows a "needs spec" empty state with one-click editor links.
+
+### Channel types (AS-IS handoffs)
+
+- `email` — email-based handoff
+- `phone` — phone/voice handoff
+- `excel` — Excel/CSV file exchange
+- `paper` — physical document
+- `meeting` — synchronous meeting
+
+### TO-BE buckets
+
+The TO-BE canvas groups nodes into vertical swim-lanes:
+
+- **Triggers** — entry points (queue, HTTP, scheduled)
+- **Intake/Orchestration** — dispatcher workflows, state stores
+- **Processing** — worker workflows, agent hosts
+- **Integrations** — external connectors (Salesforce, Slack, HTTP)
+- **HITL** — human review surfaces (Action Center, Maestro, custom)
+- **Evidence** — audit sinks (logs, queue audits, storage buckets)
+
+### Drill-down docs
+
+Each node in TO-BE can link to a markdown deep-dive via `drill_docs`. The panel renders:
+
+1. The linked markdown file (if present).
+2. Else, workflow internal-step Mermaid from `plan.md`/`tasks.md` for that workflow.
+3. Else, integration details from indexed XAML.
+4. Else, "no doc — link to author one" with a one-click editor link.
+
+### Drill levels and compare flow
+
+The UiPlan view now exposes progressive drill levels aligned to the redesign contract:
+
+- `L0 System` — full AS-IS/TO-BE map.
+- `L1 Lane` — actor lane (AS-IS) or architecture bucket (TO-BE).
+- `L2 Work item` — selected handoff/stage.
+- `L3 Raw metadata` — collapsed by default, expanded on demand from the drill panel.
+
+The `COMPARE` tab provides an AS-IS vs TO-BE delta board for player-level decomposition and
+preserves lane/bucket selection context when returning to AS-IS or TO-BE tabs.
+
+### Template adoption
+
+When using the UiPlan templates (`templates/uiplan/`), the required Mermaid anchors are pre-seeded:
+
+- `spec.md#business-process-flow` (AS-IS)
+- `spec.md#solution-architecture` (TO-BE)
+- `plan.md#runtime-sequence` (TO-BE)
+- `plan.md#workflow-catalog` (TO-BE)
+
+See [`templates/uiplan/_diagram-patterns.md`](../../templates/uiplan/_diagram-patterns.md) for the canonical patterns.
 
 ## `.uiplan/annotations.yaml` (optional)
 

@@ -29,8 +29,8 @@ Two services power it:
 
 | Component | Path | Purpose |
 |---|---|---|
-| Vite + React UI | `apps/uiplan-studio/` | Renders the explorer |
-| FastAPI service | `services/uiplan-studio-api/` | Indexes the project, serves graph + knowledge |
+| Vite + React UI | `studio/web/` | Renders the explorer |
+| FastAPI service | `studio/api/` | Indexes the project, serves graph + knowledge |
 | CLI launcher | `framework/uipath_claude/cli/explore.py` | `uipath-claude explore` boots both, opens browser |
 
 ---
@@ -52,10 +52,8 @@ that project must be reachable from a checkout of `uipath-builder-agent`
 Either way you need:
 
 - Python 3.11+, `uv`, Node 18+ (`npm` for the Vite app).
-- This repo's `services/uiplan-studio-api` Python deps installed
-  (`uv sync` from `services/uiplan-studio-api/`).
-- This repo's `apps/uiplan-studio` JS deps installed
-  (`npm install` from `apps/uiplan-studio/`).
+- This repo's `studio/api` Python deps installed (`uv sync` from `studio/api/`).
+- This repo's `studio/web` JS deps installed (`npm install` from `studio/web/`).
 - The `skills/` submodule initialized and the submodule guard passing
   (see `CLAUDE.md` §0a).
 
@@ -113,7 +111,7 @@ indexing:
 ```
 
 If `indexing.scan` is omitted, defaults from
-`services/uiplan-studio-api/app/explorer_config.py::DEFAULT_SCAN_GLOBS`
+`studio/api/app/explorer_config.py::DEFAULT_SCAN_GLOBS`
 are applied per `project.type`.
 
 > **Tip.** Commit `.uiplan/explorer.yaml` to the project repo. It is
@@ -244,7 +242,7 @@ generated for you - no `--init` step needed.
 
 The backend exposes a small REST surface that other tools (CI checks,
 docs generators, MCP servers) can call directly. See
-`services/uiplan-studio-api/app/explorer.py` for the source-of-truth
+`studio/api/app/explorer.py` for the source-of-truth
 schemas.
 
 | Method | Path | Purpose |
@@ -258,7 +256,7 @@ schemas.
 
 Schemas: `ExplorerGraphResponse`, `ExplorerKnowledgeResponse`,
 `ExplorerLibrarySectionResponse`, `ExplorerSkillDetailResponse` in
-`services/uiplan-studio-api/app/explorer.py`.
+`studio/api/app/explorer.py`.
 
 ---
 
@@ -266,7 +264,7 @@ Schemas: `ExplorerGraphResponse`, `ExplorerKnowledgeResponse`,
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Browser opens to a fixture (`demo` / `solution` / `empty`) | URL had no `?worktree=` and you clicked a fixture in the dropdown | Reload with `?worktree=<absolute-path>` or pick your project from the worktree dropdown |
+| Browser opens to a fixture (`demo` / `solution` / `empty`) | URL had no `?worktree=` and you clicked a fixture in the project source picker | Reload with `?worktree=<absolute-path>` or pick your project from the project source picker |
 | Empty canvas, no errors | All `indexing.scan` globs matched zero files | Run `uipath-claude explore --check`, adjust globs |
 | Knowledge tab shows no skills | Skills submodule not initialized or `skills-approved.sha` mismatch | `git submodule update --init skills && python -m uipath_claude.skills.submodule_guard` |
 | Knowledge tab shows no library citations | `data/library/` not present (fresh clone of a leaner template) | Pull library data or accept that knowledge is skill-only |
@@ -298,7 +296,7 @@ Schemas: `ExplorerGraphResponse`, `ExplorerKnowledgeResponse`,
 
 - **Configure deeper** - tune `indexing.scan`, exclude globs, and
   per-layer hints in `.uiplan/explorer.yaml`. Schema: see
-  `services/uiplan-studio-api/app/explorer_config.py`.
+  `studio/api/app/explorer_config.py`.
 - **Annotate for BAs** - fill `.uiplan/annotations.yaml` with status,
   KPIs, HITL roles, PDD anchors per node.
 - **Plug into UiPlan** - the same `.cursor/plans/<slug>/` bundles used
@@ -306,5 +304,5 @@ Schemas: `ExplorerGraphResponse`, `ExplorerKnowledgeResponse`,
   Knowledge tab when relevant.
 - **Extend the layers** - to add a layer (e.g. a custom integration
   type), edit `SUPPORTED_LAYERS` in
-  `services/uiplan-studio-api/app/explorer_indexer.py` and add the
-  corresponding column to `apps/uiplan-studio/src/theme.ts::LAYERS`.
+  `studio/api/app/explorer_indexer.py` and add the corresponding column to
+  `studio/web/src/theme.ts::LAYERS`.

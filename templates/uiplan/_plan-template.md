@@ -6,6 +6,22 @@
 **Date**: {{DATE}}
 **Spec**: ./spec.md
 
+## Quick start (from accepted spec to executable plan)
+
+1. Fill `## Summary` with scope, constraints, and target outcome.
+2. Fill `## Project Inventory` and `## Workflow Catalog` with real artifact paths.
+3. Fill `## Skill and Subagent Routing` so execution ownership is explicit.
+4. Fill `## CLI Command Matrix` with concrete verify commands and evidence paths.
+5. Fill `## Open Grounding Questions` only for unresolved blockers.
+
+## Accessibility and usability checklist
+
+- Keep architecture explanations in plain language before technical detail.
+- Keep each table column name explicit and unambiguous.
+- Ensure every workflow listed has a matching diagram section.
+- Use consistent naming for projects, workflows, and resources across sections.
+- Prefer concise, actionable instructions over narrative paragraphs.
+
 ## Audience and Scope
 
 This document is the **Developer <-> Solution Engineer** contract. It captures
@@ -82,6 +98,73 @@ task execution.
 The project graph is the machine-readable planning spine for visual generation,
 task authoring, and package mapping. Keep node IDs stable across this section,
 `## Workflow Catalog`, `## Skill and Subagent Routing`, and `tasks.md`.
+
+### Solution architecture
+
+This mirrors the `spec.md` architecture but adds concrete project/file names and bindings.
+
+```mermaid
+flowchart TB
+  subgraph Intake["Intake And Orchestration"]
+    Entry[/HTTP Trigger/]:::external --> Orchestrator[Dispatcher.Main.xaml]:::service
+    Orchestrator --> WorkQueue[(Queue: ProcessItems)]:::data
+  end
+  subgraph Processing["Processing And Decisions"]
+    WorkQueue --> Worker[Performer.Main.xaml]:::service
+    Worker --> Decision{Business rule: Amount > 10k}:::decision
+    Decision -->|Yes| Human[Action Center task]:::human
+    Decision -->|No| System[/Salesforce API/]:::external
+  end
+  subgraph Evidence["Configuration And Evidence"]
+    Worker --> Audit[(Queue: AuditLog)]:::data
+    Human --> Audit
+    System --> Audit
+    Assets[(Asset: SalesforceKey)]:::data --> Worker
+  end
+
+  classDef service fill:#EFF6FF,stroke:#3B82F6,color:#1E3A8A,stroke-width:1.25px
+  classDef data fill:#F1F5F9,stroke:#64748B,color:#0F172A,stroke-width:1.25px
+  classDef decision fill:#FFFBEB,stroke:#F59E0B,color:#92400E,stroke-width:1.5px
+  classDef human fill:#F5F3FF,stroke:#8B5CF6,color:#5B21B6,stroke-width:1.5px
+  classDef external fill:#FAFAFA,stroke:#94A3B8,color:#334155,stroke-width:1.25px
+  linkStyle default stroke:#94A3B8,stroke-width:1.5px
+```
+
+### Runtime sequence
+
+This shows the message/data handoff timing between components at runtime.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Trigger as HTTP Trigger
+  participant Dispatcher as Dispatcher.Main
+  participant Queue as Queue: ProcessItems
+  participant Performer as Performer.Main
+  participant External as Salesforce API
+
+  Trigger->>Dispatcher: POST /process {items}
+  Dispatcher->>Queue: Add items (bulk)
+  Queue-->>Dispatcher: Acknowledge
+  Dispatcher-->>Trigger: 202 Accepted
+
+  loop Per item
+    Queue->>Performer: Get next item
+    Performer->>Performer: Validate + transform
+    Performer->>External: POST /records
+    External-->>Performer: Success
+    Performer->>Queue: Mark complete
+  end
+```
+
+### Workflow catalog
+
+List all workflows/flows/agents with their internal structure and entry points.
+
+| Workflow | Type | Entry point | Internal steps | Dependencies |
+| --- | --- | --- | --- | --- |
+| `Dispatcher.Main.xaml` | Sequence | HTTP trigger | 1. Load config, 2. Validate input, 3. Bulk add to queue | Queue: ProcessItems, Asset: ConfigPath |
+| `Performer.Main.xaml` | Long Running | Queue trigger | 1. Get item, 2. Validate, 3. Business rule, 4. Call Salesforce, 5. Log result | Queue: ProcessItems, Asset: SalesforceKey, Integration: Salesforce |
 
 ### Mermaid source blocks
 

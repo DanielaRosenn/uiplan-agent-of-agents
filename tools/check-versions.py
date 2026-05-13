@@ -28,19 +28,19 @@ def read_root_version() -> str:
 
 def read_studio_app_version() -> str:
     pkg = json.loads(
-        (REPO_ROOT / "apps" / "uiplan-studio" / "package.json").read_text(encoding="utf-8")
+        (REPO_ROOT / "studio" / "web" / "package.json").read_text(encoding="utf-8")
     )
     return str(pkg["version"])
 
 
 def read_studio_api_version() -> str:
-    text = (REPO_ROOT / "services" / "uiplan-studio-api" / "pyproject.toml").read_text(
+    text = (REPO_ROOT / "studio" / "api" / "pyproject.toml").read_text(
         encoding="utf-8"
     )
     match = re.search(r"^version\s*=\s*\"([^\"]+)\"", text, re.MULTILINE)
     if match is None:
         raise SystemExit(
-            "could not find `version = \"...\"` in services/uiplan-studio-api/pyproject.toml"
+            "could not find `version = \"...\"` in studio/api/pyproject.toml"
         )
     return match.group(1)
 
@@ -48,8 +48,8 @@ def read_studio_api_version() -> str:
 def main() -> int:
     sources = {
         "VERSION": read_root_version(),
-        "apps/uiplan-studio/package.json": read_studio_app_version(),
-        "services/uiplan-studio-api/pyproject.toml": read_studio_api_version(),
+        "studio/web/package.json": read_studio_app_version(),
+        "studio/api/pyproject.toml": read_studio_api_version(),
     }
     distinct = set(sources.values())
     if len(distinct) == 1:

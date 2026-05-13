@@ -1,0 +1,27 @@
+{
+  "artifact_id": "IA-001",
+  "gate_name": "IA",
+  "phase": "Phase 4",
+  "owner": "ux-ui-deep-reviewer",
+  "approved_by": [
+    "ux-ui-deep-reviewer",
+    "ba-process-clarity-reviewer",
+    "solution-engineer-reviewer"
+  ],
+  "created_at": "2026-05-12",
+  "scope_version": "v1.2",
+  "result": "pass",
+  "summary": "Mode model, transition rules, landing requirements, and persona read order are explicitly defined and testable.",
+  "linked_entities": [
+    "Orient",
+    "Decide",
+    "Execute",
+    "Verify"
+  ],
+  "file_path": "docs/plans/2026-05-12-uiplan-app-predevelopment-redesign.md",
+  "supporting_artifacts": [
+    "docs/plans/evidence/uiplan-app-predevelopment-redesign/ia-script-results.json",
+    "docs/plans/evidence/uiplan-app-predevelopment-redesign/executive-readiness-snapshot.md"
+  ],
+  "blocker_disposition": []
+}

@@ -1,0 +1,11 @@
+---
+description: Guardrails for improving app/template views without breaking generators.
+globs: "templates/**/*.md, docs/uiplan/**/*.md"
+alwaysApply: false
+---
+
+- Treat `templates/` as canonical source for template content.
+- Never hand-edit generated template mirrors in `framework/uipath_claude/templates/` unless explicitly requested.
+- Preserve template placeholders and anchor headings used by generation tools.
+- When changing section names, verify downstream references in `framework/mcp_server/tools/plan_uiplan.py`.
+- Keep changes focused on view clarity (layout, flow, readability, usability) rather than broad refactors.

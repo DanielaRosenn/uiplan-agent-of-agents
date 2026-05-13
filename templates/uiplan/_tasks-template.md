@@ -5,6 +5,22 @@
 
 **Format**: `[ID] [P?] [Story] Description` - include exact file paths in descriptions (backticks).
 
+## Quick start (authoring executable tasks)
+
+1. Build `## 360 visibility execution matrix` from artifacts in `plan.md`.
+2. Add FR mappings in `## FR traceability matrix`.
+3. Write tests before implementation inside each story phase.
+4. For each non-parallel task, include command + evidence path + ownership tags.
+5. Ensure Phase 5 includes restore -> analyze -> test -> pack and runtime evidence.
+
+## Accessibility and readability checklist
+
+- Keep task lines short, concrete, and command-oriented.
+- Put one done condition per task line.
+- Avoid combining unrelated work in a single task.
+- Keep acronyms expanded at first use in each section.
+- Ensure tables can be read without prior context.
+
 ## Audience and Scope
 
 This document is the **Solution Engineer -> Developer / Executor** build sheet.

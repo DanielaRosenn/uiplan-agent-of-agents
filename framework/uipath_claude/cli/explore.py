@@ -1,7 +1,7 @@
 """`uipath-claude explore` — boot the UiPlan Studio Explorer for a project.
 
-This command launches the FastAPI backend (`services/uiplan-studio-api`) and
-the Vite dev server (`apps/uiplan-studio`) as subprocesses in the same group,
+This command launches the FastAPI backend (`studio/api`) and
+the Vite dev server (`studio/web`) as subprocesses in the same group,
 opens the user's browser, and waits for Ctrl-C to shut both down cleanly.
 
 Modes:
@@ -35,7 +35,7 @@ def _repo_root() -> Path:
     """Find the uipath-builder-agent checkout root by walking upwards."""
     start = Path(__file__).resolve()
     for parent in (start, *start.parents):
-        if (parent / "apps" / "uiplan-studio").is_dir() and (parent / "services" / "uiplan-studio-api").is_dir():
+        if (parent / "studio" / "web").is_dir() and (parent / "studio" / "api").is_dir():
             return parent
     # Fallback: 4 levels up from this file (framework/uipath_claude/cli/explore.py)
     return start.parents[3]
@@ -63,7 +63,7 @@ def _detect_project_dir(explicit: str | None) -> Path:
 def _print_indexer_summary(project: Path) -> None:
     """Run the indexer in-process and print a summary. Used by --check."""
     repo = _repo_root()
-    backend_dir = repo / "services" / "uiplan-studio-api"
+    backend_dir = repo / "studio" / "api"
     sys.path.insert(0, str(backend_dir))
     from app.explorer_config import load_config  # type: ignore
     from app.explorer_indexer import index_project  # type: ignore
@@ -98,7 +98,7 @@ def _print_indexer_summary(project: Path) -> None:
 
 def _do_init(project: Path) -> None:
     repo = _repo_root()
-    sys.path.insert(0, str(repo / "services" / "uiplan-studio-api"))
+    sys.path.insert(0, str(repo / "studio" / "api"))
     from app.explorer_config import (  # type: ignore
         ANNOTATIONS_FILENAME, CONFIG_DIRNAME, CONFIG_FILENAME, render_starter_config,
     )
@@ -141,8 +141,8 @@ def _wait_for_port(port: int, *, timeout: float = 15.0) -> bool:
 
 def _do_explore(project: Path, *, port: int, open_browser: bool) -> int:
     repo = _repo_root()
-    backend_dir = repo / "services" / "uiplan-studio-api"
-    frontend_dir = repo / "apps" / "uiplan-studio"
+    backend_dir = repo / "studio" / "api"
+    frontend_dir = repo / "studio" / "web"
 
     if not backend_dir.is_dir() or not frontend_dir.is_dir():
         typer.echo(

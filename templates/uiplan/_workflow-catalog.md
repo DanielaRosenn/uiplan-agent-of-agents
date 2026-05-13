@@ -3,6 +3,20 @@
 Curated reference of workflow templates available to the Solution Engineer when
 filling `plan.md` `## Workflow Catalog` and `tasks.md` per-workflow tasks.
 
+## How to use this catalog quickly
+
+1. Pick one pattern that matches the owning business outcome.
+2. Copy its "when to use" guidance into `plan.md` rationale.
+3. Copy required artifacts/activities into `tasks.md` with evidence paths.
+4. Keep one pattern per workflow surface to avoid mixed responsibilities.
+
+## Accessibility and readability rules
+
+- Prefer simple labels in diagram nodes (action-first wording).
+- Keep one concept per diagram node.
+- Do not depend on color only; labels must convey meaning independently.
+- Keep "When to use" and "When not to use" explicit for new teams.
+
 Each entry includes:
 
 - **Diagram** (Pro Standard Mermaid using `classDef` / `linkStyle`).

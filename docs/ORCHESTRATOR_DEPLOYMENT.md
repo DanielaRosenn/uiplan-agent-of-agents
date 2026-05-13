@@ -28,8 +28,8 @@ handoff:
 - `python tools/check-versions.py` result.
 - `python -m uipath_claude.skills.submodule_guard --strict` result.
 - `python -m pytest -q` result for the root test suite.
-- Studio API test result from `services/uiplan-studio-api`: `uv run pytest tests -q`.
-- Frontend gate result from `apps/uiplan-studio`: `npm run lint`, `npm test`, and
+- Studio API test result from `studio/api`: `uv run pytest tests -q`.
+- Frontend gate result from `studio/web`: `npm run lint`, `npm test`, and
   `npm run build`.
 - `gitleaks detect --config .gitleaks.toml` result.
 - CLI versions: `uipcli --version`, `uip --version`, and `uipath --version`.

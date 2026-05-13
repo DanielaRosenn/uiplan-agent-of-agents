@@ -7,6 +7,13 @@
         "timeout": 20,
         "failClosed": false
       }
+    ],
+    "afterFileEdit": [
+      {
+        "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .cursor/hooks/touch-plan-refresh.ps1",
+        "timeout": 10,
+        "failClosed": false
+      }
     ]
   }
 }

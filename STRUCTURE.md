@@ -6,8 +6,7 @@ forking it. Read [`CLAUDE.md`](CLAUDE.md) for AI-assistant rules and
 
 | Path | Owner | Purpose |
 |---|---|---|
-| `apps/uiplan-studio/` | product | React + Vite frontend for the UiPlan Studio Explorer |
-| `services/uiplan-studio-api/` | product | FastAPI backend that indexes projects and serves the explorer graph |
+| `studio/` | product | UiPlan Studio product folder: `studio/web/` React UI and `studio/api/` FastAPI indexer/API |
 | `framework/uipath_claude/` | product | Python core (CLI, library/skills registries, planning tooling) |
 | `extensions/skills/` | product | Project-local overrides on top of the `skills/` submodule |
 | `skills/` | upstream submodule (read-only) | Source of truth for UiPath skills - pinned in `.uipath/skills-approved.sha` |
