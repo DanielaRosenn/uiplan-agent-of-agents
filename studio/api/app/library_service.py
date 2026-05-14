@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Iterable
 
 from app.schemas import LibraryContextItem
+
+_log = logging.getLogger(__name__)
 
 
 def _ensure_framework_on_path() -> None:
@@ -11,7 +14,7 @@ def _ensure_framework_on_path() -> None:
 
     repo_root = Path(__file__).resolve().parents[3]
     framework_dir = repo_root / "framework"
-    if str(framework_dir) not in sys.path:
+    if framework_dir.is_dir() and str(framework_dir) not in sys.path:
         sys.path.insert(0, str(framework_dir))
 
 
@@ -48,12 +51,16 @@ def _iter_context_items(
 
 
 def search_library_context(query: str, top_n: int = 5) -> list[LibraryContextItem]:
-    _ensure_framework_on_path()
-    from uipath_claude.library.catalog import LibraryCatalog
-    from uipath_claude.library.reader import LibraryReader
-
     normalized_query = query.strip()
     if not normalized_query:
+        return []
+
+    _ensure_framework_on_path()
+    try:
+        from uipath_claude.library.catalog import LibraryCatalog
+        from uipath_claude.library.reader import LibraryReader
+    except Exception:
+        _log.warning("Library framework unavailable; search returns empty results")
         return []
 
     effective_top_n = max(1, min(top_n, 20))

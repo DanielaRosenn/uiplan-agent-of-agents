@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from app.schemas import ContextSource, ContextSourceCategory, ContextSourcesResponse, DiagramNode
 
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+_REPO_ROOT_ENV = os.environ.get("UIPLAN_REPO_ROOT")
+REPO_ROOT: Path = (
+    Path(_REPO_ROOT_ENV).resolve() if _REPO_ROOT_ENV
+    else Path(__file__).resolve().parents[3]
+)
 
 
 def _skill_source(

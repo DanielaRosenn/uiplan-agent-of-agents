@@ -1,20 +1,29 @@
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from pathlib import Path
 import sys
 from typing import Any
 
+_log = logging.getLogger(__name__)
+_run_uiplan_review = None
+
 try:
-    from mcp_server.tools.plan_uiplan_review import run_uiplan_review
-except ModuleNotFoundError:
+    from mcp_server.tools.plan_uiplan_review import run_uiplan_review as _imported
+    _run_uiplan_review = _imported
+except Exception:
     repo_root = Path(__file__).resolve().parents[3]
     framework_path = repo_root / "framework"
     if framework_path.is_dir():
         framework_path_str = str(framework_path)
         if framework_path_str not in sys.path:
             sys.path.insert(0, framework_path_str)
-    from mcp_server.tools.plan_uiplan_review import run_uiplan_review
+        try:
+            from mcp_server.tools.plan_uiplan_review import run_uiplan_review as _imported2
+            _run_uiplan_review = _imported2
+        except Exception:
+            _log.warning("Review framework unavailable; /review/run will return degraded results")
 
 
 def map_review_findings(findings: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
@@ -39,8 +48,17 @@ def run_review(
     gate_ids: list[str] | None = None,
     slug: str | None = None,
 ) -> dict[str, Any]:
+    if _run_uiplan_review is None:
+        return {
+            "ok": False,
+            "error": "Review framework is not available (framework/ not found)",
+            "findings": [],
+            "findings_by_document": {},
+            "acceptance_ready": False,
+        }
+
     repo = Path(__file__).resolve().parents[3]
-    result = run_uiplan_review(
+    result = _run_uiplan_review(
         spec=spec,
         plan=plan,
         tasks=tasks,
