@@ -1,6 +1,7 @@
 """Build a grounding pack for UiPlan (workspace-aware, no MCP round-trip)."""
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 from typing import Any
@@ -8,10 +9,13 @@ from typing import Any
 from uipath_claude.cli.app import _select_relevant_skills
 from uipath_claude.skills.loader import load_skill_content
 from uipath_claude.skills.registry import SkillRegistry
+from uipath_claude.skills.submodule_guard import verify as verify_submodule_guard
 from uipath_claude.tools.knowledge_tools import lookup_uipath_knowledge as _lookup_knowledge
 from uipath_claude.tools.library_tools import search_library as _search_library
 
 from mcp_server.tools.plan_constitution import load_constitution
+
+_log = logging.getLogger(__name__)
 
 
 def _read_text(path: Path, limit: int | None = None) -> str | None:
@@ -239,8 +243,38 @@ def _pick_project_template(topic: str) -> str:
     return "templates/long-running/"
 
 
-def build_grounding_pack(repo: Path, topic: str) -> dict[str, Any]:
-    """Collect workspace signals for UiPlan generation and review."""
+def build_grounding_pack(
+    repo: Path, topic: str, *, bypass_guard: bool = False
+) -> dict[str, Any]:
+    """Collect workspace signals for UiPlan generation and review.
+
+    Validates the skills submodule before proceeding unless ``bypass_guard=True``.
+    """
+    # Validate skills submodule is present and at an approved commit
+    guard_result = None
+    if not bypass_guard:
+        guard_result = verify_submodule_guard(strict=False, repo_root=repo)
+        if not guard_result.ok:
+            _log.warning(
+                "Skills submodule guard failed: %s", "; ".join(guard_result.errors)
+            )
+            return {
+                "status": "blocked",
+                "reason": "submodule_guard_failed",
+                "topic": topic,
+                "guard": {
+                    "ok": guard_result.ok,
+                    "errors": list(guard_result.errors),
+                    "warnings": list(guard_result.warnings),
+                    "checked": list(guard_result.checked),
+                },
+                "message": (
+                    "Skills submodule validation failed. Ensure the skills/ "
+                    "submodule is initialized (`git submodule update --init`) "
+                    "and at an approved commit in .uipath/skills-approved.sha."
+                ),
+            }
+
     ctx_path = repo / ".claude" / "rules" / "project-context.md"
     project_context = _read_text(ctx_path, limit=400)
     claude = _read_text(repo / "CLAUDE.md", limit=200)
@@ -271,7 +305,8 @@ def build_grounding_pack(repo: Path, topic: str) -> dict[str, Any]:
         citations.insert(0, f"[skill:{planner_context['name']}]")
     if discovery_agent:
         citations.insert(1, f"[agent:{discovery_agent['name']}]")
-    return {
+
+    result: dict[str, Any] = {
         "status": "ok",
         "topic": topic,
         "source_documents": source_docs,
@@ -297,6 +332,17 @@ def build_grounding_pack(repo: Path, topic: str) -> dict[str, Any]:
         "unanswered": unanswered,
         "suggested_citations": citations,
     }
+
+    # Include guard status (even on success) so callers see any warnings
+    if guard_result is not None:
+        result["guard"] = {
+            "ok": guard_result.ok,
+            "errors": list(guard_result.errors),
+            "warnings": list(guard_result.warnings),
+            "checked": list(guard_result.checked),
+        }
+
+    return result
 
 
 def _build_citations(
