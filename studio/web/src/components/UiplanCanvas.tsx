@@ -32,7 +32,12 @@ import {
 } from "lucide-react";
 
 import { PALETTE } from "../theme";
-import type { ProjectNode, AsIsView, ToBeView } from "../projectGraph/types";
+import type {
+  AgentOpsDemoRun,
+  ProjectNode,
+  AsIsView,
+  ToBeView,
+} from "../projectGraph/types";
 import AsIsCanvas from "./AsIsCanvas";
 import ToBeCanvas from "./ToBeCanvas";
 
@@ -97,11 +102,34 @@ interface Phase {
 
 interface UiplanCanvasProps {
   bundle: ProjectNode;
+  demoIntake?: {
+    businessGoal?: string;
+    systems?: string[];
+    successCriteria?: string[];
+  } | null;
+  demoRun?: AgentOpsDemoRun | null;
   selectedNodeId: string | null;
   onSelectNode: (id: string) => void;
 }
 
-export default function UiplanCanvas({ bundle, selectedNodeId, onSelectNode }: UiplanCanvasProps) {
+const AGENTOPS_SECTION_ORDER = [
+  "Intake",
+  "Agents",
+  "AS-IS",
+  "TO-BE",
+  "Build Queue",
+  "Verification",
+  "Deployment",
+  "Submission",
+] as const;
+
+export default function UiplanCanvas({
+  bundle,
+  demoIntake,
+  demoRun,
+  selectedNodeId,
+  onSelectNode,
+}: UiplanCanvasProps) {
   const initialView: View = (bundle.children?.nodes ?? []).some((node) => node.kind === "uiplan_doc" || node.kind === "uiplan_tasks")
     ? "overview"
     : (bundle.children?.nodes ?? []).some((node) => node.kind === "uiplan_view_to_be")
@@ -122,14 +150,20 @@ export default function UiplanCanvas({ bundle, selectedNodeId, onSelectNode }: U
 
   // Extract AS-IS and TO-BE views from bundle children
   const asIsView = useMemo((): AsIsView | null => {
+    if (demoRun?.as_is_view_model) {
+      return demoRun.as_is_view_model;
+    }
     const viewNode = bundle.children?.nodes?.find((n: any) => n.kind === "uiplan_view_as_is");
     return viewNode?.meta?.view || null;
-  }, [bundle]);
+  }, [bundle, demoRun]);
 
   const toBeView = useMemo((): ToBeView | null => {
+    if (demoRun?.to_be_view_model) {
+      return demoRun.to_be_view_model;
+    }
     const viewNode = bundle.children?.nodes?.find((n: any) => n.kind === "uiplan_view_to_be");
     return viewNode?.meta?.view || null;
-  }, [bundle]);
+  }, [bundle, demoRun]);
 
   const hasViews = asIsView || toBeView;
   const actorOptions = asIsView?.swimlanes ?? [];
@@ -171,11 +205,34 @@ export default function UiplanCanvas({ bundle, selectedNodeId, onSelectNode }: U
     }
   }, [mode, view, hasViews, asIsView, toBeView, tasks.length]);
 
-  const blockers = Math.max(profile.taskSummary.pending, profile.decisions.length);
+  const blockers = Math.max(
+    profile.taskSummary.pending,
+    profile.decisions.length,
+    demoRun?.verification_checklist.filter((gate) => gate.status !== "passed").length ?? 0,
+  );
   const nextTask = tasks.find((task) => taskStatus(task) === "pending" || taskStatus(task) === "in_progress");
-  const nextAction = nextTask?.label ?? "Review compare delta and confirm readiness gates";
+  const nextAction = demoRun?.handoff_summary.next_action
+    ?? nextTask?.label
+    ?? "Review compare delta and confirm readiness gates";
   const approvalState = blockers > 0 ? "IN REVIEW" : "READY";
-  const currentPhase = mode[0].toUpperCase() + mode.slice(1);
+  const currentPhase = demoRun?.orchestrator_state.current_phase ?? (mode[0].toUpperCase() + mode.slice(1));
+  const rosterLabel = demoRun
+    ? `${demoRun.specialist_assignments.length} specialists`
+    : `${profile.phases.length || 0} phase owners`;
+  const buildQueueLabel = demoRun
+    ? `${demoRun.build_queue.length} queued items`
+    : `${profile.taskSummary.pending} pending`;
+  const verificationLabel = demoRun
+    ? `${demoRun.verification_checklist.filter((gate) => gate.status === "passed").length}/${demoRun.verification_checklist.length} passed`
+    : `${Math.max(profile.taskSummary.total - profile.taskSummary.pending, 0)} checks`;
+  const deploymentLabel = demoRun
+    ? demoRun.deployment_readiness_status.deployed
+      ? "DEPLOYED"
+      : `BLOCKED: ${demoRun.deployment_readiness_status.blocker ?? "pending gates"}`
+    : blockers > 0
+      ? "BLOCKED"
+      : "READY";
+  const handoffLabel = demoRun?.handoff_summary.summary ?? "Handoff summary pending";
   const modeViews = allowedViewsForMode(mode, hasViews, !!asIsView, !!toBeView, tasks.length > 0);
   const openView = (nextView: View) => {
     setView(nextView);
@@ -231,7 +288,7 @@ export default function UiplanCanvas({ bundle, selectedNodeId, onSelectNode }: U
             fontSize: 12, letterSpacing: "0.16em", fontWeight: 800,
             color: PALETTE.textDim, fontFamily: "'JetBrains Mono', monospace",
           }}>
-            UIPLAN WORKFLOW BUILDER
+            AGENTOPS ORCHESTRATOR
           </div>
           <div style={{
             marginTop: 2,
@@ -244,12 +301,24 @@ export default function UiplanCanvas({ bundle, selectedNodeId, onSelectNode }: U
           }}>
             {profile.title}
           </div>
+          {demoIntake?.businessGoal && (
+            <div style={{
+              marginTop: 1,
+              fontSize: 12,
+              color: PALETTE.textDim,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}>
+              {demoIntake.businessGoal}
+            </div>
+          )}
         </div>
         <div style={{ flex: 1 }} />
         <div style={{ position: "relative", zIndex: 50, display: "flex", gap: 8, alignItems: "center" }}>
           <Segmented
             value={mode}
-            ariaLabel="UiPlan lifecycle mode"
+            ariaLabel="UiPlan view mode"
             onChange={(nextMode) => {
               setMode(nextMode as Mode);
               setShowRawMetadata(false);
@@ -284,6 +353,32 @@ export default function UiplanCanvas({ bundle, selectedNodeId, onSelectNode }: U
             RESET CLEAN VIEW
           </button>
         </div>
+      </div>
+      <div style={{
+        minHeight: 38,
+        borderBottom: `1px solid ${PALETTE.rule}`,
+        background: PALETTE.bg,
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "4px 14px",
+        overflowX: "auto",
+      }}>
+        <StaticTag label={`AGENT ROSTER · ${rosterLabel}`} />
+        <StaticTag label={`CURRENT PHASE · ${currentPhase}`} />
+        <StaticTag label={`BUILD QUEUE · ${buildQueueLabel}`} />
+        <StaticTag label={`VERIFICATION GATES · ${verificationLabel}`} />
+        <StaticTag
+          label={
+            demoRun?.deployment_readiness_status.deployed
+              ? "DEPLOYMENT STATUS · DEPLOYED"
+              : `DEPLOYMENT BLOCKER · ${deploymentLabel}`
+          }
+        />
+        <StaticTag label={`HANDOFF SUMMARY · ${handoffLabel}`} />
+        {AGENTOPS_SECTION_ORDER.map((section) => (
+          <StaticTag key={section} label={section} />
+        ))}
       </div>
       <div style={{
         minHeight: 40,
@@ -992,6 +1087,28 @@ function Chip({ active, onClick, label }: { active: boolean; onClick: () => void
   );
 }
 
+function StaticTag({ label }: { label: string }) {
+  return (
+    <span
+      style={{
+        border: `1px solid ${PALETTE.rule}`,
+        background: PALETTE.panel,
+        color: PALETTE.textDim,
+        borderRadius: 999,
+        padding: "6px 12px",
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: 12,
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+        fontWeight: 700,
+        userSelect: "none",
+      }}
+    >
+      {label}
+    </span>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Segmented control
 // ---------------------------------------------------------------------------
@@ -1113,7 +1230,7 @@ function PlanOverview({ profile, onOpenView, onSelectNode }: {
   const columns: ProjectPlanningColumn[] = [
     {
       title: "DEFINE",
-      subtitle: "Problem, actors, current state",
+      subtitle: "Intake, actors, current state",
       status: "READY",
       color: "#d97706",
       cards: [
@@ -1121,7 +1238,7 @@ function PlanOverview({ profile, onOpenView, onSelectNode }: {
           id: "spec",
           title: "spec.md",
           eyebrow: "PROJECT BRIEF",
-          summary: "Scope, acceptance, actors, AS-IS business process.",
+          summary: "Scope, acceptance, actors, and AS-IS process for template selection.",
           meta: [`${specDiagrams} diagrams`, "template input"],
           status: "ready",
           doc: specDoc,
@@ -1140,7 +1257,7 @@ function PlanOverview({ profile, onOpenView, onSelectNode }: {
     },
     {
       title: "DESIGN",
-      subtitle: "Architecture and target workflow",
+      subtitle: "Agent-of-agents architecture",
       status: "ACTIVE",
       color: "#2563eb",
       cards: [
@@ -1148,7 +1265,7 @@ function PlanOverview({ profile, onOpenView, onSelectNode }: {
           id: "plan",
           title: "plan.md",
           eyebrow: "SOLUTION DESIGN",
-          summary: `${profile.decisions.length || 0} decisions, runtime sequence, assets, and contracts.`,
+          summary: `${profile.decisions.length || 0} decisions, runtime sequence, base template, and contracts.`,
           meta: [`${planDiagrams} diagrams`, `${profile.phases.length || 0} phases`],
           status: "active",
           doc: planDoc,
@@ -1167,7 +1284,7 @@ function PlanOverview({ profile, onOpenView, onSelectNode }: {
     },
     {
       title: "BUILD",
-      subtitle: "Backlog and execution plan",
+      subtitle: "Clone template + apply changes",
       status: `${profile.taskSummary.pending} OPEN`,
       color: "#7c3aed",
       cards: [
@@ -1175,7 +1292,7 @@ function PlanOverview({ profile, onOpenView, onSelectNode }: {
           id: "tasks",
           title: "tasks.md",
           eyebrow: "BUILD BACKLOG",
-          summary: `${profile.taskSummary.done}/${profile.taskSummary.total} complete, ${profile.taskSummary.pending} still open.`,
+          summary: `${profile.taskSummary.done}/${profile.taskSummary.total} complete, ${profile.taskSummary.pending} still open after template clone.`,
           meta: [`${profile.taskSummary.in_progress} active`, `${taskDiagrams} diagrams`],
           status: profile.taskSummary.pending > 0 ? "blocked" : "ready",
           doc: tasksDoc,
@@ -1220,16 +1337,16 @@ function PlanOverview({ profile, onOpenView, onSelectNode }: {
     },
     {
       title: "TEMPLATE",
-      subtitle: "Reusable planning contract",
+      subtitle: "Base project generation pattern",
       status: "KEEP",
       color: "#475569",
       cards: [
         {
           id: "template",
-          title: "Template contract",
-          eyebrow: "REUSABLE UIPLAN",
-          summary: "spec.md, plan.md, tasks.md, diagrams, and views stay linked.",
-          meta: ["template", "next project"],
+          title: "Template-first generation",
+          eyebrow: "BASE PROJECT CLONE",
+          summary: "Select a Studio template, clone it into a working project, then apply generated deltas.",
+          meta: ["template clone", "generated changes"],
           status: "ready",
           onClick: () => onOpenView("compare"),
         },
@@ -1244,7 +1361,7 @@ function PlanOverview({ profile, onOpenView, onSelectNode }: {
       </div>
       <div style={projectPlanHeaderStyle}>
         <div>
-          <div style={projectPlanEyebrowStyle}>PROJECT PLANNING KANBAN</div>
+          <div style={projectPlanEyebrowStyle}>AGENTOPS ORCHESTRATOR KANBAN</div>
           <div style={projectPlanTitleStyle}>{profile.title}</div>
           <div style={projectPlanSubtitleStyle}>{profile.summary}</div>
         </div>
@@ -1294,7 +1411,7 @@ function PlanOverview({ profile, onOpenView, onSelectNode }: {
       </div>
 
       <div style={templateStripStyle}>
-        {["spec.md: project brief", "plan.md: solution design", "tasks.md: kanban backlog", "AS-IS/TO-BE: drill-down workflow views"].map((item) => (
+        {["spec.md: project brief", "plan.md: base-template architecture", "tasks.md: clone-and-apply backlog", "AS-IS/TO-BE: drill-down workflow views"].map((item) => (
           <span key={item}>{item}</span>
         ))}
       </div>
@@ -1658,18 +1775,18 @@ function buildPlanningDocFlow(doc: BundleDoc | undefined, profile: PlanProfile):
       { eyebrow: "01 DECIDE", title: "Architecture", summary: `${profile.decisions.length || 0} design decisions anchor the target flow.`, color: "#2563eb" },
       { eyebrow: "02 MODEL", title: "Runtime flow", summary: `${profile.toBeCount} target-state workflow and platform nodes feed TO-BE.`, color: "#0f766e" },
       diagramStep,
-      { eyebrow: "03 PHASE", title: "Build sequence", summary: `${profile.phases.length || 0} implementation phases define the order of work.`, color: "#7c3aed" },
-      { eyebrow: "OUTPUT", title: "Task input", summary: "Solution decisions become executable project tasks.", color: "#475569" },
+      { eyebrow: "03 PHASE", title: "Build sequence", summary: `${profile.phases.length || 0} implementation phases define template clone + delta order.`, color: "#7c3aed" },
+      { eyebrow: "OUTPUT", title: "Task input", summary: "Solution decisions become executable clone-and-apply project tasks.", color: "#475569" },
     ];
   }
 
   if (label === "tasks.md" || doc.kind === "uiplan_tasks") {
     return [
-      { eyebrow: "01 BREAKDOWN", title: "Task map", summary: `${profile.taskSummary.total} total template tasks across build phases.`, color: "#7c3aed" },
+      { eyebrow: "01 BREAKDOWN", title: "Task map", summary: `${profile.taskSummary.total} total template-first tasks across build phases.`, color: "#7c3aed" },
       { eyebrow: "02 STATUS", title: "Progress", summary: `${profile.taskSummary.done} done, ${profile.taskSummary.pending} pending, ${profile.taskSummary.in_progress} active.`, color: "#d97706" },
       diagramStep,
       { eyebrow: "03 EVIDENCE", title: "Validation loop", summary: "Tests, screenshots, and review notes prove each workflow decision.", color: "#0f766e" },
-      { eyebrow: "OUTPUT", title: "Build ready", summary: "The template remains reusable for the next UiPath project.", color: "#475569" },
+      { eyebrow: "OUTPUT", title: "Build ready", summary: "The base template stays reusable for the next UiPath project.", color: "#475569" },
     ];
   }
 

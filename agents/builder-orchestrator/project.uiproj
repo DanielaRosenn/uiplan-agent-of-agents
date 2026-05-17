@@ -1,0 +1,6 @@
+{
+  "ProjectType": "Agent",
+  "Name": "builder-orchestrator",
+  "Description": "AgentOps Builder orchestrator coded agent",
+  "MainFile": null
+}

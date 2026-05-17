@@ -1,0 +1,277 @@
+{
+  "id": "solution-planning-flow",
+  "name": "Solution Planning & Review Flow",
+  "description": "AgentHack demo - Orchestrates planning artifact generation and approval",
+  "version": "1.0.0",
+  "trigger": {
+    "type": "queue-item",
+    "displayName": "Queue Trigger - Planning Request",
+    "config": {
+      "queueName": "Q_PLANNING_REQUESTS"
+    }
+  },
+  "nodes": [
+    {
+      "id": "extract-intake",
+      "type": "data-transform",
+      "displayName": "Extract Intake Data",
+      "input": {
+        "queueItem": "{{trigger.queueItem}}"
+      },
+      "transform": {
+        "businessGoal": "{{queueItem.content.businessGoal}}",
+        "businessUnit": "{{queueItem.content.businessUnit}}",
+        "intakeId": "{{queueItem.content.intakeId}}",
+        "stakeholders": "{{queueItem.content.stakeholders}}"
+      },
+      "next": "invoke-discovery"
+    },
+    {
+      "id": "invoke-discovery",
+      "type": "agent-invoke",
+      "displayName": "Discovery Agent - Extract Context",
+      "config": {
+        "agentName": "discovery-agent",
+        "input": {
+          "businessGoal": "{{extract-intake.businessGoal}}",
+          "businessUnit": "{{extract-intake.businessUnit}}"
+        }
+      },
+      "next": "invoke-architect"
+    },
+    {
+      "id": "invoke-architect",
+      "type": "agent-invoke",
+      "displayName": "Solution Architect - Generate Plan",
+      "config": {
+        "agentName": "solution-architect-agent",
+        "input": {
+          "context": "{{invoke-discovery.output}}",
+          "businessGoal": "{{extract-intake.businessGoal}}"
+        }
+      },
+      "next": "store-artifacts"
+    },
+    {
+      "id": "store-artifacts",
+      "type": "storage",
+      "displayName": "Store Planning Artifacts",
+      "config": {
+        "storageType": "orchestrator-storage-bucket",
+        "bucket": "planning-artifacts",
+        "files": [
+          {
+            "name": "spec-{{extract-intake.intakeId}}.md",
+            "content": "{{invoke-architect.output.spec}}"
+          },
+          {
+            "name": "plan-{{extract-intake.intakeId}}.md",
+            "content": "{{invoke-architect.output.plan}}"
+          },
+          {
+            "name": "tasks-{{extract-intake.intakeId}}.md",
+            "content": "{{invoke-architect.output.tasks}}"
+          }
+        ]
+      },
+      "next": "create-approval-task"
+    },
+    {
+      "id": "create-approval-task",
+      "type": "action-center-task",
+      "displayName": "Request Plan Approval",
+      "config": {
+        "title": "Approve Solution Plan - {{extract-intake.intakeId}}",
+        "priority": "High",
+        "assignedTo": "{{extract-intake.stakeholders}}",
+        "formFields": [
+          {
+            "name": "spec",
+            "type": "markdown",
+            "label": "Business Specification",
+            "value": "{{invoke-architect.output.spec}}",
+            "readOnly": true
+          },
+          {
+            "name": "plan",
+            "type": "markdown",
+            "label": "Technical Plan",
+            "value": "{{invoke-architect.output.plan}}",
+            "readOnly": true
+          },
+          {
+            "name": "decision",
+            "type": "choice",
+            "label": "Decision",
+            "options": ["Approve", "Request Changes", "Reject"],
+            "required": true
+          },
+          {
+            "name": "comments",
+            "type": "textarea",
+            "label": "Comments/Feedback"
+          }
+        ]
+      },
+      "next": "evaluate-decision"
+    },
+    {
+      "id": "evaluate-decision",
+      "type": "decision",
+      "displayName": "Evaluate Approval Decision",
+      "input": {
+        "condition": "{{create-approval-task.result.decision}}"
+      },
+      "branches": [
+        {
+          "condition": "Approve",
+          "next": "invoke-verifier"
+        },
+        {
+          "condition": "Request Changes",
+          "next": "return-for-revision"
+        },
+        {
+          "condition": "Reject",
+          "next": "close-rejected"
+        }
+      ]
+    },
+    {
+      "id": "invoke-verifier",
+      "type": "agent-invoke",
+      "displayName": "Verifier Agent - Quality Check",
+      "config": {
+        "agentName": "verifier-agent",
+        "input": {
+          "spec": "{{invoke-architect.output.spec}}",
+          "plan": "{{invoke-architect.output.plan}}",
+          "tasks": "{{invoke-architect.output.tasks}}"
+        }
+      },
+      "next": "check-verification"
+    },
+    {
+      "id": "check-verification",
+      "type": "decision",
+      "displayName": "Check Verification Status",
+      "input": {
+        "condition": "{{invoke-verifier.output.status}}"
+      },
+      "branches": [
+        {
+          "condition": "passed",
+          "next": "notify-ready"
+        },
+        {
+          "default": true,
+          "next": "notify-blockers"
+        }
+      ]
+    },
+    {
+      "id": "notify-ready",
+      "type": "integration-service",
+      "displayName": "Notify - Ready for Build",
+      "config": {
+        "connector": "outlook",
+        "action": "send-email",
+        "parameters": {
+          "to": "{{extract-intake.stakeholders}}",
+          "subject": "Plan Approved - {{extract-intake.intakeId}} Ready for Build",
+          "body": "Solution plan approved and verified.\n\nIntake ID: {{extract-intake.intakeId}}\nArtifacts: Storage bucket 'planning-artifacts'\n\nNext: Implementation team assigned."
+        }
+      },
+      "next": "complete-success"
+    },
+    {
+      "id": "notify-blockers",
+      "type": "integration-service",
+      "displayName": "Notify - Blockers Found",
+      "config": {
+        "connector": "outlook",
+        "action": "send-email",
+        "parameters": {
+          "to": "{{extract-intake.stakeholders}}",
+          "subject": "Plan Verification Blockers - {{extract-intake.intakeId}}",
+          "body": "Plan approved but verification found blockers:\n\n{{invoke-verifier.output.blockers}}\n\nPlease address before implementation."
+        }
+      },
+      "next": "complete-blocked"
+    },
+    {
+      "id": "return-for-revision",
+      "type": "integration-service",
+      "displayName": "Return for Revision",
+      "config": {
+        "connector": "outlook",
+        "action": "send-email",
+        "parameters": {
+          "to": "solution-architecture-team@company.com",
+          "subject": "Revision Requested - {{extract-intake.intakeId}}",
+          "body": "Stakeholder feedback:\n\n{{create-approval-task.result.comments}}"
+        }
+      },
+      "next": "complete-revision"
+    },
+    {
+      "id": "close-rejected",
+      "type": "integration-service",
+      "displayName": "Close Rejected Request",
+      "config": {
+        "connector": "outlook",
+        "action": "send-email",
+        "parameters": {
+          "to": "{{extract-intake.stakeholders}}",
+          "subject": "Request Rejected - {{extract-intake.intakeId}}",
+          "body": "Reason:\n\n{{create-approval-task.result.comments}}"
+        }
+      },
+      "next": "complete-rejected"
+    },
+    {
+      "id": "complete-success",
+      "type": "output",
+      "displayName": "Complete - Ready for Build",
+      "outputs": {
+        "status": "ready_for_build",
+        "intakeId": "{{extract-intake.intakeId}}",
+        "artifactBucket": "planning-artifacts"
+      }
+    },
+    {
+      "id": "complete-blocked",
+      "type": "output",
+      "displayName": "Complete - Verification Blocked",
+      "outputs": {
+        "status": "verification_blocked",
+        "intakeId": "{{extract-intake.intakeId}}",
+        "blockers": "{{invoke-verifier.output.blockers}}"
+      }
+    },
+    {
+      "id": "complete-revision",
+      "type": "output",
+      "displayName": "Complete - Revision Needed",
+      "outputs": {
+        "status": "revision_requested",
+        "intakeId": "{{extract-intake.intakeId}}"
+      }
+    },
+    {
+      "id": "complete-rejected",
+      "type": "output",
+      "displayName": "Complete - Rejected",
+      "outputs": {
+        "status": "rejected",
+        "intakeId": "{{extract-intake.intakeId}}"
+      }
+    }
+  ],
+  "metadata": {
+    "category": "AgentHack Demo",
+    "tags": ["planning", "approval", "solution-architecture", "agent-orchestration"],
+    "author": "Builder Agent Team",
+    "created": "2026-05-17"
+  }
+}

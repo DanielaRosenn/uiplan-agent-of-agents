@@ -366,7 +366,7 @@ function UiplanTasksSection({
       >
         {collapsed ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
         <Notebook size={12} color="#0f766e" />
-        <span style={{ flex: 1 }}>UIPLAN TASKS</span>
+        <span style={{ flex: 1 }}>AGENTOPS BUILD QUEUE</span>
         <span style={{ color: PALETTE.textDim, fontWeight: 600 }}>
           {String(bundles.length).padStart(2, "0")}
         </span>

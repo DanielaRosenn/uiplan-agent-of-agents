@@ -1,0 +1,192 @@
+{
+    "$schema": "https://cloud.uipath.com/draft/2024-12/entry-point",
+    "$id": "entry-points.json",
+    "entryPoints": [
+        {
+            "filePath": "agent",
+            "uniqueId": "39d754dc-6a23-48f3-9f9a-f01b881d5424",
+            "type": "agent",
+            "input": {
+                "type": "object",
+                "properties": {
+                    "intake": {
+                        "additionalProperties": true,
+                        "title": "Intake",
+                        "type": "object"
+                    },
+                    "classification": {
+                        "title": "Classification",
+                        "type": "string"
+                    },
+                    "agentAssignments": {
+                        "items": {
+                            "additionalProperties": {
+                                "type": "string"
+                            },
+                            "type": "object"
+                        },
+                        "title": "Agentassignments",
+                        "type": "array"
+                    },
+                    "planSummary": {
+                        "title": "Plansummary",
+                        "type": "string"
+                    },
+                    "verificationStatus": {
+                        "title": "Verificationstatus",
+                        "type": "string"
+                    },
+                    "deploymentReadiness": {
+                        "title": "Deploymentreadiness",
+                        "type": "string"
+                    },
+                    "handoff": {
+                        "additionalProperties": true,
+                        "title": "Handoff",
+                        "type": "object"
+                    }
+                },
+                "required": []
+            },
+            "output": {
+                "type": "object",
+                "properties": {
+                    "intake": {
+                        "additionalProperties": true,
+                        "title": "Intake",
+                        "type": "object"
+                    },
+                    "classification": {
+                        "title": "Classification",
+                        "type": "string"
+                    },
+                    "agentAssignments": {
+                        "items": {
+                            "additionalProperties": {
+                                "type": "string"
+                            },
+                            "type": "object"
+                        },
+                        "title": "Agentassignments",
+                        "type": "array"
+                    },
+                    "planSummary": {
+                        "title": "Plansummary",
+                        "type": "string"
+                    },
+                    "verificationStatus": {
+                        "title": "Verificationstatus",
+                        "type": "string"
+                    },
+                    "deploymentReadiness": {
+                        "title": "Deploymentreadiness",
+                        "type": "string"
+                    },
+                    "handoff": {
+                        "additionalProperties": true,
+                        "title": "Handoff",
+                        "type": "object"
+                    }
+                },
+                "required": []
+            },
+            "graph": {
+                "nodes": [
+                    {
+                        "id": "__start__",
+                        "name": "__start__",
+                        "type": "__start__",
+                        "subgraph": null,
+                        "metadata": {}
+                    },
+                    {
+                        "id": "classify_request",
+                        "name": "classify_request",
+                        "type": "node",
+                        "subgraph": null,
+                        "metadata": {}
+                    },
+                    {
+                        "id": "assign_agents",
+                        "name": "assign_agents",
+                        "type": "node",
+                        "subgraph": null,
+                        "metadata": {}
+                    },
+                    {
+                        "id": "draft_solution_plan",
+                        "name": "draft_solution_plan",
+                        "type": "node",
+                        "subgraph": null,
+                        "metadata": {}
+                    },
+                    {
+                        "id": "request_approval",
+                        "name": "request_approval",
+                        "type": "node",
+                        "subgraph": null,
+                        "metadata": {}
+                    },
+                    {
+                        "id": "prepare_build",
+                        "name": "prepare_build",
+                        "type": "node",
+                        "subgraph": null,
+                        "metadata": {}
+                    },
+                    {
+                        "id": "summarize_handoff",
+                        "name": "summarize_handoff",
+                        "type": "node",
+                        "subgraph": null,
+                        "metadata": {}
+                    },
+                    {
+                        "id": "__end__",
+                        "name": "__end__",
+                        "type": "__end__",
+                        "subgraph": null,
+                        "metadata": {}
+                    }
+                ],
+                "edges": [
+                    {
+                        "source": "__start__",
+                        "target": "classify_request",
+                        "label": null
+                    },
+                    {
+                        "source": "assign_agents",
+                        "target": "draft_solution_plan",
+                        "label": null
+                    },
+                    {
+                        "source": "classify_request",
+                        "target": "assign_agents",
+                        "label": null
+                    },
+                    {
+                        "source": "draft_solution_plan",
+                        "target": "request_approval",
+                        "label": null
+                    },
+                    {
+                        "source": "prepare_build",
+                        "target": "summarize_handoff",
+                        "label": null
+                    },
+                    {
+                        "source": "request_approval",
+                        "target": "prepare_build",
+                        "label": null
+                    },
+                    {
+                        "source": "summarize_handoff",
+                        "target": "__end__",
+                        "label": null
+                    }
+                ]
+            }
+        }
+    ]
+}

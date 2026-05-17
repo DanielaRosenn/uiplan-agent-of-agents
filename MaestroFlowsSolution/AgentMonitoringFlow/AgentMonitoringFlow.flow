@@ -1,0 +1,154 @@
+{
+  "id": "agent-monitoring-flow",
+  "name": "Agent Health & Performance Monitoring Flow",
+  "description": "Monitors agent execution, tracks performance metrics, and alerts on issues",
+  "version": "1.0.0",
+  "trigger": {
+    "type": "schedule",
+    "displayName": "Scheduled Monitoring - Every 5 Minutes",
+    "config": {
+      "cronExpression": "*/5 * * * *"
+    }
+  },
+  "nodes": [
+    {
+      "id": "collect-agent-metrics",
+      "type": "http-request",
+      "displayName": "Collect Agent Execution Metrics",
+      "config": {
+        "method": "GET",
+        "url": "{{orchestratorApi}}/api/monitoring/agents",
+        "headers": {
+          "Authorization": "Bearer {{orchestratorToken}}"
+        }
+      },
+      "next": "analyze-health"
+    },
+    {
+      "id": "analyze-health",
+      "type": "data-transform",
+      "displayName": "Analyze Agent Health",
+      "input": {
+        "metrics": "{{collect-agent-metrics.response}}"
+      },
+      "transform": {
+        "totalAgents": "{{metrics.agents.length}}",
+        "healthyAgents": "{{metrics.agents.filter(a => a.status == 'healthy').length}}",
+        "degradedAgents": "{{metrics.agents.filter(a => a.status == 'degraded').length}}",
+        "failedAgents": "{{metrics.agents.filter(a => a.status == 'failed').length}}",
+        "avgResponseTime": "{{metrics.agents.map(a => a.avgResponseTime).reduce((a,b) => a+b, 0) / metrics.agents.length}}",
+        "alerts": []
+      },
+      "next": "check-thresholds"
+    },
+    {
+      "id": "check-thresholds",
+      "type": "decision",
+      "displayName": "Check Alert Thresholds",
+      "input": {
+        "condition": "{{analyze-health.failedAgents > 0 || analyze-health.degradedAgents > 2 || analyze-health.avgResponseTime > 5000}}"
+      },
+      "branches": [
+        {
+          "condition": "true",
+          "next": "generate-alerts"
+        },
+        {
+          "default": true,
+          "next": "store-metrics"
+        }
+      ]
+    },
+    {
+      "id": "generate-alerts",
+      "type": "data-transform",
+      "displayName": "Generate Alert Messages",
+      "input": {
+        "health": "{{analyze-health}}"
+      },
+      "transform": {
+        "alerts": [
+          {
+            "severity": "{{health.failedAgents > 0 ? 'critical' : 'warning'}}",
+            "message": "Agent health degraded",
+            "details": {
+              "failed": "{{health.failedAgents}}",
+              "degraded": "{{health.degradedAgents}}",
+              "avgResponseTime": "{{health.avgResponseTime}}ms"
+            }
+          }
+        ]
+      },
+      "next": "send-alerts"
+    },
+    {
+      "id": "send-alerts",
+      "type": "integration-service",
+      "displayName": "Send Alert Notifications",
+      "config": {
+        "connector": "outlook",
+        "action": "send-email",
+        "parameters": {
+          "to": "{{orchestratorAsset.ALERT_EMAIL_LIST}}",
+          "subject": "🚨 Agent Health Alert - {{generate-alerts.alerts[0].severity}}",
+          "body": "Agent monitoring detected issues:\n\nFailed Agents: {{analyze-health.failedAgents}}\nDegraded Agents: {{analyze-health.degradedAgents}}\nAvg Response Time: {{analyze-health.avgResponseTime}}ms\n\nThreshold: Response time > 5000ms\n\nAction required: Review agent logs and restart if needed.",
+          "importance": "{{generate-alerts.alerts[0].severity == 'critical' ? 'high' : 'normal'}}"
+        }
+      },
+      "next": "store-metrics"
+    },
+    {
+      "id": "store-metrics",
+      "type": "storage",
+      "displayName": "Store Metrics to Storage Bucket",
+      "config": {
+        "storageType": "orchestrator-storage-bucket",
+        "bucket": "monitoring-data",
+        "operation": "write",
+        "files": [
+          {
+            "name": "agent-health-{{timestamp}}.json",
+            "content": "{{analyze-health}}"
+          }
+        ]
+      },
+      "next": "update-dashboard"
+    },
+    {
+      "id": "update-dashboard",
+      "type": "http-request",
+      "displayName": "Update Monitoring Dashboard",
+      "config": {
+        "method": "POST",
+        "url": "{{dashboardApi}}/api/metrics",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "timestamp": "{{timestamp}}",
+          "metrics": "{{analyze-health}}",
+          "source": "agent-monitoring-flow"
+        }
+      },
+      "next": "complete"
+    },
+    {
+      "id": "complete",
+      "type": "output",
+      "displayName": "Monitoring Complete",
+      "outputs": {
+        "status": "success",
+        "totalAgents": "{{analyze-health.totalAgents}}",
+        "healthyAgents": "{{analyze-health.healthyAgents}}",
+        "alertsGenerated": "{{generate-alerts.alerts.length || 0}}",
+        "timestamp": "{{timestamp}}"
+      }
+    }
+  ],
+  "metadata": {
+    "category": "AgentHack Demo",
+    "tags": ["monitoring", "health-check", "alerts", "metrics"],
+    "author": "Builder Agent Team",
+    "created": "2026-05-17"
+  }
+}

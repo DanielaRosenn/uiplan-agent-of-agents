@@ -1,0 +1,535 @@
+{
+  "id": "b090009e-bf5e-44d1-9019-b20a36aaff61",
+  "version": "1.0.0",
+  "name": "ReportingFlow",
+  "runtime": "maestro",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "core.trigger.manual",
+      "typeVersion": "1.0.0",
+      "ui": {
+        "position": {
+          "x": 256,
+          "y": 144
+        },
+        "size": {
+          "width": 96,
+          "height": 96
+        },
+        "collapsed": false
+      },
+      "display": {
+        "label": "Manual trigger"
+      },
+      "inputs": {},
+      "model": {
+        "type": "bpmn:StartEvent",
+        "entryPointId": "f7278433-f247-4bc9-98d2-ed063c79b8d0",
+        "isDefaultEntryPoint": true
+      },
+      "outputs": {
+        "output": {
+          "type": "object",
+          "description": "Data passed when manually triggering the workflow.",
+          "source": "=result.response",
+          "var": "output"
+        }
+      }
+    },
+    {
+      "id": "collectProjectArtifacts",
+      "type": "core.action.script",
+      "typeVersion": "1.0.0",
+      "ui": {
+        "position": {
+          "x": 416,
+          "y": 144
+        },
+        "size": {
+          "width": 96,
+          "height": 96
+        },
+        "collapsed": false
+      },
+      "display": {
+        "label": "Collect Project Artifacts"
+      },
+      "inputs": {
+        "script": "return { docs: ['PDD', 'SDD', 'ADD', 'test-plan', 'deployment-runbook'], flows: ['EnterpriseIntakeFlow', 'SolutionPlanningFlow', 'EvidenceCollectionFlow', 'AgentMonitoringFlow', 'ReportingFlow'] };"
+      },
+      "model": {
+        "type": "bpmn:ScriptTask"
+      },
+      "outputs": {
+        "output": {
+          "type": "object",
+          "description": "The return value of the script",
+          "source": "=result.response",
+          "var": "output"
+        },
+        "error": {
+          "type": "object",
+          "description": "Error information if the script fails",
+          "source": "=result.Error",
+          "var": "error"
+        }
+      }
+    },
+    {
+      "id": "generateExecutiveSummary",
+      "type": "core.action.script",
+      "typeVersion": "1.0.0",
+      "ui": {
+        "position": {
+          "x": 576,
+          "y": 144
+        },
+        "size": {
+          "width": 96,
+          "height": 96
+        },
+        "collapsed": false
+      },
+      "display": {
+        "label": "Generate Executive Summary"
+      },
+      "inputs": {
+        "script": "const artifacts = $vars.collectProjectArtifacts.output;\nreturn { title: 'AgentOps Builder Delivery Summary', summary: `${artifacts.flows.length} Studio Web flows and ${artifacts.docs.length} delivery docs are prepared for review.` };"
+      },
+      "model": {
+        "type": "bpmn:ScriptTask"
+      },
+      "outputs": {
+        "output": {
+          "type": "object",
+          "description": "The return value of the script",
+          "source": "=result.response",
+          "var": "output"
+        },
+        "error": {
+          "type": "object",
+          "description": "Error information if the script fails",
+          "source": "=result.Error",
+          "var": "error"
+        }
+      }
+    },
+    {
+      "id": "generateHandoffReport",
+      "type": "core.action.script",
+      "typeVersion": "1.0.0",
+      "ui": {
+        "position": {
+          "x": 736,
+          "y": 144
+        },
+        "size": {
+          "width": 96,
+          "height": 96
+        },
+        "collapsed": false
+      },
+      "display": {
+        "label": "Generate Handoff Report"
+      },
+      "inputs": {
+        "script": "const executive = $vars.generateExecutiveSummary.output;\nreturn { executive, handoffChecklist: ['Review Studio Web canvases', 'Bind real agents/resources', 'Run non-production smoke tests'] };"
+      },
+      "model": {
+        "type": "bpmn:ScriptTask"
+      },
+      "outputs": {
+        "output": {
+          "type": "object",
+          "description": "The return value of the script",
+          "source": "=result.response",
+          "var": "output"
+        },
+        "error": {
+          "type": "object",
+          "description": "Error information if the script fails",
+          "source": "=result.Error",
+          "var": "error"
+        }
+      }
+    },
+    {
+      "id": "publishReportingPackage",
+      "type": "core.action.script",
+      "typeVersion": "1.0.0",
+      "ui": {
+        "position": {
+          "x": 896,
+          "y": 144
+        },
+        "size": {
+          "width": 96,
+          "height": 96
+        },
+        "collapsed": false
+      },
+      "display": {
+        "label": "Publish Reporting Package"
+      },
+      "inputs": {
+        "script": "const handoff = $vars.generateHandoffReport.output;\nreturn { status: 'published_to_demo_package', handoff, generatedAt: new Date().toISOString() };"
+      },
+      "model": {
+        "type": "bpmn:ScriptTask"
+      },
+      "outputs": {
+        "output": {
+          "type": "object",
+          "description": "The return value of the script",
+          "source": "=result.response",
+          "var": "output"
+        },
+        "error": {
+          "type": "object",
+          "description": "Error information if the script fails",
+          "source": "=result.Error",
+          "var": "error"
+        }
+      }
+    },
+    {
+      "id": "complete",
+      "type": "core.control.end",
+      "typeVersion": "1.0.0",
+      "ui": {
+        "position": {
+          "x": 1056,
+          "y": 144
+        },
+        "size": {
+          "width": 96,
+          "height": 96
+        },
+        "collapsed": false
+      },
+      "display": {
+        "label": "Complete"
+      },
+      "inputs": {},
+      "model": {
+        "type": "bpmn:EndEvent"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "start-output-collectProjectArtifacts-input",
+      "sourceNodeId": "start",
+      "sourcePort": "output",
+      "targetNodeId": "collectProjectArtifacts",
+      "targetPort": "input"
+    },
+    {
+      "id": "collectProjectArtifacts-success-generateExecutiveSummary-input",
+      "sourceNodeId": "collectProjectArtifacts",
+      "sourcePort": "success",
+      "targetNodeId": "generateExecutiveSummary",
+      "targetPort": "input"
+    },
+    {
+      "id": "generateExecutiveSummary-success-generateHandoffReport-input",
+      "sourceNodeId": "generateExecutiveSummary",
+      "sourcePort": "success",
+      "targetNodeId": "generateHandoffReport",
+      "targetPort": "input"
+    },
+    {
+      "id": "generateHandoffReport-success-publishReportingPackage-input",
+      "sourceNodeId": "generateHandoffReport",
+      "sourcePort": "success",
+      "targetNodeId": "publishReportingPackage",
+      "targetPort": "input"
+    },
+    {
+      "id": "publishReportingPackage-success-complete-input",
+      "sourceNodeId": "publishReportingPackage",
+      "sourcePort": "success",
+      "targetNodeId": "complete",
+      "targetPort": "input"
+    }
+  ],
+  "definitions": [
+    {
+      "nodeType": "core.trigger.manual",
+      "version": "1.0.0",
+      "category": "trigger",
+      "tags": [
+        "trigger",
+        "manual"
+      ],
+      "sortOrder": 40,
+      "display": {
+        "label": "Manual trigger",
+        "icon": "play",
+        "shape": "circle",
+        "iconBackground": "linear-gradient(225deg, #FAFAFB 0%, #ECEDEF 100%)",
+        "iconBackgroundDark": "linear-gradient(225deg, #526069 0%, rgba(50, 60, 66, 0.6) 100%)"
+      },
+      "handleConfiguration": [],
+      "model": {
+        "type": "bpmn:StartEvent",
+        "entryPointId": true
+      }
+    },
+    {
+      "nodeType": "core.action.script",
+      "version": "1.0.0",
+      "category": "data-operations",
+      "description": "Run custom JavaScript code",
+      "tags": [
+        "code",
+        "javascript",
+        "python"
+      ],
+      "sortOrder": 35,
+      "supportsErrorHandling": true,
+      "display": {
+        "label": "Script",
+        "icon": "code",
+        "iconBackground": "linear-gradient(225deg, #FAFAFB 0%, #ECEDEF 100%)",
+        "iconBackgroundDark": "linear-gradient(225deg, #526069 0%, rgba(50, 60, 66, 0.6) 100%)"
+      },
+      "handleConfiguration": [
+        {
+          "position": "left",
+          "handles": [
+            {
+              "id": "input",
+              "type": "target",
+              "handleType": "input"
+            }
+          ]
+        },
+        {
+          "position": "right",
+          "handles": [
+            {
+              "id": "success",
+              "type": "source",
+              "handleType": "output"
+            }
+          ]
+        }
+      ],
+      "debug": {
+        "runtime": "clientScript"
+      },
+      "model": {
+        "type": "bpmn:ScriptTask"
+      },
+      "inputDefinition": {
+        "type": "object",
+        "properties": {
+          "script": {
+            "type": "string",
+            "minLength": 1,
+            "errorMessage": "A script function is required",
+            "validationSeverity": "warning"
+          }
+        },
+        "required": [
+          "script"
+        ]
+      },
+      "inputDefaults": {
+        "script": ""
+      },
+      "outputDefinition": {
+        "output": {
+          "type": "object",
+          "description": "The return value of the script",
+          "source": "=result.response",
+          "var": "output"
+        },
+        "error": {
+          "type": "object",
+          "description": "Error information if the script fails",
+          "source": "=result.Error",
+          "var": "error",
+          "schema": {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "type": "object",
+            "required": [
+              "code",
+              "message",
+              "detail",
+              "category",
+              "status"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "Error code as a string"
+              },
+              "message": {
+                "type": "string",
+                "description": "High-level error message"
+              },
+              "detail": {
+                "type": "string",
+                "description": "Detailed error description"
+              },
+              "category": {
+                "type": "string",
+                "description": "Error category"
+              },
+              "status": {
+                "type": "integer",
+                "description": "HTTP status code"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "form": {
+        "id": "script-properties",
+        "title": "Script configuration",
+        "sections": [
+          {
+            "id": "script",
+            "title": "Script",
+            "collapsible": true,
+            "defaultExpanded": true,
+            "fields": [
+              {
+                "name": "inputs.script",
+                "type": "custom",
+                "component": "script-editor",
+                "componentProps": {
+                  "language": "javascript",
+                  "returnType": "any",
+                  "minHeight": 200,
+                  "placeholder": " // Return an object with your result\nreturn {\n  message: \"Web request response\",\n  data: $vars.httpRequest1.output\n                  };"
+                },
+                "label": "Code",
+                "description": "JavaScript expression that returns a result object"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "nodeType": "core.control.end",
+      "version": "1.0.0",
+      "description": "Mark the end of a workflow path",
+      "category": "control-flow",
+      "tags": [
+        "control-flow",
+        "end",
+        "finish",
+        "complete"
+      ],
+      "sortOrder": 20,
+      "display": {
+        "label": "End",
+        "icon": "circle-check",
+        "shape": "circle"
+      },
+      "handleConfiguration": [
+        {
+          "position": "left",
+          "handles": [
+            {
+              "id": "input",
+              "type": "target",
+              "handleType": "input"
+            }
+          ]
+        }
+      ],
+      "model": {
+        "type": "bpmn:EndEvent"
+      }
+    }
+  ],
+  "bindings": [],
+  "variables": {
+    "nodes": [
+      {
+        "id": "collectProjectArtifacts.output",
+        "type": "object",
+        "description": "The return value of the script",
+        "binding": {
+          "nodeId": "collectProjectArtifacts",
+          "outputId": "output"
+        }
+      },
+      {
+        "id": "collectProjectArtifacts.error",
+        "type": "object",
+        "description": "Error information if the script fails",
+        "binding": {
+          "nodeId": "collectProjectArtifacts",
+          "outputId": "error"
+        }
+      },
+      {
+        "id": "generateExecutiveSummary.output",
+        "type": "object",
+        "description": "The return value of the script",
+        "binding": {
+          "nodeId": "generateExecutiveSummary",
+          "outputId": "output"
+        }
+      },
+      {
+        "id": "generateExecutiveSummary.error",
+        "type": "object",
+        "description": "Error information if the script fails",
+        "binding": {
+          "nodeId": "generateExecutiveSummary",
+          "outputId": "error"
+        }
+      },
+      {
+        "id": "generateHandoffReport.output",
+        "type": "object",
+        "description": "The return value of the script",
+        "binding": {
+          "nodeId": "generateHandoffReport",
+          "outputId": "output"
+        }
+      },
+      {
+        "id": "generateHandoffReport.error",
+        "type": "object",
+        "description": "Error information if the script fails",
+        "binding": {
+          "nodeId": "generateHandoffReport",
+          "outputId": "error"
+        }
+      },
+      {
+        "id": "publishReportingPackage.output",
+        "type": "object",
+        "description": "The return value of the script",
+        "binding": {
+          "nodeId": "publishReportingPackage",
+          "outputId": "output"
+        }
+      },
+      {
+        "id": "publishReportingPackage.error",
+        "type": "object",
+        "description": "Error information if the script fails",
+        "binding": {
+          "nodeId": "publishReportingPackage",
+          "outputId": "error"
+        }
+      }
+    ]
+  },
+  "metadata": {
+    "createdAt": "2026-05-17T07:05:17.964Z",
+    "updatedAt": "2026-05-17T07:19:35.666922Z",
+    "implementationStatus": "implemented-with-script-nodes"
+  }
+}

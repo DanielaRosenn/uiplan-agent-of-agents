@@ -22,10 +22,9 @@ def test_orchestrator_runbook_contains_safety_and_preflight_policy():
     assert "Solution" in text
 
 
-def test_deployment_integration_redirects_without_stale_trigger_examples():
-    text = _read("docs/legacy/DEPLOYMENT_INTEGRATION.md")
+def test_deployment_runbook_avoids_stale_trigger_examples():
+    text = _read("docs/ORCHESTRATOR_DEPLOYMENT.md")
 
-    assert "ORCHESTRATOR_DEPLOYMENT.md" in text
     assert "deploy_to_orchestrator" not in text
     assert "deploy to production" not in text.lower()
     assert "explicit human confirmation" in text

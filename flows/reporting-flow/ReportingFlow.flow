@@ -1,0 +1,218 @@
+{
+  "id": "reporting-flow",
+  "name": "Automated Reporting & Metrics Flow",
+  "description": "Generates daily/weekly reports on automation delivery metrics and agent performance",
+  "version": "1.0.0",
+  "trigger": {
+    "type": "schedule",
+    "displayName": "Daily Report Generation - 8 AM",
+    "config": {
+      "cronExpression": "0 8 * * *"
+    }
+  },
+  "nodes": [
+    {
+      "id": "define-report-period",
+      "type": "data-transform",
+      "displayName": "Define Report Period",
+      "transform": {
+        "reportType": "daily",
+        "startDate": "{{dateAdd(now(), -1, 'days')}}",
+        "endDate": "{{now()}}",
+        "reportDate": "{{formatDate(now(), 'yyyy-MM-dd')}}"
+      },
+      "next": "collect-intake-metrics"
+    },
+    {
+      "id": "collect-intake-metrics",
+      "type": "orchestrator-queue",
+      "displayName": "Query Intake Queue Metrics",
+      "config": {
+        "operation": "get-items-count",
+        "queues": [
+          "Q_FINANCE_INTAKE",
+          "Q_HR_INTAKE",
+          "Q_OPS_INTAKE",
+          "Q_SHARED_INTAKE",
+          "Q_PLANNING_REQUESTS"
+        ],
+        "startDate": "{{define-report-period.startDate}}",
+        "endDate": "{{define-report-period.endDate}}"
+      },
+      "next": "collect-agent-metrics"
+    },
+    {
+      "id": "collect-agent-metrics",
+      "type": "storage",
+      "displayName": "Collect Agent Execution Data",
+      "config": {
+        "storageType": "orchestrator-storage-bucket",
+        "bucket": "monitoring-data",
+        "operation": "list",
+        "prefix": "agent-health",
+        "startDate": "{{define-report-period.startDate}}",
+        "endDate": "{{define-report-period.endDate}}"
+      },
+      "next": "collect-deployment-metrics"
+    },
+    {
+      "id": "collect-deployment-metrics",
+      "type": "storage",
+      "displayName": "Collect Deployment Evidence",
+      "config": {
+        "storageType": "orchestrator-storage-bucket",
+        "bucket": "evidence-packages",
+        "operation": "list",
+        "prefix": "deployment",
+        "startDate": "{{define-report-period.startDate}}",
+        "endDate": "{{define-report-period.endDate}}"
+      },
+      "next": "aggregate-metrics"
+    },
+    {
+      "id": "aggregate-metrics",
+      "type": "data-transform",
+      "displayName": "Aggregate All Metrics",
+      "input": {
+        "intakeMetrics": "{{collect-intake-metrics.results}}",
+        "agentMetrics": "{{collect-agent-metrics.files}}",
+        "deploymentMetrics": "{{collect-deployment-metrics.files}}"
+      },
+      "transform": {
+        "summary": {
+          "totalIntakes": "{{intakeMetrics.total}}",
+          "intakesByUnit": {
+            "finance": "{{intakeMetrics.Q_FINANCE_INTAKE}}",
+            "hr": "{{intakeMetrics.Q_HR_INTAKE}}",
+            "ops": "{{intakeMetrics.Q_OPS_INTAKE}}",
+            "shared": "{{intakeMetrics.Q_SHARED_INTAKE}}"
+          },
+          "planningRequests": "{{intakeMetrics.Q_PLANNING_REQUESTS}}",
+          "agentExecutions": "{{agentMetrics.length}}",
+          "avgAgentHealth": "{{agentMetrics.map(m => m.healthScore).reduce((a,b) => a+b, 0) / agentMetrics.length}}",
+          "deploymentsAttempted": "{{deploymentMetrics.filter(d => d.status == 'attempted').length}}",
+          "deploymentsSuccessful": "{{deploymentMetrics.filter(d => d.status == 'successful').length}}",
+          "deploymentsBlocked": "{{deploymentMetrics.filter(d => d.status == 'blocked').length}}",
+          "successRate": "{{(deploymentsSuccessful / deploymentsAttempted * 100).toFixed(2)}}%"
+        },
+        "trends": {
+          "intakeGrowth": "{{calculateGrowth(intakeMetrics.total, previousPeriod.total)}}",
+          "deploymentGrowth": "{{calculateGrowth(deploymentMetrics.length, previousPeriod.deployments)}}"
+        }
+      },
+      "next": "generate-report"
+    },
+    {
+      "id": "generate-report",
+      "type": "data-transform",
+      "displayName": "Generate Report Content",
+      "input": {
+        "metrics": "{{aggregate-metrics.summary}}",
+        "trends": "{{aggregate-metrics.trends}}",
+        "period": "{{define-report-period}}"
+      },
+      "transform": {
+        "reportTitle": "UiPath Builder Agent - Daily Report",
+        "reportDate": "{{period.reportDate}}",
+        "markdown": "# UiPath Builder Agent - Daily Report\n\n**Date:** {{period.reportDate}}\n\n## Executive Summary\n\n- **Total Intake Requests:** {{metrics.totalIntakes}}\n- **Planning Requests:** {{metrics.planningRequests}}\n- **Agent Executions:** {{metrics.agentExecutions}}\n- **Deployments Success Rate:** {{metrics.successRate}}\n\n## Intake Breakdown by Business Unit\n\n| Business Unit | Count |\n|---------------|-------|\n| Finance | {{metrics.intakesByUnit.finance}} |\n| HR | {{metrics.intakesByUnit.hr}} |\n| Operations | {{metrics.intakesByUnit.ops}} |\n| Shared | {{metrics.intakesByUnit.shared}} |\n\n## Agent Health\n\n- **Average Health Score:** {{metrics.avgAgentHealth}}/100\n- **Total Executions:** {{metrics.agentExecutions}}\n\n## Deployment Metrics\n\n- **Attempted:** {{metrics.deploymentsAttempted}}\n- **Successful:** {{metrics.deploymentsSuccessful}}\n- **Blocked:** {{metrics.deploymentsBlocked}}\n- **Success Rate:** {{metrics.successRate}}\n\n## Trends\n\n- **Intake Growth:** {{trends.intakeGrowth}}%\n- **Deployment Growth:** {{trends.deploymentGrowth}}%\n\n---\n\n*Generated by UiPath Builder Agent Reporting Flow*"
+        }
+      },
+      "next": "store-report"
+    },
+    {
+      "id": "store-report",
+      "type": "storage",
+      "displayName": "Store Report to Storage Bucket",
+      "config": {
+        "storageType": "orchestrator-storage-bucket",
+        "bucket": "monitoring-data",
+        "operation": "write",
+        "files": [
+          {
+            "name": "reports/daily-report-{{define-report-period.reportDate}}.md",
+            "content": "{{generate-report.markdown}}"
+          },
+          {
+            "name": "reports/daily-report-{{define-report-period.reportDate}}.json",
+            "content": "{{aggregate-metrics}}"
+          }
+        ]
+      },
+      "next": "distribute-report"
+    },
+    {
+      "id": "distribute-report",
+      "type": "integration-service",
+      "displayName": "Distribute Report via Email",
+      "config": {
+        "connector": "outlook",
+        "action": "send-email",
+        "parameters": {
+          "to": ["leadership@company.com", "operations@company.com"],
+          "cc": ["automation-team@company.com"],
+          "subject": "📊 Builder Agent Daily Report - {{define-report-period.reportDate}}",
+          "body": "{{generate-report.markdown}}",
+          "attachments": [
+            {
+              "name": "report-data.json",
+              "content": "{{aggregate-metrics}}"
+            }
+          ]
+        }
+      },
+      "next": "check-alerts"
+    },
+    {
+      "id": "check-alerts",
+      "type": "decision",
+      "displayName": "Check for Alert Conditions",
+      "input": {
+        "condition": "{{aggregate-metrics.summary.successRate < 80 || aggregate-metrics.summary.deploymentsBlocked > 5}}"
+      },
+      "branches": [
+        {
+          "condition": "true",
+          "next": "send-alert"
+        },
+        {
+          "default": true,
+          "next": "complete"
+        }
+      }
+    },
+    {
+      "id": "send-alert",
+      "type": "integration-service",
+      "displayName": "Send Alert for Poor Performance",
+      "config": {
+        "connector": "outlook",
+        "action": "send-email",
+        "parameters": {
+          "to": ["ops-lead@company.com"],
+          "subject": "⚠️ Builder Agent Performance Alert - {{define-report-period.reportDate}}",
+          "body": "Performance metrics are below threshold:\n\nSuccess Rate: {{aggregate-metrics.summary.successRate}} (threshold: 80%)\nBlocked Deployments: {{aggregate-metrics.summary.deploymentsBlocked}} (threshold: 5)\n\nImmediate review recommended.",
+          "importance": "high"
+        }
+      },
+      "next": "complete"
+    },
+    {
+      "id": "complete",
+      "type": "output",
+      "displayName": "Report Generation Complete",
+      "outputs": {
+        "status": "success",
+        "reportDate": "{{define-report-period.reportDate}}",
+        "totalIntakes": "{{aggregate-metrics.summary.totalIntakes}}",
+        "successRate": "{{aggregate-metrics.summary.successRate}}",
+        "alertSent": "{{check-alerts.selectedBranch == 'true'}}"
+      }
+    }
+  ],
+  "metadata": {
+    "category": "AgentHack Demo",
+    "tags": ["reporting", "metrics", "analytics", "dashboard"],
+    "author": "Builder Agent Team",
+    "created": "2026-05-17"
+  }
+}

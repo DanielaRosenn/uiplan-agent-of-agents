@@ -1,0 +1,20 @@
+[project]
+name = "builder-orchestrator"
+version = "0.1.0"
+description = "AgentOps Builder orchestrator coded agent"
+requires-python = ">=3.11"
+dependencies = [
+  "langgraph>=0.2.62",
+  "pydantic>=2.9.2",
+  "uipath>=2.8,<3",
+  "uipath-langchain>=0.8.0,<0.9.0",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3.4",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

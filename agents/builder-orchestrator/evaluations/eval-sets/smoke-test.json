@@ -1,0 +1,55 @@
+[
+  {
+    "name": "invoice-exception-smoke-raw-intake",
+    "input": {
+      "businessGoal": "Use an agent-of-agents orchestration flow to reduce manual invoice exception handling with template-first Studio project generation.",
+      "industry": "Finance operations",
+      "systems": ["Email inbox", "ERP", "UiPath Action Center", "Orchestrator queue"],
+      "constraints": [
+        "No production deployment",
+        "Human approval before deploy",
+        "Evidence required for every automation artifact"
+      ],
+      "successCriteria": [
+        "Generate AS-IS and TO-BE process views",
+        "Assign specialist agents",
+        "Clone the selected base template into a working project",
+        "Apply generated changes on top of the cloned project",
+        "Run verification gates",
+        "Produce deployment handoff evidence"
+      ]
+    },
+    "expected": {
+      "classification": "enterprise_agent_builder",
+      "deploymentReadiness": "blocked_pending_verification"
+    }
+  },
+  {
+    "name": "invoice-exception-smoke-approved-state",
+    "input": {
+      "intake": {
+        "businessGoal": "Use an agent-of-agents orchestration flow to reduce manual invoice exception handling with template-first Studio project generation.",
+        "industry": "Finance operations",
+        "systems": ["Email inbox", "ERP", "UiPath Action Center", "Orchestrator queue"],
+        "constraints": [
+          "No production deployment",
+          "Human approval before deploy",
+          "Evidence required for every automation artifact"
+        ],
+        "successCriteria": [
+          "Generate AS-IS and TO-BE process views",
+          "Assign specialist agents",
+          "Clone the selected base template into a working project",
+          "Apply generated changes on top of the cloned project",
+          "Run verification gates",
+          "Produce deployment handoff evidence"
+        ]
+      },
+      "verificationStatus": "passed"
+    },
+    "expected": {
+      "classification": "enterprise_agent_builder",
+      "deploymentReadiness": "ready"
+    }
+  }
+]

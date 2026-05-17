@@ -1,0 +1,22 @@
+{
+  "docVersion": "1.0.0",
+  "resource": {
+    "name": "AgentMonitoringFlow",
+    "kind": "package",
+    "apiVersion": "orchestrator.uipath.com/v1",
+    "projectKey": "ed865f72-7949-4f07-b3ea-762c271b6b30",
+    "dependencies": [],
+    "runtimeDependencies": [],
+    "folders": [
+      {
+        "fullyQualifiedName": "solution_folder"
+      }
+    ],
+    "spec": {
+      "name": "AgentMonitoringFlow"
+    },
+    "locks": [],
+    "key": "de5987f9-6bd9-48c6-93d2-8c67c38284b4",
+    "files": []
+  }
+}

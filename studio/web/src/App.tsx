@@ -10,11 +10,20 @@ import { findFileNodeId } from "./components/UiplanInspector";
 import { LAYERS, PALETTE } from "./theme";
 import { computeLayout } from "./layout";
 import {
+  loadDemoIntake,
   loadRefreshState,
   loadProjectGraph,
+  runAgentOpsDemo,
+  type DemoIntake,
   type LoadGraphResult,
 } from "./projectGraph/api";
-import type { PathClass, ProjectEdge, ProjectGraph, ProjectNode } from "./projectGraph/types";
+import type {
+  AgentOpsDemoRun,
+  PathClass,
+  ProjectEdge,
+  ProjectGraph,
+  ProjectNode,
+} from "./projectGraph/types";
 import { trackUxEvent } from "./telemetry";
 
 import "./styles.css";
@@ -314,6 +323,8 @@ export default function App() {
   });
   const [sourcePathInput, setSourcePathInput] = useState<string>("");
   const [mappingInProgress, setMappingInProgress] = useState(false);
+  const [demoIntake, setDemoIntake] = useState<DemoIntake | null>(null);
+  const [demoRun, setDemoRun] = useState<AgentOpsDemoRun | null>(null);
 
   // ---- Graph state ----
   const [rootGraph, setRootGraph] = useState<ProjectGraph>(EMPTY_GRAPH);
@@ -350,6 +361,24 @@ export default function App() {
       void loadGraph(sourcePath);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadIntake = async () => {
+      const intake = await loadDemoIntake();
+      if (!cancelled) {
+        setDemoIntake(intake.data);
+        const run = await runAgentOpsDemo(intake.data);
+        if (!cancelled) {
+          setDemoRun(run.data);
+        }
+      }
+    };
+    void loadIntake();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // ---- Load graph for a source path ----
@@ -723,7 +752,7 @@ export default function App() {
             fontSize: 12, letterSpacing: "0.32em", fontWeight: 700, color: PALETTE.text,
             fontFamily: "'JetBrains Mono', monospace",
           }}>
-            {activeBundle ? "UIPLAN\u00a0\u00b7\u00a0WORKFLOW BUILDER" : "UIPLAN\u00a0\u00b7\u00a0EXPLORER"}
+            {activeBundle ? "AGENTOPS\u00a0ORCHESTRATOR\u00a0\u00b7\u00a0COCKPIT" : "AGENTOPS\u00a0ORCHESTRATOR\u00a0\u00b7\u00a0EXPLORER"}
           </div>
         </div>
 
@@ -823,8 +852,8 @@ export default function App() {
           />
           <ViewSwitchButton
             active={activeView === "uiplan"}
-            label="UIPLAN FLOW"
-            title="UiPlan flow"
+            label="BUILDER FLOW"
+            title="AgentOps Orchestrator flow"
             count={bundles.length}
             Icon={Notebook}
             disabled={bundles.length === 0}
@@ -893,6 +922,8 @@ export default function App() {
             <UiplanCanvas
               key={activeBundle.id}
               bundle={activeBundle}
+              demoIntake={demoIntake}
+              demoRun={demoRun}
               selectedNodeId={selectedNodeId}
               onSelectNode={(id) => setSelectedNodeId(id)}
             />

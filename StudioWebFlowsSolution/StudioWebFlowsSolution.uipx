@@ -1,0 +1,32 @@
+{
+    "DocVersion": "1.0.0",
+    "StudioMinVersion": "2025.10.0",
+    "SolutionId": "1153773b-9206-41d6-fcda-08deb1d00c72",
+    "Projects": [
+        {
+            "Type": "Flow",
+            "ProjectRelativePath": "EnterpriseIntakeFlow\\project.uiproj",
+            "Id": "30b17f9c-f3ba-4b55-96cb-9b80dd809b8c"
+        },
+        {
+            "Type": "Flow",
+            "ProjectRelativePath": "SolutionPlanningFlow\\project.uiproj",
+            "Id": "e8a4442b-efb0-4111-9a29-a5304f35b71d"
+        },
+        {
+            "Type": "Flow",
+            "ProjectRelativePath": "EvidenceCollectionFlow\\project.uiproj",
+            "Id": "12efd160-ffbd-467d-b7c4-41c8993cc409"
+        },
+        {
+            "Type": "Flow",
+            "ProjectRelativePath": "AgentMonitoringFlow\\project.uiproj",
+            "Id": "ed865f72-7949-4f07-b3ea-762c271b6b30"
+        },
+        {
+            "Type": "Flow",
+            "ProjectRelativePath": "ReportingFlow\\project.uiproj",
+            "Id": "ac82eddb-1d48-4137-bf5b-82bf96a71e07"
+        }
+    ]
+}

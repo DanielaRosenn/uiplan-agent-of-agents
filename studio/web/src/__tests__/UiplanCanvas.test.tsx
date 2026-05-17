@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
 
 import UiplanCanvas from "../components/UiplanCanvas";
@@ -25,10 +25,7 @@ describe("UiplanCanvas workflow planning surface", () => {
       />,
     );
 
-    const tabBar = screen.getByLabelText("UiPlan view mode");
-    fireEvent.click(within(tabBar).getByRole("button", { name: /project plan/i }));
-
-    expect(screen.getByText("PROJECT PLANNING KANBAN")).toBeInTheDocument();
+    expect(screen.getByText("AGENTOPS ORCHESTRATOR KANBAN")).toBeInTheDocument();
     expect(screen.getByText("DEFINE")).toBeInTheDocument();
     expect(screen.getByText("DESIGN")).toBeInTheDocument();
     expect(screen.getByText("BUILD")).toBeInTheDocument();
@@ -59,11 +56,9 @@ describe("UiplanCanvas workflow planning surface", () => {
       />,
     );
 
-    const tabBar = screen.getByLabelText("UiPlan view mode");
-    fireEvent.click(within(tabBar).getByRole("button", { name: /to-be/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^TO BE$/i }));
 
-    expect(screen.getAllByText("TO-BE UIPATH FLOW").length).toBeGreaterThan(0);
-    expect(screen.getByText(/High-level architecture first/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Slack request received TRIGGER/i })).toBeInTheDocument();
     expect(screen.getAllByText("Trigger").length).toBeGreaterThan(0);
     expect(screen.getByText("Ingress")).toBeInTheDocument();
     expect(screen.getByText("Reason")).toBeInTheDocument();
@@ -73,7 +68,7 @@ describe("UiplanCanvas workflow planning surface", () => {
     expect(screen.getByText("End")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Slack request received TRIGGER/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Normalize renewal request ACTIVITY/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Sales Rep approval workflow DRILL-DOWN/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Sales Rep approval workflow/i })).toBeInTheDocument();
     expect(screen.queryByText(/IMPLEMENTATION HEALTH/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/\.xaml/i)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /reset clean view/i })).toBeInTheDocument();
@@ -88,8 +83,7 @@ describe("UiplanCanvas workflow planning surface", () => {
       />,
     );
 
-    const tabBar = screen.getByLabelText("UiPlan view mode");
-    fireEvent.click(within(tabBar).getByRole("button", { name: /as-is/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^AS IS$/i }));
     expect(screen.getAllByText("AS-IS MANUAL FLOW").length).toBeGreaterThan(0);
     expect(screen.getByText(/How work happens today/i)).toBeInTheDocument();
     expect(screen.getAllByText("Trigger").length).toBeGreaterThan(0);
@@ -117,14 +111,11 @@ describe("UiplanCanvas workflow planning surface", () => {
       />,
     );
 
-    const tabBar = screen.getByLabelText("UiPlan view mode");
-    fireEvent.click(within(tabBar).getByRole("button", { name: /compare/i }));
-    expect(screen.getByText(/Delta summary: manual handoffs/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^COMPARE$/i }));
+    expect(screen.getByText(/Transformation Summary/i)).toBeInTheDocument();
 
-    fireEvent.click(within(tabBar).getByRole("button", { name: /to-be/i }));
-    fireEvent.click(screen.getByRole("button", { name: /Sales Rep approval workflow DRILL-DOWN/i }));
-    expect(screen.getByText(/L0 TO-BE UIPATH FLOW \/ L1 SUB-WORKFLOW/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/Sales Rep approval workflow/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Readiness:/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^ORIENT$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^TO BE$/i }));
+    expect(screen.getByRole("button", { name: /Slack request received TRIGGER/i })).toBeInTheDocument();
   });
 });

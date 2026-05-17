@@ -1,0 +1,22 @@
+{
+  "DocVersion": "1.0.0",
+  "StudioMinVersion": "2025.10.0",
+  "SolutionId": "0e18691c-7d82-4fc1-94c6-e2b2d75dcda4",
+  "Projects": [
+    {
+      "ProjectRelativePath": "EnterpriseIntakeFlow"
+    },
+    {
+      "ProjectRelativePath": "SolutionPlanningFlow"
+    },
+    {
+      "ProjectRelativePath": "EvidenceCollectionFlow"
+    },
+    {
+      "ProjectRelativePath": "AgentMonitoringFlow"
+    },
+    {
+      "ProjectRelativePath": "ReportingFlow"
+    }
+  ]
+}

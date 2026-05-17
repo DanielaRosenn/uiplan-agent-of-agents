@@ -2,15 +2,35 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
+from app.routers.agentops_demo import DemoIntakeRequest
 from app.explorer import _allowed_worktree_roots, _is_within, _repo_root, get_project_graph
 
 
 router = APIRouter(prefix="/fixtures", tags=["fixtures"])
+
+_DEMO_INTAKE_RELATIVE_PATH = Path("samples") / "invoice-exception" / "intake.json"
+_OUTPUT_NAME_ALLOWLIST_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
+
+
+@router.get("/demo/intake", response_model=DemoIntakeRequest)
+async def get_demo_intake() -> DemoIntakeRequest:
+    """Return the default AgentOps Builder demo intake payload."""
+    intake_path = (_repo_root() / _DEMO_INTAKE_RELATIVE_PATH).resolve()
+    if not intake_path.exists():
+        raise HTTPException(status_code=404, detail="Demo intake file is unavailable")
+    try:
+        payload = json.loads(intake_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=500, detail=f"Demo intake is invalid JSON: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=500, detail="Demo intake must be a JSON object")
+    return DemoIntakeRequest.model_validate(payload)
 
 
 @router.post("/export-demo")
@@ -50,14 +70,28 @@ async def export_demo_fixture(
     if not graph_response or "nodes" not in graph_response:
         raise HTTPException(status_code=500, detail="Failed to generate project graph")
     
+    # Validate output name with strict allowlist.
+    if not _OUTPUT_NAME_ALLOWLIST_RE.fullmatch(output_name):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Invalid output_name. Use 1-64 chars, start with a letter, "
+                "and include only letters, numbers, and underscores."
+            ),
+        )
+
     # Generate TypeScript fixture
     ts_content = _generate_typescript_fixture(graph_response, output_name)
-    
+
     # Write to fixtures directory
     fixtures_dir = _repo_root() / "studio" / "web" / "src" / "__fixtures__"
     fixtures_dir.mkdir(parents=True, exist_ok=True)
-    
-    output_path = fixtures_dir / f"{output_name}.ts"
+
+    output_path = (fixtures_dir / f"{output_name}.ts").resolve()
+    fixtures_dir_resolved = fixtures_dir.resolve()
+    if not _is_within(output_path, fixtures_dir_resolved):
+        raise HTTPException(status_code=400, detail="Invalid output_name path")
+
     output_path.write_text(ts_content, encoding="utf-8")
     
     return {

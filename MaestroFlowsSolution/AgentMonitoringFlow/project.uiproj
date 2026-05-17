@@ -1,0 +1,7 @@
+{
+  "Name": "AgentMonitoringFlow",
+  "ProjectType": "Flow",
+  "ProjectId": "8abe0484-052c-401a-b82c-e2010cb8dd96",
+  "ProjectVersion": "1.0.0",
+  "Description": "Monitor agent health and performance with automated alerting"
+}

@@ -1,0 +1,7 @@
+{
+  "Name": "EvidenceCollectionFlow",
+  "ProjectType": "Flow",
+  "ProjectId": "693902f9-1edf-4ca2-94af-f9aa9fd8fe46",
+  "ProjectVersion": "1.0.0",
+  "Description": "Collect validation evidence and control deployment with environment-specific gates"
+}

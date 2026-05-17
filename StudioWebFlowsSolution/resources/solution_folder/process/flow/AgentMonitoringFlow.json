@@ -1,0 +1,38 @@
+{
+  "docVersion": "1.0.0",
+  "resource": {
+    "name": "AgentMonitoringFlow",
+    "kind": "process",
+    "type": "flow",
+    "apiVersion": "orchestrator.uipath.com/v1",
+    "projectKey": "ed865f72-7949-4f07-b3ea-762c271b6b30",
+    "dependencies": [
+      {
+        "kind": "package",
+        "name": "AgentMonitoringFlow"
+      }
+    ],
+    "runtimeDependencies": [],
+    "folders": [
+      {
+        "fullyQualifiedName": "solution_folder"
+      }
+    ],
+    "spec": {
+      "type": "Flow",
+      "name": "AgentMonitoringFlow",
+      "package": {
+        "key": "de5987f9-6bd9-48c6-93d2-8c67c38284b4"
+      },
+      "inputArguments": "{}",
+      "targetFrameworkValue": "Portable",
+      "retentionAction": "Delete",
+      "retentionPeriod": 30,
+      "staleRetentionAction": "Delete",
+      "staleRetentionPeriod": 180
+    },
+    "locks": [],
+    "key": "66ed20c3-0540-459c-9fdd-2c381c073475",
+    "files": []
+  }
+}

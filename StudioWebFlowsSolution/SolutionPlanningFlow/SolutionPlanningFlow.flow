@@ -1,0 +1,599 @@
+{
+  "id": "5054bbd2-5ebf-4a41-873c-2c00ee98ae04",
+  "version": "1.0.0",
+  "name": "SolutionPlanningFlow",
+  "runtime": "maestro",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "core.trigger.manual",
+      "typeVersion": "1.0.0",
+      "ui": {
+        "position": {
+          "x": 256,
+          "y": 144
+        },
+        "size": {
+          "width": 96,
+          "height": 96
+        },
+        "collapsed": false
+      },
+      "display": {
+        "label": "Manual trigger"
+      },
+      "inputs": {},
+      "model": {
+        "type": "bpmn:StartEvent",
+        "entryPointId": "6cc3018e-c69d-49e0-8f93-3b249fe93719",
+        "isDefaultEntryPoint": true
+      },
+      "outputs": {
+        "output": {
+          "type": "object",
+          "description": "Data passed when manually triggering the workflow.",
+          "source": "=result.response",
+          "var": "output"
+        }
+      }
+    },
+    {
+      "id": "extractIntakeData",
+      "type": "core.action.script",
+      "typeVersion": "1.0.0",
+      "ui": {
+        "position": {
+          "x": 416,
+          "y": 144
+        },
+        "size": {
+          "width": 96,
+          "height": 96
+        },
+        "collapsed": false
+      },
+      "display": {
+        "label": "Extract Intake Data"
+      },
+      "inputs": {
+        "script": "const trigger = ($vars.start && $vars.start.output) || {};\nconst payload = trigger.payload || trigger.itemData || trigger;\nreturn { intakeId: payload.intakeId || 'INTAKE-DEMO', businessGoal: payload.businessGoal || payload.summary || 'Deliver governed UiPath automation from business intent', businessUnit: payload.businessUnit || 'OPS', stakeholders: payload.stakeholders || ['automation-review@example.com'] };"
+      },
+      "model": {
+        "type": "bpmn:ScriptTask"
+      },
+      "outputs": {
+        "output": {
+          "type": "object",
+          "description": "The return value of the script",
+          "source": "=result.response",
+          "var": "output"
+        },
+        "error": {
+          "type": "object",
+          "description": "Error information if the script fails",
+          "source": "=result.Error",
+          "var": "error"
+        }
+      }
+    },
+    {
+      "id": "runDiscoveryAnalysis",
+      "type": "core.action.script",
+      "typeVersion": "1.0.0",
+      "ui": {
+        "position": {
+          "x": 576,
+          "y": 144
+        },
+        "size": {
+          "width": 96,
+          "height": 96
+        },
+        "collapsed": false
+      },
+      "display": {
+        "label": "Run Discovery Analysis"
+      },
+      "inputs": {
+        "script": "const intake = $vars.extractIntakeData.output;\nreturn { intake, systems: ['UiPath Studio Web', 'Orchestrator', 'Action Center'], risks: ['missing tenant bindings', 'human approval latency'], artifactsRequired: ['PDD', 'SDD', 'ADD', 'test-plan'] };"
+      },
+      "model": {
+        "type": "bpmn:ScriptTask"
+      },
+      "outputs": {
+        "output": {
+          "type": "object",
+          "description": "The return value of the script",
+          "source": "=result.response",
+          "var": "output"
+        },
+        "error": {
+          "type": "object",
+          "description": "Error information if the script fails",
+          "source": "=result.Error",
+          "var": "error"
+        }
+      }
+    },
+    {
+      "id": "draftSolutionDesign",
+      "type": "core.action.script",
+      "typeVersion": "1.0.0",
+      "ui": {
+        "position": {
+          "x": 736,
+          "y": 144
+        },
+        "size": {
+          "width": 96,
+          "height": 96
+        },
+        "collapsed": false
+      },
+      "display": {
+        "label": "Draft Solution Design"
+      },
+      "inputs": {
+        "script": "const discovery = $vars.runDiscoveryAnalysis.output;\nreturn { architecture: 'Flow orchestrates intake, planning, evidence, monitoring, and reporting.', flowCount: 5, agents: ['discovery-agent', 'solution-architect-agent', 'verifier-agent'], handoffRequired: discovery.risks };"
+      },
+      "model": {
+        "type": "bpmn:ScriptTask"
+      },
+      "outputs": {
+        "output": {
+          "type": "object",
+          "description": "The return value of the script",
+          "source": "=result.response",
+          "var": "output"
+        },
+        "error": {
+          "type": "object",
+          "description": "Error information if the script fails",
+          "source": "=result.Error",
+          "var": "error"
+        }
+      }
+    },
+    {
+      "id": "reviewGateDecision",
+      "type": "core.action.script",
+      "typeVersion": "1.0.0",
+      "ui": {
+        "position": {
+          "x": 896,
+          "y": 144
+        },
+        "size": {
+          "width": 96,
+          "height": 96
+        },
+        "collapsed": false
+      },
+      "display": {
+        "label": "Review Gate Decision"
+      },
+      "inputs": {
+        "script": "const design = $vars.draftSolutionDesign.output;\nconst needsHumanReview = design.handoffRequired.length > 0;\nreturn { approvedForBuild: !needsHumanReview, needsHumanReview, reviewReason: needsHumanReview ? design.handoffRequired.join('; ') : 'No blockers' };"
+      },
+      "model": {
+        "type": "bpmn:ScriptTask"
+      },
+      "outputs": {
+        "output": {
+          "type": "object",
+          "description": "The return value of the script",
+          "source": "=result.response",
+          "var": "output"
+        },
+        "error": {
+          "type": "object",
+          "description": "Error information if the script fails",
+          "source": "=result.Error",
+          "var": "error"
+        }
+      }
+    },
+    {
+      "id": "generatePlanningArtifacts",
+      "type": "core.action.script",
+      "typeVersion": "1.0.0",
+      "ui": {
+        "position": {
+          "x": 1056,
+          "y": 144
+        },
+        "size": {
+          "width": 96,
+          "height": 96
+        },
+        "collapsed": false
+      },
+      "display": {
+        "label": "Generate Planning Artifacts"
+      },
+      "inputs": {
+        "script": "const intake = $vars.extractIntakeData.output;\nconst review = $vars.reviewGateDecision.output;\nreturn { pdd: `PDD for ${intake.intakeId}`, sdd: 'SDD for AgentOps Builder flow solution', add: 'ADD for supporting coded agents', testPlan: 'Smoke each Flow path with synthetic input', review };"
+      },
+      "model": {
+        "type": "bpmn:ScriptTask"
+      },
+      "outputs": {
+        "output": {
+          "type": "object",
+          "description": "The return value of the script",
+          "source": "=result.response",
+          "var": "output"
+        },
+        "error": {
+          "type": "object",
+          "description": "Error information if the script fails",
+          "source": "=result.Error",
+          "var": "error"
+        }
+      }
+    },
+    {
+      "id": "complete",
+      "type": "core.control.end",
+      "typeVersion": "1.0.0",
+      "ui": {
+        "position": {
+          "x": 1216,
+          "y": 144
+        },
+        "size": {
+          "width": 96,
+          "height": 96
+        },
+        "collapsed": false
+      },
+      "display": {
+        "label": "Complete"
+      },
+      "inputs": {},
+      "model": {
+        "type": "bpmn:EndEvent"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "start-output-extractIntakeData-input",
+      "sourceNodeId": "start",
+      "sourcePort": "output",
+      "targetNodeId": "extractIntakeData",
+      "targetPort": "input"
+    },
+    {
+      "id": "extractIntakeData-success-runDiscoveryAnalysis-input",
+      "sourceNodeId": "extractIntakeData",
+      "sourcePort": "success",
+      "targetNodeId": "runDiscoveryAnalysis",
+      "targetPort": "input"
+    },
+    {
+      "id": "runDiscoveryAnalysis-success-draftSolutionDesign-input",
+      "sourceNodeId": "runDiscoveryAnalysis",
+      "sourcePort": "success",
+      "targetNodeId": "draftSolutionDesign",
+      "targetPort": "input"
+    },
+    {
+      "id": "draftSolutionDesign-success-reviewGateDecision-input",
+      "sourceNodeId": "draftSolutionDesign",
+      "sourcePort": "success",
+      "targetNodeId": "reviewGateDecision",
+      "targetPort": "input"
+    },
+    {
+      "id": "reviewGateDecision-success-generatePlanningArtifacts-input",
+      "sourceNodeId": "reviewGateDecision",
+      "sourcePort": "success",
+      "targetNodeId": "generatePlanningArtifacts",
+      "targetPort": "input"
+    },
+    {
+      "id": "generatePlanningArtifacts-success-complete-input",
+      "sourceNodeId": "generatePlanningArtifacts",
+      "sourcePort": "success",
+      "targetNodeId": "complete",
+      "targetPort": "input"
+    }
+  ],
+  "definitions": [
+    {
+      "nodeType": "core.trigger.manual",
+      "version": "1.0.0",
+      "category": "trigger",
+      "tags": [
+        "trigger",
+        "manual"
+      ],
+      "sortOrder": 40,
+      "display": {
+        "label": "Manual trigger",
+        "icon": "play",
+        "shape": "circle",
+        "iconBackground": "linear-gradient(225deg, #FAFAFB 0%, #ECEDEF 100%)",
+        "iconBackgroundDark": "linear-gradient(225deg, #526069 0%, rgba(50, 60, 66, 0.6) 100%)"
+      },
+      "handleConfiguration": [],
+      "model": {
+        "type": "bpmn:StartEvent",
+        "entryPointId": true
+      }
+    },
+    {
+      "nodeType": "core.action.script",
+      "version": "1.0.0",
+      "category": "data-operations",
+      "description": "Run custom JavaScript code",
+      "tags": [
+        "code",
+        "javascript",
+        "python"
+      ],
+      "sortOrder": 35,
+      "supportsErrorHandling": true,
+      "display": {
+        "label": "Script",
+        "icon": "code",
+        "iconBackground": "linear-gradient(225deg, #FAFAFB 0%, #ECEDEF 100%)",
+        "iconBackgroundDark": "linear-gradient(225deg, #526069 0%, rgba(50, 60, 66, 0.6) 100%)"
+      },
+      "handleConfiguration": [
+        {
+          "position": "left",
+          "handles": [
+            {
+              "id": "input",
+              "type": "target",
+              "handleType": "input"
+            }
+          ]
+        },
+        {
+          "position": "right",
+          "handles": [
+            {
+              "id": "success",
+              "type": "source",
+              "handleType": "output"
+            }
+          ]
+        }
+      ],
+      "debug": {
+        "runtime": "clientScript"
+      },
+      "model": {
+        "type": "bpmn:ScriptTask"
+      },
+      "inputDefinition": {
+        "type": "object",
+        "properties": {
+          "script": {
+            "type": "string",
+            "minLength": 1,
+            "errorMessage": "A script function is required",
+            "validationSeverity": "warning"
+          }
+        },
+        "required": [
+          "script"
+        ]
+      },
+      "inputDefaults": {
+        "script": ""
+      },
+      "outputDefinition": {
+        "output": {
+          "type": "object",
+          "description": "The return value of the script",
+          "source": "=result.response",
+          "var": "output"
+        },
+        "error": {
+          "type": "object",
+          "description": "Error information if the script fails",
+          "source": "=result.Error",
+          "var": "error",
+          "schema": {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "type": "object",
+            "required": [
+              "code",
+              "message",
+              "detail",
+              "category",
+              "status"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "Error code as a string"
+              },
+              "message": {
+                "type": "string",
+                "description": "High-level error message"
+              },
+              "detail": {
+                "type": "string",
+                "description": "Detailed error description"
+              },
+              "category": {
+                "type": "string",
+                "description": "Error category"
+              },
+              "status": {
+                "type": "integer",
+                "description": "HTTP status code"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "form": {
+        "id": "script-properties",
+        "title": "Script configuration",
+        "sections": [
+          {
+            "id": "script",
+            "title": "Script",
+            "collapsible": true,
+            "defaultExpanded": true,
+            "fields": [
+              {
+                "name": "inputs.script",
+                "type": "custom",
+                "component": "script-editor",
+                "componentProps": {
+                  "language": "javascript",
+                  "returnType": "any",
+                  "minHeight": 200,
+                  "placeholder": " // Return an object with your result\nreturn {\n  message: \"Web request response\",\n  data: $vars.httpRequest1.output\n                  };"
+                },
+                "label": "Code",
+                "description": "JavaScript expression that returns a result object"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "nodeType": "core.control.end",
+      "version": "1.0.0",
+      "description": "Mark the end of a workflow path",
+      "category": "control-flow",
+      "tags": [
+        "control-flow",
+        "end",
+        "finish",
+        "complete"
+      ],
+      "sortOrder": 20,
+      "display": {
+        "label": "End",
+        "icon": "circle-check",
+        "shape": "circle"
+      },
+      "handleConfiguration": [
+        {
+          "position": "left",
+          "handles": [
+            {
+              "id": "input",
+              "type": "target",
+              "handleType": "input"
+            }
+          ]
+        }
+      ],
+      "model": {
+        "type": "bpmn:EndEvent"
+      }
+    }
+  ],
+  "bindings": [],
+  "variables": {
+    "nodes": [
+      {
+        "id": "extractIntakeData.output",
+        "type": "object",
+        "description": "The return value of the script",
+        "binding": {
+          "nodeId": "extractIntakeData",
+          "outputId": "output"
+        }
+      },
+      {
+        "id": "extractIntakeData.error",
+        "type": "object",
+        "description": "Error information if the script fails",
+        "binding": {
+          "nodeId": "extractIntakeData",
+          "outputId": "error"
+        }
+      },
+      {
+        "id": "runDiscoveryAnalysis.output",
+        "type": "object",
+        "description": "The return value of the script",
+        "binding": {
+          "nodeId": "runDiscoveryAnalysis",
+          "outputId": "output"
+        }
+      },
+      {
+        "id": "runDiscoveryAnalysis.error",
+        "type": "object",
+        "description": "Error information if the script fails",
+        "binding": {
+          "nodeId": "runDiscoveryAnalysis",
+          "outputId": "error"
+        }
+      },
+      {
+        "id": "draftSolutionDesign.output",
+        "type": "object",
+        "description": "The return value of the script",
+        "binding": {
+          "nodeId": "draftSolutionDesign",
+          "outputId": "output"
+        }
+      },
+      {
+        "id": "draftSolutionDesign.error",
+        "type": "object",
+        "description": "Error information if the script fails",
+        "binding": {
+          "nodeId": "draftSolutionDesign",
+          "outputId": "error"
+        }
+      },
+      {
+        "id": "reviewGateDecision.output",
+        "type": "object",
+        "description": "The return value of the script",
+        "binding": {
+          "nodeId": "reviewGateDecision",
+          "outputId": "output"
+        }
+      },
+      {
+        "id": "reviewGateDecision.error",
+        "type": "object",
+        "description": "Error information if the script fails",
+        "binding": {
+          "nodeId": "reviewGateDecision",
+          "outputId": "error"
+        }
+      },
+      {
+        "id": "generatePlanningArtifacts.output",
+        "type": "object",
+        "description": "The return value of the script",
+        "binding": {
+          "nodeId": "generatePlanningArtifacts",
+          "outputId": "output"
+        }
+      },
+      {
+        "id": "generatePlanningArtifacts.error",
+        "type": "object",
+        "description": "Error information if the script fails",
+        "binding": {
+          "nodeId": "generatePlanningArtifacts",
+          "outputId": "error"
+        }
+      }
+    ]
+  },
+  "metadata": {
+    "createdAt": "2026-05-17T07:05:12.897Z",
+    "updatedAt": "2026-05-17T07:19:35.657398Z",
+    "implementationStatus": "implemented-with-script-nodes"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "Name": "SolutionPlanningFlow",
+  "ProjectType": "Flow",
+  "ProjectId": "4e90a887-58d7-4740-a2a0-dc22a76ca4ad",
+  "ProjectVersion": "1.0.0",
+  "Description": "Orchestrate multi-agent planning and artifact generation with approval workflow"
+}

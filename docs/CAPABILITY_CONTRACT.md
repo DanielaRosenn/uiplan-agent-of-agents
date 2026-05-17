@@ -35,7 +35,7 @@ The repo does not try to recreate Claude Code internals that are not required fo
 
 When an AI assistant works in this repo:
 
-- Start with `README.md`, `docs/INSTALL.md`, this contract, and the surface-specific guide (`docs/legacy/CLAUDE_USER_GUIDE.md` or `docs/CURSOR_USER_GUIDE.md`).
+- Start with `README.md`, `docs/INSTALL.md`, this contract, and the surface-specific guide (`docs/USER_GUIDE.md` or `docs/CURSOR_USER_GUIDE.md`).
 - Use `docs/MCP_TOOLS.md` as generated MCP truth; regenerate it after changing tool registrations.
 - Treat `skills/skills` as upstream skill truth; use `extensions/skills` for team-owned overrides.
 - Use UiPlan for non-trivial or ambiguous work before destructive changes.

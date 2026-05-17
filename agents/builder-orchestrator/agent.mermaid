@@ -1,0 +1,16 @@
+flowchart TB
+  __start__(__start__)
+  classify_request(classify_request)
+  assign_agents(assign_agents)
+  draft_solution_plan(draft_solution_plan)
+  request_approval(request_approval)
+  prepare_build(prepare_build)
+  summarize_handoff(summarize_handoff)
+  __end__(__end__)
+  __start__ --> classify_request
+  assign_agents --> draft_solution_plan
+  classify_request --> assign_agents
+  draft_solution_plan --> request_approval
+  prepare_build --> summarize_handoff
+  request_approval --> prepare_build
+  summarize_handoff --> __end__

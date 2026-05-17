@@ -348,3 +348,53 @@ export interface Worktree {
   branch?: string;
   project_type?: string;
 }
+
+export interface AgentOpsOrchestratorState {
+  current_phase: string;
+  status: string;
+  active_workflow?: string;
+  blocked?: boolean;
+}
+
+export interface AgentOpsSpecialistAssignment {
+  agent: string;
+  role: string;
+  status: string;
+}
+
+export interface AgentOpsBuildQueueItem {
+  id: string;
+  title: string;
+  status: string;
+  phase?: string;
+}
+
+export interface AgentOpsVerificationGate {
+  gate: string;
+  status: string;
+  owner?: string;
+}
+
+export interface AgentOpsDeploymentReadiness {
+  status: string;
+  deployed: boolean;
+  blocker?: string;
+  target?: string;
+}
+
+export interface AgentOpsHandoffSummary {
+  summary: string;
+  next_action?: string;
+  owner?: string;
+}
+
+export interface AgentOpsDemoRun {
+  orchestrator_state: AgentOpsOrchestratorState;
+  specialist_assignments: AgentOpsSpecialistAssignment[];
+  as_is_view_model: AsIsView;
+  to_be_view_model: ToBeView;
+  build_queue: AgentOpsBuildQueueItem[];
+  verification_checklist: AgentOpsVerificationGate[];
+  deployment_readiness_status: AgentOpsDeploymentReadiness;
+  handoff_summary: AgentOpsHandoffSummary;
+}

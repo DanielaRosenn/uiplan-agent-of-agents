@@ -196,7 +196,6 @@ def _parse_xaml_workflow_structure(text: str) -> dict[str, Any]:
     
     # Extract activities with their types
     activity_patterns = {
-        "InvokeWorkflowFile": r'<ui:InvokeWorkflowFile[^>]*DisplayName="([^"]*)"[^>]*WorkflowFileName="([^"]*)"',
         "Assign": r'<Assign[^>]*DisplayName="([^"]*)"',
         "LogMessage": r'<ui:LogMessage[^>]*DisplayName="([^"]*)"',
         "If": r'<If[^>]*DisplayName="([^"]*)"',
@@ -208,13 +207,29 @@ def _parse_xaml_workflow_structure(text: str) -> dict[str, Any]:
         "Sequence": r'<Sequence[^>]*DisplayName="([^"]*)"',
     }
     
+    # Handle InvokeWorkflowFile separately so we support both namespaced and
+    # non-namespaced XAML, with or without DisplayName attributes.
+    invoke_pattern = r'<(?:\w+:)?InvokeWorkflowFile\b([^>]*)>'
+    for match in re.finditer(invoke_pattern, text):
+        attrs = match.group(1) or ""
+        workflow_match = re.search(r'WorkflowFileName="([^"]+)"', attrs)
+        if not workflow_match:
+            continue
+        workflow_file = workflow_match.group(1)
+        display_match = re.search(r'DisplayName="([^"]+)"', attrs)
+        display_name = display_match.group(1) if display_match else Path(workflow_file).name
+        structure["activities"].append({
+            "type": "InvokeWorkflowFile",
+            "display_name": display_name,
+            "position": match.start(),
+            "workflow_file": workflow_file,
+        })
+
     for activity_type, pattern in activity_patterns.items():
         for match in re.finditer(pattern, text):
             groups = match.groups()
             display_name = groups[0]
             extra_data = {}
-            if activity_type == "InvokeWorkflowFile" and len(groups) > 1:
-                extra_data["workflow_file"] = groups[1]
             
             structure["activities"].append({
                 "type": activity_type,

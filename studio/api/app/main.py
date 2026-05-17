@@ -16,12 +16,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.copilot_runtime import register_copilot_runtime
 from app.explorer import router as explorer_router
+from app.routers.agentops_demo import router as agentops_demo_router
 from app.routers.bundle import router as bundle_router
 from app.routers.context import router as context_router
 from app.routers.copilotkit import router as copilotkit_router
 from app.routers.diagram import router as diagram_router
 from app.routers.generation import router as generation_router
 from app.routers.mapping import router as mapping_router
+from app.routers.mcp_tools import router as mcp_tools_router
 from app.routers.review import router as review_router
 from app.routers.fixtures import router as fixtures_router
 from app.schemas import HealthResponse
@@ -63,12 +65,14 @@ app.add_middleware(
 
 register_copilot_runtime(app)
 app.include_router(explorer_router)
+app.include_router(agentops_demo_router)
 app.include_router(bundle_router)
 app.include_router(diagram_router)
 app.include_router(review_router)
 app.include_router(context_router)
 app.include_router(generation_router)
 app.include_router(mapping_router)
+app.include_router(mcp_tools_router)
 app.include_router(fixtures_router)
 app.include_router(copilotkit_router)
 
@@ -96,6 +100,8 @@ def health() -> HealthResponse:
             "/agent/context-sources",
             "/agent/library-context",
             "/project-graph/templates/starter",
+            "/agentops/demo/run",
+            "/agentops/mcp/tools",
             "/copilotkit",
             "/copilotkit/info",
             "/copilotkit/runtime",
