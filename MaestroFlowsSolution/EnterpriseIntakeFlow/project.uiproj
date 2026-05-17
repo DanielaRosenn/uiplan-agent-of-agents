@@ -1,7 +1,0 @@
-{
-  "Name": "EnterpriseIntakeFlow",
-  "ProjectType": "Flow",
-  "ProjectId": "c23e5202-a7c8-4f11-a6fc-bf106761f3de",
-  "ProjectVersion": "1.0.0",
-  "Description": "Route business intake requests to appropriate queues and notify stakeholders"
-}

@@ -1,6 +1,0 @@
-{
-  "Name": "PublishConfluence",
-  "ProjectType": "Process",
-  "Description": "Publishes UiPath Claude Code docs (overview + quickstart) to the Cato RPA Confluence space via the UiPath Integration Service Atlassian Confluence connector.",
-  "MainFile": "Main.xaml"
-}

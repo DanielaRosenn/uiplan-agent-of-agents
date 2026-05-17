@@ -1,7 +1,0 @@
-{
-  "Name": "ReportingFlow",
-  "ProjectType": "Flow",
-  "ProjectId": "ac1a3321-d8f7-4e86-8c44-96e0b867e7e2",
-  "ProjectVersion": "1.0.0",
-  "Description": "Generate and distribute daily automation delivery reports"
-}
