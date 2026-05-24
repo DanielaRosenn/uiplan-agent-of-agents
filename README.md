@@ -1,5 +1,7 @@
 # UiPlan: Agent-of-Agents Builder Orchestrator
 
+> **Elevator Pitch:** Turn a business brief into a complete UiPath automation package in one run - from requirements and design docs to provisioned resources and execution evidence, all orchestrated by specialized AI agents.
+
 A LangGraph-based orchestrator that transforms a business brief into a complete UiPath automation delivery package.
 
 ## Overview
