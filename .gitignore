@@ -79,10 +79,13 @@ node_modules/
 .env
 .env.local
 agents/builder-orchestrator/out/
+!agents/builder-orchestrator/out/enterpriseincidentagentbuilder-20260524163750/
+!agents/builder-orchestrator/out/enterpriseincidentagentbuilder-20260524163750/**
 
 # Generated projects (repo root only; do not match .../Data/Output/ in RPA demos)
 /output/
 /generated/
+/docs/submission/.video-temp/
 
 # Ad-hoc Studio/RPA scaffolds at repo root (local experiments; not shipped fixtures)
 /LogMessageAutomation/
