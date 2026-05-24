@@ -31,27 +31,24 @@
 - [x] Viewer payload check completed:
   - `ui/copilotkit/viewer.html` contains all expected tab labels
   - `ui/copilotkit/current/run-events.json` is readable
+- [x] Public repository created and pushed:
+  - `https://github.com/DanielaRosenn/uiplan-agent-of-agents`
+  - branch push: `dev -> main`
 
-## Blocked (External Account/Platform Requirements)
+## Remaining External Step
 
-- [ ] Create GitHub repo: `danielarosenn/uiplan-agent-of-agents`
-  - Attempted via `gh repo create`
-  - Blocked error: `Unauthorized: As an Enterprise Managed User, you cannot access this content (createRepository)`
-- [ ] Push code to public repo
-  - Attempted push failed because repo does not exist yet
 - [ ] Upload video to YouTube/Vimeo and collect shareable URL
   - Deferred by user for now (local MP4 retained in repo)
 
 ## Ready-to-run Unblock Commands
 
-Run after authenticating GitHub CLI with an account that can create repos under
-`danielarosenn`:
+If you need to republish from a new machine/account:
 
 ```bash
 gh auth logout
 gh auth login
-gh repo create danielarosenn/uiplan-agent-of-agents --public --description "Agent-of-Agents: LangGraph orchestrator that turns a business brief into a full UiPath automation delivery package"
-git remote add submission https://github.com/danielarosenn/uiplan-agent-of-agents.git
+gh repo create DanielaRosenn/uiplan-agent-of-agents --public --description "Agent-of-Agents: LangGraph orchestrator that turns a business brief into a full UiPath automation delivery package"
+git remote add submission https://github.com/DanielaRosenn/uiplan-agent-of-agents.git
 git push submission dev:main
 ```
 
@@ -63,6 +60,6 @@ Video upload:
 
 ## Final URLs (to fill once unblocked)
 
-- GitHub: `https://github.com/danielarosenn/uiplan-agent-of-agents`
+- GitHub: `https://github.com/DanielaRosenn/uiplan-agent-of-agents`
 - Video: `<youtube-or-vimeo-url>`
 - Devpost page: `<devpost-project-url>`
