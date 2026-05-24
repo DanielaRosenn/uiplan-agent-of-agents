@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "UiPlan Run Events",
+  "type": "object",
+  "required": [
+    "runId",
+    "phaseHistory",
+    "hitlDecisions",
+    "loopBudgets",
+    "buildIterations",
+    "deployIterations"
+  ],
+  "properties": {
+    "runId": { "type": "string" },
+    "brief": { "type": "object" },
+    "supervisor": { "type": "object" },
+    "phaseHistory": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["phase", "status", "time"],
+        "properties": {
+          "phase": { "type": "string" },
+          "status": { "type": "string" },
+          "time": { "type": "string" },
+          "details": { "type": "string" }
+        }
+      }
+    },
+    "hitlDecisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["phase", "approved", "time"],
+        "properties": {
+          "phase": { "type": "string" },
+          "approved": { "type": "boolean" },
+          "note": { "type": "string" },
+          "time": { "type": "string" }
+        }
+      }
+    },
+    "loopBudgets": {
+      "type": "object",
+      "required": ["maxBuildIterations", "maxDeployIterations"],
+      "properties": {
+        "maxBuildIterations": { "type": "integer" },
+        "maxDeployIterations": { "type": "integer" }
+      }
+    },
+    "buildIterations": { "type": "array", "items": { "type": "object" } },
+    "deployIterations": { "type": "array", "items": { "type": "object" } },
+    "escalation": { "type": "object" },
+    "uiPlanFiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "title", "path", "status"],
+        "properties": {
+          "name": { "type": "string" },
+          "title": { "type": "string" },
+          "path": { "type": "string" },
+          "status": { "type": "string" },
+          "content": { "type": "string" }
+        }
+      }
+    },
+    "humanDocs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "title", "path", "status"],
+        "properties": {
+          "name": { "type": "string" },
+          "title": { "type": "string" },
+          "path": { "type": "string" },
+          "status": { "type": "string" },
+          "content": { "type": "string" }
+        }
+      }
+    },
+    "constraintsGraph": {
+      "type": "object",
+      "properties": {
+        "targetFolder": { "type": "string" },
+        "constraints": { "type": "array", "items": { "type": "object" } },
+        "skillConstraints": { "type": "array", "items": { "type": "object" } },
+        "selectedSkills": { "type": "array", "items": { "type": "string" } },
+        "sourceCounts": { "type": "object" },
+        "severityCounts": { "type": "object" },
+        "violationsCount": { "type": "integer" },
+        "topFiles": { "type": "array", "items": { "type": "object" } },
+        "connections": { "type": "array", "items": { "type": "object" } },
+        "dependencies": { "type": "array", "items": { "type": "object" } },
+        "dependencyIndex": { "type": "object" },
+        "mermaid": { "type": "string" },
+        "codebaseDoc": { "type": "string" }
+      }
+    },
+    "generatedDocuments": { "type": "array", "items": { "type": "object" } },
+    "buildArtifacts": { "type": "array", "items": { "type": "object" } },
+    "provisionedResources": { "type": "array", "items": { "type": "object" } }
+  }
+}

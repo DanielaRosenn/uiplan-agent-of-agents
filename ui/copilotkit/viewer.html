@@ -1,0 +1,1704 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UiPlan Copilot Viewer</title>
+  <style>
+    :root {
+      --sidebar-bg: #1a1d23;
+      --sidebar-text: #dde3ee;
+      --page-bg: #f8f9fa;
+      --card-bg: #ffffff;
+      --border: #e3e8ef;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --ok: #16a34a;
+      --fail: #dc2626;
+      --warn: #d97706;
+      --info: #2563eb;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+      color: var(--text);
+      background: var(--page-bg);
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 330px 1fr;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      background: var(--sidebar-bg);
+      color: var(--sidebar-text);
+      padding: 22px 18px;
+      border-right: 1px solid #11151a;
+    }
+
+    .title {
+      margin: 0 0 12px;
+      font-size: 19px;
+      font-weight: 650;
+      letter-spacing: 0.1px;
+    }
+
+    .muted {
+      color: #a8b2c5;
+      font-size: 13px;
+      margin-bottom: 16px;
+      line-height: 1.4;
+    }
+
+    .row {
+      margin-bottom: 10px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .badge {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #fff;
+      vertical-align: middle;
+    }
+
+    .phase-list {
+      margin: 14px 0 0;
+      padding: 0;
+      list-style: none;
+      max-height: 48vh;
+      overflow: auto;
+    }
+
+    .phase-list li {
+      margin-bottom: 10px;
+      padding: 9px 10px;
+      border-radius: 10px;
+      background: #242a33;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .phase-head {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 5px;
+      font-weight: 600;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #64748b;
+      flex-shrink: 0;
+    }
+
+    .main {
+      padding: 22px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+    }
+
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    button {
+      cursor: pointer;
+      border: 1px solid #d0d7e2;
+      border-radius: 10px;
+      background: #fff;
+      padding: 8px 12px;
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    button.active {
+      background: #eff6ff;
+      border-color: #bfdbfe;
+      color: #1e40af;
+      font-weight: 600;
+    }
+
+    #dropZone {
+      border: 2px dashed #c7d2e4;
+      background: #f8fbff;
+      border-radius: 12px;
+      padding: 18px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    #dropZone.dragover {
+      border-color: #60a5fa;
+      background: #eff6ff;
+      color: #1e3a8a;
+    }
+
+    .tabs, .subtabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+      margin-bottom: 14px;
+    }
+
+    .section {
+      display: none;
+    }
+
+    .section.active {
+      display: block;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+
+    .table th, .table td {
+      text-align: left;
+      padding: 8px;
+      border-bottom: 1px solid #edf1f7;
+      vertical-align: top;
+    }
+
+    .table th {
+      color: #334155;
+      font-weight: 600;
+      background: #fafcff;
+    }
+
+    pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      border-radius: 10px;
+      padding: 12px;
+      overflow: auto;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    code {
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .content {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      background: #fff;
+      min-height: 280px;
+      line-height: 1.65;
+      overflow: hidden;
+    }
+
+    .content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 14px;
+      font-size: 13px;
+      border: 1px solid #dbe3ef;
+    }
+
+    .content th,
+    .content td {
+      border: 1px solid #dbe3ef;
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .content thead th {
+      background: #f8fbff;
+      color: #334155;
+      font-weight: 600;
+    }
+
+    .note {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+
+    .kanban {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .kanban-col {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fafcff;
+      padding: 10px;
+      min-height: 180px;
+    }
+
+    .kanban-col h4 {
+      margin: 0 0 8px;
+      font-size: 13px;
+    }
+
+    .kanban-item {
+      background: #fff;
+      border: 1px solid #e6ebf2;
+      border-radius: 8px;
+      padding: 8px;
+      margin-bottom: 8px;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .diagram-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .diagram-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+      padding: 12px;
+    }
+
+    .diagram-title {
+      font-size: 13px;
+      font-weight: 600;
+      margin: 0 0 10px;
+      color: #334155;
+    }
+
+    .constraint-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .constraint-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+      padding: 12px;
+    }
+
+    .constraint-card h4 {
+      margin: 0 0 8px;
+      font-size: 13px;
+      color: #1e293b;
+    }
+
+    .constraint-list {
+      margin: 0;
+      padding-left: 18px;
+      font-size: 12px;
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .constraint-list li {
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .drilldown-panel {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+      padding: 10px;
+      margin-top: 8px;
+    }
+
+    .drilldown-head {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+
+    .drilldown-head select {
+      min-width: 320px;
+      max-width: 100%;
+      padding: 6px 8px;
+      border: 1px solid #d0d7e2;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+
+    .constraint-summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .constraint-stat {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+      padding: 10px;
+    }
+
+    .constraint-stat .label {
+      font-size: 11px;
+      color: #64748b;
+      margin-bottom: 4px;
+    }
+
+    .constraint-stat .value {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .severity-bars {
+      margin-top: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .severity-row {
+      display: grid;
+      grid-template-columns: 74px 1fr 36px;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    .severity-track {
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      background: #eef2f7;
+      overflow: hidden;
+    }
+
+    .severity-fill {
+      height: 100%;
+      border-radius: 999px;
+    }
+
+    .severity-high {
+      background: #dc2626;
+    }
+
+    .severity-medium {
+      background: #d97706;
+    }
+
+    .severity-low {
+      background: #2563eb;
+    }
+
+    .constraint-pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #fff;
+      margin-right: 6px;
+    }
+
+    .source-folder {
+      background: #2563eb;
+    }
+
+    .source-skill {
+      background: #0d9488;
+    }
+
+    .page-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 8px 0 12px;
+      align-items: center;
+    }
+
+    .page-link {
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 2px 8px;
+      font-size: 12px;
+      color: #334155;
+      text-decoration: none;
+      background: #f8fafc;
+    }
+
+    .page-link:hover {
+      background: #eef2ff;
+      border-color: #c7d2fe;
+      color: #1e40af;
+    }
+
+    .diagram-shell {
+      border: 1px solid #e7edf5;
+      border-radius: 10px;
+      background: #fcfdff;
+      overflow: hidden;
+    }
+
+    .diagram-shell:fullscreen {
+      border-radius: 0;
+      border: none;
+      width: 100vw;
+      height: 100vh;
+      background: #ffffff;
+    }
+
+    .diagram-shell:fullscreen .diagram-viewport {
+      height: calc(100vh - 44px);
+    }
+
+    .diagram-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-bottom: 1px solid #edf1f7;
+      background: #f8fbff;
+      font-size: 12px;
+      color: #64748b;
+    }
+
+    .diagram-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .diagram-actions button {
+      padding: 2px 8px;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+
+    .diagram-viewport {
+      position: relative;
+      height: 420px;
+      overflow: hidden;
+      background: #fff;
+      cursor: grab;
+    }
+
+    .diagram-viewport:active {
+      cursor: grabbing;
+    }
+
+    .diagram-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      transform-origin: top left;
+      will-change: transform;
+    }
+
+    .diagram-canvas svg {
+      max-width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <h1 class="title">UiPlan Copilot Viewer</h1>
+      <div class="muted">UiPlan-first run explorer for agent-readable planning files.</div>
+
+      <div class="row"><strong>Run:</strong> <span id="runId">Not loaded</span></div>
+      <div class="row"><strong>Status:</strong> <span id="statusText">unknown</span><span id="statusBadge" class="badge">unknown</span></div>
+      <div class="row"><strong>Supervisor:</strong> <span id="supervisorMode">n/a</span></div>
+
+      <h3 style="margin:18px 0 8px;font-size:14px;">Phase Timeline</h3>
+      <ul id="phaseList" class="phase-list"></ul>
+    </aside>
+
+    <main class="main">
+      <div class="card">
+        <div class="topbar">
+          <div>
+            <strong>Live data source</strong>
+            <div class="note" id="sourceStatus">Auto-loading latest run from <code>/ui/copilotkit/current/run-events.json</code></div>
+          </div>
+          <div class="actions">
+            <input id="fileInput" type="file" accept=".json,application/json" style="display:none">
+            <button id="reloadBtn" type="button">Reload latest</button>
+            <button id="openFileBtn" type="button">Choose JSON file</button>
+          </div>
+        </div>
+        <div id="dropZone">Optional fallback: drop a JSON file here</div>
+        <div class="page-links">
+          <strong style="font-size:12px;color:#64748b;">Page links:</strong>
+          <a class="page-link" href="#tab=uiplan">UiPlan</a>
+          <a class="page-link" href="#tab=diagrams">Diagrams</a>
+          <a class="page-link" href="#tab=constraints">Constraints</a>
+          <a class="page-link" href="#tab=tasks">Tasks</a>
+          <a class="page-link" href="#tab=execution">Execution</a>
+          <a class="page-link" href="#tab=resources">Resources</a>
+          <a class="page-link" href="#tab=docs">Docs</a>
+        </div>
+
+        <div class="tabs" id="mainTabs" style="display:none;">
+          <button class="tab-btn active" data-target="uiplanSection">UiPlan</button>
+          <button class="tab-btn" data-target="diagramsSection">Diagrams</button>
+          <button class="tab-btn" data-target="constraintsSection">Constraints</button>
+          <button class="tab-btn" data-target="tasksSection">Tasks</button>
+          <button class="tab-btn" data-target="executionSection">Execution</button>
+          <button class="tab-btn" data-target="resourcesSection">Resources</button>
+          <button class="tab-btn" data-target="docsSection">Docs</button>
+        </div>
+
+        <section id="uiplanSection" class="section active">
+          <div class="subtabs" id="uiPlanTabs"></div>
+          <div id="uiPlanContent" class="content">
+            Load a run file to render UiPlan files.
+          </div>
+        </section>
+
+        <section id="executionSection" class="section">
+          <div id="executionContent" class="content"></div>
+        </section>
+
+        <section id="diagramsSection" class="section">
+          <div id="diagramsContent" class="content"></div>
+        </section>
+
+        <section id="constraintsSection" class="section">
+          <div id="constraintsContent" class="content"></div>
+        </section>
+
+        <section id="tasksSection" class="section">
+          <div id="tasksContent" class="content"></div>
+        </section>
+
+        <section id="resourcesSection" class="section">
+          <div id="resourcesContent" class="content"></div>
+        </section>
+
+        <section id="docsSection" class="section">
+          <div class="subtabs" id="docsTabs"></div>
+          <div id="docsContent" class="content"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+
+    mermaid.initialize({ startOnLoad: false, securityLevel: "loose" });
+
+    let currentData = null;
+    let currentUiPlan = [];
+    let currentDocs = [];
+
+    const runIdEl = document.getElementById("runId");
+    const statusTextEl = document.getElementById("statusText");
+    const statusBadgeEl = document.getElementById("statusBadge");
+    const supervisorModeEl = document.getElementById("supervisorMode");
+    const phaseListEl = document.getElementById("phaseList");
+    const mainTabsEl = document.getElementById("mainTabs");
+    const uiPlanTabsEl = document.getElementById("uiPlanTabs");
+    const uiPlanContentEl = document.getElementById("uiPlanContent");
+    const executionContentEl = document.getElementById("executionContent");
+    const resourcesContentEl = document.getElementById("resourcesContent");
+    const docsTabsEl = document.getElementById("docsTabs");
+    const docsContentEl = document.getElementById("docsContent");
+    const diagramsContentEl = document.getElementById("diagramsContent");
+    const constraintsContentEl = document.getElementById("constraintsContent");
+    const tasksContentEl = document.getElementById("tasksContent");
+    const fileInputEl = document.getElementById("fileInput");
+    const openFileBtn = document.getElementById("openFileBtn");
+    const reloadBtn = document.getElementById("reloadBtn");
+    const dropZoneEl = document.getElementById("dropZone");
+    const sourceStatusEl = document.getElementById("sourceStatus");
+    const AUTO_RUN_PATH = "/ui/copilotkit/current/run-events.json";
+    const TAB_TO_SECTION = {
+      uiplan: "uiplanSection",
+      diagrams: "diagramsSection",
+      constraints: "constraintsSection",
+      tasks: "tasksSection",
+      execution: "executionSection",
+      resources: "resourcesSection",
+      docs: "docsSection",
+    };
+
+    function wrapZoomableDiagram(hostEl) {
+      if (!hostEl || hostEl.dataset.zoomReady === "1") return;
+      const svg = hostEl.querySelector("svg");
+      if (!svg) return;
+
+      hostEl.dataset.zoomReady = "1";
+      const svgMarkup = svg.outerHTML;
+      hostEl.innerHTML = `
+        <div class="diagram-shell">
+          <div class="diagram-toolbar">
+            <span>Zoom: mouse wheel | Pan: drag</span>
+            <div class="diagram-actions">
+              <button type="button" data-zoom="in">+</button>
+              <button type="button" data-zoom="out">-</button>
+              <button type="button" data-zoom="reset">Reset</button>
+              <button type="button" data-zoom="fullscreen">Fullscreen</button>
+            </div>
+          </div>
+          <div class="diagram-viewport">
+            <div class="diagram-canvas">${svgMarkup}</div>
+          </div>
+        </div>
+      `;
+
+      const viewport = hostEl.querySelector(".diagram-viewport");
+      const canvas = hostEl.querySelector(".diagram-canvas");
+      if (!viewport || !canvas) return;
+      const wrappedSvg = canvas.querySelector("svg");
+      if (!wrappedSvg) return;
+
+      wrappedSvg.style.width = "100%";
+      wrappedSvg.style.height = "100%";
+      wrappedSvg.style.display = "block";
+      wrappedSvg.style.shapeRendering = "geometricPrecision";
+
+      const vb = wrappedSvg.viewBox && wrappedSvg.viewBox.baseVal;
+      const baseX = vb ? vb.x : 0;
+      const baseY = vb ? vb.y : 0;
+      const baseW = vb && vb.width ? vb.width : 1000;
+      const baseH = vb && vb.height ? vb.height : 700;
+      let view = { x: baseX, y: baseY, w: baseW, h: baseH };
+      let isPanning = false;
+      let panStartX = 0;
+      let panStartY = 0;
+      let panStartView = { ...view };
+
+      const applyViewBox = () => {
+        wrappedSvg.setAttribute("viewBox", `${view.x} ${view.y} ${view.w} ${view.h}`);
+      };
+      const clampRatio = (next) => Math.max(0.18, Math.min(1.8, next));
+      const bboxOrNull = () => {
+        try {
+          const box = wrappedSvg.getBBox();
+          if (!box || !box.width || !box.height) return null;
+          return box;
+        } catch (error) {
+          return null;
+        }
+      };
+
+      const fitToBounds = () => {
+        const rect = viewport.getBoundingClientRect();
+        if (!rect.width || !rect.height) {
+          view = { x: baseX, y: baseY, w: baseW, h: baseH };
+          applyViewBox();
+          return;
+        }
+        const box = bboxOrNull();
+        if (!box) {
+          view = { x: baseX, y: baseY, w: baseW, h: baseH };
+          applyViewBox();
+          return;
+        }
+
+        const padding = Math.max(10, Math.min(box.width, box.height) * 0.08);
+        const targetX = box.x - padding;
+        const targetY = box.y - padding;
+        let targetW = box.width + padding * 2;
+        let targetH = box.height + padding * 2;
+        const viewportRatio = rect.width / rect.height;
+        const targetRatio = targetW / targetH;
+
+        if (targetRatio > viewportRatio) {
+          const neededH = targetW / viewportRatio;
+          targetY -= (neededH - targetH) / 2;
+          targetH = neededH;
+        } else {
+          const neededW = targetH * viewportRatio;
+          targetW = neededW;
+        }
+
+        view = { x: targetX, y: targetY, w: targetW, h: targetH };
+        applyViewBox();
+      };
+
+      const zoomAt = (factor, originX, originY, rect) => {
+        if (!rect.width || !rect.height) return;
+        const zoomRatio = clampRatio((view.w * factor) / baseW);
+        const nextW = baseW * zoomRatio;
+        const nextH = baseH * zoomRatio;
+        const worldX = view.x + (originX / rect.width) * view.w;
+        const worldY = view.y + (originY / rect.height) * view.h;
+        view = {
+          x: worldX - (originX / rect.width) * nextW,
+          y: worldY - (originY / rect.height) * nextH,
+          w: nextW,
+          h: nextH,
+        };
+        applyViewBox();
+      };
+
+      viewport.addEventListener("wheel", (event) => {
+        event.preventDefault();
+        const rect = viewport.getBoundingClientRect();
+        const originX = event.clientX - rect.left;
+        const originY = event.clientY - rect.top;
+        zoomAt(event.deltaY < 0 ? 0.88 : 1.14, originX, originY, rect);
+      });
+
+      viewport.addEventListener("pointerdown", (event) => {
+        isPanning = true;
+        panStartX = event.clientX;
+        panStartY = event.clientY;
+        panStartView = { ...view };
+        viewport.setPointerCapture(event.pointerId);
+      });
+      viewport.addEventListener("pointermove", (event) => {
+        if (!isPanning) return;
+        const rect = viewport.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        const dx = event.clientX - panStartX;
+        const dy = event.clientY - panStartY;
+        view.x = panStartView.x - (dx * panStartView.w) / rect.width;
+        view.y = panStartView.y - (dy * panStartView.h) / rect.height;
+        applyViewBox();
+      });
+      const endPan = (event) => {
+        isPanning = false;
+        if (event && event.pointerId !== undefined) {
+          try {
+            viewport.releasePointerCapture(event.pointerId);
+          } catch (error) {
+            // No-op: safe fallback when pointer capture was not set.
+          }
+        }
+      };
+      viewport.addEventListener("pointerup", endPan);
+      viewport.addEventListener("pointercancel", endPan);
+      viewport.addEventListener("pointerleave", () => {
+        isPanning = false;
+      });
+
+      hostEl.querySelectorAll("button[data-zoom]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const mode = btn.getAttribute("data-zoom");
+          const rect = viewport.getBoundingClientRect();
+          const centerX = rect.width / 2;
+          const centerY = rect.height / 2;
+          if (mode === "in") zoomAt(0.86, centerX, centerY, rect);
+          if (mode === "out") zoomAt(1.16, centerX, centerY, rect);
+          if (mode === "reset") {
+            fitToBounds();
+          }
+          if (mode === "fullscreen") {
+            const shell = hostEl.querySelector(".diagram-shell");
+            if (!shell) return;
+            if (document.fullscreenElement === shell) {
+              document.exitFullscreen().catch(() => {});
+            } else {
+              shell.requestFullscreen().catch(() => {});
+            }
+          }
+        });
+      });
+
+      fitToBounds();
+      requestAnimationFrame(fitToBounds);
+      document.addEventListener("fullscreenchange", () => {
+        fitToBounds();
+      });
+    }
+
+    function statusColor(status) {
+      const value = String(status || "").toLowerCase();
+      if (value.includes("pass") || value.includes("complete") || value.includes("approv")) return "var(--ok)";
+      if (value.includes("fail") || value.includes("reject") || value.includes("error")) return "var(--fail)";
+      if (value.includes("simulat")) return "var(--warn)";
+      return "var(--info)";
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+    }
+
+    async function renderMarkdownWithMermaid(targetEl, markdownText) {
+      const html = marked.parse(String(markdownText || ""));
+      targetEl.innerHTML = html;
+
+      const mermaidBlocks = Array.from(targetEl.querySelectorAll("pre code.language-mermaid"));
+      for (let i = 0; i < mermaidBlocks.length; i += 1) {
+        const block = mermaidBlocks[i];
+        const source = block.textContent || "";
+        const container = block.closest("pre");
+        const id = `mermaid-${Date.now()}-${i}`;
+        try {
+          const { svg } = await mermaid.render(id, source);
+          if (container) {
+            container.outerHTML = `<div class="mermaid-graph">${svg}</div>`;
+          }
+        } catch (error) {
+          if (container) {
+            container.outerHTML = `<pre>Mermaid render error\n${escapeHtml(String(error))}</pre>`;
+          }
+        }
+      }
+
+      Array.from(targetEl.querySelectorAll(".mermaid-graph")).forEach((node) => {
+        wrapZoomableDiagram(node);
+      });
+    }
+
+    function extractMermaidBlocks(markdownText) {
+      const text = String(markdownText || "");
+      const regex = /```mermaid\s*([\s\S]*?)```/g;
+      const blocks = [];
+      let match = regex.exec(text);
+      while (match) {
+        blocks.push(match[1].trim());
+        match = regex.exec(text);
+      }
+      return blocks;
+    }
+
+    function normalizeInput(data) {
+      if (data && typeof data === "object" && data.handoff && typeof data.handoff === "object") {
+        return data.handoff;
+      }
+      return data;
+    }
+
+    function updateSourceStatus(text) {
+      sourceStatusEl.innerHTML = text;
+    }
+
+    function renderSidebar(data) {
+      runIdEl.textContent = data.runId || "unknown";
+      const status = data.status || data.executionEvidence?.status || data.supervisor?.status || "unknown";
+      statusTextEl.textContent = status;
+      statusBadgeEl.textContent = status;
+      statusBadgeEl.style.background = statusColor(status);
+      supervisorModeEl.textContent = data.supervisor?.mode || "n/a";
+
+      phaseListEl.innerHTML = "";
+      const phases = Array.isArray(data.phaseHistory) ? data.phaseHistory : [];
+      if (!phases.length) {
+        phaseListEl.innerHTML = "<li>No phase data available.</li>";
+        return;
+      }
+
+      for (const event of phases) {
+        const li = document.createElement("li");
+        const dotColor = statusColor(event.status);
+        li.innerHTML = `
+          <div class="phase-head">
+            <span class="dot" style="background:${dotColor};"></span>
+            <span>${escapeHtml(event.phase || "phase")} - ${escapeHtml(event.status || "")}</span>
+          </div>
+          <div>${escapeHtml(event.time || "")}</div>
+          <div class="note">${escapeHtml(event.details || "")}</div>
+        `;
+        phaseListEl.appendChild(li);
+      }
+    }
+
+    async function renderUiPlan(index) {
+      const file = currentUiPlan[index];
+      if (!file) {
+        uiPlanContentEl.innerHTML = "No UiPlan files found in this run.";
+        return;
+      }
+      const content = file.content;
+      if (!content) {
+        uiPlanContentEl.innerHTML = `<div>Content not embedded for <strong>${escapeHtml(file.title || file.name)}</strong> - re-run the orchestrator.</div>`;
+        return;
+      }
+      await renderMarkdownWithMermaid(uiPlanContentEl, content);
+    }
+
+    async function renderAllUiPlan() {
+      if (!currentUiPlan.length) {
+        uiPlanContentEl.innerHTML = "No UiPlan files found in this run.";
+        return;
+      }
+
+      uiPlanContentEl.innerHTML = currentUiPlan.map((file, index) => `
+        <section style="margin-bottom:28px;">
+          <h3 style="margin:0 0 8px;">${escapeHtml(file.title || file.name || `UiPlan ${index + 1}`)}</h3>
+          <div id="uiplan-all-${index}">${file.content ? "Rendering..." : `<div class="note">Content not embedded - re-run orchestrator.</div>`}</div>
+        </section>
+      `).join("");
+
+      for (let i = 0; i < currentUiPlan.length; i += 1) {
+        const file = currentUiPlan[i];
+        if (!file.content) continue;
+        const target = document.getElementById(`uiplan-all-${i}`);
+        if (!target) continue;
+        await renderMarkdownWithMermaid(target, file.content);
+      }
+    }
+
+    function renderUiPlanTabs() {
+      uiPlanTabsEl.innerHTML = "";
+      if (!currentUiPlan.length) {
+        uiPlanContentEl.innerHTML = "No UiPlan files found in this run.";
+        return;
+      }
+      const preferredOrder = ["spec", "plan", "tasks"];
+      currentUiPlan.sort((a, b) => {
+        const ai = preferredOrder.indexOf(String(a.name || "").toLowerCase());
+        const bi = preferredOrder.indexOf(String(b.name || "").toLowerCase());
+        const av = ai === -1 ? 99 : ai;
+        const bv = bi === -1 ? 99 : bi;
+        if (av !== bv) return av - bv;
+        return String(a.title || a.name || "").localeCompare(String(b.title || b.name || ""));
+      });
+
+      const allBtn = document.createElement("button");
+      allBtn.textContent = "All";
+      allBtn.className = "active";
+      allBtn.addEventListener("click", async () => {
+        Array.from(uiPlanTabsEl.querySelectorAll("button")).forEach((b) => b.classList.remove("active"));
+        allBtn.classList.add("active");
+        await renderAllUiPlan();
+      });
+      uiPlanTabsEl.appendChild(allBtn);
+
+      currentUiPlan.forEach((item, idx) => {
+        const btn = document.createElement("button");
+        btn.textContent = item.title || item.name || `UiPlan ${idx + 1}`;
+        btn.className = "";
+        btn.addEventListener("click", async () => {
+          Array.from(uiPlanTabsEl.querySelectorAll("button")).forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          await renderUiPlan(idx);
+        });
+        uiPlanTabsEl.appendChild(btn);
+      });
+      renderAllUiPlan();
+    }
+
+    async function renderDiagramGallery() {
+      const diagrams = [];
+      currentUiPlan.forEach((file) => {
+        const blocks = extractMermaidBlocks(file.content);
+        blocks.forEach((block, index) => {
+          diagrams.push({
+            title: `${file.title || file.name} - Diagram ${index + 1}`,
+            source: block,
+          });
+        });
+      });
+
+      if (!diagrams.length) {
+        diagramsContentEl.innerHTML = "<div class='note'>No Mermaid diagrams found in UiPlan files.</div>";
+        return;
+      }
+
+      diagramsContentEl.innerHTML = `<div class="diagram-grid">${diagrams.map((diagram, index) => `
+        <div class="diagram-card">
+          <div class="diagram-title">${escapeHtml(diagram.title)}</div>
+          <div id="diagram-${index}"></div>
+        </div>
+      `).join("")}</div>`;
+
+      for (let i = 0; i < diagrams.length; i += 1) {
+        const host = document.getElementById(`diagram-${i}`);
+        if (!host) continue;
+        try {
+          const { svg } = await mermaid.render(`diagram-gallery-${Date.now()}-${i}`, diagrams[i].source);
+          host.innerHTML = svg;
+          wrapZoomableDiagram(host);
+        } catch (error) {
+          host.innerHTML = `<pre>Mermaid render error\n${escapeHtml(String(error))}</pre>`;
+        }
+      }
+    }
+
+    function collectConstraintSignals(data) {
+      const briefConstraints = Array.isArray(data?.brief?.constraints) ? data.brief.constraints : [];
+      const runtimePolicies = [
+        `maxBuildIterations: ${escapeHtml(data?.loopBudgets?.maxBuildIterations ?? "n/a")}`,
+        `maxDeployIterations: ${escapeHtml(data?.loopBudgets?.maxDeployIterations ?? "n/a")}`,
+        "Escalation required when loop budget is exhausted",
+      ];
+      const docsText = [...currentUiPlan, ...currentDocs]
+        .map((doc) => String(doc.content || ""))
+        .join("\n");
+
+      const lines = docsText.split("\n").map((line) => line.trim()).filter(Boolean);
+      const guardrailPatterns = [/must/i, /never/i, /do not/i, /required/i, /approval/i];
+      const extractedGuardrails = [];
+      for (const line of lines) {
+        if (line.length < 20 || line.length > 220) continue;
+        if (!guardrailPatterns.some((pattern) => pattern.test(line))) continue;
+        const normalized = line.replace(/^[-*]\s*/, "").replace(/\s+/g, " ").trim();
+        if (!extractedGuardrails.includes(normalized)) {
+          extractedGuardrails.push(normalized);
+        }
+        if (extractedGuardrails.length >= 20) break;
+      }
+
+      const inferredCodeConstraints = [
+        "Keep changes aligned with UiPlan spec/plan/tasks contracts.",
+        "Preserve workflow and call-chain integrity across generated surfaces.",
+        "Require analyze/test gates before packaging handoff.",
+        "Treat unresolved clarification items as blockers, not assumptions.",
+      ];
+
+      return {
+        briefConstraints,
+        runtimePolicies,
+        extractedGuardrails,
+        inferredCodeConstraints,
+      };
+    }
+
+    function renderConstraints(data) {
+      const graph = data?.constraintsGraph;
+      const signals = collectConstraintSignals(data);
+      const toList = (items, emptyText, options = {}) =>
+        items.length
+          ? `<ul class="constraint-list">${items.map((item) => `<li>${options.allowHtml ? String(item) : escapeHtml(item)}</li>`).join("")}</ul>`
+          : `<div class="note">${escapeHtml(emptyText)}</div>`;
+
+      if (!graph || !graph.mermaid) {
+        constraintsContentEl.innerHTML = `
+          <div class="constraint-grid">
+            <div class="constraint-card">
+              <h4>Brief Constraints</h4>
+              ${toList(signals.briefConstraints, "No explicit brief constraints found.")}
+            </div>
+            <div class="constraint-card">
+              <h4>Runtime Policies</h4>
+              ${toList(signals.runtimePolicies, "No runtime policies found.")}
+            </div>
+            <div class="constraint-card">
+              <h4>Guardrails From UiPlan Docs</h4>
+              ${toList(signals.extractedGuardrails, "No guardrail statements extracted yet.")}
+            </div>
+            <div class="constraint-card">
+              <h4>Code Constraints (Copilot Guidance)</h4>
+              ${toList(signals.inferredCodeConstraints, "No inferred code constraints yet.")}
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      const severity = graph.severityCounts || {};
+      const topFiles = Array.isArray(graph.topFiles) ? graph.topFiles : [];
+      const connections = Array.isArray(graph.connections) ? graph.connections : [];
+      const dependencies = Array.isArray(graph.dependencies) ? graph.dependencies : [];
+      const dependencyIndex = graph.dependencyIndex && typeof graph.dependencyIndex === "object" ? graph.dependencyIndex : {};
+      const skillConstraints = Array.isArray(graph.skillConstraints) ? graph.skillConstraints : [];
+      const selectedSkills = Array.isArray(graph.selectedSkills) ? graph.selectedSkills : [];
+      const folderConstraints = Array.isArray(graph.constraints) ? graph.constraints : [];
+      const sourceCounts = graph.sourceCounts || {
+        folder: folderConstraints.length,
+        skill: skillConstraints.length,
+      };
+      const allConstraints = [...folderConstraints, ...skillConstraints];
+      const violations = allConstraints.filter((item) => item && item.violation).slice(0, 12);
+      const totalConstraints = allConstraints.length;
+      const highCount = Number(severity.high ?? 0);
+      const mediumCount = Number(severity.medium ?? 0);
+      const lowCount = Number(severity.low ?? 0);
+      const safePercent = (count) => {
+        if (!totalConstraints) return 0;
+        return Math.round((count / totalConstraints) * 100);
+      };
+
+      constraintsContentEl.innerHTML = `
+        <div class="constraint-summary">
+          <div class="constraint-stat">
+            <div class="label">Target Folder</div>
+            <div class="value" style="font-size:13px;">${escapeHtml(graph.targetFolder || "n/a")}</div>
+          </div>
+          <div class="constraint-stat">
+            <div class="label">High Severity</div>
+            <div class="value" style="color:#dc2626;">${escapeHtml(severity.high ?? 0)}</div>
+          </div>
+          <div class="constraint-stat">
+            <div class="label">Medium Severity</div>
+            <div class="value" style="color:#d97706;">${escapeHtml(severity.medium ?? 0)}</div>
+          </div>
+          <div class="constraint-stat">
+            <div class="label">Violations</div>
+            <div class="value" style="color:#b91c1c;">${escapeHtml(graph.violationsCount ?? 0)}</div>
+          </div>
+          <div class="constraint-stat">
+            <div class="label">Skills Leveraged</div>
+            <div class="value" style="font-size:12px;">${escapeHtml(selectedSkills.join(", ") || "none")}</div>
+          </div>
+          <div class="constraint-stat">
+            <div class="label">By Source</div>
+            <div class="value" style="font-size:12px;">
+              <span class="constraint-pill source-folder">Folder ${escapeHtml(sourceCounts.folder ?? 0)}</span>
+              <span class="constraint-pill source-skill">Skill ${escapeHtml(sourceCounts.skill ?? 0)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="constraint-card" style="margin-bottom:12px;">
+          <h4>Severity Distribution</h4>
+          <div class="severity-bars">
+            <div class="severity-row">
+              <span>High</span>
+              <div class="severity-track"><div class="severity-fill severity-high" style="width:${safePercent(highCount)}%;"></div></div>
+              <span>${escapeHtml(highCount)}</span>
+            </div>
+            <div class="severity-row">
+              <span>Medium</span>
+              <div class="severity-track"><div class="severity-fill severity-medium" style="width:${safePercent(mediumCount)}%;"></div></div>
+              <span>${escapeHtml(mediumCount)}</span>
+            </div>
+            <div class="severity-row">
+              <span>Low</span>
+              <div class="severity-track"><div class="severity-fill severity-low" style="width:${safePercent(lowCount)}%;"></div></div>
+              <span>${escapeHtml(lowCount)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="constraint-grid">
+          <div class="constraint-card" style="grid-column:1 / span 2;">
+            <h4>Code Constraints Graph (folder -> file -> rule)</h4>
+            <div id="constraintsGraphRender">Rendering graph...</div>
+          </div>
+          <div class="constraint-card" style="grid-column:1 / span 2;">
+            <h4>Workflow Drill-down</h4>
+            <div class="drilldown-panel">
+              <div class="drilldown-head">
+                <label for="workflowDrilldownSelect"><strong>Select workflow/file</strong></label>
+                <select id="workflowDrilldownSelect"></select>
+              </div>
+              <div id="workflowDrilldownContent" class="note">Loading dependency details...</div>
+            </div>
+          </div>
+          <div class="constraint-card">
+            <h4>Code Connections (sample)</h4>
+            ${toList(
+              connections.slice(0, 14).map((item) => {
+                const relation = String(item.relation || "calls");
+                const source = String(item.source || "unknown");
+                const target = String(item.target || "unknown");
+                return `${source} --${relation}--> ${target}`;
+              }),
+              "No connection edges detected."
+            )}
+          </div>
+          <div class="constraint-card">
+            <h4>Top Files (constraint density)</h4>
+            ${toList(topFiles.map((item) => `${item.path} (${item.constraintCount})`), "No file-level constraint data.")}
+          </div>
+          <div class="constraint-card">
+            <h4>Skill Critical Rules</h4>
+            ${toList(
+              skillConstraints.slice(0, 14).map(
+                (item) =>
+                  `<span class="constraint-pill source-skill">skill</span>${escapeHtml(item.skill || "unknown")}: ${escapeHtml(item.text || "")}`
+              ),
+              "No skill-derived constraints loaded.",
+              { allowHtml: true }
+            )}
+          </div>
+          <div class="constraint-card">
+            <h4>Violations (detected)</h4>
+            ${toList(
+              violations.map((item) => {
+                const sev = String(item.severity || "low").toUpperCase();
+                const src = String(item.source || "folder").toLowerCase() === "skill" ? "skill" : "folder";
+                const srcClass = src === "skill" ? "source-skill" : "source-folder";
+                return `<span class="constraint-pill ${srcClass}">${src}</span>[${sev}] ${escapeHtml(item.file || "unknown")}:${escapeHtml(item.line || "n/a")} - ${escapeHtml(item.text || "")}`;
+              }),
+              "No violation markers detected.",
+              { allowHtml: true }
+            )}
+          </div>
+          <div class="constraint-card" style="grid-column:1 / span 2;">
+            <h4>Codebase Constraints Doc</h4>
+            <div id="constraintsDocRender">Rendering doc...</div>
+          </div>
+        </div>
+      `;
+
+      const graphHost = document.getElementById("constraintsGraphRender");
+      if (graphHost) {
+        mermaid.render(`constraints-graph-${Date.now()}`, String(graph.mermaid))
+          .then(({ svg }) => {
+            graphHost.innerHTML = svg;
+            wrapZoomableDiagram(graphHost);
+          })
+          .catch((error) => {
+            graphHost.innerHTML = `<pre>Mermaid render error\n${escapeHtml(String(error))}</pre>`;
+          });
+      }
+
+      const docHost = document.getElementById("constraintsDocRender");
+      if (docHost) {
+        renderMarkdownWithMermaid(docHost, String(graph.codebaseDoc || "No codebase doc available."));
+      }
+
+      const workflowSelect = document.getElementById("workflowDrilldownSelect");
+      const workflowContent = document.getElementById("workflowDrilldownContent");
+      if (workflowSelect && workflowContent) {
+        const workflowCandidates = Array.from(
+          new Set(
+            dependencies.flatMap((edge) => [String(edge.source || ""), String(edge.target || "")])
+              .filter((name) => name.toLowerCase().endsWith(".xaml"))
+          )
+        ).sort((a, b) => a.localeCompare(b));
+
+        const shortName = (value) => (value.length > 110 ? `...${value.slice(-107)}` : value);
+        if (!workflowCandidates.length) {
+          workflowSelect.innerHTML = `<option>No workflow dependencies found</option>`;
+          workflowContent.innerHTML = `<div class="note">No .xaml dependency edges were detected in this dataset.</div>`;
+        } else {
+          workflowSelect.innerHTML = workflowCandidates
+            .map((name, idx) => `<option value="${idx}">${escapeHtml(shortName(name))}</option>`)
+            .join("");
+
+          const renderDrilldown = () => {
+            const selectedIndex = Number(workflowSelect.value || 0);
+            const selected = workflowCandidates[selectedIndex] || workflowCandidates[0] || "";
+            const row = dependencyIndex[selected] || {};
+            const outgoing = Array.isArray(row.outgoing) ? row.outgoing : [];
+            const incoming = Array.isArray(row.incoming) ? row.incoming : [];
+            const outgoingRows = outgoing.length
+              ? outgoing
+                  .slice(0, 14)
+                  .map((edge) => `<li>${escapeHtml(edge.source)} --${escapeHtml(edge.relation || "depends-on")}--> ${escapeHtml(edge.target)}</li>`)
+                  .join("")
+              : "<li>No outgoing dependencies</li>";
+            const incomingRows = incoming.length
+              ? incoming
+                  .slice(0, 14)
+                  .map((edge) => `<li>${escapeHtml(edge.source)} --${escapeHtml(edge.relation || "depends-on")}--> ${escapeHtml(edge.target)}</li>`)
+                  .join("")
+              : "<li>No incoming dependencies</li>";
+
+            workflowContent.innerHTML = `
+              <div class="constraint-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
+                <div class="constraint-card">
+                  <h4>Outgoing</h4>
+                  <ul class="constraint-list">${outgoingRows}</ul>
+                </div>
+                <div class="constraint-card">
+                  <h4>Incoming</h4>
+                  <ul class="constraint-list">${incomingRows}</ul>
+                </div>
+              </div>
+            `;
+          };
+
+          workflowSelect.addEventListener("change", renderDrilldown);
+          renderDrilldown();
+        }
+      }
+    }
+
+    async function renderDoc(index) {
+      const file = currentDocs[index];
+      if (!file) {
+        docsContentEl.innerHTML = "No human docs found.";
+        return;
+      }
+      const content = file.content;
+      if (!content) {
+        docsContentEl.innerHTML = `<div>Content not embedded for <strong>${escapeHtml(file.title || file.name)}</strong> - re-run the orchestrator.</div>`;
+        return;
+      }
+      await renderMarkdownWithMermaid(docsContentEl, content);
+    }
+
+    function renderDocsTabs() {
+      docsTabsEl.innerHTML = "";
+      if (!currentDocs.length) {
+        docsContentEl.innerHTML = "No human docs found.";
+        return;
+      }
+      currentDocs.forEach((item, idx) => {
+        const btn = document.createElement("button");
+        btn.textContent = item.title || item.name || `Doc ${idx + 1}`;
+        btn.className = idx === 0 ? "active" : "";
+        btn.addEventListener("click", async () => {
+          Array.from(docsTabsEl.querySelectorAll("button")).forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          await renderDoc(idx);
+        });
+        docsTabsEl.appendChild(btn);
+      });
+      renderDoc(0);
+    }
+
+    function renderExecution(data) {
+      const buildRows = Array.isArray(data.buildIterations) ? data.buildIterations : [];
+      const deployRows = Array.isArray(data.deployIterations) ? data.deployIterations : [];
+      const hitlRows = Array.isArray(data.hitlDecisions) ? data.hitlDecisions : [];
+
+      const buildHtml = buildRows.length
+        ? `<table class="table">
+            <thead><tr><th>Iteration</th><th>Analyze</th><th>Test</th><th>Time</th></tr></thead>
+            <tbody>${buildRows.map((row) => `
+              <tr>
+                <td>${escapeHtml(row.iteration)}</td>
+                <td><span style="color:${statusColor(row.analyzeStatus)}">${escapeHtml(row.analyzeStatus)}</span></td>
+                <td><span style="color:${statusColor(row.testStatus)}">${escapeHtml(row.testStatus)}</span></td>
+                <td>${escapeHtml(row.time)}</td>
+              </tr>
+            `).join("")}</tbody>
+          </table>`
+        : "<div class='note'>No build iteration data.</div>";
+
+      const deployHtml = deployRows.length
+        ? `<table class="table">
+            <thead><tr><th>Iteration</th><th>Status</th><th>Output</th><th>Time</th></tr></thead>
+            <tbody>${deployRows.map((row) => `
+              <tr>
+                <td>${escapeHtml(row.iteration)}</td>
+                <td><span style="color:${statusColor(row.status)}">${escapeHtml(row.status)}</span></td>
+                <td>${escapeHtml(row.output)}</td>
+                <td>${escapeHtml(row.time)}</td>
+              </tr>
+            `).join("")}</tbody>
+          </table>`
+        : "<div class='note'>No deploy iteration data.</div>";
+
+      const hitlHtml = hitlRows.length
+        ? `<table class="table">
+            <thead><tr><th>Phase</th><th>Decision</th><th>Note</th><th>Time</th></tr></thead>
+            <tbody>${hitlRows.map((row) => `
+              <tr>
+                <td>${escapeHtml(row.phase)}</td>
+                <td><span style="color:${statusColor(row.approved ? "approved" : "rejected")}">${row.approved ? "approved" : "rejected"}</span></td>
+                <td>${escapeHtml(row.note)}</td>
+                <td>${escapeHtml(row.time)}</td>
+              </tr>
+            `).join("")}</tbody>
+          </table>`
+        : "<div class='note'>No HITL decisions found.</div>";
+
+      executionContentEl.innerHTML = `
+        <h3>Build Iterations</h3>${buildHtml}
+        <h3>Deploy Iterations</h3>${deployHtml}
+        <h3>HITL Decisions</h3>${hitlHtml}
+      `;
+    }
+
+    function renderTasks(data) {
+      const parseTasksFromUiPlan = () => {
+        const tasksDoc = currentUiPlan.find((doc) => String(doc.name || "").toLowerCase() === "tasks");
+        if (!tasksDoc || !tasksDoc.content) return null;
+
+        const lines = String(tasksDoc.content).split("\n");
+        const parsed = [];
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("|")) continue;
+          if (trimmed.includes("---")) continue;
+          const cols = trimmed.split("|").map((part) => part.trim()).filter(Boolean);
+          if (cols.length < 3) continue;
+          if (cols[0].toLowerCase().includes("task id")) continue;
+          parsed.push({
+            id: cols[0],
+            title: cols[1],
+            status: cols[2].toLowerCase(),
+            owner: cols[3] || "",
+          });
+        }
+        return parsed.length ? parsed : null;
+      };
+
+      const parsedTasks = parseTasksFromUiPlan();
+      if (parsedTasks) {
+        const grouped = {
+          planned: [],
+          inProgress: [],
+          done: [],
+          blocked: [],
+        };
+        parsedTasks.forEach((task) => {
+          const status = task.status;
+          const card = `${task.id} - ${task.title}${task.owner ? ` (${task.owner})` : ""}`;
+          if (status.includes("block") || status.includes("fail")) {
+            grouped.blocked.push(card);
+          } else if (status.includes("progress") || status.includes("doing") || status.includes("active")) {
+            grouped.inProgress.push(card);
+          } else if (status.includes("done") || status.includes("complete")) {
+            grouped.done.push(card);
+          } else {
+            grouped.planned.push(card);
+          }
+        });
+
+        const buildCards = (items, emptyText) =>
+          items.length
+            ? items.map((item) => `<div class="kanban-item">${escapeHtml(item)}</div>`).join("")
+            : `<div class="note">${escapeHtml(emptyText)}</div>`;
+
+        tasksContentEl.innerHTML = `
+          <div class="kanban">
+            <div class="kanban-col">
+              <h4>Planned</h4>
+              ${buildCards(grouped.planned, "No planned tasks")}
+            </div>
+            <div class="kanban-col">
+              <h4>In Progress</h4>
+              ${buildCards(grouped.inProgress, "No in-progress tasks")}
+            </div>
+            <div class="kanban-col">
+              <h4>Done</h4>
+              ${buildCards(grouped.done, "No completed tasks")}
+            </div>
+            <div class="kanban-col">
+              <h4>Blocked</h4>
+              ${buildCards(grouped.blocked, "No blocked tasks")}
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      const phaseEvents = Array.isArray(data.phaseHistory) ? data.phaseHistory : [];
+      const uniquePhases = [...new Set(phaseEvents.map((event) => String(event.phase || "").trim()).filter(Boolean))];
+      const completed = new Set(
+        phaseEvents
+          .filter((event) => String(event.status || "").toLowerCase().includes("complete"))
+          .map((event) => String(event.phase || "").trim()),
+      );
+      const failed = new Set(
+        phaseEvents
+          .filter((event) => String(event.status || "").toLowerCase().includes("fail"))
+          .map((event) => String(event.phase || "").trim()),
+      );
+      const started = new Set(
+        phaseEvents
+          .filter((event) => String(event.status || "").toLowerCase().includes("start"))
+          .map((event) => String(event.phase || "").trim()),
+      );
+
+      const plannedItems = uniquePhases.filter((phase) => !started.has(phase) && !completed.has(phase) && !failed.has(phase));
+      const inProgressItems = uniquePhases.filter((phase) => started.has(phase) && !completed.has(phase) && !failed.has(phase));
+      const doneItems = uniquePhases.filter((phase) => completed.has(phase));
+      const blockedItems = [
+        ...uniquePhases.filter((phase) => failed.has(phase)),
+        ...(data.escalation && Object.keys(data.escalation).length ? ["escalation"] : []),
+      ];
+
+      const buildCards = (items, emptyText) =>
+        items.length
+          ? items.map((item) => `<div class="kanban-item">${escapeHtml(item)}</div>`).join("")
+          : `<div class="note">${escapeHtml(emptyText)}</div>`;
+
+      tasksContentEl.innerHTML = `
+        <div class="kanban">
+          <div class="kanban-col">
+            <h4>Planned</h4>
+            ${buildCards(plannedItems, "No pending phases")}
+          </div>
+          <div class="kanban-col">
+            <h4>In Progress</h4>
+            ${buildCards(inProgressItems, "No active phases")}
+          </div>
+          <div class="kanban-col">
+            <h4>Done</h4>
+            ${buildCards(doneItems, "No completed phases")}
+          </div>
+          <div class="kanban-col">
+            <h4>Blocked</h4>
+            ${buildCards(blockedItems, "No blocked items")}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderResources(data) {
+      const items = Array.isArray(data.provisionedResources) ? data.provisionedResources : [];
+      if (!items.length) {
+        resourcesContentEl.innerHTML = "<div class='note'>No provisioned resources found.</div>";
+        return;
+      }
+      resourcesContentEl.innerHTML = `
+        <table class="table">
+          <thead><tr><th>Type</th><th>Name</th><th>Status</th><th>ID</th><th>Details</th></tr></thead>
+          <tbody>${items.map((row) => `
+            <tr>
+              <td>${escapeHtml(row.resourceType)}</td>
+              <td>${escapeHtml(row.name)}</td>
+              <td><span style="color:${statusColor(row.status)}">${escapeHtml(row.status)}</span></td>
+              <td>${escapeHtml(row.resourceId)}</td>
+              <td>${escapeHtml(row.details)}</td>
+            </tr>
+          `).join("")}</tbody>
+        </table>
+      `;
+    }
+
+    function activateMainTab(sectionId, updateHash = true) {
+      const buttons = Array.from(document.querySelectorAll(".tab-btn"));
+      const sections = Array.from(document.querySelectorAll(".section"));
+      let activeButton = null;
+      buttons.forEach((btn) => {
+        if (btn.dataset.target === sectionId) {
+          activeButton = btn;
+        }
+      });
+      if (!activeButton) return;
+
+      buttons.forEach((b) => b.classList.remove("active"));
+      activeButton.classList.add("active");
+      sections.forEach((section) => section.classList.remove("active"));
+      const target = document.getElementById(sectionId);
+      if (target) target.classList.add("active");
+
+      if (updateHash) {
+        const entry = Object.entries(TAB_TO_SECTION).find(([, value]) => value === sectionId);
+        if (entry) {
+          const [tabKey] = entry;
+          if (window.location.hash !== `#tab=${tabKey}`) {
+            window.location.hash = `tab=${tabKey}`;
+          }
+        }
+      }
+    }
+
+    function applyHashRoute() {
+      const hash = String(window.location.hash || "").replace(/^#/, "");
+      if (!hash) return;
+      const params = new URLSearchParams(hash.includes("=") ? hash : `tab=${hash}`);
+      const tab = String(params.get("tab") || "").toLowerCase();
+      const sectionId = TAB_TO_SECTION[tab];
+      if (sectionId) {
+        activateMainTab(sectionId, false);
+      }
+    }
+
+    function setupMainTabs() {
+      const buttons = Array.from(document.querySelectorAll(".tab-btn"));
+      buttons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          activateMainTab(btn.dataset.target, true);
+        });
+      });
+      window.addEventListener("hashchange", applyHashRoute);
+      applyHashRoute();
+    }
+
+    async function renderData(rawData) {
+      const data = normalizeInput(rawData);
+      currentData = data;
+      mainTabsEl.style.display = "flex";
+      renderSidebar(data);
+
+      currentUiPlan = Array.isArray(data.uiPlanFiles) && data.uiPlanFiles.length
+        ? data.uiPlanFiles
+        : (Array.isArray(data.generatedDocuments) ? data.generatedDocuments : []);
+      currentDocs = Array.isArray(data.humanDocs) && data.humanDocs.length
+        ? data.humanDocs
+        : (Array.isArray(data.generatedDocuments) ? data.generatedDocuments : []);
+
+      renderUiPlanTabs();
+      await renderDiagramGallery();
+      renderConstraints(data);
+      renderTasks(data);
+      renderExecution(data);
+      renderResources(data);
+      renderDocsTabs();
+      applyHashRoute();
+    }
+
+    async function autoLoadLatest() {
+      try {
+        const response = await fetch(AUTO_RUN_PATH, { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        await renderData(data);
+        updateSourceStatus(`Auto-loaded latest run from <code>${AUTO_RUN_PATH}</code>`);
+      } catch (error) {
+        updateSourceStatus(`Auto-load failed (<code>${escapeHtml(String(error))}</code>). Use Reload latest or optional file upload.`);
+      }
+    }
+
+    async function handleFile(file) {
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const json = JSON.parse(text);
+        await renderData(json);
+      } catch (error) {
+        alert(`Failed to parse JSON file: ${error}`);
+      }
+    }
+
+    openFileBtn.addEventListener("click", () => fileInputEl.click());
+    reloadBtn.addEventListener("click", async () => autoLoadLatest());
+    fileInputEl.addEventListener("change", async (event) => {
+      const file = event.target.files && event.target.files[0];
+      await handleFile(file);
+      fileInputEl.value = "";
+    });
+
+    ["dragenter", "dragover"].forEach((type) => {
+      dropZoneEl.addEventListener(type, (event) => {
+        event.preventDefault();
+        dropZoneEl.classList.add("dragover");
+      });
+    });
+    ["dragleave", "drop"].forEach((type) => {
+      dropZoneEl.addEventListener(type, (event) => {
+        event.preventDefault();
+        dropZoneEl.classList.remove("dragover");
+      });
+    });
+    dropZoneEl.addEventListener("drop", async (event) => {
+      const file = event.dataTransfer?.files?.[0];
+      await handleFile(file);
+    });
+
+    setupMainTabs();
+    autoLoadLatest();
+  </script>
+</body>
+</html>
