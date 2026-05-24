@@ -1,0 +1,27 @@
+{
+    "timestamp":  "2026-05-24T14:07:47.6798982+03:00",
+    "root":  "C:/Users/DanielaRosenstein/projects/uipath-builder-agent-fresh-rebuild",
+    "targeted":  [
+                     "MaestroFlowsSolution",
+                     "StudioWebFlowsSolution",
+                     "agents/builder-orchestrator/out",
+                     "out",
+                     "output",
+                     "generated",
+                     "examples/01-orchestrator-queue-processor",
+                     "examples/02-reframework-from-brief",
+                     "examples/03-auto-fix-validator",
+                     "examples/04-publish-confluence",
+                     "examples/uiplan-demo",
+                     "test-results",
+                     "flows",
+                     "ops",
+                     "solution",
+                     "workflows",
+                     "scaffold",
+                     "test-harness"
+                 ],
+    "removed":  [
+
+                ]
+}

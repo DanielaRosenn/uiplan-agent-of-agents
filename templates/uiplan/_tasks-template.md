@@ -126,6 +126,19 @@ provisioned and verified before deployment smoke tests. See
 | _IntakeQueue_ | Queue | _Shared/Dev_ | `uip or queues create --name IntakeQueue --folder-id <id> --output json` | `uip or queues list --filter "name eq 'IntakeQueue'" --output json` | `out/queue-create.json`, `out/queue-verify.json` | `T0xx` | _stores intake items_ |
 | _LLMApiKey_ | Asset (text secret) | _Shared/Dev_ | `[HANDOFF:Secrets]` | `uip or assets list --filter "name eq 'LLMApiKey'" --output json` | `out/asset-verify.json` | `T0xx` | _secret credential_ |
 
+## UiPlan loop budget and HITL checklist (required for builder runs)
+
+Every UiPlan execution task set must include explicit control tasks and evidence.
+
+| Control area | Required task type | Evidence output |
+| --- | --- | --- |
+| Intake gate | human approval/rejection capture | `out/hitl/intake-decision.json` |
+| Plan gate | human approval/rejection capture | `out/hitl/plan-decision.json` |
+| Build loop cap | iteration budget and retry policy task | `out/build-iterations.json` |
+| Deploy/test loop cap | iteration budget and retry policy task | `out/deploy-iterations.json` |
+| Escalation packet | budget-exhausted handoff task | `out/escalation.json` |
+| CopilotKit event feed | event export/validation task | `out/ui/run-events.json` |
+
 ## Activity evidence checklist (required for RPA/XAML tasks)
 
 Every non-trivial activity (beyond basic `Sequence`, `Flowchart`, `If`, `Assign`,

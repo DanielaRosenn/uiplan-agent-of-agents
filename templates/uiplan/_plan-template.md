@@ -422,6 +422,21 @@ Per project, the exact commands the Solution Engineer runs in the build loop.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | _Process.Dispatcher_ | `uipcli package restore` | `uip rpa get-errors`, `uip rpa build` | `uipcli package analyze --resultPath out/dispatcher-analyze.json` | `uipcli test run -a <key> .` | `uipcli package pack` | `uipcli package deploy --folder Shared/Dev` | `uip or jobs start --process-key <key> ...`, `uip or jobs logs --job-id <id>` | `uipcli test run` results + AC mapping |
 
+## Supervisor run-state contract (required for UiPlan builder runs)
+
+Record the runtime control envelope that governs loop behavior and HITL gates.
+
+| Field | Source | Required value/evidence |
+| --- | --- | --- |
+| `runId` | intake payload | stable slug + timestamp |
+| `loopBudgets.maxBuildIterations` | plan decision | integer cap + rationale |
+| `loopBudgets.maxDeployIterations` | plan decision | integer cap + rationale |
+| `hitlDecisions[]` | phase gates | intake/plan/build/deploy approvals |
+| `buildIterations[]` | build loop | per iteration analyze/test outcome |
+| `deployIterations[]` | deploy/test loop | per iteration run/observe outcome |
+| `escalation` | supervisor | reason + packet path when budgets exhaust |
+| `uiEventsPath` | runtime output | JSON feed consumed by CopilotKit layer |
+
 ## Skill and Subagent Routing
 
 Map every project x phase to the owning capability. Each row also informs

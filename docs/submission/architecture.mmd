@@ -1,0 +1,15 @@
+flowchart LR
+  briefInput[BusinessBrief JSON] --> assignAgents[assign_agents]
+  assignAgents --> designDocs[generate_design_docs]
+  designDocs --> artifacts[generate_uipath_artifacts]
+  artifacts --> provision[provision_resources]
+  provision --> execute[execute_flow]
+  execute --> uiEvents[emit_ui_events]
+  uiEvents --> handoff[summarize_handoff]
+
+  designDocs --> uiplanFiles[spec.md plan.md tasks.md]
+  designDocs --> designPack[PDD.md SDD.md ADD.md]
+  artifacts --> flowFiles[generated-flow.json run-flow.ps1]
+  provision --> resourceEvidence[queue asset command logs]
+  execute --> execEvidence[execution-evidence.json flow-run-output.log]
+  uiEvents --> viewer[ui/copilotkit/current/run-events.json]

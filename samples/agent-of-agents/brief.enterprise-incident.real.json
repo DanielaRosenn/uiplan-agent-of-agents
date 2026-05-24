@@ -1,0 +1,39 @@
+{
+  "projectName": "EnterpriseIncidentAgentBuilder",
+  "domain": "incident-response",
+  "objective": "Generate design docs and build assets, then provision UiPath resources and produce execution evidence.",
+  "systems": [
+    "ServiceNow",
+    "PagerDuty",
+    "Orchestrator"
+  ],
+  "constraints": [
+    "No production deployment from assistant session",
+    "Human approval before production remediation"
+  ],
+  "stakeholders": [
+    "Incident Commander",
+    "Automation Lead",
+    "Security Operations"
+  ],
+  "successCriteria": [
+    "PDD/SDD/ADD generated",
+    "Queue and asset provisioning attempted via CLI",
+    "Execution evidence bundle written"
+  ],
+  "queueName": "Q_AGENT_OF_AGENTS_WORK",
+  "assetName": "ASSET_AGENT_OF_AGENTS_POLICY",
+  "dryRun": false,
+  "maxBuildIterations": 5,
+  "maxDeployIterations": 3,
+  "queueProvisionCommand": "uip resource queues list --folder-path \"Shared\" --output json",
+  "assetProvisionCommand": "uip resource assets list --folder-path \"Shared\" --name \"ASSET_AGENT_OF_AGENTS_POLICY\" --output json",
+  "flowRunCommand": "uip or jobs list --folder-path \"Shared\" --output json",
+  "constraintsFolder": "agents/builder-orchestrator",
+  "constraintSkills": [
+    "uipath-troubleshoot",
+    "uipath-platform",
+    "uipath-rpa",
+    "uipath-test"
+  ]
+}

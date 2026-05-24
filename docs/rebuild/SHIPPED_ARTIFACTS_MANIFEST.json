@@ -1,0 +1,50 @@
+{
+  "name": "uiplan-rebuild-shipped-artifacts",
+  "generatedAt": "2026-05-24T15:49:30+03:00",
+  "sourceRepo": "C:/Users/DanielaRosenstein/projects/uipath-builder-agent",
+  "coreArtifacts": [
+    "agents/builder-orchestrator/main.py",
+    "agents/builder-orchestrator/tests/test_orchestrator.py",
+    "agents/shared/agent_contracts.py",
+    "agents/shared/tests/test_contracts.py",
+    "templates/uiplan/_plan-template.md",
+    "templates/uiplan/_tasks-template.md",
+    "ui/copilotkit/runtimeAdapter.ts",
+    "ui/copilotkit/run-events.schema.json",
+    "ui/copilotkit/README.md",
+    "scripts/export_agenthack_repo.py",
+    "samples/agent-of-agents/brief.enterprise-incident.json",
+    "examples/agent-of-agents-e2e/README.md",
+    "examples/agent-of-agents-e2e/run_local.py",
+    "examples/05-agenthack-enterprise-intake/README.md"
+  ],
+  "submissionDocs": [
+    "docs/rebuild/CORE_KEEP_ALLOWLIST.md",
+    "docs/rebuild/SKILLS_PHASE_MAP.md",
+    "docs/rebuild/SKILLS_SYNC_PROOF.md",
+    "docs/rebuild/TEMPLATE_CONTRACT_DIFF_SUMMARY.md",
+    "docs/rebuild/ORCHESTRATION_LOOP_TEST_OUTPUTS.md",
+    "docs/rebuild/COPILOTKIT_ADAPTER_VALIDATION.md",
+    "docs/rebuild/VERIFICATION_BUNDLE_INDEX.md",
+    "docs/rebuild/DUAL_REPO_STRATEGY.md",
+    "docs/rebuild/SHIPPED_ARTIFACTS_MANIFEST.json",
+    "docs/rebuild/FINAL_ACCEPTANCE_REPORT.md",
+    "docs/rebuild/NON_PROD_DEPLOYMENT_EVIDENCE.md",
+    "docs/rebuild/UIPLAN_AGENT_OF_AGENTS_REEVALUATION_ADR.md",
+    "docs/rebuild/COPILOT_VISUALS_WALKTHROUGH.md",
+    "docs/rebuild/UIPLAN_SHOWCASE.md"
+  ],
+  "runEvidence": [
+    "agents/builder-orchestrator/out/enterpriseincidentagentbuilder-20260524124819/docs/PDD.md",
+    "agents/builder-orchestrator/out/enterpriseincidentagentbuilder-20260524124819/docs/SDD.md",
+    "agents/builder-orchestrator/out/enterpriseincidentagentbuilder-20260524124819/docs/ADD.md",
+    "agents/builder-orchestrator/out/enterpriseincidentagentbuilder-20260524124819/evidence/execution-evidence.json",
+    "agents/builder-orchestrator/out/enterpriseincidentagentbuilder-20260524124819/evidence/simulated-run-output.json",
+    "agents/builder-orchestrator/out/enterpriseincidentagentbuilder-20260524124819/ui/run-events.json",
+    "agents/builder-orchestrator/out/enterpriseincidentagentbuilder-20260524124819/handoff.json"
+  ],
+  "notes": [
+    "Copilot visuals walkthrough and UiPlan showcase files are generated in the finalization pass.",
+    "AgentHack MP4/SRT are shipped from downstream repo submission package."
+  ]
+}

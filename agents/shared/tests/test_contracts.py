@@ -7,72 +7,88 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from shared.agent_contracts import AgentAssignment  # noqa: E402
-from shared.agent_contracts import ArtifactPlan  # noqa: E402
-from shared.agent_contracts import AutomationIntake  # noqa: E402
-from shared.agent_contracts import DeploymentEvidence  # noqa: E402
+from shared.agent_contracts import BuildArtifact  # noqa: E402
+from shared.agent_contracts import BusinessBrief  # noqa: E402
+from shared.agent_contracts import ExecutionEvidence  # noqa: E402
+from shared.agent_contracts import GeneratedDocument  # noqa: E402
 from shared.agent_contracts import HandoffPackage  # noqa: E402
-from shared.agent_contracts import VerificationEvidence  # noqa: E402
+from shared.agent_contracts import ProvisionedResource  # noqa: E402
 
 
-def _load_sample_intake() -> dict:
-    intake_path = (
-        Path(__file__).resolve().parents[3] / "samples" / "invoice-exception" / "intake.json"
+def _load_sample_brief() -> dict:
+    brief_path = (
+        Path(__file__).resolve().parents[3]
+        / "samples"
+        / "agent-of-agents"
+        / "brief.enterprise-incident.json"
     )
-    return json.loads(intake_path.read_text(encoding="utf-8"))
+    return json.loads(brief_path.read_text(encoding="utf-8"))
 
 
 def test_contract_models_build_handoff_from_sample() -> None:
-    intake = AutomationIntake.from_payload(_load_sample_intake())
+    brief = BusinessBrief.from_payload(_load_sample_brief())
     assignment = AgentAssignment(
-        phase="discovery",
-        agent="discovery-agent",
-        responsibility="Normalize intake and produce AS-IS facts.",
+        phase="design-doc-generation",
+        agent="solution-architect-agent",
+        responsibility="Generate PDD, SDD, and ADD documents from brief.",
     )
-    plan = ArtifactPlan(
-        title="Invoice Exception Target Design",
-        uipath_surfaces=["Coded Agent", "Maestro", "API Workflow"],
-        workflow_catalog=["Intake Validation", "Queue Processing", "Exception Routing"],
-        architecture_summary="Coordinate intake, approvals, and exception handling.",
+    generated_doc = GeneratedDocument(
+        name="pdd",
+        title="Process Design Document",
+        path="out/sample/docs/PDD.md",
     )
-    verification = VerificationEvidence(
-        checklist=["Run tests", "Run analyze", "Review blockers"],
-        gate_statuses={"pytest": "passed", "analyze": "passed"},
-        passed=True,
+    build_artifact = BuildArtifact(
+        name="generated_flow_spec",
+        kind="flow_spec",
+        path="out/sample/artifacts/generated-flow.json",
     )
-    deployment = DeploymentEvidence(
-        package_versions=["AgentOps.Builder.0.1.0"],
-        target_folder="Dev/Invoice",
-        run_ids=["job-1234"],
-        summary="Ready for dev smoke run.",
+    provisioned_resource = ProvisionedResource(
+        resource_type="queue",
+        name="Q_AGENT_OF_AGENTS_WORK",
+        status="simulated",
+        resource_id="dry-run-queue",
+    )
+    execution = ExecutionEvidence(
+        run_id="run-001",
+        status="completed",
+        output_dir="out/sample",
+        command_logs=["flowRunCommand skipped because dryRun=true"],
+        evidence_files=["out/sample/evidence/simulated-run-output.json"],
     )
 
     handoff = HandoffPackage(
-        intake=intake,
+        brief=brief,
         assignments=[assignment],
-        artifact_plan=plan,
-        verification=verification,
-        deployment=deployment,
+        generated_documents=[generated_doc],
+        build_artifacts=[build_artifact],
+        provisioned_resources=[provisioned_resource],
+        execution=execution,
     )
 
-    assert handoff.intake.business_goal
-    assert handoff.assignments[0].agent == "discovery-agent"
-    assert handoff.artifact_plan is not None
-    assert handoff.verification is not None and handoff.verification.passed
-    assert handoff.deployment is not None and handoff.deployment.target_folder == "Dev/Invoice"
+    assert handoff.brief.project_name
+    assert handoff.assignments[0].agent == "solution-architect-agent"
+    assert handoff.generated_documents and handoff.generated_documents[0].name == "pdd"
+    assert handoff.build_artifacts and handoff.build_artifacts[0].kind == "flow_spec"
+    assert handoff.provisioned_resources and handoff.provisioned_resources[0].status == "simulated"
+    assert handoff.execution is not None and handoff.execution.status == "completed"
 
 
 def test_intake_normalization_keeps_none_values_empty() -> None:
-    intake = AutomationIntake.from_payload(
+    brief = BusinessBrief.from_payload(
         {
-            "businessGoal": None,
-            "industry": None,
+            "projectName": None,
+            "domain": None,
+            "objective": None,
             "systems": [None, "ERP", ""],
             "constraints": None,
+            "stakeholders": None,
             "successCriteria": [None],
         }
     )
-    assert intake.business_goal == ""
-    assert intake.industry == ""
-    assert intake.systems == ["ERP"]
-    assert intake.constraints == []
-    assert intake.success_criteria == []
+    assert brief.project_name == "agent-of-agents-build"
+    assert brief.domain == "operations"
+    assert brief.objective == ""
+    assert brief.systems == ["ERP"]
+    assert brief.constraints == []
+    assert brief.stakeholders == []
+    assert brief.success_criteria == []

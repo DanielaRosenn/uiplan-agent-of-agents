@@ -11,6 +11,7 @@ exclude = ["agent*", "cli*", "tests*"]
 name = "uipath-claude-code"
 version = "0.2.0"
 description = "Conversational AI agent for UiPath automation"
+authors = [{ name = "Daniela Rosenstein" }]
 requires-python = ">=3.11"
 dependencies = [
     "langgraph>=0.2.62",

@@ -1,0 +1,44 @@
+1
+00:00:00,000 --> 00:00:12,000
+Most automation delivery still happens in disconnected handoffs.
+We built UiPlan to collapse that into one supervised agent run.
+
+2
+00:00:12,000 --> 00:00:25,000
+This is built on UiPath's own skills and CLIs.
+We orchestrate them through a LangGraph supervisor.
+
+3
+00:00:25,000 --> 00:00:40,000
+One brief starts the full pipeline:
+assignment, docs, artifacts, resources, execution evidence, and handoff.
+
+4
+00:00:40,000 --> 00:01:05,000
+The core deliverable is UiPlan:
+spec, plan, and tasks for both agents and humans.
+
+5
+00:01:05,000 --> 00:01:20,000
+From the same brief, the system generates
+PDD, SDD, and ADD with consistent constraints.
+
+6
+00:01:20,000 --> 00:01:50,000
+The viewer gives seven tabs:
+UiPlan, Diagrams, Constraints, Tasks, Execution, Resources, and Docs.
+
+7
+00:01:50,000 --> 00:02:10,000
+The run is grounded with real Orchestrator data:
+queue and asset are present, and job telemetry is queryable.
+
+8
+00:02:10,000 --> 00:02:25,000
+One brief in, full delivery package out:
+planning, artifacts, constraints intelligence, and runtime evidence.
+
+9
+00:02:25,000 --> 00:02:30,000
+UiPlan: Agent-of-Agents
+Built for AgentHack 2026.

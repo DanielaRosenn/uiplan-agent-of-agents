@@ -2,6 +2,36 @@
 
 **An agentic UiPath delivery workspace for Cursor, Claude Code-style CLI workflows, MCP tools, UiPlan planning, validation loops, and library learning.**
 
+## AgentHack 2026 Submission
+
+**Project:** `UiPlan: Agent-of-Agents`  
+**One-liner:** one business brief in, full UiPath delivery package out.
+
+### Quick links
+
+- Submission write-up: `docs/submission/SUBMISSION.md`
+- Demo script: `docs/submission/demo-script.md`
+- Architecture deep-dive: `docs/submission/ARCHITECTURE.md`
+- Slide deck: `docs/submission/slide-deck.pptx`
+- Thumbnail: `docs/submission/thumbnail.png`
+- Architecture diagram PNG: `docs/submission/architecture-diagram.png`
+- Real run payload for viewer: `ui/copilotkit/current/run-events.json`
+
+### Reproduce the AgentHack run
+
+From `agents/builder-orchestrator`:
+
+```bash
+python -c "import json; from pathlib import Path; from main import run_orchestrator; payload=json.loads(Path('../../samples/agent-of-agents/brief.enterprise-incident.real.json').read_text(encoding='utf-8')); state=run_orchestrator(payload); print(state['runId'], state['handoff']['status'])"
+```
+
+### What is demonstrated
+
+- UiPlan contract generation (`spec.md`, `plan.md`, `tasks.md`)
+- PDD/SDD/ADD generation
+- Real Orchestrator-backed queue/asset evidence from `Shared`
+- CopilotKit 7-tab monitoring experience (UiPlan, Diagrams, Constraints, Tasks, Execution, Resources, Docs)
+
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-Internal-lightgrey)
 ![Built with](https://img.shields.io/badge/built%20with-LangGraph%20%2B%20Bedrock-6f42c1)
