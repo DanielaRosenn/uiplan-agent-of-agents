@@ -20,6 +20,10 @@ wheels/
 .installed.cfg
 *.egg
 
+# Temp/submission folders (cleaned up - no longer tracking)
+docs/submission/
+docs/rebuild/
+
 # Virtual environments
 venv/
 .venv/
