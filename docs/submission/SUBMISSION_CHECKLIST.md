@@ -40,7 +40,7 @@
 - [ ] Push code to public repo
   - Attempted push failed because repo does not exist yet
 - [ ] Upload video to YouTube/Vimeo and collect shareable URL
-  - Requires manual upload/authenticated video account access
+  - Deferred by user for now (local MP4 retained in repo)
 
 ## Ready-to-run Unblock Commands
 
